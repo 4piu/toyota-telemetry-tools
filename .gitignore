@@ -1,0 +1,48 @@
+# Machine-local configuration
+.codex/
+.vscode/
+.idea/
+.env
+.env.*
+*.local.*
+tools.txt
+
+# Python and .NET output
+__pycache__/
+*.py[cod]
+.venv/
+**/bin/
+**/obj/
+*.exe
+*.pdb
+*.dll
+*.cache
+
+# Captures and diagnostic sessions
+captures/
+private/
+logs/
+*.log
+*.trc
+*.asc
+*.blf
+*.pcap
+*.pcapng
+*.tse
+*.TSE
+*.reg
+
+# Vendor databases and reverse-engineering projects
+*.ddb
+*.DDB
+ghidra-proj/
+*.gpr
+*.rep/
+*.gbf
+*.lock
+*.lock~
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+Desktop.ini

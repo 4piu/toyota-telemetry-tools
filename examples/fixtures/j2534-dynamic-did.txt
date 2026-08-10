@@ -1,0 +1,12 @@
+   0.001s >> PTWriteMsgs(
+    Msg[ 0] 6:ISO15765. 24 bytes.
+    \__ 00 00 07 D2 2C 01 F3 01 10 A0 01 02 10 A1 01 02 10 60 01 01 1F 01 01 01
+   0.010s << PTReadMsgs(
+    Msg[ 0] 6:ISO15765. 8 bytes.
+    \__ 00 00 07 DA 6C 01 F3 01
+   0.100s >> PTWriteMsgs(
+    Msg[ 0] 6:ISO15765. 7 bytes.
+    \__ 00 00 07 D2 22 F3 01
+   0.114s << PTReadMsgs(
+    Msg[ 0] 6:ISO15765. 13 bytes.
+    \__ 00 00 07 DA 62 F3 01 80 00 80 00 2A 00
