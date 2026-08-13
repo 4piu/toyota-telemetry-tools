@@ -24,6 +24,10 @@ Read [scope and safety](docs/00-scope-safety.md) before transmitting. The comple
 - `templates/` defines portable experiment, profile, signal, and allowlist records.
 - `examples/` demonstrates the method with sanitized vehicle evidence.
 
+Generated plans, raw captures, reverse-engineering state, and private analysis use the repository-local `scratch/` directory. The whole directory is ignored so a project created from the template remains self-contained without relying on a specially named sibling directory.
+
 Raw captures, OEM databases, binaries, Ghidra projects, VINs, and machine-local configuration do not belong in this repository. See [PRIVATE_DATA.md](PRIVATE_DATA.md).
+
+For a vehicle-specific repository, follow the [downstream project and update contract](docs/09-downstream-projects.md). It defines the project marker, versioned upstream relationship, and repository-local scratch workspace.
 
 The techniques describe observed software and database formats, not a supported Toyota API. Revalidate every candidate on the exact ECU calibration and obey applicable licenses and law.

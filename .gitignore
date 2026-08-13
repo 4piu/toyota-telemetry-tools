@@ -7,6 +7,10 @@
 *.local.*
 tools.txt
 
+# Repository-local private workspace. Tools may create arbitrary content here;
+# nothing below this boundary is eligible for version control.
+/scratch/
+
 # Python and .NET output
 __pycache__/
 *.py[cod]
