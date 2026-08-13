@@ -45,6 +45,10 @@ ghidra-proj/
 *.gbf
 *.lock
 *.lock~
+!/uv.lock
+
+# Local package builds
+/dist/
 
 # OS/editor noise
 .DS_Store

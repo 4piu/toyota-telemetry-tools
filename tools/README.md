@@ -9,6 +9,9 @@ These tools are reference implementations for observed formats. Paths, database 
 | `techstream/query-techstream-db.ps1` | Query observed Phase-5 catalog, protocol, monitor, physical, and unit records. |
 | `techstream/inspect-session.py` | Print a privacy-minimized `.TSE` section/ECU inventory. |
 | `catalog/build-catalog.py` | Join query results according to `templates/catalog-profile.json` and emit a candidate atlas plus provenance manifest. |
+| `telemetry-build-plan` | Build a privacy-aware, tiered validation plan from a catalog and platform profile. |
+| `telemetry-validate` | Reconstruct progress and run bounded qualification/road batches through a configured backend. |
+| `telemetry-analyze-capture` | Independently validate and summarize candidate-capture JSONL. |
 | `privacy-scan.ps1` | Scan prospective tracked files for common local/private markers. |
 
 The database and saved-session layouts are tied to examined Techstream versions. Tools must reject structures they cannot parse. Keep inputs outside the repository and review every output before publication.

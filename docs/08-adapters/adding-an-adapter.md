@@ -24,3 +24,47 @@ ISO-TP can be above this boundary or supplied by the OS/adapter, but the choice 
 7. A stability run reports loss, timing, cancellation, and cleanup.
 
 Document electrical isolation, transceiver voltage, termination, connector mapping, firmware/driver version, and whether it has been tested or is only planned.
+
+## Progressive-validation executable contract
+
+The generic `telemetry-validate` runner can invoke any backend described by the
+platform's `validation-profile.json`. The configured executable is never opened
+during dry-run or status commands. Live mode invokes it without a shell and
+appends structured arguments.
+
+Qualification invocation:
+
+```text
+<executable> <fixed args> <qualification mode args>
+  --batch-id <id> --period-ms <n> --max-log-mib <n>
+  --output <create-new.partial.jsonl> --did 0xNNNN
+```
+
+Road/extended-state invocation:
+
+```text
+<executable> <fixed args> <road mode args>
+  --batch-id <id> --period-ms <n> --duration-seconds <n>
+  --transport-retries <n> --max-log-mib <n>
+  --output <create-new.partial.jsonl> --quiet
+  --did 0xNNNN [--did 0xNNNN ...]
+```
+
+The backend owns device access, CAN/ISO-TP, diagnostic-session setup, filters,
+timeouts, response-pending handling, cancellation, and cleanup. It must reject
+unconfigured endpoints and services independently of the runner. A successful
+process writes candidate-capture schema 1:
+
+- first record: `session_start`, `schema_version: 1`, matching `profile_id`,
+  mode `candidate_qualification` or `candidate_batch`, ordered `dids`, transport
+  metadata, and scheduling bounds;
+- sample records: contiguous `sequence`, round-robin `did`, request/response
+  monotonic milliseconds, latency, `request_hex`, `response_hex`, boolean
+  `supported`, qualification status/NRC, and optional nonnegative `retry_count`;
+- final record: exactly one `session_end`, `reason: completed`, total sample
+  count, and exact per-DID counts.
+
+Flush each JSONL record. On interruption or error, write an error/final record
+when possible and return nonzero. Never claim a timeout is a negative UDS reply.
+The runner performs independent structural validation before it promotes the
+partial capture to complete.
