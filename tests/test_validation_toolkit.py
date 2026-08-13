@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from toyota_telemetry.capture import (
     evaluate_formula,
@@ -15,7 +16,7 @@ from toyota_telemetry.capture import (
     validate_capture_context,
     validate_candidate_capture,
 )
-from toyota_telemetry.execution import capture_arguments
+from toyota_telemetry.execution import capture_arguments, capture_end_reason, run_backend
 from toyota_telemetry.planning import build_plan, text_has
 from toyota_telemetry.progress import discover_progress, road_queue, summarize_progress
 
@@ -129,6 +130,140 @@ class PlanningTests(unittest.TestCase):
 
 
 class ProgressAndBackendTests(unittest.TestCase):
+    def test_user_stop_reason_is_detected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            capture = Path(directory) / "capture.jsonl"
+            capture.write_text(
+                '{"record":"session_start"}\n'
+                '{"record":"session_end","reason":"user_stop"}\n',
+                encoding="utf-8",
+            )
+            self.assertEqual(capture_end_reason(capture), "user_stop")
+
+    def test_backend_gets_grace_period_after_interrupt(self):
+        process = mock.Mock()
+        process.wait.side_effect = [KeyboardInterrupt(), 2]
+        with mock.patch("toyota_telemetry.execution.subprocess.Popen", return_value=process):
+            with self.assertRaises(KeyboardInterrupt):
+                run_backend(["backend"], Path("."))
+        self.assertEqual(process.wait.call_args_list[1], mock.call(timeout=5))
+        process.terminate.assert_not_called()
+        process.kill.assert_not_called()
+
+    def test_backend_is_terminated_if_interrupt_cleanup_times_out(self):
+        process = mock.Mock()
+        process.wait.side_effect = [
+            KeyboardInterrupt(),
+            subprocess.TimeoutExpired("backend", 5),
+            2,
+        ]
+        process.poll.return_value = None
+        with mock.patch("toyota_telemetry.execution.subprocess.Popen", return_value=process):
+            with self.assertRaises(KeyboardInterrupt):
+                run_backend(["backend"], Path("."))
+        process.terminate.assert_called_once_with()
+        process.kill.assert_not_called()
+
+    def test_console_entry_treats_backend_user_stop_as_clean_interrupt(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "telemetry-project.toml").write_text(
+                'schema_version = 1\nproject_kind = "vehicle"\nproject_id = "test"\n',
+                encoding="utf-8",
+            )
+            (root / "catalog.csv").write_text(
+                "profile_id,ecu_key,acquisition,data_id,name,last_bit,live_state\n"
+                "example-platform,1,direct DID,0x1000,Example,7,Not tested\n",
+                encoding="utf-8",
+            )
+            endpoint = {
+                "ecu_key": 1,
+                "tester_can_id": "0x700",
+                "response_can_id": "0x708",
+                "bitrate": 500000,
+            }
+            plan = {
+                "schema_version": 1,
+                "plan_id": "test-plan",
+                "profile_id": "example-platform",
+                "endpoint": endpoint,
+                "limits": {"maximum_dids_per_road_batch": 2},
+                "policies": {
+                    "fast": {
+                        "period_ms": 100,
+                        "duration_seconds": 10,
+                        "minimum_samples_per_did": 1,
+                    }
+                },
+                "candidates": [{"data_id": "0x1000", "tier": "fast", "signal_count": 1}],
+            }
+            plan_path = root / "scratch" / "plan.json"
+            plan_path.parent.mkdir()
+            plan_path.write_text(json.dumps(plan), encoding="utf-8")
+            backend_script = root / "backend.py"
+            backend_script.write_text(
+                """import argparse, json, sys
+p=argparse.ArgumentParser(); p.add_argument('--qualify',action='store_true')
+p.add_argument('--live',action='store_true'); p.add_argument('--batch-id')
+p.add_argument('--period-ms'); p.add_argument('--max-log-mib')
+p.add_argument('--output'); p.add_argument('--did',action='append'); a=p.parse_args()
+records=[
+ {'record':'session_start','schema_version':1,'profile_id':'example-platform'},
+ {'record':'session_end','reason':'user_stop','sample_count':0,'did_counts':{}}]
+with open(a.output,'x',encoding='utf-8') as h:
+  for record in records: h.write(json.dumps(record)+'\\n'); h.flush()
+sys.exit(2)
+""",
+                encoding="utf-8",
+            )
+            config = {
+                "schema_version": 1,
+                "plan_id": "test-plan",
+                "profile_id": "example-platform",
+                "endpoint": endpoint,
+                "catalog": {"path": "catalog.csv", "acquisition": "direct DID"},
+                "paths": {
+                    "plan": "scratch/plan.json",
+                    "capture_root": "scratch/captures",
+                    "output_root": "scratch/captures/progressive",
+                },
+                "selection": {},
+                "policies": plan["policies"],
+                "backend": {
+                    "schema_version": 1,
+                    "executable": sys.executable,
+                    "search_path": True,
+                    "arguments": [str(backend_script)],
+                    "mode_arguments": {"qualification": ["--qualify", "--live"]},
+                },
+            }
+            config_path = root / "validation-profile.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "toyota_telemetry.execution",
+                    "qualify",
+                    "--project-root",
+                    str(root),
+                    "--config",
+                    str(config_path),
+                    "--live",
+                    "--startup-delay-seconds",
+                    "0",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 130, result.stderr)
+            self.assertNotIn("Traceback", result.stderr)
+            self.assertIn("preserved as incomplete", result.stderr)
+            self.assertEqual(len(list(root.rglob("*.incomplete.jsonl"))), 1)
+            self.assertFalse(list(root.rglob("*.partial.jsonl")))
+
     def test_progress_is_reconstructed_per_did(self):
         progress = discover_progress(FIXTURES, "example-platform")
         self.assertIn("0x1000", progress.qualified)

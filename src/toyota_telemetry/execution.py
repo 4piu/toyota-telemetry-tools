@@ -31,6 +31,12 @@ from .project import atomic_json, load_json, project_root, resolve_path
 
 
 DID_PATTERN = re.compile(r"0x[0-9A-F]{4}\Z")
+INTERRUPT_GRACE_SECONDS = 5
+TERMINATE_GRACE_SECONDS = 2
+
+
+class BackendInterrupted(RuntimeError):
+    """The backend recorded an intentional user stop."""
 
 
 def load_plan(path: Path, config: dict[str, Any]) -> dict[str, Any]:
@@ -146,6 +152,39 @@ def capture_arguments(
     return arguments
 
 
+def run_backend(command: list[str], root: Path) -> int:
+    """Run a backend and give it time to close its transport after Ctrl+C."""
+    process = subprocess.Popen(command, cwd=root)
+    try:
+        return process.wait()
+    except KeyboardInterrupt:
+        try:
+            process.wait(timeout=INTERRUPT_GRACE_SECONDS)
+        except (subprocess.TimeoutExpired, KeyboardInterrupt):
+            if process.poll() is None:
+                process.terminate()
+            try:
+                process.wait(timeout=TERMINATE_GRACE_SECONDS)
+            except (subprocess.TimeoutExpired, KeyboardInterrupt):
+                if process.poll() is None:
+                    process.kill()
+                process.wait()
+        raise
+
+
+def capture_end_reason(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    try:
+        records = read_jsonl(path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    if records and records[-1].get("record") == "session_end":
+        reason = records[-1].get("reason")
+        return reason if isinstance(reason, str) else None
+    return None
+
+
 def run_and_validate(
     command: list[str],
     root: Path,
@@ -162,9 +201,11 @@ def run_and_validate(
     summary_partial = partial.with_name(partial.name.replace(".jsonl", ".summary.json"))
     summary_complete = complete.with_name(complete.name.replace(".jsonl", ".summary.json"))
     try:
-        capture = subprocess.run(command, cwd=root, check=False)
-        if capture.returncode:
-            raise RuntimeError(f"validation backend exited with code {capture.returncode}")
+        returncode = run_backend(command, root)
+        if returncode:
+            if capture_end_reason(partial) == "user_stop":
+                raise BackendInterrupted("validation backend recorded a user stop")
+            raise RuntimeError(f"validation backend exited with code {returncode}")
         start, samples = validate_candidate_capture(
             read_jsonl(partial), minimum_samples, maximum_dids
         )
@@ -363,17 +404,17 @@ def main() -> int:
             )
         print("Sequence complete; progress snapshot updated.")
         return 0
+    except (KeyboardInterrupt, BackendInterrupted):
+        print(
+            "Interrupted cleanly. Any active capture was preserved as incomplete "
+            "and does not count as progress.",
+            file=sys.stderr,
+        )
+        return 130
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
 
 if __name__ == "__main__":
-    try:
-        raise SystemExit(main())
-    except KeyboardInterrupt:
-        print(
-            "Interrupted; the current partial run does not count as progress.",
-            file=sys.stderr,
-        )
-        raise SystemExit(130)
+    raise SystemExit(main())

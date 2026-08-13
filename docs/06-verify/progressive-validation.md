@@ -95,9 +95,11 @@ process per batch. A file counts as progress only after:
 5. a summary is written and the capture is atomically renamed to
    `.complete.jsonl`.
 
-Interruption or failure quarantines only the active file as incomplete. Earlier
-completed files remain progress, and later runs reconstruct state from those
-immutable captures rather than trusting a mutable checklist.
+Interruption asks the backend to close its transport, waits a bounded grace
+period, and then quarantines only the active file as incomplete. The command
+exits with status 130 and a short message rather than a Python traceback.
+Earlier completed files remain progress, and later runs reconstruct state from
+those immutable captures rather than trusting a mutable checklist.
 
 ## Offline analysis
 
@@ -113,4 +115,3 @@ The analyzer reports support/NRCs, counts, latency, retries, raw ranges, formula
 ranges, and whether each field changed. These are review aids. A plausible or
 varying value does not automatically become Validated, and the tool never edits
 a curated signal map.
-

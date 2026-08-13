@@ -64,7 +64,9 @@ process writes candidate-capture schema 1:
 - final record: exactly one `session_end`, `reason: completed`, total sample
   count, and exact per-DID counts.
 
-Flush each JSONL record. On interruption or error, write an error/final record
-when possible and return nonzero. Never claim a timeout is a negative UDS reply.
-The runner performs independent structural validation before it promotes the
-partial capture to complete.
+Flush each JSONL record. On Ctrl+C, use `reason: user_stop`, flush the final
+record, close the CAN interface, and return nonzero. The generic runner
+recognizes that reason as a clean interruption. On other errors, write an
+error/final record when possible and return nonzero. Never claim a timeout is a
+negative UDS reply. The runner performs independent structural validation
+before it promotes the partial capture to complete.
