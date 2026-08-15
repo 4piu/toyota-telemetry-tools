@@ -26,7 +26,7 @@ The repository is also a dependency-free Python package. With Python 3.11+ and
 - `telemetry-build-plan` creates a bounded, privacy-aware DID plan from a
   catalog and platform profile;
 - `telemetry-validate` reconstructs progress and runs qualification/road batches
-  through a configured backend;
+  or configuration-hashed custom experiments through a configured backend;
 - `telemetry-analyze-capture` independently validates and summarizes the common
   JSONL capture format.
 

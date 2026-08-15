@@ -20,8 +20,14 @@ from .capture import (
     validate_capture_context,
     validate_candidate_capture,
 )
+from .experiments import (
+    discover_completed_experiment_runs,
+    experiment_snapshot,
+    load_experiment,
+)
 from .planning import validate_config
 from .progress import (
+    Progress,
     discover_progress,
     qualification_queue,
     road_queue,
@@ -225,10 +231,140 @@ def run_and_validate(
         raise
 
 
+def run_experiment_phase(
+    args: argparse.Namespace,
+    root: Path,
+    config: dict[str, Any],
+    plan: dict[str, Any],
+    progress: Progress,
+    output_root: Path,
+) -> int:
+    if args.experiment is None:
+        raise ValueError("experiment phase requires --experiment <file.toml>")
+    experiment_path = resolve_path(root, args.experiment)
+    document, runs = load_experiment(
+        experiment_path, str(config["profile_id"]), plan, progress.qualified
+    )
+    selected_batches = set(args.experiment_batch or [])
+    available_batches = {run.batch_id for run in runs}
+    unknown_batches = selected_batches - available_batches
+    if unknown_batches:
+        raise ValueError(f"unknown experiment batches: {sorted(unknown_batches)}")
+    selected_runs = [
+        run for run in runs if not selected_batches or run.batch_id in selected_batches
+    ]
+    experiment_root = output_root / "experiments" / document["experiment_id"]
+    expected_ids = {run.backend_batch_id for run in runs}
+    completed, corrupt = discover_completed_experiment_runs(
+        experiment_root, str(config["profile_id"]), expected_ids
+    )
+    snapshot = experiment_snapshot(document, runs, completed, corrupt)
+    print(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "experiment_id": document["experiment_id"],
+                "profile_id": document["profile_id"],
+                **snapshot["status"],
+            },
+            indent=2,
+        )
+    )
+    atomic_json(experiment_root / "experiment.snapshot.json", snapshot)
+    queue = [run for run in selected_runs if run.backend_batch_id not in completed][
+        : args.max_items
+    ]
+    print(
+        f"Experiment queue: {len(queue)} run(s); "
+        f"mode={'LIVE' if args.live else 'DRY RUN'}"
+    )
+    for run in queue:
+        retries = (
+            args.transport_retries
+            if args.transport_retries is not None
+            else run.transport_retries
+        )
+        print(
+            f"  {run.batch_id} r{run.repetition:02d}: {','.join(run.dids)} "
+            f"period={run.period_ms}ms duration={run.duration_seconds}s "
+            f"minimum={run.minimum_samples_per_did} retries={retries}"
+        )
+        if run.vehicle_state:
+            print(f"    vehicle_state: {run.vehicle_state}")
+        if run.description:
+            print(f"    purpose: {run.description}")
+    if not args.live or not queue:
+        return 0
+    backend = config.get("backend")
+    if not isinstance(backend, dict):
+        raise ValueError("live mode requires a backend object in the validation profile")
+    print(f"Live sequence will start in {args.startup_delay_seconds} seconds.")
+    if args.startup_delay_seconds:
+        time.sleep(args.startup_delay_seconds)
+    print("Startup delay finished; opening the configured backend.")
+    maximum_dids = int(plan["limits"]["maximum_dids_per_road_batch"])
+    catalog = resolve_path(root, config["catalog"]["path"])
+    overrides_value = config.get("analysis", {}).get("decode_overrides")
+    decode_overrides = resolve_path(root, overrides_value) if overrides_value else None
+    for run in queue:
+        assert_budget(output_root, args.max_directory_mib, args.max_log_mib)
+        stamp = timestamp()
+        stem = f"{run.batch_id}-r{run.repetition:02d}-{run.digest}-{stamp}"
+        partial = experiment_root / f"{stem}.partial.jsonl"
+        complete = experiment_root / f"{stem}.complete.jsonl"
+        partial.parent.mkdir(parents=True, exist_ok=True)
+        retries = (
+            args.transport_retries
+            if args.transport_retries is not None
+            else run.transport_retries
+        )
+        command = capture_arguments(
+            root,
+            backend,
+            "road",
+            list(run.dids),
+            run.backend_batch_id,
+            partial,
+            run.period_ms,
+            run.duration_seconds,
+            retries,
+            args.max_log_mib,
+        )
+        print(f"EXPERIMENT {run.batch_id} r{run.repetition:02d}")
+        run_and_validate(
+            command,
+            root,
+            partial,
+            complete,
+            run.minimum_samples_per_did,
+            maximum_dids,
+            catalog,
+            int(config["endpoint"]["ecu_key"]),
+            decode_overrides,
+            str(config["profile_id"]),
+            config["endpoint"],
+        )
+        completed, corrupt = discover_completed_experiment_runs(
+            experiment_root, str(config["profile_id"]), expected_ids
+        )
+        atomic_json(
+            experiment_root / "experiment.snapshot.json",
+            experiment_snapshot(document, runs, completed, corrupt),
+        )
+    print("Experiment sequence complete; experiment snapshot updated.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase", choices=("status", "qualify", "road"))
+    parser.add_argument("phase", choices=("status", "qualify", "road", "experiment"))
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--experiment", type=Path)
+    parser.add_argument(
+        "--experiment-batch",
+        action="append",
+        help="run only this named custom-experiment batch; may be repeated",
+    )
     parser.add_argument("--project-root", type=Path)
     parser.add_argument("--plan", type=Path)
     parser.add_argument("--capture-root", type=Path)
@@ -237,7 +373,11 @@ def main() -> int:
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--max-items", type=int, default=25)
     parser.add_argument("--max-qualification-attempts", type=int, default=2)
-    parser.add_argument("--transport-retries", type=int, default=2)
+    parser.add_argument(
+        "--transport-retries",
+        type=int,
+        help="override the road default or a custom experiment's configured value",
+    )
     parser.add_argument("--retry-terminal", action="store_true")
     parser.add_argument("--startup-delay-seconds", type=int, default=10)
     parser.add_argument("--max-log-mib", type=int, default=16)
@@ -248,7 +388,7 @@ def main() -> int:
             raise ValueError("--max-items and --max-qualification-attempts must be positive")
         if not 0 <= args.startup_delay_seconds <= 300:
             raise ValueError("--startup-delay-seconds must be 0..300")
-        if not 0 <= args.transport_retries <= 5:
+        if args.transport_retries is not None and not 0 <= args.transport_retries <= 5:
             raise ValueError("--transport-retries must be 0..5")
         if args.max_log_mib < 1 or args.max_directory_mib < args.max_log_mib:
             raise ValueError("invalid log/directory size bounds")
@@ -268,6 +408,14 @@ def main() -> int:
         except ValueError as exc:
             raise ValueError("output root must be inside capture root") from exc
         plan = load_plan(plan_path, config)
+        terminal_nrcs = set(config.get("terminal_nrcs", ["0x31", "0x33"]))
+        progress = discover_progress(capture_root, plan["profile_id"])
+        if args.phase == "experiment":
+            return run_experiment_phase(
+                args, root, config, plan, progress, output_root
+            )
+        if args.experiment is not None or args.experiment_batch:
+            raise ValueError("--experiment and --experiment-batch require the experiment phase")
         available_tiers = set(plan["policies"])
         tier_text = args.tiers
         if tier_text is None:
@@ -280,8 +428,6 @@ def main() -> int:
         unknown = tiers - available_tiers
         if not tiers or unknown:
             raise ValueError(f"invalid tiers; unknown values: {sorted(unknown)}")
-        terminal_nrcs = set(config.get("terminal_nrcs", ["0x31", "0x33"]))
-        progress = discover_progress(capture_root, plan["profile_id"])
         status = summarize_progress(plan, progress, tiers, terminal_nrcs)
         print(json.dumps(status, indent=2))
         atomic_json(
@@ -305,6 +451,7 @@ def main() -> int:
             )
         else:
             queue = road_queue(plan, progress, tiers)[: args.max_items]
+            road_retries = args.transport_retries if args.transport_retries is not None else 2
             print(
                 f"Road queue: {len(queue)} batch(es); "
                 f"mode={'LIVE' if args.live else 'DRY RUN'}"
@@ -322,7 +469,7 @@ def main() -> int:
                     print(
                         f"  {tier}: {','.join(candidate['data_id'] for candidate in group)} "
                         f"period={policy['period_ms']}ms "
-                        f"duration={policy['duration_seconds']}s retries={args.transport_retries}"
+                        f"duration={policy['duration_seconds']}s retries={road_retries}"
                     )
             return 0
         if not queue:
@@ -378,7 +525,7 @@ def main() -> int:
                     partial,
                     int(policy["period_ms"]),
                     int(policy["duration_seconds"]),
-                    args.transport_retries,
+                    road_retries,
                     args.max_log_mib,
                 )
                 minimum_samples = int(policy["minimum_samples_per_did"])

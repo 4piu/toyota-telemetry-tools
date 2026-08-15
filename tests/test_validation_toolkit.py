@@ -17,6 +17,11 @@ from toyota_telemetry.capture import (
     validate_candidate_capture,
 )
 from toyota_telemetry.execution import capture_arguments, capture_end_reason, run_backend
+from toyota_telemetry.experiments import (
+    discover_completed_experiment_runs,
+    experiment_snapshot,
+    load_experiment,
+)
 from toyota_telemetry.planning import build_plan, text_has
 from toyota_telemetry.progress import discover_progress, road_queue, summarize_progress
 
@@ -127,6 +132,95 @@ class PlanningTests(unittest.TestCase):
             self.assertEqual(plan["endpoint"]["ecu_key"], 812)
             self.assertEqual(plan["endpoint"]["bitrate"], 250000)
             self.assertEqual(plan["candidates"][0]["tier"], "fast")
+
+
+class ExperimentTests(unittest.TestCase):
+    def test_toml_experiment_is_qualified_bounded_and_repeatable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "experiment.toml"
+            path.write_text(
+                """schema_version = 1
+experiment_id = "crosscheck-v1"
+profile_id = "example-platform"
+[defaults]
+period_ms = 100
+duration_seconds = 30
+minimum_samples_per_did = 100
+transport_retries = 2
+[[batches]]
+batch_id = "related-values"
+dids = ["0x1000", "0x1001"]
+repetitions = 2
+vehicle_state = "ordinary driving"
+""",
+                encoding="utf-8",
+            )
+            plan = {
+                "limits": {"maximum_dids_per_road_batch": 2},
+                "candidates": [{"data_id": "0x1000"}, {"data_id": "0x1001"}],
+            }
+            document, runs = load_experiment(
+                path, "example-platform", plan, {"0x1000", "0x1001"}
+            )
+            self.assertEqual(document["experiment_id"], "crosscheck-v1")
+            self.assertEqual(len(runs), 2)
+            self.assertNotEqual(runs[0].backend_batch_id, runs[1].backend_batch_id)
+            self.assertTrue(runs[0].backend_batch_id.startswith("experiment-"))
+            snapshot = experiment_snapshot(document, runs, {runs[0].backend_batch_id}, [])
+            self.assertEqual(snapshot["status"]["complete"], 1)
+            self.assertEqual(snapshot["status"]["pending"], 1)
+
+    def test_experiment_rejects_unqualified_did(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "experiment.toml"
+            path.write_text(
+                """schema_version = 1
+experiment_id = "test-v1"
+profile_id = "example-platform"
+[defaults]
+period_ms = 100
+duration_seconds = 10
+minimum_samples_per_did = 1
+transport_retries = 0
+[[batches]]
+batch_id = "one"
+dids = ["0x1000"]
+""",
+                encoding="utf-8",
+            )
+            plan = {
+                "limits": {"maximum_dids_per_road_batch": 2},
+                "candidates": [{"data_id": "0x1000"}],
+            }
+            with self.assertRaisesRegex(ValueError, "positive qualification"):
+                load_experiment(path, "example-platform", plan, set())
+
+    def test_custom_capture_is_separate_from_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            batch_id = "experiment-test-v1-one-r01-0123456789"
+            capture = root / "one.complete.jsonl"
+            records = [
+                {
+                    "record": "session_start",
+                    "profile_id": "example-platform",
+                    "mode": "candidate_batch",
+                    "batch_id": batch_id,
+                },
+                {"record": "candidate_sample", "did": "0x1000", "supported": True},
+                {"record": "session_end", "reason": "completed"},
+            ]
+            capture.write_text(
+                "".join(json.dumps(record) + "\n" for record in records),
+                encoding="utf-8",
+            )
+            progress = discover_progress(root, "example-platform")
+            self.assertNotIn("0x1000", progress.road_complete)
+            complete, corrupt = discover_completed_experiment_runs(
+                root, "example-platform", {batch_id}
+            )
+            self.assertEqual(complete, {batch_id})
+            self.assertEqual(corrupt, [])
 
 
 class ProgressAndBackendTests(unittest.TestCase):

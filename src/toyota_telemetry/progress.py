@@ -36,6 +36,12 @@ def discover_progress(capture_root: Path, profile_id: str) -> Progress:
             start, end = records[0], records[-1]
             if end.get("record") != "session_end" or end.get("reason") != "completed":
                 continue
+            # Explicit experiments are independent evidence and must never
+            # satisfy the progressive catalog queue merely because they use
+            # the same candidate-batch capture format.
+            batch_id = start.get("batch_id")
+            if isinstance(batch_id, str) and batch_id.startswith("experiment-"):
+                continue
             samples = [
                 record for record in records if record.get("record") == "candidate_sample"
             ]

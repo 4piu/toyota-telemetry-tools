@@ -101,6 +101,43 @@ exits with status 130 and a short message rather than a Python traceback.
 Earlier completed files remain progress, and later runs reconstruct state from
 those immutable captures rather than trusting a mutable checklist.
 
+## Focused custom experiments
+
+Progressive completion is not the right place to repeat already-complete DIDs
+under a particular condition. Copy
+[`validation-experiment.toml`](../../templates/validation-experiment.toml),
+give every batch an explicit purpose and vehicle state, and run it through the
+same bounded backend and analyzer:
+
+```powershell
+telemetry-validate experiment `
+  --config data/validation/validation-profile.json `
+  --experiment data/validation/experiments/selected-followup-v1.toml
+
+# After reviewing the dry-run schedule:
+telemetry-validate experiment `
+  --config data/validation/validation-profile.json `
+  --experiment data/validation/experiments/selected-followup-v1.toml `
+  --live
+```
+
+The TOML document defines named DID batches, request-slot period, duration,
+minimum samples per DID, retry bound, repetitions, and operator-facing context.
+Every DID must already be in the reviewed plan and have a positive completed
+qualification. The platform batch-width limit still applies, and an impossible
+minimum-sample target is rejected before the backend is opened.
+
+Experiment runs are configuration-hashed and resumable. A completed run is
+skipped on the next invocation; an interrupted run remains incomplete and is
+retried from its beginning. Increase `repetitions`, change the batch definition,
+or use a new experiment ID when another independent observation is required.
+Use `--experiment-batch <batch-id>` one or more times to select conditions that
+must not run in the same session.
+
+Custom experiment captures use the ordinary candidate-capture schema and
+offline summary, but their `experiment-` batch IDs place them in an independent
+evidence namespace. They never satisfy or alter progressive road completion.
+
 ## Offline analysis
 
 Any conforming candidate capture can be checked independently:
