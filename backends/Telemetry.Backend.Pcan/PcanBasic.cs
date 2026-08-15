@@ -5,7 +5,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Telemetry.Adapters.Pcan
+namespace Telemetry.Backend.Pcan
 {
     [StructLayout(LayoutKind.Sequential)]
     internal struct PcanMessage

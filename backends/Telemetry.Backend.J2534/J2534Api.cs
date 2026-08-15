@@ -8,7 +8,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace Telemetry.Adapters.J2534
+namespace Telemetry.Backend.J2534
 {
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     internal struct PassThruMsg
