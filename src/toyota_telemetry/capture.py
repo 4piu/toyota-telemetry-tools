@@ -47,7 +47,10 @@ def classify_nrc(code: int) -> str:
 
 
 def validate_candidate_capture(
-    records: list[dict[str, Any]], minimum_samples: int, maximum_dids: int = 6
+    records: list[dict[str, Any]],
+    minimum_samples: int,
+    maximum_dids: int = 6,
+    accepted_end_reasons: frozenset[str] = frozenset({"completed"}),
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     start = records[0]
     if start.get("record") != "session_start" or start.get("schema_version") != 1:
@@ -120,7 +123,7 @@ def validate_candidate_capture(
     if len(ends) != 1 or records[-1].get("record") != "session_end":
         raise ValueError("capture is incomplete: exactly one final session_end is required")
     end = ends[0]
-    if end.get("reason") != "completed":
+    if end.get("reason") not in accepted_end_reasons:
         raise ValueError(f"capture is incomplete: session_end reason is {end.get('reason')!r}")
     if any(record.get("record") == "error" for record in records):
         raise ValueError("capture contains an error record")

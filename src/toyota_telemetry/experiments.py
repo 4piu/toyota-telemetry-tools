@@ -141,11 +141,15 @@ def load_experiment(
             return _integer(value, f"batch {batch_id!r} {name}", minimum, maximum)
 
         period_ms = schedule("period_ms", 70, 5000)
-        duration_seconds = schedule("duration_seconds", 10, 7200)
+        duration_seconds = schedule("duration_seconds", 0, 7200)
         minimum_samples = schedule("minimum_samples_per_did", 1, 1_000_000)
         transport_retries = schedule("transport_retries", 0, 5)
-        theoretical_samples = duration_seconds * 1000 // (period_ms * len(dids))
-        if minimum_samples > theoretical_samples:
+        theoretical_samples = (
+            duration_seconds * 1000 // (period_ms * len(dids))
+            if duration_seconds
+            else None
+        )
+        if theoretical_samples is not None and minimum_samples > theoretical_samples:
             raise ValueError(
                 f"batch {batch_id!r} requires {minimum_samples} samples per DID but its "
                 f"ideal maximum is {theoretical_samples}"
@@ -222,7 +226,10 @@ def discover_completed_experiment_runs(
             batch_id = start.get("batch_id")
             if batch_id not in expected_ids or start.get("profile_id") != profile_id:
                 continue
-            if end.get("record") != "session_end" or end.get("reason") != "completed":
+            if end.get("record") != "session_end" or end.get("reason") not in {
+                "completed",
+                "user_stop",
+            }:
                 raise ValueError("invalid completion marker")
             completed.add(batch_id)
         except (OSError, ValueError, TypeError, json.JSONDecodeError):

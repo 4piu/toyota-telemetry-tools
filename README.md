@@ -27,6 +27,7 @@ The repository is also a dependency-free Python package. With Python 3.11+ and
   catalog and platform profile;
 - `telemetry-validate` reconstructs progress and runs qualification/road batches
   or configuration-hashed custom experiments through a configured backend;
+  custom experiments may finish at a time bound or by a validated manual stop;
 - `telemetry-analyze-capture` independently validates and summarizes the common
   JSONL capture format.
 

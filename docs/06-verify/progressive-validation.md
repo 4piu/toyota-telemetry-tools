@@ -127,10 +127,24 @@ Every DID must already be in the reviewed plan and have a positive completed
 qualification. The platform batch-width limit still applies, and an impossible
 minimum-sample target is rejected before the backend is opened.
 
+A custom experiment has two valid completion paths. It may reach its configured
+positive duration, or the operator may press Ctrl+C after completing the
+planned stimulus. An operator stop is promoted only when the backend writes a
+clean final `user_stop` record, every DID reached `minimum_samples_per_did`, the
+round-robin schedule and endpoint validate, and the capture contains no error.
+An earlier or malformed stop remains incomplete. Set `duration_seconds = 0` for
+an unbounded operator-completed batch; the byte and directory limits remain in
+force, so “unbounded” never means unlimited disk use. After accepting a manual
+stop, the command exits successfully without starting another selected batch.
+
 Experiment runs are configuration-hashed and resumable. A completed run is
-skipped on the next invocation; an interrupted run remains incomplete and is
-retried from its beginning. Increase `repetitions`, change the batch definition,
-or use a new experiment ID when another independent observation is required.
+skipped on the next invocation. A valid operator-completed custom run counts as
+complete; a stop below the sample threshold or any other interrupted run remains
+incomplete and is retried from its beginning. The status pass can recover a
+previously quarantined `user_stop` capture when it matches the exact experiment
+hash and now satisfies this rule. Increase `repetitions`, change the batch
+definition, or use a new experiment ID when another independent observation is
+required.
 Use `--experiment-batch <batch-id>` one or more times to select conditions that
 must not run in the same session.
 

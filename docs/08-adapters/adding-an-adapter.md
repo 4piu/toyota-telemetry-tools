@@ -50,6 +50,10 @@ Road/extended-state invocation:
   --did 0xNNNN [--did 0xNNNN ...]
 ```
 
+For a custom operator-completed experiment, `--duration-seconds 0` means no
+time deadline. The log-size bound still applies, and the process is expected to
+run until cancellation or a real error. A positive value remains a hard maximum.
+
 The backend owns device access, CAN/ISO-TP, diagnostic-session setup, filters,
 timeouts, response-pending handling, cancellation, and cleanup. It must reject
 unconfigured endpoints and services independently of the runner. A successful
@@ -61,12 +65,14 @@ process writes candidate-capture schema 1:
 - sample records: contiguous `sequence`, round-robin `did`, request/response
   monotonic milliseconds, latency, `request_hex`, `response_hex`, boolean
   `supported`, qualification status/NRC, and optional nonnegative `retry_count`;
-- final record: exactly one `session_end`, `reason: completed`, total sample
-  count, and exact per-DID counts.
+- final record: exactly one `session_end`, reason `completed` or `user_stop`,
+  total sample count, and exact per-DID counts.
 
 Flush each JSONL record. On Ctrl+C, use `reason: user_stop`, flush the final
-record, close the CAN interface, and return nonzero. The generic runner
-recognizes that reason as a clean interruption. On other errors, write an
-error/final record when possible and return nonzero. Never claim a timeout is a
-negative UDS reply. The runner performs independent structural validation
-before it promotes the partial capture to complete.
+record, close the CAN interface, and return nonzero. The generic runner accepts
+that reason as completion only for a custom experiment that meets its minimum
+sample and integrity checks; qualification and progressive road runs remain
+incomplete. On other errors, write an error/final record when possible and
+return nonzero. Never claim a timeout is a negative UDS reply. The runner
+performs independent structural validation before it promotes the partial
+capture to complete.

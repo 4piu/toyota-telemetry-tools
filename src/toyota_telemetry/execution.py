@@ -203,25 +203,40 @@ def run_and_validate(
     decode_overrides: Path | None,
     profile_id: str,
     endpoint: dict[str, Any],
-) -> None:
+    allow_user_stop: bool = False,
+) -> str:
     summary_partial = partial.with_name(partial.name.replace(".jsonl", ".summary.json"))
     summary_complete = complete.with_name(complete.name.replace(".jsonl", ".summary.json"))
     try:
-        returncode = run_backend(command, root)
+        try:
+            returncode = run_backend(command, root)
+        except KeyboardInterrupt:
+            if not allow_user_stop or capture_end_reason(partial) != "user_stop":
+                raise
+            returncode = 2
         if returncode:
-            if capture_end_reason(partial) == "user_stop":
-                raise BackendInterrupted("validation backend recorded a user stop")
-            raise RuntimeError(f"validation backend exited with code {returncode}")
+            if not (allow_user_stop and capture_end_reason(partial) == "user_stop"):
+                if capture_end_reason(partial) == "user_stop":
+                    raise BackendInterrupted("validation backend recorded a user stop")
+                raise RuntimeError(f"validation backend exited with code {returncode}")
+        records = read_jsonl(partial)
+        accepted_reasons = (
+            frozenset({"completed", "user_stop"})
+            if allow_user_stop
+            else frozenset({"completed"})
+        )
         start, samples = validate_candidate_capture(
-            read_jsonl(partial), minimum_samples, maximum_dids
+            records, minimum_samples, maximum_dids, accepted_reasons
         )
         validate_capture_context(start, profile_id, endpoint)
         report = summarize_candidate_capture(
             start, samples, catalog, ecu_key, decode_overrides
         )
+        report["completion_reason"] = records[-1]["reason"]
         atomic_json(summary_partial, report, replace=False)
         summary_partial.replace(summary_complete)
         partial.replace(complete)
+        return str(records[-1]["reason"])
     except BaseException:
         if summary_complete.exists() and not complete.exists():
             summary_complete.replace(
@@ -229,6 +244,56 @@ def run_and_validate(
             )
         quarantine(partial)
         raise
+
+
+def recover_manual_experiment_captures(
+    experiment_root: Path,
+    runs: list[Any],
+    maximum_dids: int,
+    catalog: Path | None,
+    ecu_key: int,
+    decode_overrides: Path | None,
+    profile_id: str,
+    endpoint: dict[str, Any],
+) -> list[Path]:
+    """Promote structurally valid custom captures stopped by their operator."""
+    expected = {run.backend_batch_id: run for run in runs}
+    recovered: list[Path] = []
+    if not experiment_root.exists():
+        return recovered
+    for source in experiment_root.rglob("*.incomplete.jsonl"):
+        try:
+            records = read_jsonl(source)
+            if not records or records[-1].get("reason") != "user_stop":
+                continue
+            run = expected.get(records[0].get("batch_id"))
+            if run is None:
+                continue
+            start, samples = validate_candidate_capture(
+                records,
+                run.minimum_samples_per_did,
+                maximum_dids,
+                frozenset({"user_stop"}),
+            )
+            validate_capture_context(start, profile_id, endpoint)
+            report = summarize_candidate_capture(
+                start, samples, catalog, ecu_key, decode_overrides
+            )
+            report["completion_reason"] = "user_stop"
+            complete = Path(str(source).replace(".incomplete.jsonl", ".complete.jsonl"))
+            summary_source = Path(
+                str(source).replace(".incomplete.jsonl", ".incomplete.summary.json")
+            )
+            summary_complete = Path(
+                str(source).replace(".incomplete.jsonl", ".complete.summary.json")
+            )
+            atomic_json(summary_source, report, replace=False)
+            summary_source.replace(summary_complete)
+            source.replace(complete)
+            recovered.append(complete)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            continue
+    return recovered
 
 
 def run_experiment_phase(
@@ -255,6 +320,22 @@ def run_experiment_phase(
     ]
     experiment_root = output_root / "experiments" / document["experiment_id"]
     expected_ids = {run.backend_batch_id for run in runs}
+    maximum_dids = int(plan["limits"]["maximum_dids_per_road_batch"])
+    catalog = resolve_path(root, config["catalog"]["path"])
+    overrides_value = config.get("analysis", {}).get("decode_overrides")
+    decode_overrides = resolve_path(root, overrides_value) if overrides_value else None
+    recovered = recover_manual_experiment_captures(
+        experiment_root,
+        runs,
+        maximum_dids,
+        catalog,
+        int(config["endpoint"]["ecu_key"]),
+        decode_overrides,
+        str(config["profile_id"]),
+        config["endpoint"],
+    )
+    for path in recovered:
+        print(f"Recovered valid operator-completed capture: {path.name}")
     completed, corrupt = discover_completed_experiment_runs(
         experiment_root, str(config["profile_id"]), expected_ids
     )
@@ -284,9 +365,10 @@ def run_experiment_phase(
             if args.transport_retries is not None
             else run.transport_retries
         )
+        duration = "manual/unbounded" if run.duration_seconds == 0 else f"{run.duration_seconds}s"
         print(
             f"  {run.batch_id} r{run.repetition:02d}: {','.join(run.dids)} "
-            f"period={run.period_ms}ms duration={run.duration_seconds}s "
+            f"period={run.period_ms}ms duration={duration} "
             f"minimum={run.minimum_samples_per_did} retries={retries}"
         )
         if run.vehicle_state:
@@ -302,10 +384,6 @@ def run_experiment_phase(
     if args.startup_delay_seconds:
         time.sleep(args.startup_delay_seconds)
     print("Startup delay finished; opening the configured backend.")
-    maximum_dids = int(plan["limits"]["maximum_dids_per_road_batch"])
-    catalog = resolve_path(root, config["catalog"]["path"])
-    overrides_value = config.get("analysis", {}).get("decode_overrides")
-    decode_overrides = resolve_path(root, overrides_value) if overrides_value else None
     for run in queue:
         assert_budget(output_root, args.max_directory_mib, args.max_log_mib)
         stamp = timestamp()
@@ -331,7 +409,7 @@ def run_experiment_phase(
             args.max_log_mib,
         )
         print(f"EXPERIMENT {run.batch_id} r{run.repetition:02d}")
-        run_and_validate(
+        completion_reason = run_and_validate(
             command,
             root,
             partial,
@@ -343,6 +421,7 @@ def run_experiment_phase(
             decode_overrides,
             str(config["profile_id"]),
             config["endpoint"],
+            True,
         )
         completed, corrupt = discover_completed_experiment_runs(
             experiment_root, str(config["profile_id"]), expected_ids
@@ -351,6 +430,12 @@ def run_experiment_phase(
             experiment_root / "experiment.snapshot.json",
             experiment_snapshot(document, runs, completed, corrupt),
         )
+        if completion_reason == "user_stop":
+            print(
+                "Operator-completed experiment accepted; remaining selected runs "
+                "were not started."
+            )
+            return 0
     print("Experiment sequence complete; experiment snapshot updated.")
     return 0
 

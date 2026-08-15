@@ -16,7 +16,13 @@ from toyota_telemetry.capture import (
     validate_capture_context,
     validate_candidate_capture,
 )
-from toyota_telemetry.execution import capture_arguments, capture_end_reason, run_backend
+from toyota_telemetry.execution import (
+    capture_arguments,
+    capture_end_reason,
+    recover_manual_experiment_captures,
+    run_and_validate,
+    run_backend,
+)
 from toyota_telemetry.experiments import (
     discover_completed_experiment_runs,
     experiment_snapshot,
@@ -61,6 +67,17 @@ class CaptureTests(unittest.TestCase):
                     "response_can_id": "0x708",
                 },
             )
+
+    def test_user_stop_requires_explicit_capture_policy(self):
+        records = read_jsonl(FIXTURES / "candidate-batch.complete.jsonl")
+        records[-1]["reason"] = "user_stop"
+        with self.assertRaisesRegex(ValueError, "user_stop"):
+            validate_candidate_capture(records, 2)
+        start, samples = validate_candidate_capture(
+            records, 2, accepted_end_reasons=frozenset({"user_stop"})
+        )
+        self.assertEqual(start["mode"], "candidate_batch")
+        self.assertEqual(len(samples), 2)
 
     def test_formula_evaluator_is_bounded(self):
         self.assertEqual(evaluate_formula("signed(raw, 16) / 10", 0xFF9B), -10.1)
@@ -195,6 +212,31 @@ dids = ["0x1000"]
             with self.assertRaisesRegex(ValueError, "positive qualification"):
                 load_experiment(path, "example-platform", plan, set())
 
+    def test_experiment_allows_unbounded_manual_duration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "experiment.toml"
+            path.write_text(
+                """schema_version = 1
+experiment_id = "manual-v1"
+profile_id = "example-platform"
+[defaults]
+period_ms = 100
+duration_seconds = 0
+minimum_samples_per_did = 100
+transport_retries = 1
+[[batches]]
+batch_id = "operator-sequence"
+dids = ["0x1000"]
+""",
+                encoding="utf-8",
+            )
+            plan = {
+                "limits": {"maximum_dids_per_road_batch": 2},
+                "candidates": [{"data_id": "0x1000"}],
+            }
+            _, runs = load_experiment(path, "example-platform", plan, {"0x1000"})
+            self.assertEqual(runs[0].duration_seconds, 0)
+
     def test_custom_capture_is_separate_from_progress(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -222,6 +264,97 @@ dids = ["0x1000"]
             self.assertEqual(complete, {batch_id})
             self.assertEqual(corrupt, [])
 
+            records[-1]["reason"] = "user_stop"
+            capture.write_text(
+                "".join(json.dumps(record) + "\n" for record in records),
+                encoding="utf-8",
+            )
+            complete, corrupt = discover_completed_experiment_runs(
+                root, "example-platform", {batch_id}
+            )
+            self.assertEqual(complete, {batch_id})
+            self.assertEqual(corrupt, [])
+
+    def test_valid_quarantined_manual_experiment_is_recovered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            experiment = root / "experiment.toml"
+            experiment.write_text(
+                """schema_version = 1
+experiment_id = "manual-v1"
+profile_id = "example-platform"
+[defaults]
+period_ms = 100
+duration_seconds = 30
+minimum_samples_per_did = 1
+transport_retries = 1
+[[batches]]
+batch_id = "sequence"
+dids = ["0x1000"]
+""",
+                encoding="utf-8",
+            )
+            plan = {
+                "limits": {"maximum_dids_per_road_batch": 2},
+                "candidates": [{"data_id": "0x1000"}],
+            }
+            _, runs = load_experiment(experiment, "example-platform", plan, {"0x1000"})
+            records = [
+                {
+                    "record": "session_start",
+                    "schema_version": 1,
+                    "profile_id": "example-platform",
+                    "mode": "candidate_batch",
+                    "batch_id": runs[0].backend_batch_id,
+                    "dids": ["0x1000"],
+                    "transport": {
+                        "bitrate": 500000,
+                        "tester_id": "0x700",
+                        "response_id": "0x708",
+                    },
+                },
+                {
+                    "record": "candidate_sample",
+                    "sequence": 1,
+                    "did": "0x1000",
+                    "request_elapsed_ms": 0,
+                    "response_elapsed_ms": 1,
+                    "latency_ms": 1,
+                    "response_hex": "62 10 00 2A",
+                    "supported": True,
+                    "qualification_status": "supported",
+                    "negative_response_code": None,
+                },
+                {
+                    "record": "session_end",
+                    "reason": "user_stop",
+                    "sample_count": 1,
+                    "did_counts": {"0x1000": 1},
+                },
+            ]
+            source = root / "sequence.incomplete.jsonl"
+            source.write_text(
+                "".join(json.dumps(record) + "\n" for record in records),
+                encoding="utf-8",
+            )
+            recovered = recover_manual_experiment_captures(
+                root,
+                runs,
+                2,
+                None,
+                1,
+                None,
+                "example-platform",
+                {
+                    "bitrate": 500000,
+                    "tester_can_id": "0x700",
+                    "response_can_id": "0x708",
+                },
+            )
+            self.assertEqual(len(recovered), 1)
+            self.assertTrue((root / "sequence.complete.jsonl").is_file())
+            self.assertTrue((root / "sequence.complete.summary.json").is_file())
+
 
 class ProgressAndBackendTests(unittest.TestCase):
     def test_user_stop_reason_is_detected(self):
@@ -233,6 +366,78 @@ class ProgressAndBackendTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(capture_end_reason(capture), "user_stop")
+
+    def test_custom_run_promotes_valid_manual_stop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            partial = root / "manual.partial.jsonl"
+            complete = root / "manual.complete.jsonl"
+            records = [
+                {
+                    "record": "session_start",
+                    "schema_version": 1,
+                    "profile_id": "example-platform",
+                    "mode": "candidate_batch",
+                    "batch_id": "experiment-manual-v1-sequence-r01-0123456789",
+                    "dids": ["0x1000"],
+                    "transport": {
+                        "bitrate": 500000,
+                        "tester_id": "0x700",
+                        "response_id": "0x708",
+                    },
+                },
+                {
+                    "record": "candidate_sample",
+                    "sequence": 1,
+                    "did": "0x1000",
+                    "request_elapsed_ms": 0,
+                    "response_elapsed_ms": 1,
+                    "latency_ms": 1,
+                    "response_hex": "62 10 00 2A",
+                    "supported": True,
+                    "qualification_status": "supported",
+                    "negative_response_code": None,
+                },
+                {
+                    "record": "session_end",
+                    "reason": "user_stop",
+                    "sample_count": 1,
+                    "did_counts": {"0x1000": 1},
+                },
+            ]
+            partial.write_text(
+                "".join(json.dumps(record) + "\n" for record in records),
+                encoding="utf-8",
+            )
+            with mock.patch(
+                "toyota_telemetry.execution.run_backend", side_effect=KeyboardInterrupt()
+            ):
+                reason = run_and_validate(
+                    ["backend"],
+                    root,
+                    partial,
+                    complete,
+                    1,
+                    2,
+                    None,
+                    1,
+                    None,
+                    "example-platform",
+                    {
+                        "bitrate": 500000,
+                        "tester_can_id": "0x700",
+                        "response_can_id": "0x708",
+                    },
+                    True,
+                )
+            self.assertEqual(reason, "user_stop")
+            self.assertTrue(complete.is_file())
+            self.assertEqual(
+                json.loads(complete.with_name("manual.complete.summary.json").read_text())[
+                    "completion_reason"
+                ],
+                "user_stop",
+            )
 
     def test_backend_gets_grace_period_after_interrupt(self):
         process = mock.Mock()
