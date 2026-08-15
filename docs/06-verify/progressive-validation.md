@@ -1,5 +1,9 @@
 # Progressive catalog validation
 
+For the pipeline end to end, including catalog construction and post-capture
+review, see [the quickstart](../quickstart.md). This page is the reference for
+the qualification and capture phases.
+
 Once a platform project has a candidate catalog, a confirmed diagnostic
 endpoint, and a backend capable of `0x22 ReadDataByIdentifier`, the reusable
 toolkit can qualify and sample candidates without building a new orchestration
@@ -17,7 +21,9 @@ and the backend must enforce its own byte-exact transmit allowlist.
 3. Copy `templates/validation-profile.json` into the platform repository.
 4. Fill in the profile ID, ECU key, bitrate, tester/response IDs, paths, DID
    range, tier policies, privacy words, and backend command.
-5. Implement or configure a backend that follows the
+5. Build a backend from [`backends/`](../../backends/README.md) and fill in
+   `backend-config.json`. For a PCAN or J2534 adapter this is configuration
+   only; for another adapter, implement `ICanChannel` per the
    [validation backend contract](../08-adapters/adding-an-adapter.md).
 6. Build and review the private plan before connecting to a vehicle.
 
@@ -166,3 +172,14 @@ The analyzer reports support/NRCs, counts, latency, retries, raw ranges, formula
 ranges, and whether each field changed. These are review aids. A plausible or
 varying value does not automatically become Validated, and the tool never edits
 a curated signal map.
+
+Across every capture rather than one at a time:
+
+```powershell
+telemetry-review --config data/validation/validation-profile.json --pending
+telemetry-review --config data/validation/validation-profile.json --check data/validated/signals.csv
+```
+
+`--pending` lists signals that stayed constant or were seen in a single run —
+the queue for the next custom experiment. `--check` holds a curated map to the
+observations and exits nonzero when a row claims more than was seen.
