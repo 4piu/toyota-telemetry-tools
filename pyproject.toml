@@ -10,6 +10,7 @@ dependencies = []
 telemetry-build-plan = "toyota_telemetry.planning:main"
 telemetry-analyze-capture = "toyota_telemetry.capture:main"
 telemetry-validate = "toyota_telemetry.execution:main"
+telemetry-review = "toyota_telemetry.review:main"
 
 [build-system]
 requires = ["hatchling"]

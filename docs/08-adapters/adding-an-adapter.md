@@ -1,5 +1,10 @@
 # Add an adapter backend
 
+Working backends for PCAN-Basic and J2534 ship in [`backends/`](../../backends/README.md).
+Adding another transport means implementing `ICanChannel` — seven members — and a
+`Main`; ISO-TP, allowlists, capture logging, and this CLI contract are shared.
+Read this page for the behaviour a channel must provide.
+
 An adapter changes transport, not signal meaning. Preserve a small boundary so the same acquisition state machine and decoder can be tested through multiple devices.
 
 ## Required backend behavior
