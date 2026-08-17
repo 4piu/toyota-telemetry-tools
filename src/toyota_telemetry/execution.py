@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import hashlib
+from itertools import zip_longest
 import json
 from pathlib import Path
 import re
@@ -25,7 +26,7 @@ from .experiments import (
     experiment_snapshot,
     load_experiment,
 )
-from .planning import validate_config
+from .planning import ecu_views, validate_config
 from .progress import (
     Progress,
     discover_progress,
@@ -128,6 +129,7 @@ def capture_arguments(
     root: Path,
     backend: dict[str, Any],
     mode: str,
+    ecu_key: int,
     dids: list[str],
     batch_id: str,
     output: Path,
@@ -137,6 +139,9 @@ def capture_arguments(
     max_log_mib: int,
 ) -> list[str]:
     arguments = backend_command(root, backend, mode)
+    # The backend configuration lists every ECU behind the gateway; a run names
+    # the one it is talking to.
+    arguments.extend(("--ecu", str(ecu_key)))
     arguments.extend(
         (
             "--batch-id",
@@ -400,6 +405,7 @@ def run_experiment_phase(
             root,
             backend,
             "road",
+            int(config["endpoint"]["ecu_key"]),
             list(run.dids),
             run.backend_batch_id,
             partial,
@@ -440,10 +446,109 @@ def run_experiment_phase(
     return 0
 
 
+class ProfileContext:
+    """Everything one validation profile contributes to a run.
+
+    A run may span several ECUs, and each brings its own plan, progress,
+    capture root, and backend.  Grouping them here keeps a multi-ECU sequence
+    from having to thread parallel lists through the scheduling loop.
+    """
+
+    def __init__(self, root: Path, view: dict[str, Any], args: argparse.Namespace) -> None:
+        self.root = root
+        self.config = view
+
+        paths = self.config["paths"]
+        self.plan_path = resolve_path(root, args.plan or paths["plan"])
+        self.capture_root = resolve_path(root, args.capture_root or paths["capture_root"])
+        self.output_root = resolve_path(
+            root,
+            args.output_root
+            or paths.get("output_root", Path(paths["capture_root"]) / "progressive"),
+        )
+        try:
+            self.output_root.relative_to(self.capture_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"{self.label}: output root must be inside capture root"
+            ) from exc
+
+        self.plan = load_plan(self.plan_path, self.config)
+        self.terminal_nrcs = set(self.config.get("terminal_nrcs", ["0x31", "0x33"]))
+        self.progress = discover_progress(self.capture_root, self.plan["profile_id"])
+        self.available_tiers = set(self.plan["policies"])
+
+        tier_text = args.tiers
+        if tier_text is None:
+            tier_text = ",".join(
+                self.config.get("road_default_tiers", list(self.plan["policies"]))
+                if args.phase == "road"
+                else self.plan["policies"].keys()
+            )
+        self.tiers = {tier.strip() for tier in tier_text.split(",") if tier.strip()}
+        unknown = self.tiers - self.available_tiers
+        if not self.tiers or unknown:
+            raise ValueError(f"{self.label}: invalid tiers; unknown values: {sorted(unknown)}")
+
+        self.maximum_dids = int(self.plan["limits"]["maximum_dids_per_road_batch"])
+        self.catalog = resolve_path(root, self.config["catalog"]["path"])
+        overrides_value = self.config.get("analysis", {}).get("decode_overrides")
+        self.decode_overrides = (
+            resolve_path(root, overrides_value) if overrides_value else None
+        )
+
+    @property
+    def ecu_key(self) -> int:
+        return int(self.config["endpoint"]["ecu_key"])
+
+    @property
+    def label(self) -> str:
+        name = self.config.get("ecu_name") or ""
+        return f"ECU {self.ecu_key}" + (f" {name}" if name else "")
+
+    @property
+    def backend(self) -> dict[str, Any]:
+        backend = self.config.get("backend")
+        if not isinstance(backend, dict):
+            raise ValueError(f"{self.label}: live mode requires a backend in the profile")
+        return backend
+
+    def summarize(self, tiers: set[str] | None = None) -> dict[str, Any]:
+        return summarize_progress(
+            self.plan, self.progress, tiers or self.tiers, self.terminal_nrcs
+        )
+
+    def refresh_progress(self) -> None:
+        self.progress = discover_progress(self.capture_root, self.plan["profile_id"])
+
+    def write_snapshot(self) -> None:
+        atomic_json(
+            self.output_root / "progress.snapshot.json",
+            self.summarize(self.available_tiers),
+        )
+
+
+def round_robin(queues: list[list[Any]]) -> list[Any]:
+    """Interleave per-profile queues so a truncated session covers each ECU.
+
+    Draining one profile before starting the next would leave a drive cut short
+    with one ECU complete and the rest untouched; alternating spreads whatever
+    time was available across all of them.
+    """
+    merged: list[Any] = []
+    for group in zip_longest(*queues):
+        merged.extend(item for item in group if item is not None)
+    return merged
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=("status", "qualify", "road", "experiment"))
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument(
+        "--ecu", type=int, action="append",
+        help="restrict the sequence to these ECU keys; default is every ECU in the profile",
+    )
     parser.add_argument("--experiment", type=Path)
     parser.add_argument(
         "--experiment-batch",
@@ -479,110 +584,103 @@ def main() -> int:
             raise ValueError("invalid log/directory size bounds")
 
         root = project_root(args.project_root, args.config)
-        config_path = resolve_path(root, args.config)
-        config = load_json(config_path)
+        config = load_json(resolve_path(root, args.config))
         validate_config(config)
-        paths = config["paths"]
-        plan_path = resolve_path(root, args.plan or paths["plan"])
-        capture_root = resolve_path(root, args.capture_root or paths["capture_root"])
-        output_root = resolve_path(
-            root, args.output_root or paths.get("output_root", Path(paths["capture_root"]) / "progressive")
-        )
-        try:
-            output_root.relative_to(capture_root)
-        except ValueError as exc:
-            raise ValueError("output root must be inside capture root") from exc
-        plan = load_plan(plan_path, config)
-        terminal_nrcs = set(config.get("terminal_nrcs", ["0x31", "0x33"]))
-        progress = discover_progress(capture_root, plan["profile_id"])
+        views = ecu_views(config, args.ecu)
+        multi = len(views) > 1
+        if multi and (args.plan or args.capture_root or args.output_root):
+            raise ValueError(
+                "--plan, --capture-root, and --output-root apply to one ECU; "
+                "select it with --ecu or let each entry supply its own paths"
+            )
+        contexts = [ProfileContext(root, view, args) for view in views]
+
         if args.phase == "experiment":
+            if multi:
+                raise ValueError(
+                    "the experiment phase targets one ECU; select it with --ecu")
+            context = contexts[0]
             return run_experiment_phase(
-                args, root, config, plan, progress, output_root
+                args, root, context.config, context.plan, context.progress, context.output_root
             )
         if args.experiment is not None or args.experiment_batch:
             raise ValueError("--experiment and --experiment-batch require the experiment phase")
-        available_tiers = set(plan["policies"])
-        tier_text = args.tiers
-        if tier_text is None:
-            tier_text = ",".join(
-                config.get("road_default_tiers", list(plan["policies"]))
-                if args.phase == "road"
-                else plan["policies"].keys()
-            )
-        tiers = {tier.strip() for tier in tier_text.split(",") if tier.strip()}
-        unknown = tiers - available_tiers
-        if not tiers or unknown:
-            raise ValueError(f"invalid tiers; unknown values: {sorted(unknown)}")
-        status = summarize_progress(plan, progress, tiers, terminal_nrcs)
-        print(json.dumps(status, indent=2))
-        atomic_json(
-            output_root / "progress.snapshot.json",
-            summarize_progress(plan, progress, available_tiers, terminal_nrcs),
-        )
+
+        if multi:
+            print(json.dumps(
+                {f"ecu_{c.ecu_key}": c.summarize() for c in contexts}, indent=2))
+        else:
+            print(json.dumps(contexts[0].summarize(), indent=2))
+        for context in contexts:
+            context.write_snapshot()
         if args.phase == "status":
             return 0
-        if args.phase == "qualify":
-            queue: list[Any] = qualification_queue(
-                plan,
-                progress,
-                tiers,
-                args.max_qualification_attempts,
-                args.retry_terminal,
-                terminal_nrcs,
-            )[: args.max_items]
-            print(
-                f"Qualification queue: {len(queue)} DID(s); "
-                f"mode={'LIVE' if args.live else 'DRY RUN'}"
-            )
-        else:
-            queue = road_queue(plan, progress, tiers)[: args.max_items]
-            road_retries = args.transport_retries if args.transport_retries is not None else 2
-            print(
-                f"Road queue: {len(queue)} batch(es); "
-                f"mode={'LIVE' if args.live else 'DRY RUN'}"
-            )
+
+        road_retries = args.transport_retries if args.transport_retries is not None else 2
+        queues: list[list[Any]] = []
+        for context in contexts:
+            if args.phase == "qualify":
+                items = qualification_queue(
+                    context.plan,
+                    context.progress,
+                    context.tiers,
+                    args.max_qualification_attempts,
+                    args.retry_terminal,
+                    context.terminal_nrcs,
+                )
+            else:
+                items = road_queue(context.plan, context.progress, context.tiers)
+            queues.append([(context, item) for item in items])
+        queue: list[Any] = round_robin(queues)[: args.max_items]
+
+        noun = "DID(s)" if args.phase == "qualify" else "batch(es)"
+        label = "Qualification queue" if args.phase == "qualify" else "Road queue"
+        print(f"{label}: {len(queue)} {noun}; mode={'LIVE' if args.live else 'DRY RUN'}")
+        if multi:
+            per_ecu = {c.label: sum(1 for ctx, _ in queue if ctx is c) for c in contexts}
+            print("  across " + ", ".join(f"{k}: {v}" for k, v in per_ecu.items()))
+
         if not args.live:
-            for item in queue:
+            for context, item in queue:
+                prefix = f"  [{context.label}]" if multi else "  "
                 if args.phase == "qualify":
                     print(
-                        f"  {item['data_id']} tier={item['tier']} "
+                        f"{prefix} {item['data_id']} tier={item['tier']} "
                         f"signals={item['signal_count']}"
                     )
                 else:
                     tier, group = item
-                    policy = plan["policies"][tier]
+                    policy = context.plan["policies"][tier]
                     print(
-                        f"  {tier}: {','.join(candidate['data_id'] for candidate in group)} "
+                        f"{prefix} {tier}: "
+                        f"{','.join(candidate['data_id'] for candidate in group)} "
                         f"period={policy['period_ms']}ms "
                         f"duration={policy['duration_seconds']}s retries={road_retries}"
                     )
             return 0
         if not queue:
             return 0
-        backend = config.get("backend")
-        if not isinstance(backend, dict):
-            raise ValueError("live mode requires a backend object in the validation profile")
+        for context in contexts:
+            context.backend  # fail before the startup delay, not after it
         print(f"Live sequence will start in {args.startup_delay_seconds} seconds.")
         if args.startup_delay_seconds:
             time.sleep(args.startup_delay_seconds)
         print("Startup delay finished; opening the configured backend.")
-        maximum_dids = int(plan["limits"]["maximum_dids_per_road_batch"])
-        catalog = resolve_path(root, config["catalog"]["path"])
-        overrides_value = config.get("analysis", {}).get("decode_overrides")
-        decode_overrides = resolve_path(root, overrides_value) if overrides_value else None
-        for item in queue:
-            assert_budget(output_root, args.max_directory_mib, args.max_log_mib)
+        for context, item in queue:
+            assert_budget(context.output_root, args.max_directory_mib, args.max_log_mib)
             stamp = timestamp()
+            marker = f"[{context.label}] " if multi else ""
             if args.phase == "qualify":
                 did = item["data_id"]
                 stem = f"did-{did[2:].lower()}-{stamp}.qualification"
-                partial = output_root / "qualification" / f"{stem}.partial.jsonl"
-                complete = output_root / "qualification" / f"{stem}.complete.jsonl"
-                period_ms = int(config.get("qualification_period_ms", 100))
+                partial = context.output_root / "qualification" / f"{stem}.partial.jsonl"
+                complete = context.output_root / "qualification" / f"{stem}.complete.jsonl"
+                period_ms = int(context.config.get("qualification_period_ms", 100))
                 command = capture_arguments(
                     root,
-                    backend,
+                    context.backend,
                     "qualification",
+                    context.ecu_key,
                     [did],
                     f"progressive-{did[2:].lower()}",
                     partial,
@@ -592,19 +690,20 @@ def main() -> int:
                     args.max_log_mib,
                 )
                 minimum_samples = 1
-                print(f"QUALIFY {did}")
+                print(f"{marker}QUALIFY {did}")
             else:
                 tier, group = item
-                policy = plan["policies"][tier]
+                policy = context.plan["policies"][tier]
                 dids = [candidate["data_id"] for candidate in group]
                 digest = hashlib.sha256(",".join(dids).encode()).hexdigest()[:10]
                 stem = f"{tier}-{digest}-{stamp}"
-                partial = output_root / "road" / f"{stem}.partial.jsonl"
-                complete = output_root / "road" / f"{stem}.complete.jsonl"
+                partial = context.output_root / "road" / f"{stem}.partial.jsonl"
+                complete = context.output_root / "road" / f"{stem}.complete.jsonl"
                 command = capture_arguments(
                     root,
-                    backend,
+                    context.backend,
                     "road",
+                    context.ecu_key,
                     dids,
                     f"progressive-{tier}-{digest}",
                     partial,
@@ -614,7 +713,7 @@ def main() -> int:
                     args.max_log_mib,
                 )
                 minimum_samples = int(policy["minimum_samples_per_did"])
-                print(f"ROAD {tier} {','.join(dids)}")
+                print(f"{marker}ROAD {tier} {','.join(dids)}")
             partial.parent.mkdir(parents=True, exist_ok=True)
             run_and_validate(
                 command,
@@ -622,18 +721,15 @@ def main() -> int:
                 partial,
                 complete,
                 minimum_samples,
-                maximum_dids,
-                catalog,
-                int(config["endpoint"]["ecu_key"]),
-                decode_overrides,
-                str(config["profile_id"]),
-                config["endpoint"],
+                context.maximum_dids,
+                context.catalog,
+                context.ecu_key,
+                context.decode_overrides,
+                str(context.config["profile_id"]),
+                context.config["endpoint"],
             )
-            progress = discover_progress(capture_root, plan["profile_id"])
-            atomic_json(
-                output_root / "progress.snapshot.json",
-                summarize_progress(plan, progress, available_tiers, terminal_nrcs),
-            )
+            context.refresh_progress()
+            context.write_snapshot()
         print("Sequence complete; progress snapshot updated.")
         return 0
     except (KeyboardInterrupt, BackendInterrupted):

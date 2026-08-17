@@ -25,15 +25,22 @@ def text_has(text: str, words: tuple[str, ...] | list[str]) -> bool:
 
 
 def validate_config(config: dict[str, Any]) -> None:
-    if config.get("schema_version") != 1:
-        raise ValueError("only validation-profile schema 1 is supported")
-    for field in ("plan_id", "profile_id", "endpoint", "catalog", "selection", "policies", "paths"):
+    """Validate a multi-ECU validation profile.
+
+    ECUs behind one gateway share a catalog, selection rules, tier policy, and
+    backend, so those are declared once and each entry in ``ecus`` adds only its
+    endpoint and paths.
+    """
+    if config.get("schema_version") != 2:
+        raise ValueError("only validation-profile schema 2 is supported")
+    for field in ("profile_id", "transport", "catalog", "selection", "policies", "ecus"):
         if field not in config:
             raise ValueError(f"validation profile is missing {field!r}")
-    endpoint = config["endpoint"]
-    for field in ("ecu_key", "tester_can_id", "response_can_id", "bitrate"):
-        if field not in endpoint:
-            raise ValueError(f"endpoint is missing {field!r}")
+
+    transport = config["transport"]
+    if not isinstance(transport.get("bitrate"), int):
+        raise ValueError("transport.bitrate must be an integer")
+
     policies = config["policies"]
     if not isinstance(policies, dict) or not policies:
         raise ValueError("policies must be a non-empty object")
@@ -41,6 +48,68 @@ def validate_config(config: dict[str, Any]) -> None:
         for field in ("period_ms", "duration_seconds", "minimum_samples_per_did"):
             if not isinstance(policy.get(field), int) or policy[field] < 1:
                 raise ValueError(f"policy {tier!r} has invalid {field!r}")
+
+    ecus = config["ecus"]
+    if not isinstance(ecus, list) or not ecus:
+        raise ValueError("'ecus' must be a non-empty array")
+    seen_keys: set[int] = set()
+    seen_roots: dict[str, int] = {}
+    for index, ecu in enumerate(ecus):
+        where = f"ecus[{index}]"
+        for field in ("key", "plan_id", "tester_can_id", "response_can_id", "paths"):
+            if field not in ecu:
+                raise ValueError(f"{where} is missing {field!r}")
+        key = ecu["key"]
+        if not isinstance(key, int) or key in seen_keys:
+            raise ValueError(f"{where}.key must be a unique integer")
+        seen_keys.add(key)
+        for field in ("plan", "capture_root"):
+            if not ecu["paths"].get(field):
+                raise ValueError(f"{where}.paths is missing {field!r}")
+        # Progress is reconstructed by filtering on profile_id, so two ECUs
+        # sharing a capture root would count each other's captures as their own.
+        root = str(ecu["paths"]["capture_root"])
+        if root in seen_roots:
+            raise ValueError(
+                f"{where} shares capture_root {root!r} with ECU {seen_roots[root]}; "
+                "give each its own"
+            )
+        seen_roots[root] = key
+
+
+def ecu_views(config: dict[str, Any], keys: list[int] | None = None) -> list[dict[str, Any]]:
+    """Expand a profile into one self-contained view per ECU.
+
+    Each view carries the shared settings alongside that ECU's endpoint and
+    paths, so everything downstream works with a single ECU at a time without
+    knowing whether the file described one or several.
+    """
+    shared = {k: v for k, v in config.items() if k not in ("ecus", "transport")}
+    transport = config["transport"]
+    wanted = set(keys) if keys else None
+    views: list[dict[str, Any]] = []
+    for ecu in config["ecus"]:
+        if wanted is not None and ecu["key"] not in wanted:
+            continue
+        paths = dict(ecu["paths"])
+        paths.setdefault("output_root", str(Path(paths["capture_root"]) / "progressive"))
+        views.append({
+            **shared,
+            "plan_id": ecu["plan_id"],
+            "ecu_name": ecu.get("name", ""),
+            "endpoint": {
+                "ecu_key": ecu["key"],
+                "tester_can_id": ecu["tester_can_id"],
+                "response_can_id": ecu["response_can_id"],
+                "bitrate": transport["bitrate"],
+                "addressing": transport.get("addressing", "normal"),
+            },
+            "paths": paths,
+        })
+    if wanted is not None and len(views) != len(wanted):
+        found = {v["endpoint"]["ecu_key"] for v in views}
+        raise ValueError(f"unknown ECU key(s): {sorted(wanted - found)}")
+    return views
 
 
 def classify_tier(
@@ -137,9 +206,9 @@ def load_candidates(
     return candidates, excluded
 
 
-def build_plan(root: Path, config_path: Path, include_private: bool) -> dict[str, Any]:
-    config = load_json(config_path)
-    validate_config(config)
+def build_plan(root: Path, view: dict[str, Any], include_private: bool) -> dict[str, Any]:
+    """Build one ECU's plan from an expanded profile view."""
+    config = view
     catalog_path = resolve_path(root, config["catalog"]["path"])
     candidates, excluded = load_candidates(catalog_path, config, include_private)
     policies = config["policies"]
@@ -178,20 +247,36 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--project-root", type=Path)
-    parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--ecu", type=int, action="append",
+        help="build only these ECU keys; default is every ECU in the profile",
+    )
+    parser.add_argument(
+        "--output", type=Path,
+        help="override the plan path; only valid when building a single ECU",
+    )
     parser.add_argument("--include-private", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     try:
         root = project_root(args.project_root, args.config)
-        config_path = resolve_path(root, args.config)
-        config = load_json(config_path)
-        output = resolve_path(
-            root, args.output or config.get("paths", {}).get("plan", "scratch/plans/validation.json")
-        )
-        plan = build_plan(root, config_path, args.include_private)
-        atomic_json(output, plan, replace=args.force)
-        print(json.dumps({"output": str(output), **plan["selection"]}, indent=2))
+        config = load_json(resolve_path(root, args.config))
+        validate_config(config)
+        views = ecu_views(config, args.ecu)
+        if args.output and len(views) > 1:
+            raise ValueError("--output applies to a single --ecu")
+        built = []
+        for view in views:
+            output = resolve_path(root, args.output or view["paths"]["plan"])
+            plan = build_plan(root, view, args.include_private)
+            atomic_json(output, plan, replace=args.force)
+            built.append({
+                "ecu_key": view["endpoint"]["ecu_key"],
+                "plan_id": plan["plan_id"],
+                "output": str(output),
+                **plan["selection"],
+            })
+        print(json.dumps(built if len(built) > 1 else built[0], indent=2))
         return 0
     except (OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

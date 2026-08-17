@@ -40,7 +40,7 @@ namespace Telemetry.Can.Core
                     return SelfCheck.RunWriterSelfTest(options, toolName);
                 }
 
-                BackendConfig config = BackendConfig.Load(options.ConfigPath);
+                BackendConfig config = BackendConfig.Load(options.ConfigPath, options.EcuKey);
                 options.ValidateAgainst(config);
                 SelfCheck.RunConfigChecks(config, options);
                 PrintPlan(config, options, toolName);
@@ -365,6 +365,8 @@ namespace Telemetry.Can.Core
         {
             Console.WriteLine(toolName + " - " + options.ModeName);
             Console.WriteLine("Profile:   " + config.ProfileId);
+            Console.WriteLine("ECU:       " + config.EcuKey.ToString(CultureInfo.InvariantCulture) +
+                " " + config.EcuName);
             Console.WriteLine(
                 "Transport: classical CAN, " +
                 config.Bitrate.ToString(CultureInfo.InvariantCulture) + " bit/s, application ISO-TP");

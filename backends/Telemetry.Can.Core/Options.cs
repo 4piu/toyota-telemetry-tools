@@ -18,6 +18,7 @@ namespace Telemetry.Can.Core
         internal string ToolName = "telemetry-backend";
 
         internal string ConfigPath;
+        internal int EcuKey = -1;
         internal bool Live;
         internal bool ShowHelp;
         internal bool SelfTest;
@@ -81,6 +82,10 @@ namespace Telemetry.Can.Core
                         break;
                     case "--config":
                         options.ConfigPath = NextValue(args, ref i, argument);
+                        break;
+                    case "--ecu":
+                        options.EcuKey = ParseInt(
+                            NextValue(args, ref i, argument), argument, 0, 65535);
                         break;
                     case "--batch-id":
                         options.BatchId = NextValue(args, ref i, argument);
@@ -286,6 +291,8 @@ namespace Telemetry.Can.Core
             Console.WriteLine();
             Console.WriteLine("Options:");
             Console.WriteLine("  --config PATH         Backend configuration JSON. Required except with --self-test.");
+            Console.WriteLine("  --ecu KEY             Which ECU in the configuration to talk to. Required");
+            Console.WriteLine("                        unless the configuration lists exactly one.");
             Console.WriteLine("  --live                Open the device and transmit. Omitted means dry run.");
             Console.WriteLine("  --did 0xNNNN          Candidate DID; repeat for several.");
             Console.WriteLine("  --batch-id ID         Label recorded in the capture (default: adhoc).");

@@ -28,7 +28,7 @@ import sys
 from typing import Any
 
 from .capture import classify_nrc
-from .planning import validate_config
+from .planning import ecu_views, validate_config
 from .progress import discover_progress
 from .project import load_json, project_root, resolve_path
 from .review import build_ledger, load_catalog_rows
@@ -84,11 +84,10 @@ def load_curation(path: Path | None) -> dict[tuple[str, int, int], dict[str, str
     return result
 
 
-def build_for_config(
-    root: Path, config_path: Path, curation: dict[tuple[str, int, int], dict[str, str]]
+def build_for_view(
+    root: Path, view: dict[str, Any], curation: dict[tuple[str, int, int], dict[str, str]]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], list[str]]:
-    config = load_json(resolve_path(root, config_path))
-    validate_config(config)
+    config = view
 
     ecu_key = int(config["endpoint"]["ecu_key"])
     profile_id = str(config["profile_id"])
@@ -271,9 +270,10 @@ def write_csv(path: Path, fields: list[str], rows: list[dict[str, Any]]) -> None
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, required=True)
     parser.add_argument(
-        "--config", type=Path, action="append", required=True,
-        help="validation profile; repeat once per ECU to build a combined map",
+        "--ecu", type=int, action="append",
+        help="map only these ECU keys; default is every ECU in the profile",
     )
     parser.add_argument("--project-root", type=Path)
     parser.add_argument(
@@ -288,7 +288,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        root = project_root(args.project_root, args.config[0])
+        root = project_root(args.project_root, args.config)
         curation_path = resolve_path(
             root, args.curation if args.curation else Path("data/config/curation.csv"))
         curation = load_curation(curation_path)
@@ -297,8 +297,10 @@ def main() -> int:
         all_unsupported: list[dict[str, Any]] = []
         summaries: list[dict[str, Any]] = []
         violations: list[str] = []
-        for config_path in args.config:
-            signals, unsupported, summary, bad = build_for_config(root, config_path, curation)
+        config = load_json(resolve_path(root, args.config))
+        validate_config(config)
+        for view in ecu_views(config, args.ecu):
+            signals, unsupported, summary, bad = build_for_view(root, view, curation)
             all_signals.extend(signals)
             all_unsupported.extend(unsupported)
             summaries.append(summary)

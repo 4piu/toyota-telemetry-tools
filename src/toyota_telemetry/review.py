@@ -27,7 +27,7 @@ from .capture import (
     read_jsonl,
     validate_candidate_capture,
 )
-from .planning import validate_config
+from .planning import ecu_views, validate_config
 from .project import atomic_json, load_json, project_root, resolve_path
 
 
@@ -373,6 +373,7 @@ def write_csv(path: Path, records: list[SignalRecord]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--ecu", type=int, action="append", help="which ECU to report on")
     parser.add_argument("--project-root", type=Path)
     parser.add_argument("--capture-root", type=Path)
     parser.add_argument("--json", type=Path, dest="json_path", help="write the full ledger")
@@ -392,9 +393,15 @@ def main() -> int:
 
     try:
         root = project_root(args.project_root, args.config)
-        config_path = resolve_path(root, args.config)
-        config = load_json(config_path)
-        validate_config(config)
+        profile = load_json(resolve_path(root, args.config))
+        validate_config(profile)
+        views = ecu_views(profile, args.ecu)
+        if len(views) > 1:
+            raise ValueError(
+                "the ledger covers one ECU at a time; select it with --ecu "
+                f"({', '.join(str(v['endpoint']['ecu_key']) for v in views)})"
+            )
+        config = views[0]
 
         ecu_key = int(config["endpoint"]["ecu_key"])
         profile_id = str(config["profile_id"])

@@ -29,6 +29,8 @@ namespace Telemetry.Can.Core
     internal sealed class BackendConfig
     {
         internal string ProfileId;
+        internal int EcuKey;
+        internal string EcuName;
         internal int Bitrate;
         internal uint TesterCanId;
         internal uint ResponseCanId;
@@ -40,7 +42,16 @@ namespace Telemetry.Can.Core
         internal int ResponsePendingBudgetMs;
         internal JsonValue Device;
 
-        internal static BackendConfig Load(string path)
+        /// <summary>
+        /// Load the configuration and resolve it to one ECU.
+        ///
+        /// ECUs behind a common gateway share bitrate, addressing, device, and
+        /// usually their session sequence, so those live once at the top level
+        /// and each entry in <c>ecus</c> contributes only its endpoint. A run
+        /// still targets exactly one ECU: a single CAN channel carries one
+        /// diagnostic session at a time.
+        /// </summary>
+        internal static BackendConfig Load(string path, int requestedEcuKey)
         {
             if (String.IsNullOrWhiteSpace(path))
             {
@@ -64,11 +75,11 @@ namespace Telemetry.Can.Core
             root.RejectUnknownMembers(
                 "",
                 "schema_version", "profile_id", "description",
-                "transport", "session_setup", "limits", "device");
+                "transport", "session_setup", "limits", "device", "ecus");
 
-            if (root.Member("", "schema_version").AsInteger("schema_version") != 1)
+            if (root.Member("", "schema_version").AsInteger("schema_version") != 2)
             {
-                throw new FormatException("only backend-config schema 1 is supported");
+                throw new FormatException("only backend-config schema 2 is supported");
             }
 
             BackendConfig config = new BackendConfig();
@@ -79,8 +90,7 @@ namespace Telemetry.Can.Core
             }
 
             JsonValue transport = root.Member("", "transport");
-            transport.RejectUnknownMembers(
-                "transport", "network", "bitrate", "tester_can_id", "response_can_id", "addressing");
+            transport.RejectUnknownMembers("transport", "network", "bitrate", "addressing");
 
             string network = transport.Member("transport", "network").AsString("transport.network");
             if (!String.Equals(network, "classical-can", StringComparison.Ordinal))
@@ -90,17 +100,6 @@ namespace Telemetry.Can.Core
             }
             config.Bitrate = transport.Member("transport", "bitrate")
                 .AsInteger("transport.bitrate", 10000, 1000000);
-            config.TesterCanId = Hex.ParseId(
-                transport.Member("transport", "tester_can_id").AsString("transport.tester_can_id"),
-                "transport.tester_can_id", 0x000, 0x7FF);
-            config.ResponseCanId = Hex.ParseId(
-                transport.Member("transport", "response_can_id").AsString("transport.response_can_id"),
-                "transport.response_can_id", 0x000, 0x7FF);
-            if (config.TesterCanId == config.ResponseCanId)
-            {
-                throw new FormatException(
-                    "'transport.tester_can_id' and 'transport.response_can_id' must differ.");
-            }
             config.Addressing = transport.Member("transport", "addressing").AsString("transport.addressing");
             if (!String.Equals(config.Addressing, "normal", StringComparison.Ordinal))
             {
@@ -108,11 +107,36 @@ namespace Telemetry.Can.Core
                     "'transport.addressing' must be \"normal\"; extended addressing is not implemented.");
             }
 
-            List<JsonValue> steps = root.Member("", "session_setup").AsArray("session_setup", 1, 16);
+            string ecuWhere;
+            JsonValue selected = SelectEcu(root, requestedEcuKey, out ecuWhere);
+            config.EcuKey = selected.Member(ecuWhere, "key").AsInteger(ecuWhere + ".key", 0, 65535);
+            config.EcuName = selected.Member(ecuWhere, "name").AsString(ecuWhere + ".name");
+            config.TesterCanId = Hex.ParseId(
+                selected.Member(ecuWhere, "tester_can_id").AsString(ecuWhere + ".tester_can_id"),
+                ecuWhere + ".tester_can_id", 0x000, 0x7FF);
+            config.ResponseCanId = Hex.ParseId(
+                selected.Member(ecuWhere, "response_can_id").AsString(ecuWhere + ".response_can_id"),
+                ecuWhere + ".response_can_id", 0x000, 0x7FF);
+            if (config.TesterCanId == config.ResponseCanId)
+            {
+                throw new FormatException(
+                    ecuWhere + ": tester and response identifiers must differ.");
+            }
+
+            // An ECU may open its session differently from its neighbours, so an
+            // entry can override the shared sequence.
+            JsonValue stepsValue;
+            string stepsWhere = ecuWhere + ".session_setup";
+            if (!selected.TryMember("session_setup", out stepsValue))
+            {
+                stepsValue = root.Member("", "session_setup");
+                stepsWhere = "session_setup";
+            }
+            List<JsonValue> steps = stepsValue.AsArray(stepsWhere, 1, 16);
             config.SessionSetup = new SessionStep[steps.Count];
             for (int i = 0; i < steps.Count; i++)
             {
-                string where = "session_setup[" + i.ToString(CultureInfo.InvariantCulture) + "]";
+                string where = stepsWhere + "[" + i.ToString(CultureInfo.InvariantCulture) + "]";
                 JsonValue step = steps[i];
                 step.RejectUnknownMembers(where, "request", "expect", "label");
                 byte[] request = Hex.Parse(
@@ -158,6 +182,58 @@ namespace Telemetry.Can.Core
                 new Dictionary<string, JsonValue>(StringComparer.Ordinal));
 
             return config;
+        }
+
+        /// <summary>Pick the requested ECU, or the only one if a run did not
+        /// name a key. Listing the available keys on failure matters: the
+        /// operator is usually at a vehicle when this goes wrong.</summary>
+        private static JsonValue SelectEcu(JsonValue root, int requestedEcuKey, out string where)
+        {
+            List<JsonValue> ecus = root.Member("", "ecus").AsArray("ecus", 1, 64);
+            List<string> available = new List<string>();
+            JsonValue match = null;
+            string matchWhere = null;
+            for (int i = 0; i < ecus.Count; i++)
+            {
+                string current = "ecus[" + i.ToString(CultureInfo.InvariantCulture) + "]";
+                ecus[i].RejectUnknownMembers(
+                    current, "key", "name", "tester_can_id", "response_can_id",
+                    "session_setup", "description");
+                int key = ecus[i].Member(current, "key").AsInteger(current + ".key", 0, 65535);
+                available.Add(key.ToString(CultureInfo.InvariantCulture));
+                if (key == requestedEcuKey)
+                {
+                    if (match != null)
+                    {
+                        throw new FormatException(
+                            "'ecus' contains more than one entry with key " +
+                            key.ToString(CultureInfo.InvariantCulture) + ".");
+                    }
+                    match = ecus[i];
+                    matchWhere = current;
+                }
+            }
+            if (requestedEcuKey < 0)
+            {
+                if (ecus.Count != 1)
+                {
+                    throw new ArgumentException(
+                        "--ecu KEY is required because 'ecus' lists " +
+                        ecus.Count.ToString(CultureInfo.InvariantCulture) +
+                        " entries: " + String.Join(", ", available.ToArray()));
+                }
+                where = "ecus[0]";
+                return ecus[0];
+            }
+            if (match == null)
+            {
+                throw new ArgumentException(
+                    "--ecu " + requestedEcuKey.ToString(CultureInfo.InvariantCulture) +
+                    " is not in this configuration. Available: " +
+                    String.Join(", ", available.ToArray()));
+            }
+            where = matchWhere;
+            return match;
         }
 
         /// <summary>Read a backend-specific string from the optional
