@@ -106,11 +106,13 @@ def road_queue(
             and did not in progress.road_complete
         ):
             by_tier[candidate["tier"]].append(candidate)
-    size = int(plan["limits"]["maximum_dids_per_road_batch"])
+    ceiling = int(plan["limits"]["maximum_dids_per_road_batch"])
     result: list[tuple[str, list[dict[str, Any]]]] = []
-    for tier in plan["policies"]:
-        if tier in tiers:
-            result.extend((tier, group) for group in batches(by_tier[tier], size))
+    for tier, policy in plan["policies"].items():
+        if tier not in tiers:
+            continue
+        size = int(policy.get("maximum_dids_per_batch", ceiling))
+        result.extend((tier, group) for group in batches(by_tier[tier], size))
     return result
 
 

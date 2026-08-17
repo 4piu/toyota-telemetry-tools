@@ -44,10 +44,30 @@ def validate_config(config: dict[str, Any]) -> None:
     policies = config["policies"]
     if not isinstance(policies, dict) or not policies:
         raise ValueError("policies must be a non-empty object")
+    ceiling = int(config["selection"].get("maximum_dids_per_road_batch", 6))
     for tier, policy in policies.items():
         for field in ("period_ms", "duration_seconds", "minimum_samples_per_did"):
             if not isinstance(policy.get(field), int) or policy[field] < 1:
                 raise ValueError(f"policy {tier!r} has invalid {field!r}")
+        # A tier may carry fewer DIDs per batch than the profile ceiling. More
+        # DIDs cost no bus traffic - one request is outstanding at a time, so the
+        # request rate is set by period_ms - but they divide the same rate across
+        # more identifiers, so each is sampled less often.
+        cap = policy.get("maximum_dids_per_batch")
+        if cap is None:
+            continue
+        if not isinstance(cap, int) or not 1 <= cap <= ceiling:
+            raise ValueError(
+                f"policy {tier!r} maximum_dids_per_batch must be 1..{ceiling} "
+                "(the profile's maximum_dids_per_road_batch)"
+            )
+        achievable = (policy["duration_seconds"] * 1000) // (cap * policy["period_ms"])
+        if achievable < policy["minimum_samples_per_did"]:
+            raise ValueError(
+                f"policy {tier!r} cannot reach {policy['minimum_samples_per_did']} samples "
+                f"per DID with {cap} DIDs at {policy['period_ms']} ms over "
+                f"{policy['duration_seconds']} s; the best possible is {achievable}"
+            )
 
     ecus = config["ecus"]
     if not isinstance(ecus, list) or not ecus:
