@@ -42,6 +42,31 @@ def slug(name: str, key: int) -> str:
     return text or f"ecu-{key}"
 
 
+def read_profile_endpoints(profile_path: Path) -> list[dict[str, Any]]:
+    """Endpoints from an ecu-profile.json.
+
+    This is the wide net: a profile imported from the Techstream ECU catalog
+    lists every ECU the installation knows about for this generation, most of
+    which a given vehicle will not have. Probing is how that list gets cut down.
+    """
+    document = load_json(profile_path)
+    found: list[dict[str, Any]] = []
+    for ecu in document.get("ecus", []):
+        tester = str(ecu.get("tester_can_id") or "").strip()
+        response = str(ecu.get("response_can_id") or "").strip()
+        if not tester or not response:
+            continue
+        found.append({
+            "ecu_key": int(ecu["key"]),
+            "ecu_name": str(ecu.get("name", "")),
+            "tester_can_id": tester,
+            "response_can_id": response,
+            "endpoint_state": str(ecu.get("endpoint_state", "")),
+            "catalog_rows": 0,
+        })
+    return found
+
+
 def read_endpoints(catalog_path: Path) -> list[dict[str, Any]]:
     """One entry per ECU in the catalog, with its protocol-table endpoint."""
     found: OrderedDict[int, dict[str, Any]] = OrderedDict()
@@ -75,9 +100,13 @@ def probe_config(base: dict[str, Any], endpoint: dict[str, Any], profile_id: str
         "Session setup is tester-present only, which is all a probe needs; a capture "
         "configuration needs the real session sequence for this ECU."
     )
-    config["transport"]["tester_can_id"] = endpoint["tester_can_id"]
-    config["transport"]["response_can_id"] = endpoint["response_can_id"]
     config["session_setup"] = json.loads(json.dumps(PROBE_SESSION))
+    config["ecus"] = [{
+        "key": max(endpoint["ecu_key"], 0),
+        "name": endpoint["ecu_name"] or f"ecu-{endpoint['ecu_key']}",
+        "tester_can_id": endpoint["tester_can_id"],
+        "response_can_id": endpoint["response_can_id"],
+    }]
     return config
 
 
@@ -114,68 +143,33 @@ def _reply_line(stdout: str) -> str:
     return ""
 
 
-def emit_configs(
-    root: Path,
-    output_dir: Path,
-    endpoint: dict[str, Any],
-    base_backend: dict[str, Any],
-    base_profile: dict[str, Any] | None,
-    profile_id: str,
-) -> list[str]:
-    """Write a real backend config, and a validation profile if a base exists."""
-    written: list[str] = []
-    name = slug(endpoint["ecu_name"], endpoint["ecu_key"])
-    target = output_dir / name
-    target.mkdir(parents=True, exist_ok=True)
+def ecus_fragment(answered: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The `ecus` entries for endpoints that answered.
 
-    config = json.loads(json.dumps(base_backend))
-    config["profile_id"] = profile_id
-    config["description"] = (
-        f"{endpoint['ecu_name']} (key {endpoint['ecu_key']}) endpoint, confirmed answering "
-        "a tester-present probe. The session setup below is inherited from the reference "
-        "ECU and is a starting guess; confirm it before trusting a capture."
-    )
-    config["transport"]["tester_can_id"] = endpoint["tester_can_id"]
-    config["transport"]["response_can_id"] = endpoint["response_can_id"]
-    backend_path = target / "backend-config.json"
-    backend_path.write_text(
-        json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    written.append(str(backend_path.relative_to(root)))
-
-    if base_profile is not None:
-        profile = json.loads(json.dumps(base_profile))
-        profile["plan_id"] = f"{name}-progressive-v1"
-        profile["endpoint"] = {
-            "ecu_key": endpoint["ecu_key"],
-            "tester_can_id": endpoint["tester_can_id"],
-            "response_can_id": endpoint["response_can_id"],
-            "bitrate": base_profile["endpoint"]["bitrate"],
-            "addressing": base_profile["endpoint"].get("addressing", "normal"),
+    Configuration is not written directly: a single file now describes every ECU
+    behind the gateway, and rewriting it from a probe would discard the plan
+    identifiers, capture paths, and notes a person put there. The fragment is
+    printed for review and pasting instead.
+    """
+    return [
+        {
+            "key": record["ecu_key"],
+            "name": record["ecu_name"],
+            "tester_can_id": record["tester_can_id"],
+            "response_can_id": record["response_can_id"],
         }
-        # Progress is reconstructed by filtering on profile_id alone, so each
-        # ECU needs its own capture root or they count each other's work.
-        profile["paths"] = {
-            "plan": f"scratch/plans/vehicle-a/{name}-progressive.json",
-            "capture_root": f"scratch/captures/vehicle-a/{name}",
-            "output_root": f"scratch/captures/vehicle-a/{name}/progressive",
-        }
-        profile["backend"] = {
-            "schema_version": 1,
-            "executable": base_profile["backend"]["executable"],
-            "arguments": ["--config", str(
-                (backend_path.relative_to(root)).as_posix())],
-            "mode_arguments": base_profile["backend"]["mode_arguments"],
-        }
-        profile_path = target / "validation-profile.json"
-        profile_path.write_text(
-            json.dumps(profile, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        written.append(str(profile_path.relative_to(root)))
-    return written
+        for record in sorted(answered, key=lambda r: r["ecu_key"])
+    ]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path)
+    parser.add_argument(
+        "--profile", type=Path,
+        help="ecu-profile.json carrying tester/response identifiers; the usual "
+             "source when sweeping a freshly imported ECU list",
+    )
     parser.add_argument(
         "--endpoint", action="append", metavar="TX:RX[:NAME]",
         help="probe an endpoint the catalog does not know, e.g. 0x7A2:0x7AA:unknown-a; "
@@ -195,8 +189,8 @@ def main() -> int:
     parser.add_argument("--timeout-ms", type=int, default=1500)
     parser.add_argument("--ecu-key", type=int, action="append", help="probe only these ECU keys")
     parser.add_argument(
-        "--emit-config", type=Path,
-        help="write backend/profile configuration for every ECU that answered",
+        "--emit-ecus", type=Path,
+        help="write the `ecus` entries for answering endpoints to this file for review",
     )
     parser.add_argument("--report", type=Path, default=Path("scratch/analysis/probe-report.json"))
     args = parser.parse_args()
@@ -212,7 +206,7 @@ def main() -> int:
 
         backend_value = args.backend
         if backend_value is None and base_profile is not None:
-            backend_value = Path(base_profile["backend"]["executable"])
+            backend_value = Path(base_profile.get("backend", {}).get("executable", "")) or None
         if backend_value is None:
             raise ValueError("supply --backend or --base-profile so the executable is known")
         backend = resolve_path(root, backend_value)
@@ -220,6 +214,12 @@ def main() -> int:
             raise FileNotFoundError(f"backend executable not found: {backend}")
 
         endpoints = read_endpoints(catalog_path) if args.catalog else []
+        if args.profile:
+            known = {e["ecu_key"] for e in endpoints}
+            endpoints.extend(
+                e for e in read_profile_endpoints(resolve_path(root, args.profile))
+                if e["ecu_key"] not in known
+            )
         if args.ecu_key:
             wanted = set(args.ecu_key)
             endpoints = [e for e in endpoints if e["ecu_key"] in wanted]
@@ -242,7 +242,7 @@ def main() -> int:
             })
 
         if not endpoints:
-            raise ValueError("supply --catalog, --endpoint, or both")
+            raise ValueError("supply --catalog, --profile, or --endpoint")
 
         staging = resolve_path(root, Path("scratch/probe"))
         staging.mkdir(parents=True, exist_ok=True)
