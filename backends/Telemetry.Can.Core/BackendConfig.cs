@@ -13,11 +13,23 @@ namespace Telemetry.Can.Core
         internal readonly byte[] ExpectedPrefix;
         internal readonly string Label;
 
-        internal SessionStep(byte[] request, byte[] expectedPrefix, string label)
+        /// <summary>Continue when this step draws a negative response.
+        ///
+        /// Steps differ in what a refusal means. Tester present is a keepalive:
+        /// an ECU that rejects it can still answer reads, and several do. A
+        /// session change is not: proceeding after one is refused would read
+        /// identifiers in a session the ECU never entered. Tolerance is
+        /// therefore per step, and off unless a configuration asks for it.
+        /// </summary>
+        internal readonly bool TolerateNegative;
+
+        internal SessionStep(
+            byte[] request, byte[] expectedPrefix, string label, bool tolerateNegative)
         {
             Request = request;
             ExpectedPrefix = expectedPrefix;
             Label = label;
+            TolerateNegative = tolerateNegative;
         }
     }
 
@@ -138,7 +150,7 @@ namespace Telemetry.Can.Core
             {
                 string where = stepsWhere + "[" + i.ToString(CultureInfo.InvariantCulture) + "]";
                 JsonValue step = steps[i];
-                step.RejectUnknownMembers(where, "request", "expect", "label");
+                step.RejectUnknownMembers(where, "request", "expect", "label", "tolerate_negative");
                 byte[] request = Hex.Parse(
                     step.Member(where, "request").AsString(where + ".request"), where + ".request");
                 byte[] expect = Hex.Parse(
@@ -156,7 +168,12 @@ namespace Telemetry.Can.Core
                         where + " must not be a ReadDataByIdentifier request; " +
                         "DIDs are supplied with --did so they appear in the capture record.");
                 }
-                config.SessionSetup[i] = new SessionStep(request, expect, label);
+                JsonValue tolerate;
+                bool tolerateNegative =
+                    step.TryMember("tolerate_negative", out tolerate)
+                    && tolerate.AsBoolean(where + ".tolerate_negative");
+                config.SessionSetup[i] =
+                    new SessionStep(request, expect, label, tolerateNegative);
             }
 
             JsonValue limits = root.Member("", "limits");

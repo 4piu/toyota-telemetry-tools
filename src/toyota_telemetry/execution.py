@@ -678,6 +678,7 @@ def main() -> int:
         if args.startup_delay_seconds:
             time.sleep(args.startup_delay_seconds)
         print("Startup delay finished; opening the configured backend.")
+        failures: list[tuple[str, Exception]] = []
         for context, item in queue:
             assert_budget(context.output_root, args.max_directory_mib, args.max_log_mib)
             stamp = timestamp()
@@ -727,21 +728,53 @@ def main() -> int:
                 minimum_samples = int(policy["minimum_samples_per_did"])
                 print(f"{marker}ROAD {tier} {','.join(dids)}")
             partial.parent.mkdir(parents=True, exist_ok=True)
-            run_and_validate(
-                command,
-                root,
-                partial,
-                complete,
-                minimum_samples,
-                context.maximum_dids,
-                context.catalog,
-                context.ecu_key,
-                context.decode_overrides,
-                str(context.config["profile_id"]),
-                context.config["endpoint"],
+            try:
+                run_and_validate(
+                    command,
+                    root,
+                    partial,
+                    complete,
+                    minimum_samples,
+                    context.maximum_dids,
+                    context.catalog,
+                    context.ecu_key,
+                    context.decode_overrides,
+                    str(context.config["profile_id"]),
+                    context.config["endpoint"],
+                )
+            except BackendInterrupted:
+                # A deliberate stop is not a failed item. It subclasses
+                # RuntimeError, so it has to be re-raised ahead of the handler
+                # below or an operator pressing Ctrl+C would silently advance to
+                # the next ECU instead of ending the session.
+                raise
+            except (RuntimeError, ValueError) as exc:
+                # One ECU refusing a request should not end a sequence covering
+                # several, least of all an unattended one mid-drive. The capture
+                # is already quarantined and counts as no progress; record what
+                # failed and move to the next item.
+                failures.append((context.label, exc))
+                print(f"{marker}FAILED: {exc}", file=sys.stderr)
+                continue
+            finally:
+                context.refresh_progress()
+                context.write_snapshot()
+
+        if failures:
+            by_ecu: dict[str, int] = {}
+            for label, _ in failures:
+                by_ecu[label] = by_ecu.get(label, 0) + 1
+            summary = ", ".join(f"{k} x{v}" for k, v in sorted(by_ecu.items()))
+            print(
+                f"\nSequence finished with {len(failures)} failed item(s): {summary}",
+                file=sys.stderr,
             )
-            context.refresh_progress()
-            context.write_snapshot()
+            print(
+                "Nothing failed was recorded as progress. An ECU that refuses the "
+                "session setup usually needs its own session_setup in its ecus entry.",
+                file=sys.stderr,
+            )
+            return 1
         print("Sequence complete; progress snapshot updated.")
         return 0
     except (KeyboardInterrupt, BackendInterrupted):

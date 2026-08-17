@@ -202,7 +202,21 @@ namespace Telemetry.Can.Core
 
                 foreach (SessionStep step in config.SessionSetup)
                 {
-                    transport.Exchange(step.Request, step.ExpectedPrefix, step.Label);
+                    if (!step.TolerateNegative)
+                    {
+                        transport.Exchange(step.Request, step.ExpectedPrefix, step.Label);
+                        continue;
+                    }
+                    ExchangeResult setup = transport.ExchangeAllowNegative(
+                        step.Request, step.ExpectedPrefix, step.Label);
+                    if (setup.IsNegative)
+                    {
+                        string note = step.Label + " refused with NRC 0x" +
+                            setup.NegativeResponseCode.ToString("X2", CultureInfo.InvariantCulture) +
+                            "; continuing because this step is marked tolerant.";
+                        Console.Error.WriteLine("WARNING: " + note);
+                        log.WriteEvent("setup_tolerated", note);
+                    }
                 }
                 log.WriteEvent("setup_complete", "Configured session setup accepted.");
 

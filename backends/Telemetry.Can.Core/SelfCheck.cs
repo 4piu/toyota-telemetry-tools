@@ -171,7 +171,7 @@ namespace Telemetry.Can.Core
             config.SessionSetup = new SessionStep[]
             {
                 new SessionStep(
-                    new byte[] { 0x3E, 0x00 }, new byte[] { 0x7E, 0x00 }, "tester present")
+                    new byte[] { 0x3E, 0x00 }, new byte[] { 0x7E, 0x00 }, "tester present", false)
             };
             config.MaximumCandidateDids = 6;
             config.DidMinimum = 0x0100;
