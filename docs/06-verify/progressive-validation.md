@@ -63,8 +63,13 @@ telemetry-validate road --config data/validation/validation-profile.json
 
 These commands are offline unless `--live` is supplied. The plan records the
 catalog hash, endpoint, selection rules, tier policy, candidates, and exclusions.
-Identity-bearing candidates are never scheduled. Privacy-sensitive candidates
-require an explicit plan-build opt-in.
+
+`selection.identity_words` and `selection.private_words` can withhold DIDs whose
+catalog names match, with `--include-private` admitting the latter. Both ship
+empty. Withholding a DID costs coverage without protecting much: captures land
+in the ignored `scratch/` tree, and a generated map carries signal definitions
+rather than readings. Populate them only if your project publishes something
+those defaults would not cover.
 
 ## Stationary qualification
 

@@ -32,13 +32,21 @@ from .project import load_json, project_root, resolve_path
 from .review import build_ledger, load_catalog_rows
 
 
+# Deliberately excludes observed minima, maxima, and value counts.  Those are
+# captured readings — a key-cycle count, a state of charge — and republishing
+# them puts vehicle state into a document whose purpose is definitions.  They
+# stay available locally through `telemetry-review --csv`, alongside the
+# captures needed to interpret them.
+#
+# `observation` survives because it is a categorical caveat rather than a
+# reading: a consumer needs to know a field never moved, or is absent from this
+# calibration, before trusting its conversion.
 SIGNAL_FIELDS = [
     "ecu_key", "ecu_name", "tester_can_id", "response_can_id",
     "data_id", "read_request", "name", "first_bit", "last_bit",
     "conversion", "unit",
     "evidence_state", "review_status", "observation",
-    "runs", "samples", "raw_min", "raw_max", "value_min", "value_max",
-    "distinct_raw_values", "notes",
+    "runs", "samples", "notes",
 ]
 
 UNSUPPORTED_FIELDS = [
@@ -222,14 +230,6 @@ def build_for_config(
                 "observation": observation,
                 "runs": record.runs if record else 0,
                 "samples": record.samples if record else 0,
-                "raw_min": record.raw_min if record and record.samples else "",
-                "raw_max": record.raw_max if record and record.samples else "",
-                "value_min": record.value_min if record and record.value_min is not None else "",
-                "value_max": record.value_max if record and record.value_max is not None else "",
-                "distinct_raw_values": (
-                    (f">{4096}" if record.distinct_overflow else len(record.distinct))
-                    if record and record.samples else ""
-                ),
                 "notes": notes,
             })
 

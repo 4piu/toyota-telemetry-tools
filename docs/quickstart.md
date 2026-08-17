@@ -178,8 +178,11 @@ telemetry-validate status --config data\validation\validation-profile.json
 
 Read the plan before connecting to anything. It records the catalog hash, the
 selection rules, every candidate, and every exclusion with a reason.
-Identity-bearing candidates are never scheduled; privacy-sensitive ones need an
-explicit opt-in.
+
+The DID range excludes UDS-reserved identifiers. The name-based withholding
+lists ship empty — see [progressive validation](06-verify/progressive-validation.md)
+before enabling them, because withholding a DID costs coverage and the things
+it guards are already covered by keeping captures out of Git.
 
 **Done when:** the candidate count and tier split look deliberate.
 
