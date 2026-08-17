@@ -12,7 +12,9 @@ it refuses to emit a curated state the observations do not support, so a
 generated map is always defensible against the captures behind it.
 
 DIDs the vehicle refused are written to a separate file: "not present on this
-vehicle" is a finding, and another vehicle of the same platform may differ.
+vehicle" is a finding, and another vehicle of the same platform may differ.  A
+DID nobody has asked about yet appears in neither file — that is unfinished
+work rather than a property of the vehicle, and it is reported as a note.
 """
 
 from __future__ import annotations
@@ -135,6 +137,7 @@ def build_for_config(
     signal_rows: list[dict[str, Any]] = []
     unsupported_rows: list[dict[str, Any]] = []
     violations: list[str] = []
+    unqualified: list[str] = []
     counts: dict[str, int] = defaultdict(int)
 
     for did in sorted(catalog_rows, key=lambda value: int(value, 16)):
@@ -155,8 +158,12 @@ def build_for_config(
                 result = "no_response"
                 classification = ""
             else:
-                result = "not_attempted"
-                classification = ""
+                # Never asked. That is unfinished work, not a property of the
+                # vehicle, and publishing it in a file about what this vehicle
+                # does not support would assert something no capture supports.
+                counts["unqualified_dids"] += 1
+                unqualified.append(did)
+                continue
             unsupported_rows.append({
                 "ecu_key": ecu_key,
                 "ecu_name": ecu_name,
@@ -241,6 +248,7 @@ def build_for_config(
         "catalog_dids": len(catalog_rows),
         "captures_read": stats["captures_read"],
         **{k: v for k, v in sorted(counts.items())},
+        "unqualified_sample": sorted(unqualified)[:10],
     }
     return signal_rows, unsupported_rows, summary, violations
 
@@ -307,6 +315,14 @@ def main() -> int:
                 print(f"  {item}", file=sys.stderr)
             print("\nNothing was written.", file=sys.stderr)
             return 1
+
+        pending = sum(int(s.get("unqualified_dids", 0)) for s in summaries)
+        if pending:
+            print(
+                f"\nNOTE: {pending} planned DID(s) have never been qualified, so nothing "
+                "is known about them either way. They are absent from both files until "
+                "asked:\n  telemetry-validate qualify --config <profile> --live",
+                file=sys.stderr)
 
         matched = sum(1 for row in all_signals if row["review_status"] == "reviewed")
         if matched != len(curation):
