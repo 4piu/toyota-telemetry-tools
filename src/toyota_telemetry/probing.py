@@ -284,24 +284,38 @@ def main() -> int:
             "ecus_answered": len(answered),
             "results": results,
         }
+        if not args.live:
+            # A dry run measured nothing. Writing a report anyway would overwrite
+            # the results of a real sweep with a file full of nulls, and the real
+            # sweep is the one that needed a vehicle.
+            print(
+                f"\nDry run: {len(results)} endpoint(s) would be probed, "
+                "nothing was transmitted and no report was written.\n"
+                "Add --live to probe for real."
+            )
+            return 0
+
         atomic_json(resolve_path(root, args.report), report)
         print(f"\n{len(answered)} of {len(results)} endpoint(s) answered. Report: {args.report}")
 
-        if not args.live:
-            print("Dry run: nothing was transmitted. Add --live to probe for real.")
-            return 0
-
-        if args.emit_config and answered:
-            output_dir = resolve_path(root, args.emit_config)
-            print()
-            for record in answered:
-                for path in emit_configs(
-                    root, output_dir, record, base_backend, base_profile, profile_id
-                ):
-                    print(f"  wrote {path}")
+        if answered:
+            fragment = ecus_fragment(answered)
+            rendered = json.dumps(fragment, indent=2, ensure_ascii=False)
+            if args.emit_ecus:
+                target = resolve_path(root, args.emit_ecus)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(rendered + "\n", encoding="utf-8")
+                print(f"\nWrote {len(fragment)} `ecus` entr(ies) to {args.emit_ecus}.")
+            else:
+                print("\n`ecus` entries for the endpoints that answered:")
+                print(rendered)
             print(
-                "\nEach emitted backend config inherits its session setup from the reference "
-                "ECU. Confirm that sequence before running a capture mode."
+                "\nSeveral entries may share one endpoint: Techstream models some ECUs as "
+                "separate databases over the same diagnostic address. Those are one ECU to "
+                "capture from, with more than one catalog to read it with.\n"
+                "\nAdd these to backend-config.json, and to validation-profile.json with a "
+                "plan_id and capture paths. They inherit the shared session sequence, which "
+                "is a guess for an ECU never captured from; confirm it before a capture mode."
             )
         return 0
     except (OSError, ValueError, KeyError) as exc:

@@ -28,12 +28,42 @@ from toyota_telemetry.experiments import (
     experiment_snapshot,
     load_experiment,
 )
-from toyota_telemetry.planning import build_plan, text_has
+from toyota_telemetry.planning import build_plan, ecu_views, text_has
 from toyota_telemetry.progress import discover_progress, road_queue, summarize_progress
 
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 FIXTURES = REPOSITORY / "tests" / "fixtures"
+
+
+def schema2_profile(config):
+    """Convert a single-ECU profile literal to the multi-ECU schema.
+
+    The suite was written when a profile described exactly one ECU. Keeping the
+    fixtures in that shape and converting here keeps each test about the thing
+    it is testing rather than about configuration plumbing.
+    """
+    endpoint = config.pop("endpoint")
+    paths = config.pop(
+        "paths", {"plan": "scratch/plan.json", "capture_root": "scratch/captures"}
+    )
+    plan_id = config.pop("plan_id", "test-plan")
+    config["schema_version"] = 2
+    config["transport"] = {
+        "bitrate": endpoint.get("bitrate", 500000),
+        "addressing": endpoint.get("addressing", "normal"),
+    }
+    config["ecus"] = [
+        {
+            "key": endpoint["ecu_key"],
+            "name": endpoint.get("name", "Test ECU"),
+            "plan_id": plan_id,
+            "tester_can_id": endpoint["tester_can_id"],
+            "response_can_id": endpoint["response_can_id"],
+            "paths": paths,
+        }
+    ]
+    return config
 
 
 class CaptureTests(unittest.TestCase):
@@ -143,9 +173,10 @@ class PlanningTests(unittest.TestCase):
                     "normal": {"period_ms": 250, "duration_seconds": 10, "minimum_samples_per_did": 5},
                 },
             }
+            config = schema2_profile(config)
             config_path = root / "validation-profile.json"
             config_path.write_text(json.dumps(config), encoding="utf-8")
-            plan = build_plan(root, config_path, False)
+            plan = build_plan(root, ecu_views(config)[0], False)
             self.assertEqual(plan["endpoint"]["ecu_key"], 812)
             self.assertEqual(plan["endpoint"]["bitrate"], 250000)
             self.assertEqual(plan["candidates"][0]["tier"], "fast")
@@ -505,7 +536,8 @@ class ProgressAndBackendTests(unittest.TestCase):
 p=argparse.ArgumentParser(); p.add_argument('--qualify',action='store_true')
 p.add_argument('--live',action='store_true'); p.add_argument('--batch-id')
 p.add_argument('--period-ms'); p.add_argument('--max-log-mib')
-p.add_argument('--output'); p.add_argument('--did',action='append'); a=p.parse_args()
+p.add_argument('--output'); p.add_argument('--ecu')
+p.add_argument('--did',action='append'); a=p.parse_args()
 records=[
  {'record':'session_start','schema_version':1,'profile_id':'example-platform'},
  {'record':'session_end','reason':'user_stop','sample_count':0,'did_counts':{}}]
@@ -537,7 +569,7 @@ sys.exit(2)
                 },
             }
             config_path = root / "validation-profile.json"
-            config_path.write_text(json.dumps(config), encoding="utf-8")
+            config_path.write_text(json.dumps(schema2_profile(config)), encoding="utf-8")
             result = subprocess.run(
                 [
                     sys.executable,
@@ -594,10 +626,15 @@ sys.exit(2)
                 "mode_arguments": {"qualification": ["--qualify", "--live"]},
             }
             arguments = capture_arguments(
-                root, backend, "qualification", ["0x1234"], "batch", root / "out.jsonl",
-                100, None, 0, 16,
+                root, backend, "qualification", 1, ["0x1234"], "batch",
+                root / "out.jsonl", 100, None, 0, 16,
             )
             self.assertIn("0x1234", arguments)
+            self.assertEqual(
+                arguments[arguments.index("--ecu") + 1],
+                "1",
+                "the backend must be told which ECU it is talking to",
+            )
             self.assertNotIn("--quiet", arguments)
 
     def test_live_runner_promotes_a_valid_backend_capture(self):
@@ -641,7 +678,8 @@ sys.exit(2)
 p=argparse.ArgumentParser(); p.add_argument('--qualify',action='store_true')
 p.add_argument('--live',action='store_true'); p.add_argument('--batch-id')
 p.add_argument('--period-ms'); p.add_argument('--max-log-mib')
-p.add_argument('--output'); p.add_argument('--did',action='append'); a=p.parse_args()
+p.add_argument('--output'); p.add_argument('--ecu')
+p.add_argument('--did',action='append'); a=p.parse_args()
 did=a.did[0]
 records=[
  {'record':'session_start','schema_version':1,'profile_id':'example-platform',
@@ -679,7 +717,7 @@ with open(a.output,'x',encoding='utf-8') as h:
                 },
             }
             config_path = root / "validation-profile.json"
-            config_path.write_text(json.dumps(config), encoding="utf-8")
+            config_path.write_text(json.dumps(schema2_profile(config)), encoding="utf-8")
             result = subprocess.run(
                 [
                     sys.executable,

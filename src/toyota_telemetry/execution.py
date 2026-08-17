@@ -52,8 +52,20 @@ def load_plan(path: Path, config: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("only validation plan schema 1 is supported")
     if plan.get("profile_id") != config["profile_id"]:
         raise ValueError("plan profile_id does not match validation profile")
-    if plan.get("endpoint") != config["endpoint"]:
-        raise ValueError("plan endpoint does not match validation profile")
+    # Compare the fields that identify the endpoint rather than the whole
+    # object: exact equality would invalidate every existing plan the moment a
+    # descriptive field is added to the profile, which says nothing about
+    # whether the plan targets the same ECU.
+    identity = ("ecu_key", "tester_can_id", "response_can_id", "bitrate")
+    plan_endpoint = plan.get("endpoint") or {}
+    mismatched = [
+        field for field in identity
+        if plan_endpoint.get(field) != config["endpoint"].get(field)
+    ]
+    if mismatched:
+        raise ValueError(
+            f"plan endpoint does not match validation profile: {', '.join(mismatched)}"
+        )
     candidates = plan.get("candidates")
     if not isinstance(candidates, list) or not candidates:
         raise ValueError("plan has no candidates")
