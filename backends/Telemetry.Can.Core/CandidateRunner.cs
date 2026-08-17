@@ -133,13 +133,28 @@ namespace Telemetry.Can.Core
 
             IsoTpTransport transport =
                 new IsoTpTransport(channel, config, options.TimeoutMs, options.Verbose, allowlist);
-            ExchangeResult result = transport.Exchange(first.Request, first.ExpectedPrefix, first.Label);
+            // A negative response still proves the ECU is there and routed to.
+            // Refusing this particular request says something about the request,
+            // not about whether anything answers at this address.
+            ExchangeResult result = transport.ExchangeAllowNegative(
+                first.Request, first.ExpectedPrefix, first.Label);
             Console.WriteLine(
                 "RX 0x" + config.ResponseCanId.ToString("X3", CultureInfo.InvariantCulture) +
                 "  " + Hex.Format(result.Payload) +
                 "  latency=" + result.LatencyMs.ToString(CultureInfo.InvariantCulture) + " ms");
-            Console.WriteLine(
-                "SUCCESS: the gateway routed '" + first.Label + "' to the configured endpoint.");
+            if (result.IsNegative)
+            {
+                Console.WriteLine(
+                    "PRESENT: the endpoint answered '" + first.Label + "' with NRC 0x" +
+                    result.NegativeResponseCode.ToString("X2", CultureInfo.InvariantCulture) +
+                    " (" + BoundedJsonlLog.ClassifyNegativeResponse(result.NegativeResponseCode) +
+                    "). The ECU is reachable; this request is not the one it wants.");
+            }
+            else
+            {
+                Console.WriteLine(
+                    "SUCCESS: the gateway routed '" + first.Label + "' to the configured endpoint.");
+            }
             channel.CheckStatus("final CAN status");
             return 0;
         }

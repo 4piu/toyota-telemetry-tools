@@ -130,6 +130,15 @@ def run_probe(
     if completed.returncode == 0:
         if not live:
             return {"answered": None, "outcome": "dry_run", "detail": ""}
+        # An ECU that refuses the request still answered it. Both outcomes mean
+        # something is present at this address, which is what a probe asks.
+        for line in stdout.splitlines():
+            if line.startswith("PRESENT:"):
+                return {
+                    "answered": True,
+                    "outcome": "answered_negative",
+                    "detail": line.strip(),
+                }
         return {"answered": True, "outcome": "answered", "detail": _reply_line(stdout)}
     detail = stderr.splitlines()[-1] if stderr else "no output"
     outcome = "no_reply" if "within" in detail or "No CAN frame" in detail else "error"
@@ -262,6 +271,7 @@ def main() -> int:
             arrow = f"{endpoint['tester_can_id']} -> {endpoint['response_can_id']}"
             label = {
                 "answered": "ANSWERED",
+                "answered_negative": "ANSWERED (negative)",
                 "no_reply": "no reply",
                 "error": "error",
                 "backend_error": "backend error",
