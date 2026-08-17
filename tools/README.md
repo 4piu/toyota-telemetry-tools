@@ -14,6 +14,7 @@ These tools are reference implementations for observed formats. Paths, database 
 | `telemetry-analyze-capture` | Independently validate and summarize one candidate-capture JSONL file. |
 | `telemetry-review` | Aggregate every completed capture into a per-signal evidence ledger; list what still needs excitation; check a curated map against the observations. |
 | `telemetry-map` | Emit a complete signal map from the catalog annotated with observations, plus a list of the DIDs a vehicle refused. |
+| `telemetry-probe` | Probe every ECU endpoint the catalog knows, plus any given explicitly, and write configuration for those that answer. |
 | `privacy-scan.ps1` | Scan prospective tracked files for common local/private markers. |
 
 The programs that talk to a vehicle are not here; they live in [`backends/`](../backends/README.md).

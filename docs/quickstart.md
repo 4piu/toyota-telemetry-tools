@@ -134,6 +134,33 @@ with swapped CAN-L and ground. Details in [backends/README](../backends/README.m
 
 **Done when:** both probes return the expected response.
 
+### More than one ECU
+
+A vehicle has many ECUs and you want the ones that answer, not a per-ECU
+ritual. Sweep them all from the catalog's own protocol table:
+
+```powershell
+telemetry-probe --catalog data\catalog	elemetry.csv `
+  --base-config data\configackend-config.json `
+  --base-profile data\configalidation-profile.json          # dry run first
+```
+
+Add `--live` to transmit — one tester-present frame per endpoint, through the
+same backend and allowlist as anything else — and `--emit-config data\config`
+to write a backend configuration and validation profile for every ECU that
+answered, each with its own capture root.
+
+An endpoint you saw on the bus but the catalog does not list can be probed
+directly, with or without a catalog:
+
+```powershell
+telemetry-probe --endpoint 0x7A2:0x7AA:unlisted --base-config ... --live
+```
+
+Each emitted configuration inherits its session setup from the ECU you started
+from. That is a guess — confirm it before running a capture mode, since a
+different ECU may open its session differently.
+
 ---
 
 ## 5. Build and review the plan
