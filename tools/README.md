@@ -7,7 +7,7 @@ These tools are reference implementations for observed formats. Paths, database 
 | `j2534/save-techstream-log.ps1` | Signal an already-active compatible Techstream logger to snapshot its circular buffer. |
 | `j2534/parse-j2534-log.py` | Inventory/timeline a text log, learn dynamic DIDs, and decode a supplied signal profile. |
 | `techstream/query-techstream-db.ps1` | Query observed Phase-5 catalog, protocol, monitor, physical, and unit records. |
-| `techstream/import-ecu-catalog.py` | Narrow a `-Catalog` ECU dump to an `ecu-profile.json`, optionally querying each ECU's endpoint. |
+| `techstream/build-ecu-profile.py` | Narrow the installed ECU catalog to an `ecu-profile.json`, with each ECU's endpoint from its protocol table. |
 | `techstream/inspect-session.py` | Print a privacy-minimized `.TSE` section/ECU inventory. |
 | `catalog/build-catalog.py` | Join query results according to `templates/catalog-profile.json` and emit a candidate atlas plus provenance manifest. |
 | `telemetry-build-plan` | Build a privacy-aware, tiered validation plan from a catalog and platform profile. |
