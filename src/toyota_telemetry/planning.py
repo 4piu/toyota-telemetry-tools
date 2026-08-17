@@ -8,7 +8,7 @@ import csv
 from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import sys
 from typing import Any
@@ -53,7 +53,7 @@ def validate_config(config: dict[str, Any]) -> None:
     if not isinstance(ecus, list) or not ecus:
         raise ValueError("'ecus' must be a non-empty array")
     seen_keys: set[int] = set()
-    seen_roots: dict[str, int] = {}
+    seen_roots: dict[PurePosixPath, int] = {}
     for index, ecu in enumerate(ecus):
         where = f"ecus[{index}]"
         for field in ("key", "plan_id", "tester_can_id", "response_can_id", "paths"):
@@ -66,14 +66,25 @@ def validate_config(config: dict[str, Any]) -> None:
         for field in ("plan", "capture_root"):
             if not ecu["paths"].get(field):
                 raise ValueError(f"{where}.paths is missing {field!r}")
-        # Progress is reconstructed by filtering on profile_id, so two ECUs
-        # sharing a capture root would count each other's captures as their own.
-        root = str(ecu["paths"]["capture_root"])
-        if root in seen_roots:
-            raise ValueError(
-                f"{where} shares capture_root {root!r} with ECU {seen_roots[root]}; "
-                "give each its own"
-            )
+        # Progress is reconstructed by walking a capture root recursively and
+        # filtering on profile_id, which every ECU in a profile shares. Two ECUs
+        # must therefore not share a root, and neither may sit inside another:
+        # a parent would silently absorb its child's captures and report them as
+        # its own progress.
+        root = PurePosixPath(str(ecu["paths"]["capture_root"]).replace("\\", "/"))
+        for other, other_key in seen_roots.items():
+            if root == other:
+                raise ValueError(
+                    f"{where} shares capture_root {root} with ECU {other_key}; "
+                    "give each its own"
+                )
+            if other in root.parents or root in other.parents:
+                inner, outer = (root, other) if other in root.parents else (other, root)
+                raise ValueError(
+                    f"{where}: capture root {inner} sits inside {outer}. Progress is "
+                    "discovered recursively, so the outer ECU would count the inner "
+                    "one's captures as its own. Make them siblings."
+                )
         seen_roots[root] = key
 
 
