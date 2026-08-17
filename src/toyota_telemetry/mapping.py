@@ -6,14 +6,14 @@ completed captures are merged in, and a small hand-written curation file
 supplies reviewed evidence states and notes.
 
 Two things this deliberately will not do.  It never raises an evidence state on
-its own — an observed signal reaches "Observed and replayed" and no further,
+its own - an observed signal reaches "Observed and replayed" and no further,
 because Correlated and Validated are review conclusions, not measurements.  And
 it refuses to emit a curated state the observations do not support, so a
 generated map is always defensible against the captures behind it.
 
 DIDs the vehicle refused are written to a separate file: "not present on this
 vehicle" is a finding, and another vehicle of the same platform may differ.  A
-DID nobody has asked about yet appears in neither file — that is unfinished
+DID nobody has asked about yet appears in neither file - that is unfinished
 work rather than a property of the vehicle, and it is reported as a note.
 """
 
@@ -35,7 +35,7 @@ from .review import build_ledger, load_catalog_rows
 
 
 # Deliberately excludes observed minima, maxima, and value counts.  Those are
-# captured readings — a key-cycle count, a state of charge — and republishing
+# captured readings - a key-cycle count, a state of charge - and republishing
 # them puts vehicle state into a document whose purpose is definitions.  They
 # stay available locally through `telemetry-review --csv`, alongside the
 # captures needed to interpret them.
@@ -45,7 +45,7 @@ from .review import build_ledger, load_catalog_rows
 # calibration, before trusting its conversion.
 SIGNAL_FIELDS = [
     "ecu_key", "ecu_name", "tester_can_id", "response_can_id",
-    "data_id", "read_request", "name", "first_bit", "last_bit",
+    "data_id", "read_request", "internal_id", "name", "first_bit", "last_bit",
     "conversion", "unit",
     "evidence_state", "review_status", "observation",
     "runs", "samples", "notes",
@@ -227,6 +227,11 @@ def build_for_config(
                 "response_can_id": response,
                 "data_id": did,
                 "read_request": row.get("read_request", ""),
+                # Several catalog rows can share a DID, bit range, and name while
+                # differing only in conversion - a unit selector elsewhere in the
+                # response picks between them. The internal id is what tells them
+                # apart and what cross-references back into the database.
+                "internal_id": row.get("internal_id", ""),
                 "name": row.get("name", ""),
                 "first_bit": first_bit,
                 "last_bit": last_bit,

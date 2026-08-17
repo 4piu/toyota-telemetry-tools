@@ -1,7 +1,7 @@
 """Aggregate every completed capture into one per-signal evidence ledger.
 
 ``telemetry-analyze-capture`` answers "was this one capture sound?".  This
-answers "what do I still not know?" — which is the question that decides what
+answers "what do I still not know?" - which is the question that decides what
 to schedule next, and the one that is unanswerable by opening summaries one at
 a time once a catalog runs to hundreds of DIDs.
 
