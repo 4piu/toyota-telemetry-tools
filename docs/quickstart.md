@@ -257,8 +257,12 @@ This flags any row claiming more than was observed — a `Correlated` state on a
 field that never changed, or a bit range no capture ever covered. It exits
 nonzero when something needs review, so it fits in CI.
 
-**Done when:** `--check` is clean and every remaining claim is one you would
-defend.
+**Done when:** `telemetry-map` writes without complaint and every reviewed
+claim is one you would defend.
+
+A signal that stayed constant still belongs in the map. A constant value does
+not mean the formula is wrong — it means the field was not exercised, and
+someone else's vehicle may exercise it.
 
 ---
 

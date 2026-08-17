@@ -1,0 +1,332 @@
+"""Emit a complete signal map from the catalog, annotated with observations.
+
+The catalog is the row set: every signal the OEM database claims for an ECU
+appears, whether or not a capture has exercised it.  Observations from
+completed captures are merged in, and a small hand-written curation file
+supplies reviewed evidence states and notes.
+
+Two things this deliberately will not do.  It never raises an evidence state on
+its own — an observed signal reaches "Observed and replayed" and no further,
+because Correlated and Validated are review conclusions, not measurements.  And
+it refuses to emit a curated state the observations do not support, so a
+generated map is always defensible against the captures behind it.
+
+DIDs the vehicle refused are written to a separate file: "not present on this
+vehicle" is a finding, and another vehicle of the same platform may differ.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+from collections import defaultdict
+import json
+from pathlib import Path
+import sys
+from typing import Any
+
+from .capture import classify_nrc
+from .planning import validate_config
+from .progress import discover_progress
+from .project import load_json, project_root, resolve_path
+from .review import build_ledger, load_catalog_rows
+
+
+SIGNAL_FIELDS = [
+    "ecu_key", "ecu_name", "tester_can_id", "response_can_id",
+    "data_id", "read_request", "name", "first_bit", "last_bit",
+    "conversion", "unit",
+    "evidence_state", "review_status", "observation",
+    "runs", "samples", "raw_min", "raw_max", "value_min", "value_max",
+    "distinct_raw_values", "notes",
+]
+
+UNSUPPORTED_FIELDS = [
+    "ecu_key", "ecu_name", "data_id", "read_request",
+    "result", "negative_response_code", "classification", "attempts",
+    "catalog_signal_count", "catalog_signal_names",
+]
+
+CURATION_FIELDS = ["data_id", "first_bit", "last_bit", "name", "evidence_state", "notes"]
+
+# States that assert the field was seen to move. Emitting one of these for a
+# signal that never changed is the mistake this tool refuses to make.
+EXCITATION_WORDS = ("correlated", "validated")
+
+
+def curation_key(data_id: str, first_bit: Any, last_bit: Any) -> tuple[str, int, int]:
+    return (f"0x{int(str(data_id), 16):04X}", int(first_bit), int(last_bit))
+
+
+def load_curation(path: Path | None) -> dict[tuple[str, int, int], dict[str, str]]:
+    if path is None or not path.is_file():
+        return {}
+    result: dict[tuple[str, int, int], dict[str, str]] = {}
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        for line_number, row in enumerate(csv.DictReader(handle), start=2):
+            try:
+                key = curation_key(row["data_id"], row["first_bit"], row["last_bit"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f"{path}:{line_number} is not a valid curation row") from exc
+            if key in result:
+                raise ValueError(f"{path}:{line_number} duplicates {key[0]} [{key[1]}..{key[2]}]")
+            result[key] = row
+    return result
+
+
+def build_for_config(
+    root: Path, config_path: Path, curation: dict[tuple[str, int, int], dict[str, str]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], list[str]]:
+    config = load_json(resolve_path(root, config_path))
+    validate_config(config)
+
+    ecu_key = int(config["endpoint"]["ecu_key"])
+    profile_id = str(config["profile_id"])
+    tester = str(config["endpoint"]["tester_can_id"])
+    response = str(config["endpoint"]["response_can_id"])
+    catalog_path = resolve_path(root, config["catalog"]["path"])
+    capture_root = resolve_path(root, config["paths"]["capture_root"])
+    overrides_value = config.get("analysis", {}).get("decode_overrides")
+    decode_overrides = resolve_path(root, overrides_value) if overrides_value else None
+    maximum_dids = int(config["selection"].get("maximum_dids_per_road_batch", 6))
+
+    catalog_rows = load_catalog_rows(catalog_path, ecu_key, decode_overrides)
+    if not catalog_rows:
+        raise ValueError(f"no catalog rows for ECU key {ecu_key} in {catalog_path}")
+
+    observed, stats = build_ledger(capture_root, catalog_rows, profile_id, maximum_dids)
+    by_bits = {}
+    for record in observed.values():
+        by_bits.setdefault((record.did, record.first_bit, record.last_bit), record)
+
+    progress = discover_progress(capture_root, profile_id)
+    response_bytes = stats.get("did_response_bytes", {})
+
+    # A DID the planner deliberately withheld is not the same as one the
+    # vehicle refused, and neither is the same as one nobody reached yet.
+    excluded: dict[str, str] = {}
+    plan_value = config.get("paths", {}).get("plan")
+    if plan_value:
+        plan_path = resolve_path(root, plan_value)
+        if plan_path.is_file():
+            try:
+                for item in load_json(plan_path).get("excluded", []):
+                    did = item.get("data_id")
+                    reason = item.get("excluded_reason")
+                    if isinstance(did, str) and isinstance(reason, str):
+                        excluded[did] = reason
+            except (OSError, ValueError):
+                pass
+
+    ecu_name = ""
+    for rows in catalog_rows.values():
+        if rows:
+            ecu_name = rows[0].get("ecu_name", "") or ""
+            break
+
+    signal_rows: list[dict[str, Any]] = []
+    unsupported_rows: list[dict[str, Any]] = []
+    violations: list[str] = []
+    counts: dict[str, int] = defaultdict(int)
+
+    for did in sorted(catalog_rows, key=lambda value: int(value, 16)):
+        rows = catalog_rows[did]
+        supported = did in progress.qualified
+
+        if not supported:
+            nrcs = progress.negative_codes.get(did, [])
+            attempts = progress.qualification_attempts.get(did, 0)
+            names = [r.get("name", "") for r in rows if r.get("name")]
+            if nrcs:
+                result = "refused"
+                classification = classify_nrc(int(nrcs[-1], 16))
+            elif did in excluded:
+                result = "withheld"
+                classification = excluded[did]
+            elif attempts:
+                result = "no_response"
+                classification = ""
+            else:
+                result = "not_attempted"
+                classification = ""
+            unsupported_rows.append({
+                "ecu_key": ecu_key,
+                "ecu_name": ecu_name,
+                "data_id": did,
+                "read_request": rows[0].get("read_request", "") if rows else "",
+                "result": result,
+                "negative_response_code": nrcs[-1] if nrcs else "",
+                "classification": classification,
+                "attempts": attempts,
+                "catalog_signal_count": len(names),
+                "catalog_signal_names": "; ".join(dict.fromkeys(names)),
+            })
+            counts[f"unsupported_{result}"] += 1
+            counts["unsupported_dids"] += 1
+            continue
+
+        counts["supported_dids"] += 1
+        available_bits = response_bytes.get(did, 0) * 8
+        for row in rows:
+            try:
+                first_bit = int(row["first_bit"])
+                last_bit = int(row["last_bit"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            key = (did, first_bit, last_bit)
+            record = by_bits.get(key)
+            curated = curation.get(key)
+
+            if record is not None and record.samples:
+                observation = record.status()
+                derived_state = "Observed and replayed"
+            elif available_bits and last_bit >= available_bits:
+                # The catalog claims a field past the end of the reply this
+                # vehicle actually returns; it is absent from this calibration.
+                observation = "beyond_response"
+                derived_state = "Candidate"
+            else:
+                observation = "unobserved"
+                derived_state = "Candidate"
+
+            state = derived_state
+            review_status = "auto"
+            notes = ""
+            if curated:
+                state = (curated.get("evidence_state") or derived_state).strip()
+                notes = (curated.get("notes") or "").strip()
+                review_status = "reviewed"
+                if any(word in state.lower() for word in EXCITATION_WORDS):
+                    if observation in ("constant", "unobserved", "beyond_response"):
+                        violations.append(
+                            f"{did} [{first_bit}..{last_bit}] {row.get('name','')}: "
+                            f"curation claims '{state}' but observation is '{observation}'"
+                        )
+            counts[f"signal_{observation}"] += 1
+            counts["signals"] += 1
+
+            signal_rows.append({
+                "ecu_key": ecu_key,
+                "ecu_name": ecu_name,
+                "tester_can_id": tester,
+                "response_can_id": response,
+                "data_id": did,
+                "read_request": row.get("read_request", ""),
+                "name": row.get("name", ""),
+                "first_bit": first_bit,
+                "last_bit": last_bit,
+                "conversion": row.get("formula") or "raw",
+                "unit": row.get("unit", ""),
+                "evidence_state": state,
+                "review_status": review_status,
+                "observation": observation,
+                "runs": record.runs if record else 0,
+                "samples": record.samples if record else 0,
+                "raw_min": record.raw_min if record and record.samples else "",
+                "raw_max": record.raw_max if record and record.samples else "",
+                "value_min": record.value_min if record and record.value_min is not None else "",
+                "value_max": record.value_max if record and record.value_max is not None else "",
+                "distinct_raw_values": (
+                    (f">{4096}" if record.distinct_overflow else len(record.distinct))
+                    if record and record.samples else ""
+                ),
+                "notes": notes,
+            })
+
+    summary = {
+        "ecu_key": ecu_key,
+        "ecu_name": ecu_name,
+        "profile_id": profile_id,
+        "endpoint": f"{tester} -> {response}",
+        "catalog_dids": len(catalog_rows),
+        "captures_read": stats["captures_read"],
+        **{k: v for k, v in sorted(counts.items())},
+    }
+    return signal_rows, unsupported_rows, summary, violations
+
+
+def write_csv(path: Path, fields: list[str], rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in fields})
+    temporary.replace(path)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--config", type=Path, action="append", required=True,
+        help="validation profile; repeat once per ECU to build a combined map",
+    )
+    parser.add_argument("--project-root", type=Path)
+    parser.add_argument(
+        "--curation", type=Path,
+        help="hand-written evidence states and notes (default: data/config/curation.csv)",
+    )
+    parser.add_argument("--signals-out", type=Path, default=Path("data/map/signals.csv"))
+    parser.add_argument(
+        "--unsupported-out", type=Path, default=Path("data/map/unsupported.csv"))
+    parser.add_argument(
+        "--dry-run", action="store_true", help="report what would be written and stop")
+    args = parser.parse_args()
+
+    try:
+        root = project_root(args.project_root, args.config[0])
+        curation_path = resolve_path(
+            root, args.curation if args.curation else Path("data/config/curation.csv"))
+        curation = load_curation(curation_path)
+
+        all_signals: list[dict[str, Any]] = []
+        all_unsupported: list[dict[str, Any]] = []
+        summaries: list[dict[str, Any]] = []
+        violations: list[str] = []
+        for config_path in args.config:
+            signals, unsupported, summary, bad = build_for_config(root, config_path, curation)
+            all_signals.extend(signals)
+            all_unsupported.extend(unsupported)
+            summaries.append(summary)
+            violations.extend(bad)
+
+        print(json.dumps({
+            "schema_version": 1,
+            "curation_rows": len(curation),
+            "signal_rows": len(all_signals),
+            "unsupported_dids": len(all_unsupported),
+            "ecus": summaries,
+        }, indent=2))
+
+        if violations:
+            print(
+                f"\nERROR: {len(violations)} curated row(s) claim more than the captures show:",
+                file=sys.stderr)
+            for item in violations:
+                print(f"  {item}", file=sys.stderr)
+            print("\nNothing was written.", file=sys.stderr)
+            return 1
+
+        matched = sum(1 for row in all_signals if row["review_status"] == "reviewed")
+        if matched != len(curation):
+            print(
+                f"\nWARNING: {len(curation) - matched} curation row(s) matched no catalog signal; "
+                "check their data_id and bit range.",
+                file=sys.stderr)
+
+        if args.dry_run:
+            print("\nDry run: no files written.")
+            return 0
+
+        write_csv(resolve_path(root, args.signals_out), SIGNAL_FIELDS, all_signals)
+        write_csv(resolve_path(root, args.unsupported_out), UNSUPPORTED_FIELDS, all_unsupported)
+        print(f"\nWrote {args.signals_out} and {args.unsupported_out}.")
+        return 0
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -199,6 +199,10 @@ def build_ledger(
         "batch_runs": 0,
         "experiment_runs": 0,
         "dids_observed": set(),
+        # Longest response payload seen per DID. A catalog row whose bit range
+        # runs past this is absent from the reply this vehicle actually sends,
+        # which is a finding rather than a decode failure.
+        "did_response_bytes": {},
     }
 
     for path in iter_captures(capture_root):
@@ -226,8 +230,22 @@ def build_ledger(
 
         # Qualification proves the DID answers; it carries one sample and tells
         # us nothing about whether a field moves.  Only its support result is
-        # interesting, and progress already tracks that.
+        # interesting, and progress already tracks that.  Its response length is
+        # worth keeping even so: for a DID never road-captured, this is the only
+        # evidence of how long a reply the vehicle actually sends.
         if start.get("mode") == "candidate_qualification":
+            for sample in samples:
+                if sample.get("supported") is not True:
+                    continue
+                did = sample.get("did")
+                if not isinstance(did, str):
+                    continue
+                try:
+                    length = len(bytes.fromhex(sample["response_hex"])) - 3
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if length > stats["did_response_bytes"].get(did, 0):
+                    stats["did_response_bytes"][did] = length
             continue
 
         seen_here: set[tuple[str, str, int, int]] = set()
@@ -242,6 +260,8 @@ def build_ledger(
                 data = bytes.fromhex(sample["response_hex"])[3:]
             except (KeyError, TypeError, ValueError):
                 continue
+            if len(data) > stats["did_response_bytes"].get(did, 0):
+                stats["did_response_bytes"][did] = len(data)
             for row in catalog_rows.get(did, []):
                 try:
                     raw = extract_raw(data, int(row["first_bit"]), int(row["last_bit"]))
@@ -298,6 +318,11 @@ def check_map(
                 continue
             name = row.get("name", "")
             state = (row.get("evidence_state") or "").strip()
+            # "Candidate" asserts nothing beyond "the database mentions this",
+            # so there is no observation for it to outrun. Generated maps carry
+            # such rows deliberately, for fields absent from this vehicle.
+            if state.lower().startswith("candidate"):
+                continue
             record = by_bits.get((did, first_bit, last_bit))
             if record is None or record.samples == 0:
                 findings.append({
