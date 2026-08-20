@@ -1,6 +1,6 @@
 # Add an adapter backend
 
-Working backends for PCAN-Basic and J2534 ship in [`backends/`](../backends/README.md).
+Working backends for PCAN-Basic, J2534, and gs_usb ship in [`backends/`](../backends/README.md).
 Adding another transport means implementing `ICanChannel` — seven members — and a
 `Main`; ISO-TP, allowlists, capture logging, and this CLI contract are shared.
 Read this page for the behaviour a channel must provide.

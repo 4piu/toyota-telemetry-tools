@@ -4,7 +4,7 @@ These are the programs that actually talk to the vehicle. `telemetry-validate`
 never opens a CAN device itself — it builds a bounded, allowlisted command and
 runs one of these per batch.
 
-You need exactly one working backend for your adapter. Both shipped backends
+You need exactly one working backend for your adapter. All shipped backends
 are configuration-driven: **you should not need to edit any C# to use one on a
 new vehicle.** Everything vehicle-specific lives in a `backend-config.json`
 that you write.
@@ -15,6 +15,7 @@ that you write.
 |---|---|---|
 | `telemetry-pcan` | PEAK PCAN-USB, or any adapter whose firmware the PEAK driver enumerates as a PCAN channel (for example a CANable flashed with PCAN-compatible firmware) | x64 |
 | `telemetry-j2534` | A J2534 / PassThru interface with a vendor DLL | x86 by default; x64 if the vendor DLL is 64-bit |
+| `telemetry-gsusb` | Any [candleLight_fw](https://github.com/candle-usb/candleLight_fw)-family adapter — a CANable flashed with `candleLight_fw`, the reference candleLight board, cantact, and their many clones | x64 |
 
 Both operate the adapter in **raw CAN** mode and run the same
 application-managed ISO-TP layer. That is deliberate: it keeps every backend
@@ -27,10 +28,14 @@ transport behaviour vendor-specific and the comparison meaningless.
 No SDK is required. The build uses the C# compiler that ships with Windows.
 
 ```powershell
-.\build.ps1                      # both backends into backends\bin\Release
+.\build.ps1                      # every backend into backends\bin\Release
 .\build.ps1 -Backend pcan        # just one
 .\build.ps1 -J2534Platform x64   # for a 64-bit vendor DLL
 ```
+
+`telemetry-gsusb` also copies `libusb-1.0.dll` next to the executable — its
+fallback transport's only dependency; do not run the `.exe` from outside its
+build output directory, or that copy will not be found.
 
 Build straight into your platform project's ignored scratch directory so the
 binary is never committed and never assumed to sit in a sibling checkout:
@@ -71,6 +76,24 @@ Confirm the toolkit agrees with the output:
 telemetry-analyze-capture selftest.jsonl --ecu-key 0 --minimum-samples 1
 ```
 
+## gs_usb: two transports, and why
+
+`telemetry-gsusb` tries native WinUSB first — the zero-driver path
+candleLight_fw's Microsoft OS descriptors are designed for — and falls back to
+libusb only if that fails. Both were needed in practice: a unit whose WinUSB
+binding candleLight_fw's own WCID descriptors installed automatically (no
+Zadig, no warning in Device Manager) still refused `libusb_open`-style access
+with no diagnosable cause, on every combination tried (elevated shell, a
+Zadig-forced WinUSB rebind, a current `libusb-1.0.dll`). Rebinding the same
+unit to **libusbK** through Zadig fixed it immediately, and once it does, the
+libusb fallback here handles it transparently — libusb's Windows backend
+detects and speaks either driver.
+
+If a fresh adapter's Device Manager entry looks fine but `telemetry-gsusb`
+still fails to open it, this is the fix: Zadig, **Options → List All
+Devices**, find the adapter, replace its driver with **libusbK** instead of
+WinUSB.
+
 ## Bring-up order
 
 Do these in order the first time on any vehicle. Each step isolates a
@@ -109,6 +132,8 @@ fields that need real values:
 | `limits.did_min` / `did_max` | The DID range you are willing to schedule. |
 | `device.pcan.channel` | `PCAN_USBBUS1` unless you have several adapters. |
 | `device.j2534.dll` | Absolute path to the vendor PassThru DLL. |
+| `device.gsusb.vendor_id` / `product_id` | Four hex digits each; default `1d50`/`606f` is correct for every candleLight_fw board. |
+| `device.gsusb.serial` | Only needed with more than one gs_usb adapter attached at once. |
 
 `session_setup` is replayed in order before any DID is read, and each step's
 response must start with its `expect` prefix. A step may not be a
@@ -166,4 +191,10 @@ Telemetry.Can.Core/       shared; no device or vehicle knowledge
 
 Telemetry.Backend.Pcan/   PCAN-Basic binding
 Telemetry.Backend.J2534/  J2534 PassThru binding
+Telemetry.Backend.Gsusb/  gs_usb binding (candleLight_fw and its clone family)
+  GsUsbProtocol.cs        wire structs and bit-timing math; transport-agnostic
+  IGsUsbTransport.cs      what a transport must do
+  WinUsbTransport.cs      primary: native WinUSB via SetupAPI, no bundled DLL
+  LibUsbTransport.cs      fallback: libusb-1.0, bundled - see runtime/
+  GsUsbChannel.cs         ICanChannel: tries WinUSB, falls back to libusb
 ```

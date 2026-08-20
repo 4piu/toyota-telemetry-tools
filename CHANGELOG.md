@@ -12,6 +12,21 @@ Pin a tag rather than a branch — `revision = "v0.3.0"` — and
 `setup-platform-project.ps1` resolves it to the commit it names. A branch is
 not a pin: it moves under you.
 
+## Unreleased
+
+### Added
+
+- `telemetry-gsusb`: a backend for candleLight_fw and its clone family (the
+  gs_usb protocol) — CANable boards flashed with `candleLight_fw`, the
+  reference candleLight board, cantact, and their many board-specific
+  derivatives. Opens over native WinUSB first and falls back to libusb only if
+  that fails, since one verified unit's automatic WinUSB binding refused
+  `libusb_open`-style access for no diagnosable reason while a Zadig rebind to
+  libusbK worked immediately; libusb's own Windows backend then handles either
+  driver transparently. Verified end to end against real hardware: protocol
+  handshake, computed bit timing, and a byte-exact loopback receive, not just
+  that it opens.
+
 ## 0.3.0
 
 ### Breaking

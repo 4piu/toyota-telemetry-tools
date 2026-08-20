@@ -9,14 +9,18 @@
 
     PCAN builds x64 to match the 64-bit PCANBasic.dll. J2534 builds x86 by
     default because most Toyota-compatible vendor DLLs are 32-bit; pass
-    -J2534Platform x64 for a 64-bit vendor DLL.
+    -J2534Platform x64 for a 64-bit vendor DLL. gs_usb builds x64 and copies
+    its bundled libusb-1.0.dll (the fallback transport's dependency; the
+    primary, native-WinUSB transport needs nothing beyond what Windows ships)
+    next to the executable, matching the bitness of the DLL under
+    Telemetry.Backend.Gsusb\runtime\.
 
 .EXAMPLE
     .\build.ps1
     .\build.ps1 -Backend pcan -OutputDirectory ..\..\my-project\scratch\bin
 #>
 param(
-    [ValidateSet('all', 'pcan', 'j2534')]
+    [ValidateSet('all', 'pcan', 'j2534', 'gsusb')]
     [string]$Backend = 'all',
 
     [ValidateSet('Release', 'Debug')]
@@ -107,6 +111,22 @@ if ($Backend -eq 'all' -or $Backend -eq 'j2534') {
         -Platform $J2534Platform
 }
 
+if ($Backend -eq 'all' -or $Backend -eq 'gsusb') {
+    Build-Backend -Name 'telemetry-gsusb' `
+        -ProjectDirectory (Join-Path $PSScriptRoot 'Telemetry.Backend.Gsusb') `
+        -Platform 'x64'
+    $gsusbRuntime = Join-Path $PSScriptRoot 'Telemetry.Backend.Gsusb\runtime\libusb-1.0.dll'
+    Copy-Item -LiteralPath $gsusbRuntime -Destination $OutputDirectory -Force
+}
+
 Write-Output ''
 Write-Output "Verify the build before connecting to a vehicle:"
-Write-Output "  $OutputDirectory\telemetry-pcan.exe --self-test --output selftest.jsonl"
+if ($Backend -eq 'all' -or $Backend -eq 'pcan') {
+    Write-Output "  $OutputDirectory\telemetry-pcan.exe --self-test --output selftest.jsonl"
+}
+if ($Backend -eq 'all' -or $Backend -eq 'j2534') {
+    Write-Output "  $OutputDirectory\telemetry-j2534.exe --self-test --output selftest.jsonl"
+}
+if ($Backend -eq 'all' -or $Backend -eq 'gsusb') {
+    Write-Output "  $OutputDirectory\telemetry-gsusb.exe --self-test --output selftest.jsonl"
+}

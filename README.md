@@ -55,7 +55,7 @@ Techstream encoding contract.
   in detail: plans, qualification, road batches, experiments, and the evidence
   ledger.
 - [Adding an adapter](docs/adding-an-adapter.md) — implementing the backend
-  contract for a device that is not PCAN or J2534.
+  contract for a device that is not PCAN, J2534, or gs_usb.
 
 Method — what to record, how transport is reconstructed, how a formula is
 decoded, what each evidence state claims — lives in the
@@ -64,9 +64,9 @@ decoded, what each evidence state claims — lives in the
 ## Backends
 
 [`backends/`](backends/README.md) holds the programs that talk to a vehicle:
-configuration-driven clients for PCAN-Basic and J2534 that implement the
-runner's executable contract. They build with the C# compiler shipped with
-Windows and need no SDK.
+configuration-driven clients for PCAN-Basic, J2534, and gs_usb (candleLight_fw
+and its clone family) that implement the runner's executable contract. They
+build with the C# compiler shipped with Windows and need no SDK.
 
 You should not have to write C# to use one on a new vehicle — endpoint, session
 setup, and DID range come from a `backend-config.json` the project supplies.

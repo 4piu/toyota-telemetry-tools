@@ -21,6 +21,9 @@ __pycache__/
 *.pdb
 *.dll
 *.cache
+# ...except the gs_usb backend's bundled libusb, a runtime dependency it
+# ships with rather than a build artifact - see runtime/README.md.
+!/backends/Telemetry.Backend.Gsusb/runtime/libusb-1.0.dll
 
 # Captures and diagnostic sessions
 captures/
