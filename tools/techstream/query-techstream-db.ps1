@@ -13,10 +13,25 @@ param(
     [string]$PhysicalGroups,
     [string]$UnitIds,
     [ValidateSet('Object', 'JsonLines')]
-    [string]$OutputFormat = 'Object'
+    [string]$OutputFormat = 'Object',
+    # The databases examined store text in code page 932, including the English
+    # NA set: the degree-Celsius sign arrives as bytes 0x81 0x8B, which is its
+    # Shift-JIS encoding. Decoding with whatever the machine's ANSI code page
+    # happens to be would make the same database read differently on different
+    # computers. Pass 0 to use the system ANSI code page instead.
+    [int]$TextCodePage = 932
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Windows PowerShell writes stdout in the console code page, which cannot carry
+# the characters the catalog actually uses: the degree sign in a temperature
+# unit, the micro sign in a current one. The caller decodes UTF-8, so say UTF-8
+# here - in this process and, because it is set before the branch, in the 32-bit
+# relay below as well. Without it those units arrive as replacement characters
+# and the original is unrecoverable from the output.
+try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch { }
+
 if ([Environment]::Is64BitProcess) {
     $x86PowerShell = Join-Path $env:WINDIR 'SysWOW64\WindowsPowerShell\v1.0\powershell.exe'
     $relayArguments = @(
@@ -24,7 +39,8 @@ if ([Environment]::Is64BitProcess) {
         '-DatabaseDirectory', $DatabaseDirectory,
         '-TechstreamBinDirectory', $TechstreamBinDirectory,
         '-EcuFile', $EcuFile, '-Table', [string]$Table,
-        '-OutputFormat', $OutputFormat
+        '-OutputFormat', $OutputFormat,
+        '-TextCodePage', [string]$TextCodePage
     )
     if ($Keys) {
         $relayArguments += @('-Keys', $Keys)
@@ -52,6 +68,30 @@ if ([Environment]::Is64BitProcess) {
     }
     & $x86PowerShell $relayArguments
     exit $LASTEXITCODE
+}
+
+function ConvertFrom-NativeString {
+    <#
+    .SYNOPSIS
+    Decode a NUL-terminated native string with the chosen code page.
+
+    .DESCRIPTION
+    Marshal::PtrToStringAnsi would decode with the system ANSI code page, so
+    the same database would yield different text on a Japanese and a Western
+    machine. Copying the bytes and decoding explicitly keeps the result a
+    property of the database rather than of the computer reading it.
+    #>
+    param([IntPtr]$Pointer)
+
+    if ($Pointer -eq [IntPtr]::Zero) { return $null }
+    $length = 0
+    while ([Runtime.InteropServices.Marshal]::ReadByte($Pointer, $length) -ne 0) {
+        $length++
+    }
+    if ($length -eq 0) { return '' }
+    $bytes = [byte[]]::new($length)
+    [Runtime.InteropServices.Marshal]::Copy($Pointer, $bytes, 0, $length)
+    return $script:TextEncoding.GetString($bytes)
 }
 
 if (-not (Test-Path -LiteralPath $DatabaseDirectory -PathType Container)) {
@@ -97,6 +137,12 @@ public static class TechstreamDbNative
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Ansi)]
     public static extern IntPtr GetProcAddress(IntPtr module, string name);
 
+    // The system code page for non-Unicode programs, which is what
+    // Marshal.PtrToStringAnsi decodes with. It is not the current culture's
+    // ANSI code page and the two do disagree in practice.
+    [DllImport("kernel32.dll")]
+    public static extern uint GetACP();
+
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool FreeLibrary(IntPtr module);
@@ -136,6 +182,18 @@ public static class TechstreamDbNative
 }
 
 $dllPath = Join-Path $TechstreamBinDirectory 'KgpDataCtrl.dll'
+$effectiveCodePage = if ($TextCodePage -le 0) {
+    [int][TechstreamDbNative]::GetACP()
+} else {
+    $TextCodePage
+}
+try {
+    $script:TextEncoding = [Text.Encoding]::GetEncoding($effectiveCodePage)
+}
+catch {
+    throw "Code page $effectiveCodePage is not available here: $($_.Exception.Message)"
+}
+
 [void][TechstreamDbNative]::SetDllDirectory($TechstreamBinDirectory)
 $module = [TechstreamDbNative]::LoadLibrary($dllPath)
 if ($module -eq [IntPtr]::Zero) {
@@ -243,12 +301,8 @@ try {
             for ($index = 0; $index -lt $count; $index++) {
                 $namePointer = $getName.Invoke($record, [int16]$index)
                 $filePointer = $getFileName.Invoke($record, [int16]$index)
-                $name = if ($namePointer -eq [IntPtr]::Zero) { $null } else {
-                    [Runtime.InteropServices.Marshal]::PtrToStringAnsi($namePointer)
-                }
-                $fileName = if ($filePointer -eq [IntPtr]::Zero) { $null } else {
-                    [Runtime.InteropServices.Marshal]::PtrToStringAnsi($filePointer)
-                }
+                $name = ConvertFrom-NativeString $namePointer
+                $fileName = ConvertFrom-NativeString $filePointer
                 if ($NamePattern -and
                     $name -notmatch $NamePattern -and $fileName -notmatch $NamePattern) {
                     continue
@@ -415,9 +469,7 @@ try {
                         UnitId = '0x{0:X4}' -f $unitId
                         Status = '0x{0:X8}' -f $status
                         Count = $count
-                        Unit = if ($unitPointer -eq [IntPtr]::Zero) { $null } else {
-                            [Runtime.InteropServices.Marshal]::PtrToStringAnsi($unitPointer)
-                        }
+                        Unit = ConvertFrom-NativeString $unitPointer
                     })
                 }
                 finally {
@@ -452,11 +504,7 @@ try {
             $recordPointers = [IntPtr][Runtime.InteropServices.Marshal]::ReadInt32($record, 12)
             for ($index = 0; $index -lt $count; $index++) {
                 $namePointer = $getName.Invoke($record, [int16]$index)
-                $name = if ($namePointer -eq [IntPtr]::Zero) {
-                    $null
-                } else {
-                    [Runtime.InteropServices.Marshal]::PtrToStringAnsi($namePointer)
-                }
+                $name = ConvertFrom-NativeString $namePointer
                 $itemPointer = [IntPtr][Runtime.InteropServices.Marshal]::ReadInt32(
                     $recordPointers, $index * 4)
                 $raw = [byte[]]::new(60)

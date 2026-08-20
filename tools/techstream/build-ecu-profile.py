@@ -56,7 +56,7 @@ def query(
     ]
     result = subprocess.run(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, encoding="utf-8", errors="replace", check=False,
+        text=True, encoding="utf-8-sig", errors="replace", check=False,
     )
     if result.returncode:
         raise RuntimeError(
