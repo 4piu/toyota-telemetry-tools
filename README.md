@@ -1,9 +1,9 @@
 # Toyota diagnostic telemetry tools
 
-The programs behind the
-[70Y074-telemetry field guide](https://github.com/4piu/70Y074-telemetry): a
-dependency-free Python package, two vehicle-facing backends, and the extraction
-utilities that turn an OEM database into candidate telemetry.
+The programs behind [`70Y074-telemetry`](https://github.com/4piu/70Y074-telemetry),
+the template a vehicle repository is created from: a dependency-free Python
+package, two vehicle-facing backends, and the extraction utilities that turn an
+OEM database into candidate telemetry.
 
 Nothing here is specific to a vehicle. Endpoints, session setup, DID selection,
 and tier policy come from a platform repository's configuration; this
@@ -11,25 +11,26 @@ repository supplies the machinery that reads it.
 
 ## Install into a platform project
 
-A platform repository pins one revision of this repository in its
-`telemetry-project.toml` and installs from that checkout — the same checkout its
-backends are built from, so the Python tools, the backends, and the Techstream
-scripts are all the revision it reviewed.
+A project created from the [template](https://github.com/4piu/70Y074-telemetry)
+carries a `bootstrap.ps1` that does this for you — see its README. Manually,
+from a platform repository that already has a `telemetry-project.toml`:
 
 ```powershell
-git clone https://github.com/4piu/70Y074-telemetry-tools.git ..\tools
-..\tools\tools\setup-platform-project.ps1
+git clone https://github.com/4piu/70Y074-telemetry-tools.git ..\telemetry-tools
+..\telemetry-tools\tools\setup-platform-project.ps1
 .\.venv\Scripts\Activate.ps1
 ```
 
-The script reads the marker, checks this repository out at the pinned revision,
-builds the backends into the project's ignored `scratch/bin/`, and installs the
-package into the project's `.venv`. It needs the network only when the pin
-moves; `-Offline` makes that a rule.
+The setup script reads the marker, checks this repository out at the pinned
+revision, builds the backends into the project's ignored `scratch/bin/`, and
+installs the package into the project's `.venv`. It needs the network only when
+the pin moves; `-Offline` makes that a rule.
 
-Start a platform repository from the
-[template](https://github.com/4piu/70Y074-telemetry) — *Use this template* on
-GitHub — rather than from here.
+`telemetry-project.toml` pins one revision of this repository — the same
+checkout the backends are built from, so the Python tools, the backends, and
+the Techstream scripts are always the revision reviewed. Start a platform
+repository from the template rather than from here; this repository has no
+project structure of its own to copy.
 
 ## Commands
 
@@ -58,7 +59,7 @@ Techstream encoding contract.
 
 Method — what to record, how transport is reconstructed, how a formula is
 decoded, what each evidence state claims — lives in the
-[field guide](https://github.com/4piu/70Y074-telemetry), not here.
+[template](https://github.com/4piu/70Y074-telemetry), not here.
 
 ## Backends
 

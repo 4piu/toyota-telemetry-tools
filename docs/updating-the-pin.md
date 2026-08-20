@@ -2,7 +2,7 @@
 
 `upstream.revision` is the only pin, and it belongs to the platform
 repository's owner: nothing upstream reaches a project until they change it.
-A platform project needs a field-guide checkout anyway — the backends are built
+A platform project needs a toolkit checkout anyway — the backends are built
 from its source and the Techstream scripts are run from it — so the toolkit is
 installed from that checkout rather than resolved from a package index or a Git
 URL. A second pin would be free to disagree with the first, and resolving one on
@@ -17,11 +17,24 @@ currently installed.
 
 [`tools/setup-platform-project.ps1`](../tools/setup-platform-project.ps1) reads
 the marker and applies it: checkout, backend build, and toolkit install into a
-project `.venv`. Advance the revision only after reviewing changes since the
-pinned one, running platform tests, and checking the generated plan diff, then
-re-run the script so both halves follow. The marker records which field-guide
-revision was reviewed; it does not imply shared ancestry or a whole-repository
-merge relationship.
+project `.venv`. The marker records which toolkit revision was reviewed; it
+does not imply shared ancestry or a whole-repository merge relationship.
+
+## Checklist
+
+1. Fetch this repository as a remote, read the
+   [changelog](../CHANGELOG.md) since the pinned revision, and act on
+   anything marked **Breaking** before going further.
+2. Rebuild the backends and run `--self-test`.
+3. Run `telemetry-validate status` and confirm the progress numbers are
+   unchanged — progress is reconstructed from immutable captures, so a
+   difference means a behaviour change worth understanding first.
+4. Run `telemetry-review --check data/map/signals.csv` for each ECU.
+5. Advance `upstream.revision` only to the revision actually reviewed, then
+   re-run `setup-platform-project.ps1` so the backends and the installed
+   toolkit both follow it.
+6. Update any `blob/<revision>/` links in the project's own docs to the same
+   revision, if it has any that point here.
 
 Platform-specific programs may initially contain reusable code discovered
 during experimentation. Extract that mechanism into this repository behind a

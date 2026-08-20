@@ -36,9 +36,8 @@ not a pin: it moves under you.
   backend runs, instead of silence for the length of a batch. Off a terminal it
   becomes a periodic log line rather than carriage returns into a file.
 - `--version` on every command.
-- `setup-platform-project.ps1`: creates a platform project from
-  `templates/platform-project/` with `-Initialize`, then checks the field guide
-  out at the pinned revision, builds the backends, and installs the toolkit
+- `setup-platform-project.ps1`: checks this repository out at a platform
+  project's pinned revision, builds the backends, and installs the toolkit
   into the project's `.venv` from that same checkout. One revision fixes the
   Python tools, the backends, and the Techstream scripts together.
 - `--text-code-page` on `build-catalog.py`, and the code page used is recorded

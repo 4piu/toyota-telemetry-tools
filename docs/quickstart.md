@@ -21,47 +21,28 @@ exactly those, and you analyze again.
 
 ---
 
-## 1. Create the platform repository
+## 1. Start from the template, not from here
 
 Your vehicle project is its own repository that *consumes* this one. Do not
 fork this repository: a fork hands you a copy of the toolkit you are meant to
 install, and the two then drift.
 
-```powershell
-git clone https://github.com/4piu/70Y074-telemetry.git field-guide
-.\field-guide\tools\setup-platform-project.ps1 -ProjectRoot my-car -Initialize
-cd my-car; git init
-```
-
-That writes the project structure from
-[`templates/platform-project/`](https://github.com/4piu/70Y074-telemetry): the marker,
-the `data/` directories with their contracts, blank configuration, and the
-documentation headings the method expects you to fill in. Every relative path
-in every config resolves from `telemetry-project.toml`'s directory — never from
-a checkout name or a sibling directory.
-
-Set `project_id` and `upstream.revision` in `telemetry-project.toml`, then run
-the same script again. That one revision is the only pin you need:
+Press **Use this template** on
+[`70Y074-telemetry`](https://github.com/4piu/70Y074-telemetry), then run the
+`bootstrap.ps1` it carries — it asks a couple of questions, resolves this
+repository's newest release, and installs everything:
 
 ```powershell
-..\field-guide\tools\setup-platform-project.ps1
+.\bootstrap.ps1
 .\.venv\Scripts\Activate.ps1
 ```
 
-It checks the field guide out at your pinned revision, builds the backends into
-`scratch/bin/`, and installs the toolkit into a project `.venv` from that same
-checkout — so the Python tools, the backends, and the Techstream scripts are all
-the revision you reviewed, and nothing reaches the network again until you move
-the pin. Add `-Offline` to make that a rule rather than a habit.
+That is what the rest of this page assumes: an activated project with the
+toolkit installed. [`70Y074-telemetry-XA50`](https://github.com/4piu/70Y074-telemetry-XA50)
+is one such project filled all the way in, if you would rather read one than
+describe one.
 
-The skeleton's `.gitignore` already excludes `scratch/` and `.venv/`. Raw
-captures, plans, and the backend binary live there and never enter Git. See the
-[platform-project contract](https://github.com/4piu/70Y074-telemetry/blob/main/docs/platform-projects.md).
-
-[`70Y074-telemetry-XA50`](https://github.com/4piu/70Y074-telemetry-XA50) is this
-structure filled in, if you would rather read one than describe one.
-
-**Done when:** `telemetry-validate --help` runs from your project directory.
+**Done when:** `telemetry-validate --version` runs from your project directory.
 
 ---
 
@@ -73,14 +54,15 @@ With a local Techstream installation:
 
 ```powershell
 # Discover ECU keys
-.\tools\techstream\query-techstream-db.ps1 -Catalog
+..\telemetry-tools\tools\techstream\query-techstream-db.ps1 -Catalog
 
 # Join monitor, protocol, conversion, and unit records into a catalog
-python .\tools\catalog\build-catalog.py --profile data\catalog\ecu-profile.json
+python ..\telemetry-tools\tools\catalog\build-catalog.py --profile data\config\ecu-profile.json
 ```
 
-Fill in [`templates/catalog-profile.json`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/ecu-profile.json)
-first: the ECU keys, their database files, and what evidence you have for each.
+Fill in `data/config/ecu-profile.json` first: the ECU keys, their database
+files, and what evidence you have for each. The template already put a blank
+one there.
 
 **Done when:** `data/catalog/telemetry.csv` exists with
 `ecu_key,data_id,name,first_bit,last_bit,formula,unit` columns. Rows at this
@@ -101,7 +83,7 @@ the manufacturer's diagnostic application displays a live data list, then read
 the setup requests off the trace.
 
 ```powershell
-python .\tools\j2534\parse-j2534-log.py path\to\j2534.log --timeline
+python ..\telemetry-tools\tools\j2534\parse-j2534-log.py path\to\j2534.log --timeline
 ```
 
 See [capturing a J2534 conversation](https://github.com/4piu/70Y074-telemetry/blob/main/docs/03-locate/j2534-capture.md) and
@@ -110,8 +92,8 @@ See [capturing a J2534 conversation](https://github.com/4piu/70Y074-telemetry/bl
 There is currently no better path, and no way to derive this automatically.
 See [open questions](https://github.com/4piu/70Y074-telemetry/blob/main/docs/open-questions.md).
 
-Copy [`templates/backend-config.json`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/backend-config.json) to
-`data/validation/backend-config.json` and fill it in.
+Fill in `data/config/backend-config.json` — the template already put a blank
+one there.
 
 **Done when:** `backend-config.json` has real values and no `replace-me`.
 
@@ -119,10 +101,9 @@ Copy [`templates/backend-config.json`](https://github.com/4piu/70Y074-telemetry/
 
 ## 4. Build a backend and prove the wiring
 
-```powershell
-# From a checkout of this field guide, built straight into your project
-.\backends\build.ps1 -OutputDirectory C:\path\to\my-platform-project\scratch\bin
-```
+`bootstrap.ps1` already built this into `scratch\bin\`. Rebuild manually with
+`..\telemetry-tools\backends\build.ps1 -OutputDirectory scratch\bin` after
+changing the pin outside the setup script.
 
 Verify offline first — this opens no device:
 
@@ -145,7 +126,8 @@ Then, with the vehicle stationary in Park and the parking brake on, in order:
 
 If the OBD probe fails, the problem is electrical or bit timing, not the ECU.
 A blinking adapter LED and an OK controller status are both entirely consistent
-with swapped CAN-L and ground. Details in [backends/README](../backends/README.md).
+with swapped CAN-L and ground. Details in
+[backends/README](https://github.com/4piu/70Y074-telemetry-tools/blob/main/backends/README.md).
 
 **Done when:** both probes return the expected response.
 
@@ -180,11 +162,10 @@ different ECU may open its session differently.
 
 ## 5. Build and review the plan
 
-Copy [`templates/validation-profile.json`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/validation-profile.json)
-to `data/validation/validation-profile.json`. Its `endpoint` must match
-`backend-config.json`. Set the DID range, tier policies, privacy word lists,
-and point `backend.executable` at `scratch/bin/telemetry-pcan.exe` with
-`arguments: ["--config", "data/validation/backend-config.json"]`.
+Fill in `data/config/validation-profile.json`. Its `endpoint` must match
+`backend-config.json`. Set the DID range, tier policies, and point
+`backend.executable` at `scratch/bin/telemetry-pcan.exe` with
+`arguments: ["--config", "data/config/backend-config.json"]`.
 
 ```powershell
 telemetry-build-plan --config data\validation\validation-profile.json
@@ -194,10 +175,9 @@ telemetry-validate status --config data\validation\validation-profile.json
 Read the plan before connecting to anything. It records the catalog hash, the
 selection rules, every candidate, and every exclusion with a reason.
 
-The DID range excludes UDS-reserved identifiers. The name-based withholding
-lists ship empty — see [progressive validation](progressive-validation.md)
-before enabling them, because withholding a DID costs coverage and the things
-it guards are already covered by keeping captures out of Git.
+The DID range excludes UDS-reserved identifiers. See
+[progressive validation](progressive-validation.md) for the tier and selection
+policy in detail.
 
 **Done when:** the candidate count and tier split look deliberate.
 
@@ -221,8 +201,9 @@ negative; a static database describes equipment your vehicle may not have.
 
 ## 7. Capture on the road
 
-Read the [road-test protocol](https://github.com/4piu/70Y074-telemetry/blob/main/docs/06-verify/timing-and-load.md) and arrange a
-passenger or an unattended logger. **Do not operate the computer while driving.**
+Read [timing and load](https://github.com/4piu/70Y074-telemetry/blob/main/docs/06-verify/timing-and-load.md)
+and arrange a passenger or an unattended logger. **Do not operate the computer
+while driving.**
 
 ```powershell
 telemetry-validate road --config data\validation\validation-profile.json --live --max-items 4
@@ -272,8 +253,8 @@ event did not occur. Classify before scheduling:
   ABS, traction/stability intervention, collision and airbag states stay
   untested unless a naturally occurring event provides evidence.
 
-Copy [`templates/validation-experiment.toml`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/experiments/example-experiment.toml),
-give every batch an explicit purpose and vehicle state, then:
+Copy `data/config/experiments/example-experiment.toml` to a new name, give
+every batch an explicit purpose and vehicle state, then:
 
 ```powershell
 telemetry-validate experiment --config data\validation\validation-profile.json `
@@ -289,8 +270,9 @@ progressive completion. Then go back to step 8. That is the loop.
 
 The ledger is evidence, not conclusions. Promotion stays manual and deliberate:
 transport support, formula plausibility, enum meaning, and behavioural
-correlation are separate claims, and the [evidence states](https://github.com/4piu/70Y074-telemetry/blob/main/docs/README.md) exist so
-you do not collapse them into one "known" flag.
+correlation are separate claims, and the
+[evidence states](https://github.com/4piu/70Y074-telemetry/blob/main/docs/07-catalog/evidence-and-schema.md)
+exist so you do not collapse them into one "known" flag.
 
 The map itself is generated. What you write by hand is `curation.csv`: one
 row per signal you have reviewed, carrying the evidence state you are willing

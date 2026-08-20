@@ -45,7 +45,7 @@ Then point the platform's `validation-profile.json` at it:
 "backend": {
   "schema_version": 1,
   "executable": "scratch/bin/telemetry-pcan.exe",
-  "arguments": ["--config", "data/validation/backend-config.json"],
+  "arguments": ["--config", "data/config/backend-config.json"],
   "mode_arguments": {
     "qualification": ["--candidate-qualify", "--live"],
     "road": ["--candidate-batch", "--live"]
@@ -79,14 +79,14 @@ failure look identical from the application.
 
 ```powershell
 # 1. Config parses, endpoint reads back correctly, nothing transmitted.
-.\telemetry-pcan.exe --config data\validation\backend-config.json --probe
+.\telemetry-pcan.exe --config data\config\backend-config.json --probe
 
 # 2. Standardized OBD query. Proves bit timing, TX, RX, filtering, and wiring
 #    without depending on any manufacturer-specific endpoint.
-.\telemetry-pcan.exe --config data\validation\backend-config.json --obd-probe --live
+.\telemetry-pcan.exe --config data\config\backend-config.json --obd-probe --live
 
 # 3. One tester-present to your configured endpoint. Proves gateway routing.
-.\telemetry-pcan.exe --config data\validation\backend-config.json --probe --live
+.\telemetry-pcan.exe --config data\config\backend-config.json --probe --live
 ```
 
 If step 2 fails, the problem is electrical or bit timing — not the ECU. A

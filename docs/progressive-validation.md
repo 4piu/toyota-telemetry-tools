@@ -33,7 +33,7 @@ Plans and captures default to the ignored repository-local `scratch/` tree.
 
 ## Install or run the toolkit
 
-While working in a checkout of this field guide:
+While working in a checkout of this repository:
 
 ```powershell
 uv sync
@@ -46,22 +46,22 @@ its `telemetry-project.toml`, which is the same checkout its backends are built
 from:
 
 ```powershell
-..\field-guide\tools\setup-platform-project.ps1
+..\telemetry-tools\tools\setup-platform-project.ps1
 .\.venv\Scripts\Activate.ps1
-telemetry-build-plan --config data/validation/validation-profile.json
+telemetry-build-plan --config data/config/validation-profile.json
 ```
 
 Resolving the toolkit separately — from a package index or a Git URL — would
 put a second pin beside the first and reach the network on every run to check
-it. The platform repository does not merge field-guide history either way.
+it. The platform repository does not merge this repository's history either way.
 
 ## Build and inspect a plan
 
 ```powershell
-telemetry-build-plan --config data/validation/validation-profile.json
-telemetry-validate status --config data/validation/validation-profile.json
-telemetry-validate qualify --config data/validation/validation-profile.json
-telemetry-validate road --config data/validation/validation-profile.json
+telemetry-build-plan --config data/config/validation-profile.json
+telemetry-validate status --config data/config/validation-profile.json
+telemetry-validate qualify --config data/config/validation-profile.json
+telemetry-validate road --config data/config/validation-profile.json
 ```
 
 These commands are offline unless `--live` is supplied. The plan records the
@@ -80,7 +80,7 @@ Run qualification in the vehicle state documented by the platform experiment:
 
 ```powershell
 telemetry-validate qualify `
-  --config data/validation/validation-profile.json `
+  --config data/config/validation-profile.json `
   --live --max-items 25
 ```
 
@@ -93,7 +93,7 @@ set. A timeout or transport failure is not converted into "unsupported."
 
 ```powershell
 telemetry-validate road `
-  --config data/validation/validation-profile.json `
+  --config data/config/validation-profile.json `
   --live --max-items 4
 ```
 
@@ -125,13 +125,13 @@ same bounded backend and analyzer:
 
 ```powershell
 telemetry-validate experiment `
-  --config data/validation/validation-profile.json `
-  --experiment data/validation/experiments/selected-followup-v1.toml
+  --config data/config/validation-profile.json `
+  --experiment data/config/experiments/selected-followup-v1.toml
 
 # After reviewing the dry-run schedule:
 telemetry-validate experiment `
-  --config data/validation/validation-profile.json `
-  --experiment data/validation/experiments/selected-followup-v1.toml `
+  --config data/config/validation-profile.json `
+  --experiment data/config/experiments/selected-followup-v1.toml `
   --live
 ```
 
@@ -184,8 +184,8 @@ a curated signal map.
 Across every capture rather than one at a time:
 
 ```powershell
-telemetry-review --config data/validation/validation-profile.json --ecu 397 --pending
-telemetry-review --config data/validation/validation-profile.json --ecu 397 `
+telemetry-review --config data/config/validation-profile.json --ecu 397 --pending
+telemetry-review --config data/config/validation-profile.json --ecu 397 `
   --check data/map/signals.csv
 ```
 
