@@ -160,9 +160,6 @@ $Toolkit = [System.IO.Path]::GetFullPath($Toolkit)
 
 Write-Step "project    $ProjectRoot"
 Write-Step "upstream   $repository @ $revision"
-if ($revision -notmatch '^[0-9a-f]{40}$') {
-    Write-Warning "upstream.revision is '$revision', not a commit hash. A branch moves, so this setup is not reproducible; pin the reviewed commit before publishing."
-}
 
 # ----------------------------------------------------------------- the toolkit
 
@@ -220,6 +217,17 @@ else {
     }
     Write-Step "checking out $($commit.Substring(0, 12))"
     [void](Invoke-Git -Directory $Toolkit -Arguments @('checkout', '--detach', $commit))
+}
+
+# A tag is as immutable as a hash and is the documented way to pin a release,
+# so only a branch name - which moves under you - is worth a warning. This can
+# only be answered once a checkout exists to ask, which is why it runs here
+# rather than when the marker was first read. Stderr is deliberately not
+# redirected - see Invoke-Git above for why that matters under Stop.
+$tagHash = & git -C $Toolkit rev-parse --verify --quiet "refs/tags/$revision"
+$pinnedByTag = ($LASTEXITCODE -eq 0 -and $tagHash)
+if (-not $pinnedByTag -and $revision -notmatch '^[0-9a-f]{7,40}$') {
+    Write-Warning "upstream.revision is '$revision', not a release tag or a commit hash. A branch moves, so this setup is not reproducible; pin the reviewed release before publishing."
 }
 
 # ----------------------------------------------------------------- backends
