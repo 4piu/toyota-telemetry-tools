@@ -10,9 +10,17 @@ import json
 import math
 from pathlib import Path
 import statistics
-import sys
 from typing import Any
 
+from .console import (
+    LOG,
+    add_output_arguments,
+    configure,
+    emit,
+    fields,
+    heading,
+    table,
+)
 from .project import atomic_json
 
 
@@ -399,6 +407,66 @@ def summarize_candidate_capture(
     }
 
 
+def render_capture(report: dict[str, Any], limit: int) -> str:
+    """The three questions asked of a finished capture: did every DID answer,
+    did the transport stay healthy, and did anything move."""
+    counts = report["sample_counts"]
+    latency = report["latency_ms"]
+    negatives = report["negative_dids"]
+    rows = []
+    for did in report["dids"]:
+        stats = latency.get(did, {})
+        rows.append([
+            did,
+            counts.get(did, 0),
+            f"{stats['median']:.0f}" if stats else "-",
+            f"{stats['p95']:.0f}" if stats else "-",
+            report["transport_retries"]["by_did"].get(did, 0),
+            "negative " + negatives[did]["nrc"] if did in negatives
+            else ("ok" if did in report["supported_dids"] else "no reply"),
+        ])
+    title = f"Capture - {report['source_mode']} {report.get('batch_id') or ''}"
+    out = (
+        heading(title.rstrip())
+        + "\n" + fields([
+            ("profile", report.get("profile_id")),
+            ("DIDs", f"{len(report['supported_dids'])} of {len(report['dids'])} supported"),
+            ("samples", sum(counts.values())),
+            ("retries", report["transport_retries"]["total"]),
+        ])
+        + "\n\n" + table(
+            rows,
+            ["did", "samples", "p50 ms", "p95 ms", "retries", "result"],
+            ["<", ">", ">", ">", ">", "<"],
+        )
+    )
+    signals = report["catalog_signal_observations"]
+    if not signals:
+        if not report["catalog_available"]:
+            out += "\n\n  No catalog was given, so no signal was decoded."
+        return out
+    varied = [s for s in signals if s["evidence_hint"] == "varied"]
+    # Varied signals first: a signal that moved is the one worth reading.
+    shown = sorted(signals, key=lambda s: (s["evidence_hint"] != "varied", s["did"]))
+    out += (
+        f"\n\n  {len(signals)} signal(s) decoded; {len(varied)} varied, "
+        f"{len(signals) - len(varied)} constant in this run.\n\n"
+        + table(
+            [
+                [s["did"], (s["name"] or "")[:38], s["bits"], s["evidence_hint"],
+                 f"{s['value_min']}..{s['value_max']}" if s["value_min"] is not None
+                 else f"raw {s['raw_min']}..{s['raw_max']}",
+                 s["unit"] or ""]
+                for s in shown[:limit]
+            ],
+            ["did", "signal", "bits", "hint", "range", "unit"],
+        )
+    )
+    if len(shown) > limit:
+        out += f"\n\n  {len(shown) - limit} more; raise --limit or use --json."
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("capture", type=Path)
@@ -408,7 +476,11 @@ def main() -> int:
     parser.add_argument("--minimum-samples", type=int, default=0)
     parser.add_argument("--maximum-dids", type=int, default=6)
     parser.add_argument("--summary-json", type=Path)
+    parser.add_argument(
+        "--limit", type=int, default=25, help="signal rows printed to the console")
+    add_output_arguments(parser)
     args = parser.parse_args()
+    configure(args)
     try:
         start, samples = validate_candidate_capture(
             read_jsonl(args.capture), args.minimum_samples, args.maximum_dids
@@ -418,11 +490,11 @@ def main() -> int:
         )
         if args.summary_json:
             atomic_json(args.summary_json, report, replace=False)
-        else:
-            print(json.dumps(report, indent=2, ensure_ascii=False))
+            LOG.info("wrote %s", args.summary_json)
+        emit(report, render_capture(report, args.limit), args.as_json)
         return 0
     except (OSError, ValueError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        LOG.error("%s", exc)
         return 1
 
 

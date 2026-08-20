@@ -17,7 +17,6 @@ import csv
 from collections import defaultdict
 import json
 from pathlib import Path
-import sys
 from typing import Any, Iterable
 
 from .capture import (
@@ -28,6 +27,15 @@ from .capture import (
     validate_candidate_capture,
 )
 from .planning import ecu_views, validate_config
+from .console import (
+    LOG,
+    add_output_arguments,
+    configure,
+    emit,
+    fields,
+    heading,
+    table,
+)
 from .project import atomic_json, load_json, project_root, resolve_path
 
 
@@ -355,6 +363,28 @@ def check_map(
     return findings
 
 
+def render_summary(summary: dict[str, Any]) -> str:
+    """The counts a person actually reads, not the whole document."""
+    by_status = summary.get("by_status", {})
+    out = heading(f"Evidence ledger - ECU {summary['ecu_key']}")
+    out += "\n" + fields([
+        ("captures read", summary["captures_read"]),
+        ("qualification runs", summary["qualification_runs"]),
+        ("batch runs", summary["batch_runs"]),
+        ("experiment runs", summary["experiment_runs"]),
+        ("DIDs observed", summary["dids_observed"]),
+        ("signals observed", summary["signals_observed"]),
+    ])
+    if by_status:
+        out += "\n\n" + table(
+            [[k, v] for k, v in sorted(by_status.items(), key=lambda i: -i[1])],
+            ["status", "signals"], ["<", ">"],
+        )
+    if summary.get("captures_skipped"):
+        out += f"\n\n  {summary['captures_skipped']} capture(s) skipped as unreadable."
+    return out
+
+
 def write_csv(path: Path, records: list[SignalRecord]) -> None:
     fields = [
         "did", "name", "bits", "unit", "formula", "formula_source", "status",
@@ -376,8 +406,10 @@ def main() -> int:
     parser.add_argument("--ecu", type=int, action="append", help="which ECU to report on")
     parser.add_argument("--project-root", type=Path)
     parser.add_argument("--capture-root", type=Path)
-    parser.add_argument("--json", type=Path, dest="json_path", help="write the full ledger")
-    parser.add_argument("--csv", type=Path, dest="csv_path", help="write a flat signal table")
+    parser.add_argument(
+        "--json-out", type=Path, dest="json_path", help="write the full ledger")
+    parser.add_argument(
+        "--csv-out", type=Path, dest="csv_path", help="write a flat signal table")
     parser.add_argument(
         "--pending",
         action="store_true",
@@ -389,7 +421,9 @@ def main() -> int:
         help="validate a curated signal map against the observations",
     )
     parser.add_argument("--limit", type=int, default=40, help="rows printed to the console")
+    add_output_arguments(parser)
     args = parser.parse_args()
+    configure(args)
 
     try:
         root = project_root(args.project_root, args.config)
@@ -417,10 +451,7 @@ def main() -> int:
 
         catalog_rows = load_catalog_rows(catalog_path, ecu_key, decode_overrides)
         if not catalog_rows:
-            print(
-                f"ERROR: no catalog rows for ECU key {ecu_key} in {catalog_path}",
-                file=sys.stderr,
-            )
+            LOG.error("no catalog rows for ECU key %s in %s", ecu_key, catalog_path)
             return 1
 
         signals, stats = build_ledger(capture_root, catalog_rows, profile_id, maximum_dids)
@@ -449,58 +480,74 @@ def main() -> int:
             findings = check_map(resolve_path(root, args.check), signals)
             errors = [item for item in findings if item["severity"] == "error"]
             notes = [item for item in findings if item["severity"] == "note"]
-            print(json.dumps(
-                {**summary, "check_errors": len(errors), "check_notes": len(notes)}, indent=2))
-            for label, group in (("need review", errors), ("note", notes)):
-                if not group:
-                    continue
-                print(f"\n{len(group)} curated row(s) {label}:\n")
-                for finding in group[: args.limit]:
-                    print(f"  line {finding['line']:>4}  {finding['signal']}")
-                    print(f"             {finding['issue']}")
-                if len(group) > args.limit:
-                    print(f"\n  ... {len(group) - args.limit} more; use --limit.")
+            emit(
+                {**summary, "check_errors": len(errors), "check_notes": len(notes)},
+                render_summary(summary)
+                + "\n\n"
+                + fields([("check errors", len(errors)), ("check notes", len(notes))]),
+                args.as_json,
+            )
+            if not args.as_json:
+                for label, group in (("need review", errors), ("worth a note", notes)):
+                    if not group:
+                        continue
+                    print(f"\n{len(group)} curated row(s) {label}:\n")
+                    print(table(
+                        [[f["line"], f["signal"], f["issue"]] for f in group[: args.limit]],
+                        ["line", "signal", "issue"], [">", "<", "<"],
+                    ))
+                    if len(group) > args.limit:
+                        LOG.info("%d more not shown; use --limit.", len(group) - args.limit)
             if not errors:
-                print("\nEvery curated row is backed by an observation.")
+                if not args.as_json:
+                    print("\nEvery curated row is backed by an observation.")
                 return 0
             return 1
 
-        print(json.dumps(summary, indent=2))
+        emit(summary, render_summary(summary), args.as_json)
 
         if args.json_path:
             atomic_json(
                 resolve_path(root, args.json_path),
                 {**summary, "signals": [record.to_dict() for record in records]},
             )
+            LOG.info("wrote %s", args.json_path)
         if args.csv_path:
             write_csv(resolve_path(root, args.csv_path), records)
+            LOG.info("wrote %s", args.csv_path)
 
         shown = records
         if args.pending:
             shown = [record for record in records if record.status() in ("constant", "single_run")]
-            print(
-                f"\n{len(shown)} signal(s) still need excitation or an independent run.\n"
-                "These are the candidates for the next custom experiment:\n"
-            )
-        else:
-            print(f"\n{len(shown)} observed signal(s):\n")
 
-        for record in shown[: args.limit]:
-            item = record.to_dict()
-            span = (
-                f"{item['value_min']}..{item['value_max']}"
-                if item["value_min"] is not None
-                else f"raw {item['raw_min']}..{item['raw_max']}"
-            )
-            print(
-                f"  {record.did}  {record.status():<11} runs={record.runs:<3} "
-                f"n={record.samples:<6} {record.name[:44]:<44} {span} {record.unit}"
-            )
-        if len(shown) > args.limit:
-            print(f"\n  ... {len(shown) - args.limit} more; use --limit or --csv.")
+        if not args.as_json:
+            print(heading(
+                f"{len(shown)} signal(s) still needing excitation or an independent run"
+                if args.pending else f"{len(shown)} observed signal(s)"
+            ))
+            rows = []
+            for record in shown[: args.limit]:
+                item = record.to_dict()
+                span = (
+                    f"{item['value_min']}..{item['value_max']}"
+                    if item["value_min"] is not None
+                    else f"raw {item['raw_min']}..{item['raw_max']}"
+                )
+                rows.append([
+                    record.did, record.name[:40], record.status(),
+                    record.runs, record.samples, span, record.unit,
+                ])
+            print(table(
+                rows,
+                ["did", "signal", "status", "runs", "samples", "range", "unit"],
+                ["<", "<", "<", ">", ">", "<", "<"],
+            ))
+            if len(shown) > args.limit:
+                LOG.info("%d more not shown; use --limit or --csv-out.",
+                         len(shown) - args.limit)
         return 0
     except (OSError, ValueError, KeyError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        LOG.error("%s", exc)
         return 1
 
 
