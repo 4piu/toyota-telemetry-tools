@@ -37,6 +37,12 @@ same script builds the backends and installs the toolkit. See the
 
 Read [scope and safety](docs/00-scope-safety.md) before transmitting. The complete sequence and evidence states are indexed in [the documentation map](docs/README.md).
 
+## Releases
+
+Each release is tagged, and the [changelog](CHANGELOG.md) records what a bump
+costs a platform repository. Pin a tag in `telemetry-project.toml`; a branch is
+not a pin. Any command reports what is installed with `--version`.
+
 ## Reusable toolkit
 
 The repository is also a dependency-free Python package. With Python 3.11+ and

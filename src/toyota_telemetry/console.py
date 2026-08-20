@@ -29,6 +29,8 @@ import time
 from typing import Any, Iterable, Sequence
 
 
+from . import __version__
+
 LOG = logging.getLogger("telemetry")
 
 _LEVELS = {0: logging.INFO, 1: logging.DEBUG}
@@ -50,6 +52,15 @@ class _Formatter(logging.Formatter):
 
 
 def add_output_arguments(parser: argparse.ArgumentParser) -> None:
+    """Options every command shares, declared once so they cannot drift apart.
+
+    ``--version`` belongs here rather than beside each command: an operator
+    reporting a problem, or deciding whether a pin is worth moving, should be
+    able to ask any of them the same way.
+    """
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s (toyota-telemetry-tools {__version__})",
+    )
     group = parser.add_argument_group("output")
     group.add_argument(
         "--json", action="store_true", dest="as_json",

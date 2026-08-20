@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import Any
 
+from . import __version__
 from .console import (
     LOG,
     add_output_arguments,
@@ -252,6 +253,7 @@ def build_plan(root: Path, view: dict[str, Any], include_private: bool) -> dict[
     policies = config["policies"]
     return {
         "schema_version": 1,
+        "toolkit_version": __version__,
         "plan_id": config["plan_id"],
         "profile_id": config["profile_id"],
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),

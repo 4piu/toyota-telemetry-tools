@@ -12,6 +12,7 @@ from pathlib import Path
 import statistics
 from typing import Any
 
+from . import __version__
 from .console import (
     LOG,
     add_output_arguments,
@@ -370,6 +371,7 @@ def summarize_candidate_capture(
             )
     return {
         "schema_version": 1,
+        "toolkit_version": __version__,
         "profile_id": start.get("profile_id"),
         "source_mode": start["mode"],
         "batch_id": start.get("batch_id"),

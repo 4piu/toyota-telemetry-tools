@@ -25,6 +25,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from . import __version__
 from .console import (
     LOG,
     add_output_arguments,
@@ -360,6 +361,7 @@ def main() -> int:
 
         document = {
             "schema_version": 1,
+            "toolkit_version": __version__,
             "curation_rows": len(curation),
             "signal_rows": len(all_signals),
             "unsupported_dids": len(all_unsupported),
