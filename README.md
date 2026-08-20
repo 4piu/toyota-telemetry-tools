@@ -6,10 +6,22 @@ It is not a vehicle database or dashboard. Vehicle-specific profiles and results
 
 ## Start here
 
-**[Quickstart](docs/quickstart.md)** runs the whole pipeline in order: fork the
-template, fill in three configuration files, build a backend, prove the wiring,
-qualify candidates, capture on the road, review, and curate a map. Every other
-page is reference behind that one.
+**[Quickstart](docs/quickstart.md)** runs the whole pipeline in order: create a
+platform project, fill in three configuration files, build a backend, prove the
+wiring, qualify candidates, capture on the road, review, and curate a map. Every
+other page is reference behind that one.
+
+```powershell
+git clone https://github.com/4piu/70Y074-telemetry.git field-guide
+.\field-guide\tools\setup-platform-project.ps1 -ProjectRoot my-car -Initialize
+```
+
+This repository is consumed, not forked. Your vehicle project holds
+configuration, findings, and results; the programs stay here and are installed
+from the revision it pins. `-Initialize` writes the project's structure from
+[`templates/platform-project/`](templates/platform-project/), and re-running the
+same script builds the backends and installs the toolkit. See the
+[platform-project contract](docs/09-platform-projects.md).
 
 ## Choose a route
 
@@ -57,7 +69,9 @@ different adapter means implementing one seven-member interface; see
 
 - `docs/` contains modular methods, not vehicle conclusions.
 - `tools/` contains configurable extraction and analysis utilities.
-- `templates/` defines portable experiment, profile, signal, and allowlist records.
+- `templates/` defines portable experiment, profile, signal, and allowlist
+  records, and `templates/platform-project/` is the structure a vehicle
+  repository starts as.
 - `backends/` contains the vehicle-facing clients and their shared transport core.
 - `examples/` demonstrates the method with sanitized vehicle evidence.
 

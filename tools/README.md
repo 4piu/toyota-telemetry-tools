@@ -16,7 +16,7 @@ These tools are reference implementations for observed formats. Paths, database 
 | `telemetry-review` | Aggregate every completed capture into a per-signal evidence ledger; list what still needs excitation; check a curated map against the observations. |
 | `telemetry-map` | Emit a complete signal map from the catalog annotated with observations, plus a list of the DIDs a vehicle refused. |
 | `telemetry-probe` | Probe every ECU endpoint the catalog knows, plus any given explicitly, and write configuration for those that answer. |
-| `setup-platform-project.ps1` | Check the field guide out at a platform project's pinned revision, build its backends, and install the toolkit into its `.venv` from that checkout. |
+| `setup-platform-project.ps1` | Create a platform project from `templates/platform-project/` (`-Initialize`), then check the field guide out at its pinned revision, build its backends, and install the toolkit into its `.venv` from that checkout. |
 | `privacy-scan.ps1` | Scan prospective tracked files for common local/private markers. |
 
 ## Text encoding in the Techstream toolchain

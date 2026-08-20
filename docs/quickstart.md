@@ -1,4 +1,4 @@
-# Quickstart: from a forked template to a telemetry map
+# Quickstart: from an empty project to a telemetry map
 
 This is the whole pipeline in order, on one page. Each step says what you fill
 in, what runs, and how you know it worked.
@@ -23,24 +23,27 @@ exactly those, and you analyze again.
 
 ## 1. Create the platform repository
 
-Fork or copy this repository's structure — not its history. Your vehicle
-project is its own repository that *consumes* this one.
+Your vehicle project is its own repository that *consumes* this one. Do not
+fork this repository: a fork hands you a copy of the toolkit you are meant to
+install, and the two then drift.
 
 ```powershell
-mkdir my-platform-project; cd my-platform-project; git init
+git clone https://github.com/4piu/70Y074-telemetry.git field-guide
+.\field-guide\tools\setup-platform-project.ps1 -ProjectRoot my-car -Initialize
+cd my-car; git init
 ```
 
-Copy [`templates/telemetry-project.toml`](../templates/telemetry-project.toml)
-to the root as `telemetry-project.toml` and set `project_id`, the field-guide
-URL, and the revision you reviewed. Every relative path in every config
-resolves from this file's directory — never from a checkout name or a sibling
-directory.
+That writes the project structure from
+[`templates/platform-project/`](../templates/platform-project/): the marker,
+the `data/` directories with their contracts, blank configuration, and the
+documentation headings the method expects you to fill in. Every relative path
+in every config resolves from `telemetry-project.toml`'s directory — never from
+a checkout name or a sibling directory.
 
-That one revision is the only pin you need. Run the setup script from your
-project directory and it does the rest:
+Set `project_id` and `upstream.revision` in `telemetry-project.toml`, then run
+the same script again. That one revision is the only pin you need:
 
 ```powershell
-git clone https://github.com/4piu/70Y074-telemetry.git ..\field-guide
 ..\field-guide\tools\setup-platform-project.ps1
 .\.venv\Scripts\Activate.ps1
 ```
@@ -51,9 +54,12 @@ checkout — so the Python tools, the backends, and the Techstream scripts are a
 the revision you reviewed, and nothing reaches the network again until you move
 the pin. Add `-Offline` to make that a rule rather than a habit.
 
-Create `scratch/` and ignore it entirely, along with `.venv/`. Raw captures,
-plans, and the backend binary live there and never enter Git. See the
+The skeleton's `.gitignore` already excludes `scratch/` and `.venv/`. Raw
+captures, plans, and the backend binary live there and never enter Git. See the
 [platform-project contract](09-platform-projects.md).
+
+[`70Y074-telemetry-XA50`](https://github.com/4piu/70Y074-telemetry-XA50) is this
+structure filled in, if you would rather read one than describe one.
 
 **Done when:** `telemetry-validate --help` runs from your project directory.
 

@@ -21,6 +21,9 @@
     ..\field-guide\tools\setup-platform-project.ps1
 
 .EXAMPLE
+    .\tools\setup-platform-project.ps1 -ProjectRoot ..\new-car -Initialize
+
+.EXAMPLE
     .\tools\setup-platform-project.ps1 -ProjectRoot ..\xa50 -SkipBackends
 #>
 param(
@@ -36,6 +39,10 @@ param(
 
     # Skip the virtual environment and toolkit install.
     [switch]$SkipToolkit,
+
+    # Write the platform-project skeleton first, for a project that does not
+    # exist yet. Refuses to overwrite anything already there.
+    [switch]$Initialize,
 
     # Fail rather than reach the network. The install itself needs no network
     # once uv has the build backend cached; a checkout that is already at the
@@ -126,12 +133,93 @@ function Write-Step {
     Write-Host "==> $Message"
 }
 
+# ------------------------------------------------------------- initialisation
+
+function New-PlatformProject {
+    <#
+    .SYNOPSIS
+    Write the platform-project skeleton into an empty or partial directory.
+
+    .DESCRIPTION
+    The skeleton is the shape every vehicle repository starts as: the marker,
+    the data directories with their contracts, and the documentation headings
+    that the method expects to be filled in. Blank configuration comes from the
+    same templates the documentation already points at, so there is one copy of
+    each rather than two that can disagree.
+
+    Nothing existing is overwritten - re-running it fills in what is missing.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [Parameter(Mandatory = $true)][string]$FieldGuideRoot
+    )
+
+    $skeleton = Join-Path $FieldGuideRoot 'templates\platform-project'
+    if (-not (Test-Path -LiteralPath $skeleton -PathType Container)) {
+        throw "The platform-project skeleton is missing from $FieldGuideRoot."
+    }
+    if (-not (Test-Path -LiteralPath $Destination -PathType Container)) {
+        [void](New-Item -ItemType Directory -Path $Destination -Force)
+    }
+
+    $written = 0
+    $kept = 0
+    foreach ($source in Get-ChildItem -LiteralPath $skeleton -Recurse -File) {
+        $relative = $source.FullName.Substring($skeleton.Length).TrimStart('\')
+        # Carried as `gitignore` so it cannot filter the skeleton's own files
+        # out of the field guide's history.
+        if ($relative -eq 'gitignore' -or $relative -eq 'gitattributes') {
+            $relative = '.' + $relative
+        }
+        $target = Join-Path $Destination $relative
+        if (Test-Path -LiteralPath $target) { $kept++; continue }
+        $parent = Split-Path -Parent $target
+        if (-not (Test-Path -LiteralPath $parent)) {
+            [void](New-Item -ItemType Directory -Path $parent -Force)
+        }
+        Copy-Item -LiteralPath $source.FullName -Destination $target
+        $written++
+    }
+
+    # Blank configuration: one template, placed where the tools look for it.
+    $configuration = @{
+        'templates\telemetry-project.toml'     = 'telemetry-project.toml'
+        'templates\validation-profile.json'    = 'data\config\validation-profile.json'
+        'templates\backend-config.json'        = 'data\config\backend-config.json'
+        'templates\catalog-profile.json'       = 'data\config\ecu-profile.json'
+        'templates\validation-experiment.toml' = 'data\config\experiments\example-experiment.toml'
+    }
+    foreach ($entry in $configuration.GetEnumerator()) {
+        $source = Join-Path $FieldGuideRoot $entry.Key
+        $target = Join-Path $Destination $entry.Value
+        if (-not (Test-Path -LiteralPath $source)) {
+            throw "The field guide is missing $($entry.Key)."
+        }
+        if (Test-Path -LiteralPath $target) { $kept++; continue }
+        $parent = Split-Path -Parent $target
+        if (-not (Test-Path -LiteralPath $parent)) {
+            [void](New-Item -ItemType Directory -Path $parent -Force)
+        }
+        Copy-Item -LiteralPath $source -Destination $target
+        $written++
+    }
+
+    Write-Step "wrote $written file(s) into $Destination$(if ($kept) { "; kept $kept already there" })"
+}
+
 # ---------------------------------------------------------------- the project
+
+if ($Initialize) {
+    # The skeleton lives beside this script, in the checkout it was run from -
+    # which is the field guide whether or not the project names one yet.
+    $here = Split-Path -Parent $PSCommandPath
+    New-PlatformProject -Destination $ProjectRoot -FieldGuideRoot (Split-Path -Parent $here)
+}
 
 $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
 $projectFile = Join-Path $ProjectRoot 'telemetry-project.toml'
 if (-not (Test-Path -LiteralPath $projectFile -PathType Leaf)) {
-    throw "No telemetry-project.toml in $ProjectRoot. Run this from a platform repository, or pass -ProjectRoot."
+    throw "No telemetry-project.toml in $ProjectRoot. Run this from a platform repository, pass -ProjectRoot, or add -Initialize to create one."
 }
 
 $project = Read-ProjectToml -Path $projectFile
@@ -142,6 +230,18 @@ foreach ($required in 'upstream.repository', 'upstream.revision') {
 }
 $repository = $project['upstream.repository']
 $revision = $project['upstream.revision']
+if ($revision -like 'replace-with-*') {
+    if ($Initialize) {
+        # A fresh skeleton cannot know which revision was reviewed. Stopping
+        # here is the expected end of the first run, not a failure.
+        Write-Host ''
+        Write-Step 'skeleton written'
+        Write-Host "  next         set project_id and upstream.revision in $projectFile"
+        Write-Host '  then         re-run this script to build the backends and install the toolkit'
+        exit 0
+    }
+    throw "$projectFile still has the template's placeholder revision. Set upstream.revision to the field-guide commit you reviewed."
+}
 $scratch = if ($project.ContainsKey('paths.scratch')) { $project['paths.scratch'] } else { 'scratch' }
 
 if (-not $FieldGuide) {
@@ -259,5 +359,10 @@ Write-Step 'ready'
 Write-Host "  field guide  $FieldGuide"
 if (-not $SkipToolkit) {
     Write-Host '  activate     .\.venv\Scripts\Activate.ps1'
+}
+if ($Initialize) {
+    Write-Host '  next         fill in data\config\, then follow docs\reproduce.md'
+}
+elseif (-not $SkipToolkit) {
     Write-Host '  then         telemetry-validate status --config data\config\validation-profile.json'
 }
