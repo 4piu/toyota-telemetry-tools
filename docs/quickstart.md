@@ -4,7 +4,7 @@ This is the whole pipeline in order, on one page. Each step says what you fill
 in, what runs, and how you know it worked.
 
 It assumes you have a vehicle you are authorised to work on, a CAN adapter, and
-somewhere safe to park. Read [scope and safety](00-scope-safety.md) before you
+somewhere safe to park. Read [scope and safety](https://github.com/4piu/70Y074-telemetry/blob/main/docs/00-scope-safety.md) before you
 transmit anything.
 
 The loop this builds toward:
@@ -34,7 +34,7 @@ cd my-car; git init
 ```
 
 That writes the project structure from
-[`templates/platform-project/`](../templates/platform-project/): the marker,
+[`templates/platform-project/`](https://github.com/4piu/70Y074-telemetry): the marker,
 the `data/` directories with their contracts, blank configuration, and the
 documentation headings the method expects you to fill in. Every relative path
 in every config resolves from `telemetry-project.toml`'s directory — never from
@@ -56,7 +56,7 @@ the pin. Add `-Offline` to make that a rule rather than a habit.
 
 The skeleton's `.gitignore` already excludes `scratch/` and `.venv/`. Raw
 captures, plans, and the backend binary live there and never enter Git. See the
-[platform-project contract](09-platform-projects.md).
+[platform-project contract](https://github.com/4piu/70Y074-telemetry/blob/main/docs/platform-projects.md).
 
 [`70Y074-telemetry-XA50`](https://github.com/4piu/70Y074-telemetry-XA50) is this
 structure filled in, if you would rather read one than describe one.
@@ -68,7 +68,7 @@ structure filled in, if you would rather read one than describe one.
 ## 2. Build a candidate catalog
 
 You need a list of DIDs worth trying, with names and bit ranges. Where that
-comes from depends on what you have — see the [location routes](03-locate/README.md).
+comes from depends on what you have — see the [location routes](https://github.com/4piu/70Y074-telemetry/blob/main/docs/03-locate/README.md).
 With a local Techstream installation:
 
 ```powershell
@@ -79,7 +79,7 @@ With a local Techstream installation:
 python .\tools\catalog\build-catalog.py --profile data\catalog\ecu-profile.json
 ```
 
-Fill in [`templates/catalog-profile.json`](../templates/catalog-profile.json)
+Fill in [`templates/catalog-profile.json`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/ecu-profile.json)
 first: the ECU keys, their database files, and what evidence you have for each.
 
 **Done when:** `data/catalog/telemetry.csv` exists with
@@ -104,13 +104,13 @@ the setup requests off the trace.
 python .\tools\j2534\parse-j2534-log.py path\to\j2534.log --timeline
 ```
 
-See [capturing a J2534 conversation](03-locate/j2534-capture.md) and
-[reconstructing the transport](04-reconstruct/diagnostic-transport.md).
+See [capturing a J2534 conversation](https://github.com/4piu/70Y074-telemetry/blob/main/docs/03-locate/j2534-capture.md) and
+[reconstructing the transport](https://github.com/4piu/70Y074-telemetry/blob/main/docs/04-reconstruct/diagnostic-transport.md).
 
 There is currently no better path, and no way to derive this automatically.
-See [open questions](open-questions.md).
+See [open questions](https://github.com/4piu/70Y074-telemetry/blob/main/docs/open-questions.md).
 
-Copy [`templates/backend-config.json`](../templates/backend-config.json) to
+Copy [`templates/backend-config.json`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/backend-config.json) to
 `data/validation/backend-config.json` and fill it in.
 
 **Done when:** `backend-config.json` has real values and no `replace-me`.
@@ -180,7 +180,7 @@ different ECU may open its session differently.
 
 ## 5. Build and review the plan
 
-Copy [`templates/validation-profile.json`](../templates/validation-profile.json)
+Copy [`templates/validation-profile.json`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/validation-profile.json)
 to `data/validation/validation-profile.json`. Its `endpoint` must match
 `backend-config.json`. Set the DID range, tier policies, privacy word lists,
 and point `backend.executable` at `scratch/bin/telemetry-pcan.exe` with
@@ -195,7 +195,7 @@ Read the plan before connecting to anything. It records the catalog hash, the
 selection rules, every candidate, and every exclusion with a reason.
 
 The DID range excludes UDS-reserved identifiers. The name-based withholding
-lists ship empty — see [progressive validation](06-verify/progressive-validation.md)
+lists ship empty — see [progressive validation](progressive-validation.md)
 before enabling them, because withholding a DID costs coverage and the things
 it guards are already covered by keeping captures out of Git.
 
@@ -221,7 +221,7 @@ negative; a static database describes equipment your vehicle may not have.
 
 ## 7. Capture on the road
 
-Read the [road-test protocol](06-verify/timing-and-load.md) and arrange a
+Read the [road-test protocol](https://github.com/4piu/70Y074-telemetry/blob/main/docs/06-verify/timing-and-load.md) and arrange a
 passenger or an unattended logger. **Do not operate the computer while driving.**
 
 ```powershell
@@ -272,7 +272,7 @@ event did not occur. Classify before scheduling:
   ABS, traction/stability intervention, collision and airbag states stay
   untested unless a naturally occurring event provides evidence.
 
-Copy [`templates/validation-experiment.toml`](../templates/validation-experiment.toml),
+Copy [`templates/validation-experiment.toml`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/experiments/example-experiment.toml),
 give every batch an explicit purpose and vehicle state, then:
 
 ```powershell
@@ -289,7 +289,7 @@ progressive completion. Then go back to step 8. That is the loop.
 
 The ledger is evidence, not conclusions. Promotion stays manual and deliberate:
 transport support, formula plausibility, enum meaning, and behavioural
-correlation are separate claims, and the [evidence states](README.md) exist so
+correlation are separate claims, and the [evidence states](https://github.com/4piu/70Y074-telemetry/blob/main/docs/README.md) exist so
 you do not collapse them into one "known" flag.
 
 The map itself is generated. What you write by hand is `curation.csv`: one

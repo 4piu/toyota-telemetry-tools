@@ -98,7 +98,7 @@ directly; it owns batching, progress, and validation.
 
 ## Writing `backend-config.json`
 
-Copy [`templates/backend-config.json`](../templates/backend-config.json). The
+Copy [`templates/backend-config.json`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/backend-config.json). The
 fields that need real values:
 
 | Field | How to obtain it |
@@ -124,8 +124,8 @@ one most likely to block a fork.
 What worked here: capture a real tester conversation over J2534 while the
 manufacturer's diagnostic application reads a live data list, then read the
 setup requests off the trace. See
-[capturing a J2534 conversation](../docs/03-locate/j2534-capture.md) and
-[reconstructing the transport](../docs/04-reconstruct/diagnostic-transport.md),
+[capturing a J2534 conversation](https://github.com/4piu/70Y074-telemetry/blob/main/docs/03-locate/j2534-capture.md) and
+[reconstructing the transport](https://github.com/4piu/70Y074-telemetry/blob/main/docs/04-reconstruct/diagnostic-transport.md),
 and use [`tools/j2534/parse-j2534-log.py`](../tools/j2534/parse-j2534-log.py)
 to turn the log into a request timeline.
 
@@ -136,7 +136,7 @@ without any setup at all, an empty-looking session is still expressed as at
 least one step — use tester present alone.
 
 Better acquisition paths for this information are an open question; see
-[open questions](../docs/open-questions.md).
+[open questions](https://github.com/4piu/70Y074-telemetry/blob/main/docs/open-questions.md).
 
 ## Adding a backend for another adapter
 
@@ -148,7 +148,7 @@ retries, and the CLI contract are all shared. `Telemetry.Backend.Pcan` is about
 
 The behavioural requirements a channel must meet, and the acceptance test it
 should pass, are in
-[adding an adapter](../docs/08-adapters/adding-an-adapter.md).
+[adding an adapter](../docs/adding-an-adapter.md).
 
 ## Layout
 

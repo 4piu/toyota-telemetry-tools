@@ -1,7 +1,7 @@
 # Progressive catalog validation
 
 For the pipeline end to end, including catalog construction and post-capture
-review, see [the quickstart](../quickstart.md). This page is the reference for
+review, see [the quickstart](quickstart.md). This page is the reference for
 the qualification and capture phases.
 
 Once a platform project has a candidate catalog, a confirmed diagnostic
@@ -21,10 +21,10 @@ and the backend must enforce its own byte-exact transmit allowlist.
 3. Copy `templates/validation-profile.json` into the platform repository.
 4. Fill in the profile ID, ECU key, bitrate, tester/response IDs, paths, DID
    range, tier policies, privacy words, and backend command.
-5. Build a backend from [`backends/`](../../backends/README.md) and fill in
+5. Build a backend from [`backends/`](../backends/README.md) and fill in
    `backend-config.json`. For a PCAN or J2534 adapter this is configuration
    only; for another adapter, implement `ICanChannel` per the
-   [validation backend contract](../08-adapters/adding-an-adapter.md).
+   [validation backend contract](adding-an-adapter.md).
 6. Build and review the private plan before connecting to a vehicle.
 
 All relative paths in the validation profile resolve from the directory
@@ -119,7 +119,7 @@ those immutable captures rather than trusting a mutable checklist.
 
 Progressive completion is not the right place to repeat already-complete DIDs
 under a particular condition. Copy
-[`validation-experiment.toml`](../../templates/validation-experiment.toml),
+[`validation-experiment.toml`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/experiments/example-experiment.toml),
 give every batch an explicit purpose and vehicle state, and run it through the
 same bounded backend and analyzer:
 

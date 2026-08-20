@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "profile_id": "example-platform-region-drivetrain",
+  "bit_numbering": "msb-first",
+  "signals": [
+    {
+      "data_id": "0x1000",
+      "name": "Example Signal",
+      "first_bit": 0,
+      "last_bit": 15,
+      "conversion": {"kind": "linear", "a": 1, "b": 1, "c": 0, "decimals": 0},
+      "unit": "raw"
+    }
+  ]
+}
