@@ -7,12 +7,19 @@ from collections import defaultdict
 import csv
 from datetime import datetime, timezone
 import hashlib
-import json
 from pathlib import Path, PurePosixPath
 import re
-import sys
 from typing import Any
 
+from .console import (
+    LOG,
+    add_output_arguments,
+    configure,
+    emit,
+    fields,
+    heading,
+    table,
+)
 from .project import atomic_json, load_json, project_root, resolve_path
 
 
@@ -274,6 +281,31 @@ def build_plan(root: Path, view: dict[str, Any], include_private: bool) -> dict[
     }
 
 
+def render_plans(built: list[dict[str, Any]]) -> str:
+    """One row per plan, with the tier split that decides how long a drive is."""
+    tiers: list[str] = []
+    for entry in built:
+        for tier in entry.get("tier_counts", {}):
+            if tier not in tiers:
+                tiers.append(tier)
+    rows = [
+        [
+            entry["ecu_key"], entry["plan_id"], entry["candidate_count"],
+            entry["excluded_count"],
+            *[entry.get("tier_counts", {}).get(tier, 0) for tier in tiers],
+        ]
+        for entry in built
+    ]
+    return (
+        heading("Capture plan" + ("s" if len(built) > 1 else ""))
+        + "\n" + table(
+            rows,
+            ["ecu", "plan", "candidates", "excluded", *tiers],
+            ["<", "<", ">", ">", *[">"] * len(tiers)],
+        )
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -288,7 +320,9 @@ def main() -> int:
     )
     parser.add_argument("--include-private", action="store_true")
     parser.add_argument("--force", action="store_true")
+    add_output_arguments(parser)
     args = parser.parse_args()
+    configure(args)
     try:
         root = project_root(args.project_root, args.config)
         config = load_json(resolve_path(root, args.config))
@@ -307,10 +341,12 @@ def main() -> int:
                 "output": str(output),
                 **plan["selection"],
             })
-        print(json.dumps(built if len(built) > 1 else built[0], indent=2))
+        emit(built if len(built) > 1 else built[0], render_plans(built), args.as_json)
+        for entry in built:
+            LOG.info("wrote %s", entry["output"])
         return 0
     except (OSError, ValueError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        LOG.error("%s", exc)
         return 1
 
 

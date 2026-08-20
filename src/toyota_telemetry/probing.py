@@ -23,9 +23,18 @@ import json
 from pathlib import Path
 import re
 import subprocess
-import sys
 from typing import Any
 
+from .console import (
+    LOG,
+    Progress,
+    add_output_arguments,
+    configure,
+    emit,
+    fields,
+    heading,
+    table,
+)
 from .project import atomic_json, load_json, project_root, resolve_path
 
 
@@ -171,6 +180,46 @@ def ecus_fragment(answered: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+OUTCOME_LABEL = {
+    "answered": "answered",
+    "answered_negative": "answered (negative)",
+    "no_reply": "no reply",
+    "error": "error",
+    "backend_error": "backend error",
+    "dry_run": "not transmitted",
+}
+
+
+def render_results(report: dict[str, Any]) -> str:
+    """Answering endpoints first: they are the ones worth configuring."""
+    order = {"answered": 0, "answered_negative": 1, "no_reply": 2}
+    rows = [
+        [
+            record["ecu_key"], record["ecu_name"][:24],
+            f"{record['tester_can_id']} -> {record['response_can_id']}",
+            record["catalog_rows"],
+            OUTCOME_LABEL.get(record["outcome"], record["outcome"]),
+            record["detail"][:32] if record["outcome"] != "answered" else "",
+        ]
+        for record in sorted(
+            report["results"],
+            key=lambda r: (order.get(r["outcome"], 3), r["ecu_key"]),
+        )
+    ]
+    return (
+        heading("Endpoint probe" + ("" if report["live"] else " - dry run"))
+        + "\n" + fields([
+            ("probed", report["ecus_probed"]),
+            ("answered", report["ecus_answered"]),
+        ])
+        + "\n\n" + table(
+            rows,
+            ["ecu", "name", "endpoint", "rows", "result", "detail"],
+            ["<", "<", "<", ">", "<", "<"],
+        )
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path)
@@ -202,7 +251,9 @@ def main() -> int:
         help="write the `ecus` entries for answering endpoints to this file for review",
     )
     parser.add_argument("--report", type=Path, default=Path("scratch/analysis/probe-report.json"))
+    add_output_arguments(parser)
     args = parser.parse_args()
+    configure(args)
 
     try:
         root = project_root(args.project_root, args.base_config)
@@ -256,33 +307,29 @@ def main() -> int:
         staging = resolve_path(root, Path("scratch/probe"))
         staging.mkdir(parents=True, exist_ok=True)
 
-        print(f"{'ECU':>5}  {'name':<20} {'endpoint':<17} {'rows':>6}  result")
-        print(f"{'-'*5}  {'-'*20} {'-'*17} {'-'*6}  {'-'*28}")
         results: list[dict[str, Any]] = []
+        sweep = Progress(
+            len(endpoints), label="probing",
+            enabled=not args.no_progress and not args.quiet,
+        )
         for endpoint in endpoints:
             name = slug(endpoint["ecu_name"], endpoint["ecu_key"])
             config_path = staging / f"{name}-probe.json"
             config_path.write_text(
                 json.dumps(probe_config(base_backend, endpoint, profile_id), indent=2) + "\n",
                 encoding="utf-8")
+            sweep.render(f"{endpoint['ecu_key']} {endpoint['ecu_name'][:24]}")
             outcome = run_probe(backend, config_path, root, args.live, args.timeout_ms)
             record = {**endpoint, **outcome}
             results.append(record)
-            arrow = f"{endpoint['tester_can_id']} -> {endpoint['response_can_id']}"
-            label = {
-                "answered": "ANSWERED",
-                "answered_negative": "ANSWERED (negative)",
-                "no_reply": "no reply",
-                "error": "error",
-                "backend_error": "backend error",
-                "dry_run": "dry run - not transmitted",
-            }.get(outcome["outcome"], outcome["outcome"])
-            detail = outcome["detail"][:28]
-            print(
-                f"{endpoint['ecu_key']:>5}  {endpoint['ecu_name'][:20]:<20} {arrow:<17} "
-                f"{endpoint['catalog_rows']:>6}  {label}"
-                + (f"  {detail}" if detail and outcome["outcome"] != "answered" else "")
+            sweep.advance()
+            LOG.debug(
+                "%s %s -> %s: %s %s", endpoint["ecu_key"], endpoint["tester_can_id"],
+                endpoint["response_can_id"],
+                OUTCOME_LABEL.get(outcome["outcome"], outcome["outcome"]),
+                outcome["detail"],
             )
+        sweep.close()
 
         answered = [r for r in results if r.get("answered") is True]
         report = {
@@ -298,15 +345,16 @@ def main() -> int:
             # A dry run measured nothing. Writing a report anyway would overwrite
             # the results of a real sweep with a file full of nulls, and the real
             # sweep is the one that needed a vehicle.
-            print(
-                f"\nDry run: {len(results)} endpoint(s) would be probed, "
-                "nothing was transmitted and no report was written.\n"
+            emit(report, render_results(report), args.as_json)
+            LOG.info(
+                "Dry run: nothing was transmitted and no report was written. "
                 "Add --live to probe for real."
             )
             return 0
 
         atomic_json(resolve_path(root, args.report), report)
-        print(f"\n{len(answered)} of {len(results)} endpoint(s) answered. Report: {args.report}")
+        emit(report, render_results(report), args.as_json)
+        LOG.info("Report: %s", args.report)
 
         if answered:
             fragment = ecus_fragment(answered)
@@ -315,21 +363,24 @@ def main() -> int:
                 target = resolve_path(root, args.emit_ecus)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(rendered + "\n", encoding="utf-8")
-                print(f"\nWrote {len(fragment)} `ecus` entr(ies) to {args.emit_ecus}.")
-            else:
+                LOG.info(
+                    "Wrote %d `ecus` entr(ies) to %s.", len(fragment), args.emit_ecus)
+            elif not args.as_json:
                 print("\n`ecus` entries for the endpoints that answered:")
                 print(rendered)
-            print(
-                "\nSeveral entries may share one endpoint: Techstream models some ECUs as "
-                "separate databases over the same diagnostic address. Those are one ECU to "
-                "capture from, with more than one catalog to read it with.\n"
-                "\nAdd these to backend-config.json, and to validation-profile.json with a "
-                "plan_id and capture paths. They inherit the shared session sequence, which "
-                "is a guess for an ECU never captured from; confirm it before a capture mode."
+            LOG.info(
+                "Several entries may share one endpoint: Techstream models some ECUs as "
+                "separate databases over the same diagnostic address. Those are one ECU "
+                "to capture from, with more than one catalog to read it with."
+            )
+            LOG.info(
+                "Add these to backend-config.json, and to validation-profile.json with a "
+                "plan_id and capture paths. They inherit the shared session sequence, "
+                "which is a guess for an ECU never captured from; confirm it first."
             )
         return 0
     except (OSError, ValueError, KeyError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        LOG.error("%s", exc)
         return 1
 
 

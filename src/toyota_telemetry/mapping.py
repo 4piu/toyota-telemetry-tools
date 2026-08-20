@@ -22,11 +22,18 @@ from __future__ import annotations
 import argparse
 import csv
 from collections import defaultdict
-import json
 from pathlib import Path
-import sys
 from typing import Any
 
+from .console import (
+    LOG,
+    add_output_arguments,
+    configure,
+    emit,
+    fields,
+    heading,
+    table,
+)
 from .capture import classify_nrc
 from .planning import ecu_views, validate_config
 from .progress import discover_progress
@@ -37,7 +44,7 @@ from .review import build_ledger, load_catalog_rows
 # Deliberately excludes observed minima, maxima, and value counts.  Those are
 # captured readings - a key-cycle count, a state of charge - and republishing
 # them puts vehicle state into a document whose purpose is definitions.  They
-# stay available locally through `telemetry-review --csv`, alongside the
+# stay available locally through `telemetry-review --csv-out`, alongside the
 # captures needed to interpret them.
 #
 # `observation` survives because it is a categorical caveat rather than a
@@ -64,28 +71,46 @@ CURATION_FIELDS = ["data_id", "first_bit", "last_bit", "name", "evidence_state",
 EXCITATION_WORDS = ("correlated", "validated")
 
 
-def curation_key(data_id: str, first_bit: Any, last_bit: Any) -> tuple[str, int, int]:
-    return (f"0x{int(str(data_id), 16):04X}", int(first_bit), int(last_bit))
+def curation_key(
+    ecu_key: Any, data_id: str, first_bit: Any, last_bit: Any
+) -> tuple[int, str, int, int]:
+    return (int(ecu_key), f"0x{int(str(data_id), 16):04X}", int(first_bit), int(last_bit))
 
 
-def load_curation(path: Path | None) -> dict[tuple[str, int, int], dict[str, str]]:
+def load_curation(path: Path | None) -> dict[tuple[int, str, int, int], dict[str, str]]:
+    """Hand-written evidence, keyed by ECU as well as by identifier and bits.
+
+    The same DID and the same bit range mean different things on different
+    ECUs, so a curation file without an ``ecu_key`` column cannot be applied
+    to a map that spans more than one; it is rejected rather than guessed at.
+    """
     if path is None or not path.is_file():
         return {}
-    result: dict[tuple[str, int, int], dict[str, str]] = {}
+    result: dict[tuple[int, str, int, int], dict[str, str]] = {}
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
-        for line_number, row in enumerate(csv.DictReader(handle), start=2):
+        reader = csv.DictReader(handle)
+        if reader.fieldnames is not None and "ecu_key" not in reader.fieldnames:
+            raise ValueError(
+                f"{path} has no ecu_key column. A DID and bit range identify a "
+                "signal only within one ECU; add ecu_key to every row."
+            )
+        for line_number, row in enumerate(reader, start=2):
             try:
-                key = curation_key(row["data_id"], row["first_bit"], row["last_bit"])
+                key = curation_key(
+                    row["ecu_key"], row["data_id"], row["first_bit"], row["last_bit"])
             except (KeyError, TypeError, ValueError) as exc:
                 raise ValueError(f"{path}:{line_number} is not a valid curation row") from exc
             if key in result:
-                raise ValueError(f"{path}:{line_number} duplicates {key[0]} [{key[1]}..{key[2]}]")
+                raise ValueError(
+                    f"{path}:{line_number} duplicates ECU {key[0]} {key[1]} "
+                    f"[{key[2]}..{key[3]}]")
             result[key] = row
     return result
 
 
 def build_for_view(
-    root: Path, view: dict[str, Any], curation: dict[tuple[str, int, int], dict[str, str]]
+    root: Path, view: dict[str, Any],
+    curation: dict[tuple[int, str, int, int], dict[str, str]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], list[str]]:
     config = view
 
@@ -187,9 +212,8 @@ def build_for_view(
                 last_bit = int(row["last_bit"])
             except (KeyError, TypeError, ValueError):
                 continue
-            key = (did, first_bit, last_bit)
-            record = by_bits.get(key)
-            curated = curation.get(key)
+            record = by_bits.get((did, first_bit, last_bit))
+            curated = curation.get((ecu_key, did, first_bit, last_bit))
 
             if record is not None and record.samples:
                 observation = record.status()
@@ -268,6 +292,32 @@ def write_csv(path: Path, fields: list[str], rows: list[dict[str, Any]]) -> None
     temporary.replace(path)
 
 
+def render_map(document: dict[str, Any]) -> str:
+    """What was built, per ECU, and what is still missing."""
+    rows = []
+    for summary in document["ecus"]:
+        rows.append([
+            summary["ecu_key"], summary["ecu_name"][:26], summary["endpoint"],
+            summary["catalog_dids"], summary.get("supported_dids", 0),
+            summary.get("unsupported_dids", 0), summary.get("signals", 0),
+            summary.get("unqualified_dids", 0),
+        ])
+    return (
+        heading("Signal map")
+        + "\n" + fields([
+            ("curation rows", document["curation_rows"]),
+            ("signal rows", document["signal_rows"]),
+            ("unsupported DIDs", document["unsupported_dids"]),
+        ])
+        + "\n\n" + table(
+            rows,
+            ["ecu", "name", "endpoint", "catalog", "supported",
+             "unsupported", "signals", "untried"],
+            ["<", "<", "<", ">", ">", ">", ">", ">"],
+        )
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -285,7 +335,9 @@ def main() -> int:
         "--unsupported-out", type=Path, default=Path("data/map/unsupported.csv"))
     parser.add_argument(
         "--dry-run", action="store_true", help="report what would be written and stop")
+    add_output_arguments(parser)
     args = parser.parse_args()
+    configure(args)
 
     try:
         root = project_root(args.project_root, args.config)
@@ -306,48 +358,46 @@ def main() -> int:
             summaries.append(summary)
             violations.extend(bad)
 
-        print(json.dumps({
+        document = {
             "schema_version": 1,
             "curation_rows": len(curation),
             "signal_rows": len(all_signals),
             "unsupported_dids": len(all_unsupported),
             "ecus": summaries,
-        }, indent=2))
+        }
+        emit(document, render_map(document), args.as_json)
 
         if violations:
-            print(
-                f"\nERROR: {len(violations)} curated row(s) claim more than the captures show:",
-                file=sys.stderr)
+            LOG.error(
+                "%d curated row(s) claim more than the captures show:", len(violations))
             for item in violations:
-                print(f"  {item}", file=sys.stderr)
-            print("\nNothing was written.", file=sys.stderr)
+                LOG.error("  %s", item)
+            LOG.error("Nothing was written.")
             return 1
 
         pending = sum(int(s.get("unqualified_dids", 0)) for s in summaries)
         if pending:
-            print(
-                f"\nNOTE: {pending} planned DID(s) have never been qualified, so nothing "
-                "is known about them either way. They are absent from both files until "
-                "asked:\n  telemetry-validate qualify --config <profile> --live",
-                file=sys.stderr)
+            LOG.info(
+                "%d planned DID(s) have never been qualified, so nothing is known "
+                "about them either way. They are absent from both files until asked: "
+                "telemetry-validate qualify --config <profile> --live", pending)
 
         matched = sum(1 for row in all_signals if row["review_status"] == "reviewed")
         if matched != len(curation):
-            print(
-                f"\nWARNING: {len(curation) - matched} curation row(s) matched no catalog signal; "
-                "check their data_id and bit range.",
-                file=sys.stderr)
+            LOG.warning(
+                "%d curation row(s) matched no catalog signal; check their data_id "
+                "and bit range.", len(curation) - matched)
 
         if args.dry_run:
-            print("\nDry run: no files written.")
+            LOG.info("Dry run: no files written.")
             return 0
 
         write_csv(resolve_path(root, args.signals_out), SIGNAL_FIELDS, all_signals)
         write_csv(resolve_path(root, args.unsupported_out), UNSUPPORTED_FIELDS, all_unsupported)
-        print(f"\nWrote {args.signals_out} and {args.unsupported_out}.")
+        LOG.info("Wrote %s and %s.", args.signals_out, args.unsupported_out)
         return 0
     except (OSError, ValueError, KeyError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        LOG.error("%s", exc)
         return 1
 
 

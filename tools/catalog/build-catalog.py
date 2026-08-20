@@ -21,7 +21,11 @@ from typing import Any, Iterable
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
-DEFAULT_OUTPUT = REPOSITORY / "build" / "catalog"
+# Relative to where the tool is invoked, not to where it lives: it is run from
+# a platform repository against that repository's profile, and its output is
+# that repository's data. Defaulting inside the toolkit checkout would write a
+# platform's catalog into the toolkit.
+DEFAULT_OUTPUT = Path("data") / "catalog"
 DEFAULT_QUERY_SCRIPT = REPOSITORY / "tools" / "techstream" / "query-techstream-db.ps1"
 DEFAULT_DATABASE_DIRECTORY = Path(
     os.environ.get(
@@ -70,7 +74,10 @@ def query_json_lines(arguments: list[str]) -> list[dict[str, Any]]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        encoding="utf-8",
+        # The query script pins its stdout to UTF-8 without a BOM. utf-8-sig
+        # accepts one anyway, so a byte order mark could never turn into a
+        # JSON parse error on line 1.
+        encoding="utf-8-sig",
         errors="replace",
         check=False,
     )
@@ -333,8 +340,25 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def damaged_text_rows(rows: list[dict[str, Any]]) -> int:
+    """Rows carrying a replacement character.
+
+    U+FFFD means some byte did not survive the trip from the database, and the
+    original is not recoverable from the output. It is worth saying so at build
+    time rather than letting it reach a published unit column.
+    """
+    return sum(
+        any(isinstance(value, str) and "\ufffd" in value for value in row.values())
+        for row in rows
+    )
+
+
 def write_manifest(
-    profile: dict[str, Any], rows: list[dict[str, Any]], output: Path, database_root: Path
+    profile: dict[str, Any],
+    rows: list[dict[str, Any]],
+    output: Path,
+    database_root: Path,
+    text_code_page: int,
 ) -> None:
     names = [str(profile["database_master_file"])] + [
         str(ecu["database"]) for ecu in profile["ecus"]
@@ -357,6 +381,10 @@ def write_manifest(
         "generator_sha256": sha256_file(Path(__file__)),
         "techstream_version": profile.get("techstream_version", "not-recorded"),
         "database_region": profile.get("database_region"),
+        # Which code page the database text was decoded with. The same bytes
+        # read as different characters under a different one, so this belongs
+        # with the input hashes rather than in a comment somewhere.
+        "text_code_page": text_code_page,
         "inputs": inputs,
         "counts": {
             "signals": len(rows),
@@ -384,6 +412,10 @@ def main() -> int:
         "--database-directory", type=Path, default=DEFAULT_DATABASE_DIRECTORY
     )
     parser.add_argument("--techstream-bin-directory", type=Path)
+    parser.add_argument(
+        "--text-code-page", type=int, default=932,
+        help="code page the database text is decoded with (0: system ANSI)",
+    )
     args = parser.parse_args()
 
     QUERY_SCRIPT = args.query_script.resolve()
@@ -391,6 +423,7 @@ def main() -> int:
         raise FileNotFoundError(f"query script not found: {QUERY_SCRIPT}")
     QUERY_CONTEXT = []
     QUERY_CONTEXT.extend(["-DatabaseDirectory", str(args.database_directory)])
+    QUERY_CONTEXT.extend(["-TextCodePage", str(args.text_code_page)])
     if args.techstream_bin_directory:
         QUERY_CONTEXT.extend(
             ["-TechstreamBinDirectory", str(args.techstream_bin_directory)]
@@ -407,7 +440,16 @@ def main() -> int:
     if not rows:
         raise RuntimeError("No telemetry records were returned")
     write_outputs(profile, rows, args.output)
-    write_manifest(profile, rows, args.output, args.database_directory)
+    write_manifest(
+        profile, rows, args.output, args.database_directory, args.text_code_page)
+    damaged = damaged_text_rows(rows)
+    if damaged:
+        print(
+            f"WARNING: {damaged} row(s) contain a replacement character. Text did "
+            f"not survive decoding at code page {args.text_code_page}; try "
+            "--text-code-page with the one your database uses.",
+            file=sys.stderr,
+        )
     print(f"Wrote {len(rows)} records to {args.output}")
     return 0
 

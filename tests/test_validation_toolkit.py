@@ -17,6 +17,7 @@ from toyota_telemetry.capture import (
     validate_candidate_capture,
 )
 from toyota_telemetry.execution import (
+    CaptureTail,
     capture_arguments,
     capture_end_reason,
     recover_manual_experiment_captures,
@@ -469,6 +470,35 @@ class ProgressAndBackendTests(unittest.TestCase):
                 ],
                 "user_stop",
             )
+
+    def test_backend_ticks_while_the_capture_runs(self):
+        """A road batch blocks for minutes. Without this the console shows
+        nothing at all for the whole of it, which is what the operator reads
+        as a hang."""
+        process = mock.Mock()
+        process.wait.side_effect = [
+            subprocess.TimeoutExpired("backend", 1),
+            subprocess.TimeoutExpired("backend", 1),
+            0,
+        ]
+        ticks = []
+        with mock.patch("toyota_telemetry.execution.subprocess.Popen", return_value=process):
+            returncode = run_backend(["backend"], Path("."), tick=lambda: ticks.append(1))
+        self.assertEqual(returncode, 0)
+        self.assertEqual(len(ticks), 2)
+        self.assertEqual(process.wait.call_args_list[0], mock.call(timeout=1.0))
+
+    def test_capture_tail_counts_only_what_was_appended(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.partial.jsonl"
+            tail = CaptureTail(path)
+            self.assertEqual(tail.note(), "")
+            path.write_text("a\nb\n", encoding="utf-8")
+            self.assertEqual(tail.note(), "2 record(s)")
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write("c\n")
+            self.assertEqual(tail.note(), "3 record(s)")
+            self.assertEqual(tail.offset, path.stat().st_size)
 
     def test_backend_gets_grace_period_after_interrupt(self):
         process = mock.Mock()

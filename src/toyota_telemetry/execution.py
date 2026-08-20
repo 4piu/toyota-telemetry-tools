@@ -11,10 +11,21 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import sys
 import time
 from typing import Any
 
+from .console import (
+    LOG,
+    Progress as ProgressBar,
+    Timer,
+    add_output_arguments,
+    configure,
+    duration as console_duration,
+    emit,
+    fields,
+    heading,
+    table,
+)
 from .capture import (
     read_jsonl,
     summarize_candidate_capture,
@@ -175,11 +186,49 @@ def capture_arguments(
     return arguments
 
 
-def run_backend(command: list[str], root: Path) -> int:
-    """Run a backend and give it time to close its transport after Ctrl+C."""
+class CaptureTail:
+    """Count records as the backend writes them, without re-reading the file.
+
+    A capture is the one part of a run with nothing to say until it ends, so
+    the record count is the only honest sign of life available.  Reading only
+    the bytes appended since the last look keeps that cheap for a batch that
+    writes thousands of lines.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.offset = 0
+        self.records = 0
+
+    def note(self) -> str:
+        try:
+            with self.path.open("rb") as handle:
+                handle.seek(self.offset)
+                chunk = handle.read()
+        except OSError:
+            # The backend may not have created the file yet.
+            return f"{self.records} record(s)" if self.records else ""
+        self.offset += len(chunk)
+        self.records += chunk.count(b"\n")
+        return f"{self.records} record(s)"
+
+
+def run_backend(command: list[str], root: Path, tick: Any = None) -> int:
+    """Run a backend and give it time to close its transport after Ctrl+C.
+
+    ``tick`` is called about once a second while the backend runs.  Polling
+    costs one wait syscall a second and leaves the interrupt handling below
+    exactly as it was.
+    """
     process = subprocess.Popen(command, cwd=root)
     try:
-        return process.wait()
+        if tick is None:
+            return process.wait()
+        while True:
+            try:
+                return process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                tick()
     except KeyboardInterrupt:
         try:
             process.wait(timeout=INTERRUPT_GRACE_SECONDS)
@@ -221,12 +270,13 @@ def run_and_validate(
     profile_id: str,
     endpoint: dict[str, Any],
     allow_user_stop: bool = False,
+    tick: Any = None,
 ) -> str:
     summary_partial = partial.with_name(partial.name.replace(".jsonl", ".summary.json"))
     summary_complete = complete.with_name(complete.name.replace(".jsonl", ".summary.json"))
     try:
         try:
-            returncode = run_backend(command, root)
+            returncode = run_backend(command, root, tick)
         except KeyboardInterrupt:
             if not allow_user_stop or capture_end_reason(partial) != "user_stop":
                 raise
@@ -352,55 +402,73 @@ def run_experiment_phase(
         config["endpoint"],
     )
     for path in recovered:
-        print(f"Recovered valid operator-completed capture: {path.name}")
+        LOG.info("recovered operator-completed capture: %s", path.name)
     completed, corrupt = discover_completed_experiment_runs(
         experiment_root, str(config["profile_id"]), expected_ids
     )
     snapshot = experiment_snapshot(document, runs, completed, corrupt)
-    print(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "experiment_id": document["experiment_id"],
-                "profile_id": document["profile_id"],
-                **snapshot["status"],
-            },
-            indent=2,
-        )
+    status = {
+        "schema_version": 1,
+        "experiment_id": document["experiment_id"],
+        "profile_id": document["profile_id"],
+        **snapshot["status"],
+    }
+    emit(
+        status,
+        heading(f"Experiment {document['experiment_id']}")
+        + "\n" + fields(
+            (key.replace("_", " "), value)
+            for key, value in snapshot["status"].items()
+            if not isinstance(value, (list, dict))
+        ),
+        args.as_json,
     )
     atomic_json(experiment_root / "experiment.snapshot.json", snapshot)
     queue = [run for run in selected_runs if run.backend_batch_id not in completed][
         : args.max_items
     ]
-    print(
-        f"Experiment queue: {len(queue)} run(s); "
-        f"mode={'LIVE' if args.live else 'DRY RUN'}"
-    )
+    rows = []
     for run in queue:
         retries = (
             args.transport_retries
             if args.transport_retries is not None
             else run.transport_retries
         )
-        duration = "manual/unbounded" if run.duration_seconds == 0 else f"{run.duration_seconds}s"
-        print(
-            f"  {run.batch_id} r{run.repetition:02d}: {','.join(run.dids)} "
-            f"period={run.period_ms}ms duration={duration} "
-            f"minimum={run.minimum_samples_per_did} retries={retries}"
-        )
-        if run.vehicle_state:
-            print(f"    vehicle_state: {run.vehicle_state}")
-        if run.description:
-            print(f"    purpose: {run.description}")
+        rows.append([
+            f"{run.batch_id} r{run.repetition:02d}",
+            ",".join(run.dids),
+            f"{run.period_ms}ms",
+            "manual" if run.duration_seconds == 0 else console_duration(run.duration_seconds),
+            run.minimum_samples_per_did,
+            retries,
+            run.vehicle_state or run.description or "",
+        ])
+    if not args.as_json:
+        print(heading(f"Experiment queue - {'LIVE' if args.live else 'dry run'}"))
+        print(table(
+            rows,
+            ["run", "dids", "period", "duration", "minimum", "retries", "state"],
+            ["<", "<", ">", ">", ">", ">", "<"],
+        ))
     if not args.live or not queue:
+        if not queue:
+            LOG.info("Nothing left to run; every selected run is already complete.")
+        elif not args.as_json:
+            print("\nNothing was transmitted. Add --live to run this.")
         return 0
     backend = config.get("backend")
     if not isinstance(backend, dict):
         raise ValueError("live mode requires a backend object in the validation profile")
-    print(f"Live sequence will start in {args.startup_delay_seconds} seconds.")
+    LOG.info(
+        "Live sequence starts in %ss. Ctrl+C stops cleanly at any point.",
+        args.startup_delay_seconds,
+    )
     if args.startup_delay_seconds:
         time.sleep(args.startup_delay_seconds)
-    print("Startup delay finished; opening the configured backend.")
+    overall = Progress(
+        len(queue), label="experiment",
+        enabled=not args.no_progress and not args.quiet,
+    )
     for run in queue:
         assert_budget(output_root, args.max_directory_mib, args.max_log_mib)
         stamp = timestamp()
@@ -426,7 +494,13 @@ def run_experiment_phase(
             retries,
             args.max_log_mib,
         )
-        print(f"EXPERIMENT {run.batch_id} r{run.repetition:02d}")
+        run_label = f"{run.batch_id} r{run.repetition:02d}"
+        overall.render(run_label)
+        step = Timer(
+            run.duration_seconds or None, label=f"  {run_label}",
+            enabled=not args.no_progress and not args.quiet,
+        )
+        tail = CaptureTail(partial)
         completion_reason = run_and_validate(
             command,
             root,
@@ -440,7 +514,10 @@ def run_experiment_phase(
             str(config["profile_id"]),
             config["endpoint"],
             True,
+            tick=lambda: step.render(tail.note()),
         )
+        step.close()
+        overall.advance(f"{run_label} done")
         completed, corrupt = discover_completed_experiment_runs(
             experiment_root, str(config["profile_id"]), expected_ids
         )
@@ -449,12 +526,14 @@ def run_experiment_phase(
             experiment_snapshot(document, runs, completed, corrupt),
         )
         if completion_reason == "user_stop":
-            print(
+            overall.close()
+            LOG.info(
                 "Operator-completed experiment accepted; remaining selected runs "
                 "were not started."
             )
             return 0
-    print("Experiment sequence complete; experiment snapshot updated.")
+    overall.close()
+    LOG.info("Experiment sequence complete; %d run(s) recorded.", len(queue))
     return 0
 
 
@@ -540,6 +619,28 @@ class ProfileContext:
         )
 
 
+def render_status(summaries: dict[str, dict[str, Any]]) -> str:
+    """One row per ECU, with the totals that decide what to do next."""
+    rows = []
+    totals = [0, 0, 0, 0, 0, 0]
+    for name, summary in sorted(
+        summaries.items(), key=lambda item: -item[1]["candidate_dids"]
+    ):
+        q, road = summary["qualification"], summary["road"]
+        values = [
+            summary["candidate_dids"], q["qualified"], q["terminal_negative"],
+            q["untried"], road["complete"], road["pending_qualified"],
+        ]
+        totals = [a + b for a, b in zip(totals, values)]
+        rows.append([name, *values])
+    rows.append(["TOTAL", *totals])
+    return table(
+        rows,
+        ["ecu", "candidates", "qualified", "terminal", "untried", "road", "pending"],
+        ["<", ">", ">", ">", ">", ">", ">"],
+    )
+
+
 def round_robin(queues: list[list[Any]]) -> list[Any]:
     """Interleave per-profile queues so a truncated session covers each ECU.
 
@@ -584,7 +685,9 @@ def main() -> int:
     parser.add_argument("--startup-delay-seconds", type=int, default=10)
     parser.add_argument("--max-log-mib", type=int, default=16)
     parser.add_argument("--max-directory-mib", type=int, default=2048)
+    add_output_arguments(parser)
     args = parser.parse_args()
+    configure(args)
     try:
         if args.max_items < 1 or args.max_qualification_attempts < 1:
             raise ValueError("--max-items and --max-qualification-attempts must be positive")
@@ -618,11 +721,9 @@ def main() -> int:
         if args.experiment is not None or args.experiment_batch:
             raise ValueError("--experiment and --experiment-batch require the experiment phase")
 
-        if multi:
-            print(json.dumps(
-                {f"ecu_{c.ecu_key}": c.summarize() for c in contexts}, indent=2))
-        else:
-            print(json.dumps(contexts[0].summarize(), indent=2))
+        summaries = {f"ecu_{c.ecu_key}": c.summarize() for c in contexts}
+        emit(summaries if multi else contexts[0].summarize(),
+             render_status(summaries), args.as_json)
         for context in contexts:
             context.write_snapshot()
         if args.phase == "status":
@@ -645,40 +746,77 @@ def main() -> int:
             queues.append([(context, item) for item in items])
         queue: list[Any] = round_robin(queues)[: args.max_items]
 
-        noun = "DID(s)" if args.phase == "qualify" else "batch(es)"
-        label = "Qualification queue" if args.phase == "qualify" else "Road queue"
-        print(f"{label}: {len(queue)} {noun}; mode={'LIVE' if args.live else 'DRY RUN'}")
+        noun = "DID" if args.phase == "qualify" else "batch"
+        label = "Qualification" if args.phase == "qualify" else "Road"
+        mode = "LIVE" if args.live else "dry run"
+        estimate = sum(
+            context.plan["policies"][item[0]]["duration_seconds"]
+            for context, item in queue
+        ) if args.phase == "road" else 0
+        if not queue:
+            LOG.info(
+                "Nothing to do: every planned %s for the selected ECU(s) is already "
+                "recorded.", noun)
+            return 0
+
+        summary = [("queued", f"{len(queue)} {noun}(s)")]
+        if estimate:
+            summary.append(("estimated", console_duration(estimate)))
         if multi:
             per_ecu = {c.label: sum(1 for ctx, _ in queue if ctx is c) for c in contexts}
-            print("  across " + ", ".join(f"{k}: {v}" for k, v in per_ecu.items()))
+            spread = ", ".join(f"{k}: {v}" for k, v in per_ecu.items() if v)
+            if spread:
+                summary.append(("across", spread))
+        if not args.as_json:
+            print(heading(f"{label} queue - {mode}"))
+            print(fields(summary))
 
         if not args.live:
+            rows = []
             for context, item in queue:
-                prefix = f"  [{context.label}]" if multi else "  "
                 if args.phase == "qualify":
-                    print(
-                        f"{prefix} {item['data_id']} tier={item['tier']} "
-                        f"signals={item['signal_count']}"
-                    )
+                    rows.append([
+                        context.label, item["data_id"], item["tier"],
+                        item["signal_count"], "", "",
+                    ])
                 else:
                     tier, group = item
                     policy = context.plan["policies"][tier]
-                    print(
-                        f"{prefix} {tier}: "
-                        f"{','.join(candidate['data_id'] for candidate in group)} "
-                        f"period={policy['period_ms']}ms "
-                        f"duration={policy['duration_seconds']}s retries={road_retries}"
-                    )
+                    rows.append([
+                        context.label,
+                        ",".join(c["data_id"] for c in group),
+                        tier,
+                        len(group),
+                        f"{policy['period_ms']}ms",
+                        console_duration(policy["duration_seconds"]),
+                    ])
+            headers = [
+                "ecu", "did(s)" if args.phase == "qualify" else "batch",
+                "tier", "signals" if args.phase == "qualify" else "dids",
+                "period", "duration",
+            ]
+            emit(
+                [dict(zip(headers, row)) for row in rows],
+                "\n" + table(rows, headers, ["<", "<", "<", ">", ">", ">"])
+                + "\n\nNothing was transmitted. Add --live to run this.",
+                args.as_json,
+            )
             return 0
         if not queue:
             return 0
         for context in contexts:
             context.backend  # fail before the startup delay, not after it
-        print(f"Live sequence will start in {args.startup_delay_seconds} seconds.")
+        LOG.info(
+            "Live sequence starts in %ss. Ctrl+C stops cleanly at any point.",
+            args.startup_delay_seconds,
+        )
         if args.startup_delay_seconds:
             time.sleep(args.startup_delay_seconds)
-        print("Startup delay finished; opening the configured backend.")
         failures: list[tuple[str, Exception]] = []
+        overall = ProgressBar(
+            len(queue), label=f"{label.lower()}",
+            enabled=not args.no_progress and not args.quiet,
+        )
         for context, item in queue:
             assert_budget(context.output_root, args.max_directory_mib, args.max_log_mib)
             stamp = timestamp()
@@ -703,7 +841,8 @@ def main() -> int:
                     args.max_log_mib,
                 )
                 minimum_samples = 1
-                print(f"{marker}QUALIFY {did}")
+                step_label = f"{marker}qualify {did}"
+                step_seconds = None
             else:
                 tier, group = item
                 policy = context.plan["policies"][tier]
@@ -726,8 +865,15 @@ def main() -> int:
                     args.max_log_mib,
                 )
                 minimum_samples = int(policy["minimum_samples_per_did"])
-                print(f"{marker}ROAD {tier} {','.join(dids)}")
+                step_label = f"{marker}road {tier} {len(dids)} DIDs"
+                step_seconds = int(policy["duration_seconds"])
             partial.parent.mkdir(parents=True, exist_ok=True)
+            overall.render(step_label)
+            step = Timer(
+                step_seconds, label=f"  {step_label}",
+                enabled=not args.no_progress and not args.quiet,
+            )
+            tail = CaptureTail(partial)
             try:
                 run_and_validate(
                     command,
@@ -741,8 +887,10 @@ def main() -> int:
                     context.decode_overrides,
                     str(context.config["profile_id"]),
                     context.config["endpoint"],
+                    tick=lambda: step.render(tail.note()),
                 )
             except BackendInterrupted:
+                step.close()
                 # A deliberate stop is not a failed item. It subclasses
                 # RuntimeError, so it has to be re-raised ahead of the handler
                 # below or an operator pressing Ctrl+C would silently advance to
@@ -753,39 +901,38 @@ def main() -> int:
                 # several, least of all an unattended one mid-drive. The capture
                 # is already quarantined and counts as no progress; record what
                 # failed and move to the next item.
+                step.close()
                 failures.append((context.label, exc))
-                print(f"{marker}FAILED: {exc}", file=sys.stderr)
+                LOG.warning("%s failed: %s", step_label.strip(), exc)
                 continue
             finally:
                 context.refresh_progress()
                 context.write_snapshot()
+            step.close()
+            overall.advance(f"{step_label} done")
 
+        overall.close()
         if failures:
             by_ecu: dict[str, int] = {}
             for label, _ in failures:
                 by_ecu[label] = by_ecu.get(label, 0) + 1
-            summary = ", ".join(f"{k} x{v}" for k, v in sorted(by_ecu.items()))
-            print(
-                f"\nSequence finished with {len(failures)} failed item(s): {summary}",
-                file=sys.stderr,
-            )
-            print(
+            detail = ", ".join(f"{k} x{v}" for k, v in sorted(by_ecu.items()))
+            LOG.warning("finished with %d failed item(s): %s", len(failures), detail)
+            LOG.warning(
                 "Nothing failed was recorded as progress. An ECU that refuses the "
-                "session setup usually needs its own session_setup in its ecus entry.",
-                file=sys.stderr,
+                "session setup usually needs its own session_setup in its ecus entry."
             )
             return 1
-        print("Sequence complete; progress snapshot updated.")
+        LOG.info("Sequence complete; %d item(s) recorded.", len(queue))
         return 0
     except (KeyboardInterrupt, BackendInterrupted):
-        print(
+        LOG.warning(
             "Interrupted cleanly. Any active capture was preserved as incomplete "
-            "and does not count as progress.",
-            file=sys.stderr,
+            "and does not count as progress."
         )
         return 130
     except (OSError, ValueError, RuntimeError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+        LOG.error("%s", exc)
         return 1
 
 

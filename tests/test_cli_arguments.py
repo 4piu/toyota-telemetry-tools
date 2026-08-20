@@ -47,14 +47,31 @@ def used_options(tree: ast.AST) -> set[str]:
     }
 
 
+def calls_helper(tree: ast.AST, name: str) -> bool:
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == name
+        for node in ast.walk(tree)
+    )
+
+
 class CliArgumentTests(unittest.TestCase):
     def test_every_referenced_option_is_declared(self) -> None:
+        # Options common to every command are declared once, in console.py.
+        shared = declared_options(
+            ast.parse((PACKAGE / "console.py").read_text(encoding="utf-8"))
+        )
         checked = 0
         for path in sorted(PACKAGE.glob("*.py")):
+            if path.name == "console.py":
+                continue
             tree = ast.parse(path.read_text(encoding="utf-8"))
             declared = declared_options(tree)
             if not declared:
                 continue
+            if calls_helper(tree, "add_output_arguments"):
+                declared |= shared
             checked += 1
             missing = sorted(used_options(tree) - declared)
             self.assertEqual(
