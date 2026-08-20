@@ -71,28 +71,46 @@ CURATION_FIELDS = ["data_id", "first_bit", "last_bit", "name", "evidence_state",
 EXCITATION_WORDS = ("correlated", "validated")
 
 
-def curation_key(data_id: str, first_bit: Any, last_bit: Any) -> tuple[str, int, int]:
-    return (f"0x{int(str(data_id), 16):04X}", int(first_bit), int(last_bit))
+def curation_key(
+    ecu_key: Any, data_id: str, first_bit: Any, last_bit: Any
+) -> tuple[int, str, int, int]:
+    return (int(ecu_key), f"0x{int(str(data_id), 16):04X}", int(first_bit), int(last_bit))
 
 
-def load_curation(path: Path | None) -> dict[tuple[str, int, int], dict[str, str]]:
+def load_curation(path: Path | None) -> dict[tuple[int, str, int, int], dict[str, str]]:
+    """Hand-written evidence, keyed by ECU as well as by identifier and bits.
+
+    The same DID and the same bit range mean different things on different
+    ECUs, so a curation file without an ``ecu_key`` column cannot be applied
+    to a map that spans more than one; it is rejected rather than guessed at.
+    """
     if path is None or not path.is_file():
         return {}
-    result: dict[tuple[str, int, int], dict[str, str]] = {}
+    result: dict[tuple[int, str, int, int], dict[str, str]] = {}
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
-        for line_number, row in enumerate(csv.DictReader(handle), start=2):
+        reader = csv.DictReader(handle)
+        if reader.fieldnames is not None and "ecu_key" not in reader.fieldnames:
+            raise ValueError(
+                f"{path} has no ecu_key column. A DID and bit range identify a "
+                "signal only within one ECU; add ecu_key to every row."
+            )
+        for line_number, row in enumerate(reader, start=2):
             try:
-                key = curation_key(row["data_id"], row["first_bit"], row["last_bit"])
+                key = curation_key(
+                    row["ecu_key"], row["data_id"], row["first_bit"], row["last_bit"])
             except (KeyError, TypeError, ValueError) as exc:
                 raise ValueError(f"{path}:{line_number} is not a valid curation row") from exc
             if key in result:
-                raise ValueError(f"{path}:{line_number} duplicates {key[0]} [{key[1]}..{key[2]}]")
+                raise ValueError(
+                    f"{path}:{line_number} duplicates ECU {key[0]} {key[1]} "
+                    f"[{key[2]}..{key[3]}]")
             result[key] = row
     return result
 
 
 def build_for_view(
-    root: Path, view: dict[str, Any], curation: dict[tuple[str, int, int], dict[str, str]]
+    root: Path, view: dict[str, Any],
+    curation: dict[tuple[int, str, int, int], dict[str, str]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], list[str]]:
     config = view
 
@@ -194,9 +212,8 @@ def build_for_view(
                 last_bit = int(row["last_bit"])
             except (KeyError, TypeError, ValueError):
                 continue
-            key = (did, first_bit, last_bit)
-            record = by_bits.get(key)
-            curated = curation.get(key)
+            record = by_bits.get((did, first_bit, last_bit))
+            curated = curation.get((ecu_key, did, first_bit, last_bit))
 
             if record is not None and record.samples:
                 observation = record.status()

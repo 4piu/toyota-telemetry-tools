@@ -296,7 +296,9 @@ def build_ledger(
 
 
 def check_map(
-    map_path: Path, signals: dict[tuple[str, str, int, int], SignalRecord]
+    map_path: Path,
+    signals: dict[tuple[str, str, int, int], SignalRecord],
+    ecu_key: int,
 ) -> list[dict[str, str]]:
     """Report curated rows whose claim outruns the observations.
 
@@ -312,6 +314,11 @@ def check_map(
     findings: list[dict[str, str]] = []
     with map_path.open("r", encoding="utf-8-sig", newline="") as handle:
         for line_number, row in enumerate(csv.DictReader(handle), start=2):
+            # The ledger covers one ECU. A map that spans several carries rows
+            # this ledger has no evidence for by construction, and reporting
+            # those as missing evidence would be noise, not a finding.
+            if "ecu_key" in row and str(row["ecu_key"]).strip() != str(ecu_key):
+                continue
             try:
                 did = f"0x{int(row['data_id'], 16):04X}"
                 first_bit = int(row["first_bit"])
@@ -477,7 +484,7 @@ def main() -> int:
         }
 
         if args.check:
-            findings = check_map(resolve_path(root, args.check), signals)
+            findings = check_map(resolve_path(root, args.check), signals, ecu_key)
             errors = [item for item in findings if item["severity"] == "error"]
             notes = [item for item in findings if item["severity"] == "note"]
             emit(
