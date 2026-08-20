@@ -64,9 +64,10 @@ decoded, what each evidence state claims — lives in the
 ## Backends
 
 [`backends/`](backends/README.md) holds the programs that talk to a vehicle:
-configuration-driven clients for PCAN-Basic, J2534, and gs_usb (candleLight_fw
-and its clone family) that implement the runner's executable contract. They
-build with the C# compiler shipped with Windows and need no SDK.
+configuration-driven clients for PCAN-Basic, J2534, gs_usb (candleLight_fw
+and its clone family), and slcan (LAWICEL over a CDC-ACM serial port) that
+implement the runner's executable contract. They build with the C# compiler
+shipped with Windows and need no SDK.
 
 You should not have to write C# to use one on a new vehicle — endpoint, session
 setup, and DID range come from a `backend-config.json` the project supplies.

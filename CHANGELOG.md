@@ -26,6 +26,14 @@ not a pin: it moves under you.
   driver transparently. Verified end to end against real hardware: protocol
   handshake, computed bit timing, and a byte-exact loopback receive, not just
   that it opens.
+- `telemetry-slcan`: a backend for the LAWICEL/slcan ASCII protocol over a
+  USB CDC-ACM virtual COM port — no vendor driver, just
+  `System.IO.Ports.SerialPort`. Verified against a CANable v1.0 nano
+  (STM32F072) reflashed with board-adapted slcan firmware (see
+  `backends/Telemetry.Backend.Slcan/firmware/README.md`): command
+  handshake, ACK/NACK, and a byte-exact frame round trip through the CAN
+  peripheral's internal loopback mode, exercised through the actual
+  `SlcanChannel` implementation and not just a protocol probe.
 
 ## 0.3.0
 

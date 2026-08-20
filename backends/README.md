@@ -16,8 +16,9 @@ that you write.
 | `telemetry-pcan` | PEAK PCAN-USB, or any adapter whose firmware the PEAK driver enumerates as a PCAN channel (for example a CANable flashed with PCAN-compatible firmware) | x64 |
 | `telemetry-j2534` | A J2534 / PassThru interface with a vendor DLL | x86 by default; x64 if the vendor DLL is 64-bit |
 | `telemetry-gsusb` | Any [candleLight_fw](https://github.com/candle-usb/candleLight_fw)-family adapter — a CANable flashed with `candleLight_fw`, the reference candleLight board, cantact, and their many clones | x64 |
+| `telemetry-slcan` | Any adapter whose firmware speaks the LAWICEL/slcan ASCII protocol over a CDC-ACM virtual COM port — no vendor driver, just `System.IO.Ports` | AnyCPU |
 
-Both operate the adapter in **raw CAN** mode and run the same
+All three operate the adapter in **raw CAN** mode and run the same
 application-managed ISO-TP layer. That is deliberate: it keeps every backend
 byte-identical on the bus, so a result from one adapter can be compared with a
 result from another. Letting a J2534 adapter do ISO-TP internally would make
@@ -94,6 +95,20 @@ still fails to open it, this is the fix: Zadig, **Options → List All
 Devices**, find the adapter, replace its driver with **libusbK** instead of
 WinUSB.
 
+## slcan: firmware is not one-size-fits-all
+
+Unlike gs_usb, where `candleLight_fw` maintains a board list you can flash
+as-is, slcan firmware for a CANable-family clone is not necessarily built
+for your exact board — the STM32F042 reference design and later F072-based
+clones differ in flash size and can differ in LED and transceiver-control
+pin wiring. Flashing a firmware built for a different schematic without
+checking is not just "LEDs might not light": a firmware that actively drives
+a GPIO pin your board wires to something else is a real risk, not a
+theoretical one. See
+[`Telemetry.Backend.Slcan/firmware/README.md`](Telemetry.Backend.Slcan/firmware/README.md)
+for what was actually verified pin-by-pin against known-good hardware before
+flashing, and how to redo that check for a different board.
+
 ## Bring-up order
 
 Do these in order the first time on any vehicle. Each step isolates a
@@ -134,6 +149,7 @@ fields that need real values:
 | `device.j2534.dll` | Absolute path to the vendor PassThru DLL. |
 | `device.gsusb.vendor_id` / `product_id` | Four hex digits each; default `1d50`/`606f` is correct for every candleLight_fw board. |
 | `device.gsusb.serial` | Only needed with more than one gs_usb adapter attached at once. |
+| `device.slcan.port` | The adapter's COM port, e.g. `"COM8"` — check Device Manager. Required; there is no portable default. |
 
 `session_setup` is replayed in order before any DID is read, and each step's
 response must start with its `expect` prefix. A step may not be a
@@ -197,4 +213,7 @@ Telemetry.Backend.Gsusb/  gs_usb binding (candleLight_fw and its clone family)
   WinUsbTransport.cs      primary: native WinUSB via SetupAPI, no bundled DLL
   LibUsbTransport.cs      fallback: libusb-1.0, bundled - see runtime/
   GsUsbChannel.cs         ICanChannel: tries WinUSB, falls back to libusb
+Telemetry.Backend.Slcan/  slcan/LAWICEL binding (CDC-ACM serial, no native driver)
+  SlcanChannel.cs         ICanChannel over System.IO.Ports.SerialPort
+  firmware/               what was flashed to verify this, and how to rebuild it
 ```

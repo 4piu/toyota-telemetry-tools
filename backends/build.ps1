@@ -13,14 +13,15 @@
     its bundled libusb-1.0.dll (the fallback transport's dependency; the
     primary, native-WinUSB transport needs nothing beyond what Windows ships)
     next to the executable, matching the bitness of the DLL under
-    Telemetry.Backend.Gsusb\runtime\.
+    Telemetry.Backend.Gsusb\runtime\. slcan builds AnyCPU: it only talks to a
+    CDC-ACM virtual COM port through System.IO.Ports, no native dependency.
 
 .EXAMPLE
     .\build.ps1
     .\build.ps1 -Backend pcan -OutputDirectory ..\..\my-project\scratch\bin
 #>
 param(
-    [ValidateSet('all', 'pcan', 'j2534', 'gsusb')]
+    [ValidateSet('all', 'pcan', 'j2534', 'gsusb', 'slcan')]
     [string]$Backend = 'all',
 
     [ValidateSet('Release', 'Debug')]
@@ -119,6 +120,12 @@ if ($Backend -eq 'all' -or $Backend -eq 'gsusb') {
     Copy-Item -LiteralPath $gsusbRuntime -Destination $OutputDirectory -Force
 }
 
+if ($Backend -eq 'all' -or $Backend -eq 'slcan') {
+    Build-Backend -Name 'telemetry-slcan' `
+        -ProjectDirectory (Join-Path $PSScriptRoot 'Telemetry.Backend.Slcan') `
+        -Platform 'anycpu'
+}
+
 Write-Output ''
 Write-Output "Verify the build before connecting to a vehicle:"
 if ($Backend -eq 'all' -or $Backend -eq 'pcan') {
@@ -129,4 +136,7 @@ if ($Backend -eq 'all' -or $Backend -eq 'j2534') {
 }
 if ($Backend -eq 'all' -or $Backend -eq 'gsusb') {
     Write-Output "  $OutputDirectory\telemetry-gsusb.exe --self-test --output selftest.jsonl"
+}
+if ($Backend -eq 'all' -or $Backend -eq 'slcan') {
+    Write-Output "  $OutputDirectory\telemetry-slcan.exe --self-test --output selftest.jsonl"
 }

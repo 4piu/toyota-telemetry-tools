@@ -1,0 +1,174 @@
+diff --git a/inc/led.h b/inc/led.h
+index da50def..642ef13 100644
+--- a/inc/led.h
++++ b/inc/led.h
+@@ -2,18 +2,18 @@
+ #define _LED_H
+ 
+ 
+-#define LED_BLUE_Pin GPIO_PIN_0
+-#define LED_BLUE_Port GPIOA
++// DSD_TECH_SH_C30A / CANable v1.0 nano pinout, confirmed against the
++// candleLight_fw board profile already verified on this hardware: two LEDs
++// on GPIOB, not the three-LED PA0/PA1/PA2 layout this fork's upstream
++// schematic used.
++#define LED_BLUE_Pin GPIO_PIN_1
++#define LED_BLUE_Port GPIOB
+ #define LED_BLUE LED_BLUE_Port , LED_BLUE_Pin
+ 
+-#define LED_GREEN_Pin GPIO_PIN_1
+-#define LED_GREEN_Port GPIOA
++#define LED_GREEN_Pin GPIO_PIN_0
++#define LED_GREEN_Port GPIOB
+ #define LED_GREEN LED_GREEN_Port , LED_GREEN_Pin
+ 
+-#define LED_RED_Pin GPIO_PIN_2
+-#define LED_RED_Port GPIOA
+-#define LED_RED LED_RED_Port , LED_RED_Pin
+-
+ 
+ 
+ #define LED_DURATION 25 
+diff --git a/inc/usbd_cdc_if.h b/inc/usbd_cdc_if.h
+index 8097f4e..7ed1a1e 100644
+--- a/inc/usbd_cdc_if.h
++++ b/inc/usbd_cdc_if.h
+@@ -1,10 +1,14 @@
+-#ifndef __USBD_CDC_IF_H__
+-#define __USBD_CDC_IF_H__
+-
+-#include "usbd_cdc.h"
+-
++#ifndef __USBD_CDC_IF_H__
++#define __USBD_CDC_IF_H__
++
++#include "usbd_cdc.h"
++
+ // Buffer settings
+-#define TX_BUF_SIZE  64 // Linear TX buf size
++// 64 silently dropped the 'V' response (GIT_VERSION + " " + GIT_REMOTE + CR)
++// once GIT_REMOTE pointed at this fork's longer URL: CDC_Transmit_FS refuses
++// anything over TX_BUF_SIZE instead of truncating it, so the whole message
++// was lost - confirmed against real hardware, not just by reading the code.
++#define TX_BUF_SIZE  128 // Linear TX buf size
+ #define NUM_TX_BUFS 32 // Number of TX buffers in FIFO
+ #define NUM_RX_BUFS 6 // Number of RX buffers in FIFO
+ #define RX_BUF_SIZE CDC_DATA_FS_MAX_PACKET_SIZE // Size of RX buffer item
+@@ -23,19 +27,19 @@ typedef struct _usbtx_buf_
+ // Receive buffering: circular buffer FIFO
+ typedef struct _usbrx_buf_
+ {
+-	// Receive buffering: circular buffer FIFO
+-	uint8_t buf[NUM_RX_BUFS][RX_BUF_SIZE];
+-	uint32_t msglen[NUM_RX_BUFS];
+-	uint8_t head;
+-	uint8_t tail;
+-
+-} usbrx_buf_t;
+-
+-
+-// CDC Interface callback.
+-extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
+-
+-
++	// Receive buffering: circular buffer FIFO
++	uint8_t buf[NUM_RX_BUFS][RX_BUF_SIZE];
++	uint32_t msglen[NUM_RX_BUFS];
++	uint8_t head;
++	uint8_t tail;
++
++} usbrx_buf_t;
++
++
++// CDC Interface callback.
++extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
++
++
+ // Prototypes
+ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+ void cdc_process(void);
+@@ -44,4 +48,4 @@ void cdc_tx_process(void);
+ 
+ 
+ #endif /* __USBD_CDC_IF_H__ */
+-
++
+diff --git a/src/can.c b/src/can.c
+index d079965..26f0249 100644
+--- a/src/can.c
++++ b/src/can.c
+@@ -19,28 +19,22 @@ static uint8_t can_silent = DISABLE;
+ static uint8_t can_autoretransmit = ENABLE;
+ static can_txbuf_t txqueue = {0};
+ 
+-#define CAN_S_Pin GPIO_PIN_13
+-#define CAN_S_Port GPIOC
+-#define CAN_S CAN_S_Port, CAN_S_Pin
++// The DSD_TECH_SH_C30A / CANable v1.0 nano board this is built for has no
++// software-controlled transceiver standby pin (confirmed against the
++// candleLight_fw board profile already verified on this hardware: neither
++// CONFIG_PHY_STANDBY nor CONFIG_PHY_SILENT is defined for it) - so unlike
++// this fork's upstream schematic, there is no PC13/TJA1051-S line to drive
++// here. can_set_silent() below still switches CAN_MODE_SILENT at the
++// peripheral level; only the transceiver-level GPIO toggle is removed.
+ 
+ 
+ // Initialize CAN peripheral settings, but don't actually start the peripheral
+ void can_init(void)
+ {
+-    // Initialize GPIO for CAN transceiver 
++    // Initialize GPIO for CAN transceiver
+     GPIO_InitTypeDef GPIO_InitStruct;
+     __HAL_RCC_CAN1_CLK_ENABLE();
+     __HAL_RCC_GPIOB_CLK_ENABLE();
+-    __HAL_RCC_GPIOC_CLK_ENABLE();
+-
+-    // PC13 ------> TJA1051 S input. Low selects normal high-speed mode.
+-    GPIO_InitStruct.Pin = CAN_S_Pin;
+-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+-    GPIO_InitStruct.Alternate = 0;
+-    HAL_GPIO_Init(CAN_S_Port, &GPIO_InitStruct);
+-    HAL_GPIO_WritePin(CAN_S, GPIO_PIN_RESET);
+ 
+     //PB8     ------> CAN_RX
+     //PB9     ------> CAN_TX
+@@ -178,11 +172,9 @@ void can_set_silent(uint8_t silent)
+     {
+     	can_silent = ENABLE;
+     	can_handle.Init.Mode = CAN_MODE_SILENT;
+-        HAL_GPIO_WritePin(CAN_S, GPIO_PIN_SET);
+     } else {
+     	can_silent = DISABLE;
+     	can_handle.Init.Mode = CAN_MODE_NORMAL;
+-        HAL_GPIO_WritePin(CAN_S, GPIO_PIN_RESET);
+     }
+ 
+     led_green_on();
+diff --git a/src/led.c b/src/led.c
+index e084071..a7084c9 100644
+--- a/src/led.c
++++ b/src/led.c
+@@ -16,18 +16,17 @@ static uint32_t led_green_lastoff = 0;
+ // Initialize LED GPIOs
+ void led_init()
+ {
+-    __HAL_RCC_GPIOA_CLK_ENABLE();
++    __HAL_RCC_GPIOB_CLK_ENABLE();
+     GPIO_InitTypeDef GPIO_InitStruct;
+-    GPIO_InitStruct.Pin = LED_BLUE_Pin | LED_GREEN_Pin | LED_RED_Pin;
++    GPIO_InitStruct.Pin = LED_BLUE_Pin | LED_GREEN_Pin;
+     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+     GPIO_InitStruct.Pull = GPIO_PULLUP;
+     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+     GPIO_InitStruct.Alternate = 0;
+-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
++    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+ 
+     HAL_GPIO_WritePin(LED_BLUE, 1);
+     HAL_GPIO_WritePin(LED_GREEN, 1);
+-    HAL_GPIO_WritePin(LED_RED, 1);
+ }
+ 
+ 
