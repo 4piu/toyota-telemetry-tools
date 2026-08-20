@@ -33,7 +33,7 @@ Plans and captures default to the ignored repository-local `scratch/` tree.
 
 ## Install or run the toolkit
 
-From a checkout of this field guide:
+While working in a checkout of this field guide:
 
 ```powershell
 uv sync
@@ -41,16 +41,19 @@ telemetry-build-plan --help
 telemetry-validate --help
 ```
 
-A platform repository should pin a reviewed toolkit release or Git revision.
-For example, after replacing `<REVISION>` with an immutable commit:
+From a platform repository, install the toolkit out of the checkout pinned by
+its `telemetry-project.toml`, which is the same checkout its backends are built
+from:
 
 ```powershell
-uvx --from "toyota-telemetry-tools @ git+https://github.com/4piu/70Y074-telemetry.git@<REVISION>" `
-  telemetry-build-plan --config data/validation/validation-profile.json
+..\field-guide\tools\setup-platform-project.ps1
+.\.venv\Scripts\Activate.ps1
+telemetry-build-plan --config data/validation/validation-profile.json
 ```
 
-The Git remote is not required to be a sibling directory, and the platform
-repository does not merge field-guide history.
+Resolving the toolkit separately — from a package index or a Git URL — would
+put a second pin beside the first and reach the network on every run to check
+it. The platform repository does not merge field-guide history either way.
 
 ## Build and inspect a plan
 

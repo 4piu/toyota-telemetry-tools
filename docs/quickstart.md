@@ -36,14 +36,23 @@ URL, and the revision you reviewed. Every relative path in every config
 resolves from this file's directory — never from a checkout name or a sibling
 directory.
 
-Pin the toolkit in `toolkit-requirement.txt`:
+That one revision is the only pin you need. Run the setup script from your
+project directory and it does the rest:
 
-```text
-toyota-telemetry-tools @ git+https://github.com/4piu/70Y074-telemetry.git@<REVISION>
+```powershell
+git clone https://github.com/4piu/70Y074-telemetry.git ..\field-guide
+..\field-guide\tools\setup-platform-project.ps1
+.\.venv\Scripts\Activate.ps1
 ```
 
-Create `scratch/` and ignore it entirely. Raw captures, plans, and the backend
-binary live there and never enter Git. See the
+It checks the field guide out at your pinned revision, builds the backends into
+`scratch/bin/`, and installs the toolkit into a project `.venv` from that same
+checkout — so the Python tools, the backends, and the Techstream scripts are all
+the revision you reviewed, and nothing reaches the network again until you move
+the pin. Add `-Offline` to make that a rule rather than a habit.
+
+Create `scratch/` and ignore it entirely, along with `.venv/`. Raw captures,
+plans, and the backend binary live there and never enter Git. See the
 [platform-project contract](09-platform-projects.md).
 
 **Done when:** `telemetry-validate --help` runs from your project directory.
