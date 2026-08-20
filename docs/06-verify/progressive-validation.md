@@ -37,8 +37,8 @@ From a checkout of this field guide:
 
 ```powershell
 uv sync
-uv run telemetry-build-plan --help
-uv run telemetry-validate --help
+telemetry-build-plan --help
+telemetry-validate --help
 ```
 
 A platform repository should pin a reviewed toolkit release or Git revision.
@@ -169,7 +169,7 @@ Any conforming candidate capture can be checked independently:
 
 ```powershell
 telemetry-analyze-capture scratch/captures/vehicle-a/example.complete.jsonl `
-  --catalog data/catalog/generated/telemetry.csv `
+  --catalog data/catalog/telemetry.csv `
   --ecu-key 0 --minimum-samples 20
 ```
 
@@ -181,10 +181,14 @@ a curated signal map.
 Across every capture rather than one at a time:
 
 ```powershell
-telemetry-review --config data/validation/validation-profile.json --pending
-telemetry-review --config data/validation/validation-profile.json --check data/validated/signals.csv
+telemetry-review --config data/validation/validation-profile.json --ecu 397 --pending
+telemetry-review --config data/validation/validation-profile.json --ecu 397 `
+  --check data/map/signals.csv
 ```
 
-`--pending` lists signals that stayed constant or were seen in a single run —
-the queue for the next custom experiment. `--check` holds a curated map to the
-observations and exits nonzero when a row claims more than was seen.
+Both work on one ECU at a time: the ledger is per-ECU, so `--ecu` is required
+when the profile carries more than one. `--pending` lists signals that stayed
+constant or were seen in a single run — the queue for the next custom
+experiment. `--check` holds a curated map to the observations and exits nonzero
+when a row claims more than was seen; it ignores rows belonging to other ECUs,
+so one map file can be checked ECU by ECU.

@@ -67,7 +67,7 @@ python .\tools\catalog\build-catalog.py --profile data\catalog\ecu-profile.json
 Fill in [`templates/catalog-profile.json`](../templates/catalog-profile.json)
 first: the ECU keys, their database files, and what evidence you have for each.
 
-**Done when:** `data/catalog/generated/telemetry.csv` exists with
+**Done when:** `data/catalog/telemetry.csv` exists with
 `ecu_key,data_id,name,first_bit,last_bit,formula,unit` columns. Rows at this
 point are *Candidate* evidence and nothing more.
 
@@ -140,9 +140,9 @@ A vehicle has many ECUs and you want the ones that answer, not a per-ECU
 ritual. Sweep them all from the catalog's own protocol table:
 
 ```powershell
-telemetry-probe --catalog data\catalog	elemetry.csv `
-  --base-config data\configackend-config.json `
-  --base-profile data\configalidation-profile.json          # dry run first
+telemetry-probe --catalog data\catalog\telemetry.csv `
+  --base-config data\config\backend-config.json `
+  --base-profile data\config\validation-profile.json          # dry run first
 ```
 
 Add `--live` to transmit — one tester-present frame per endpoint, through the
@@ -228,7 +228,7 @@ completed batches remain; only the active file is quarantined.
 ```powershell
 telemetry-review --config data\validation\validation-profile.json
 telemetry-review --config data\validation\validation-profile.json --pending
-telemetry-review --config data\validation\validation-profile.json --csv scratch\analysis\ledger.csv
+telemetry-review --config data\validation\validation-profile.json --csv-out scratch\analysis\ledger.csv
 ```
 
 This aggregates every completed capture into one per-signal ledger: how many
@@ -277,15 +277,31 @@ transport support, formula plausibility, enum meaning, and behavioural
 correlation are separate claims, and the [evidence states](README.md) exist so
 you do not collapse them into one "known" flag.
 
-Write `data/validated/signals.csv` yourself, then hold it to the observations:
+The map itself is generated. What you write by hand is `curation.csv`: one
+row per signal you have reviewed, carrying the evidence state you are willing
+to defend and the note that justifies it.
 
-```powershell
-telemetry-review --config data\validation\validation-profile.json --check data\validated\signals.csv
+```csv
+ecu_key,data_id,first_bit,last_bit,name,evidence_state,notes
+397,0x1002,0,15,BATT Voltage,Observed and replayed,Varied 12.632..14.155 V across the pilot road batch.
 ```
 
-This flags any row claiming more than was observed — a `Correlated` state on a
-field that never changed, or a bit range no capture ever covered. It exits
-nonzero when something needs review, so it fits in CI.
+`ecu_key` is part of the identity, not decoration: the same DID over the same
+bits is a boost voltage on one ECU and a vapour pressure on another, and a row
+without it would claim both.
+
+Then generate the map and hold it to the observations:
+
+```powershell
+telemetry-map --config data\validation\validation-profile.json
+telemetry-review --config data\validation\validation-profile.json --ecu 397 `
+  --check data\map\signals.csv
+```
+
+`telemetry-map` refuses to write when a curated row claims more than the
+captures show. `--check` reports the same class of problem per ECU — a
+`Correlated` state on a field that never changed, or a bit range no capture
+ever covered — and exits nonzero, so it fits in CI.
 
 **Done when:** `telemetry-map` writes without complaint and every reviewed
 claim is one you would defend.
