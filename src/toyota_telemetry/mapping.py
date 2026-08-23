@@ -293,6 +293,21 @@ def write_csv(path: Path, fields: list[str], rows: list[dict[str, Any]]) -> None
     temporary.replace(path)
 
 
+def unmatched_curation_keys(
+    curation: dict[tuple[int, str, int, int], dict[str, str]],
+    signal_rows: list[dict[str, Any]],
+) -> set[tuple[int, str, int, int]]:
+    """Return curation identities that produced no reviewed signal row."""
+    matched = {
+        curation_key(
+            row["ecu_key"], row["data_id"], row["first_bit"], row["last_bit"]
+        )
+        for row in signal_rows
+        if row["review_status"] == "reviewed"
+    }
+    return set(curation) - matched
+
+
 def render_map(document: dict[str, Any]) -> str:
     """What was built, per ECU, and what is still missing."""
     rows = []
@@ -384,11 +399,17 @@ def main() -> int:
                 "about them either way. They are absent from both files until asked: "
                 "telemetry-validate qualify --config <profile> --live", pending)
 
-        matched = sum(1 for row in all_signals if row["review_status"] == "reviewed")
-        if matched != len(curation):
+        # A catalog can legitimately contain more than one row for the same
+        # ECU/DID/bit identity (for example, alternate internal records or
+        # conversions selected elsewhere in the payload). One curation key
+        # applies to every such row, so count matched identities rather than
+        # reviewed output rows. Counting rows could make the reported number
+        # of unmatched curation entries negative.
+        unmatched = unmatched_curation_keys(curation, all_signals)
+        if unmatched:
             LOG.warning(
                 "%d curation row(s) matched no catalog signal; check their data_id "
-                "and bit range.", len(curation) - matched)
+                "and bit range.", len(unmatched))
 
         if args.dry_run:
             LOG.info("Dry run: no files written.")

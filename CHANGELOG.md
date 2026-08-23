@@ -35,6 +35,13 @@ not a pin: it moves under you.
   peripheral's internal loopback mode, exercised through the actual
   `SlcanChannel` implementation and not just a protocol probe.
 
+### Fixed
+
+- `telemetry-map` now counts matched curation identities rather than reviewed
+  output rows. One curation identity can legitimately apply to duplicate OEM
+  catalog records with different internal IDs; this no longer produces a
+  nonsensical negative "matched no catalog signal" warning.
+
 ## 0.3.0
 
 ### Breaking

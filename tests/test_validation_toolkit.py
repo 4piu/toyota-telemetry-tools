@@ -29,6 +29,7 @@ from toyota_telemetry.experiments import (
     experiment_snapshot,
     load_experiment,
 )
+from toyota_telemetry.mapping import unmatched_curation_keys
 from toyota_telemetry.planning import build_plan, ecu_views, text_has
 from toyota_telemetry.progress import discover_progress, road_queue, summarize_progress
 
@@ -114,6 +115,25 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(evaluate_formula("signed(raw, 16) / 10", 0xFF9B), -10.1)
         with self.assertRaises(ValueError):
             evaluate_formula("__import__('os').getcwd()", 0)
+
+
+class MappingTests(unittest.TestCase):
+    def test_duplicate_catalog_rows_match_one_curation_identity(self):
+        key = (372, "0x1F0C", 0, 15)
+        curation = {key: {"evidence_state": "Observed and replayed"}}
+        rows = [
+            {
+                "ecu_key": 372,
+                "data_id": "0x1f0c",
+                "first_bit": 0,
+                "last_bit": 15,
+                "review_status": "reviewed",
+                "internal_id": internal_id,
+            }
+            for internal_id in ("0x00D3", "0x1389")
+        ]
+
+        self.assertEqual(unmatched_curation_keys(curation, rows), set())
 
 
 class PlanningTests(unittest.TestCase):
