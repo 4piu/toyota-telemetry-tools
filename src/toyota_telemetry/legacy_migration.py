@@ -35,7 +35,7 @@ LEGACY_NAMESPACE = uuid.UUID("7f765768-1953-5f38-97c6-395aecb36f48")
 AUTHORED_INPUTS = {
     "validation_profile": "data/config/validation-profile.json",
     "backend_config": "data/config/backend-config.json",
-    "ecu_profile": "data/map/ecu-profile.json",
+    "ecu_profile": "data/config/ecu-profile.json",
     "curation": "data/config/curation.csv",
     "decode_overrides": "data/config/decode-overrides.json",
     "map_transport": "data/map/transport.json",

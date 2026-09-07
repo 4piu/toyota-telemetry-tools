@@ -89,7 +89,7 @@ def make_legacy_project(root: Path) -> Path:
         "ecus": [{"key": 372, "name": "Engine", "tester_can_id": "0x700", "response_can_id": "0x708"}],
     })
     write_json(root / "data/map/transport.json", {"schema_version": 2, "dynamic_dids": []})
-    write_json(root / "data/map/ecu-profile.json", {"schema_version": 1})
+    write_json(root / "data/config/ecu-profile.json", {"schema_version": 1})
     write_json(root / "data/catalog/manifest.json", {"schema_version": 1})
     write_json(root / "data/config/decode-overrides.json", {
         "schema_version": 1,
