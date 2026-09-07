@@ -33,6 +33,7 @@ class _State:
     deficit: float = 1.0
     opportunity: float = 1.0
     active: bool = True
+    background: bool = False
     failures: int = 0
     backoff_until_ms: int = 0
 
@@ -104,6 +105,7 @@ class DeterministicScheduler:
         deficit: float | None = None,
         opportunity: float | None = None,
         active: bool | None = None,
+        background: bool | None = None,
     ) -> None:
         state = self._state(acquisition_id)
         if deficit is not None:
@@ -116,6 +118,8 @@ class DeterministicScheduler:
             state.opportunity = float(opportunity)
         if active is not None:
             state.active = bool(active)
+        if background is not None:
+            state.background = bool(background)
 
     def select(self, now_ms: int, *, slack_ms: int = 0) -> SchedulerDecision | None:
         if now_ms < 0 or slack_ms < 0:
@@ -138,7 +142,10 @@ class DeterministicScheduler:
             reason = "maximum_overdue"
             score = self._score(selected, now_ms)
         else:
-            due = [state for state in eligible if now_ms >= state.target_due_ms]
+            due = [
+                state for state in eligible
+                if not state.background and now_ms >= state.target_due_ms
+            ]
             if due:
                 selected = min(
                     due,

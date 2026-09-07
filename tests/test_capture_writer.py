@@ -36,6 +36,7 @@ def plan_bytes(*, segment_seconds: int = 60, segment_max_mib: int = 16) -> tuple
         "endpoint_sessions": [{"endpoint_id": "700-708-session"}],
         "acquisitions": [],
         "objectives": [],
+        "decodes": [],
     }
     body["content_sha256"] = hashlib.sha256(canonical_document_bytes(body)).hexdigest()
     return body, canonical_document_bytes(body)
@@ -152,6 +153,23 @@ class NativeRunWriterTests(unittest.TestCase):
                 self.make_writer(root, disk_free_bytes=lambda _: 0)
             captures = root / "captures"
             self.assertEqual(list(captures.iterdir()), [])
+
+    def test_disk_reserve_at_rotation_finalizes_run_with_size_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            checks = iter((10_000_000, 0))
+            writer = self.make_writer(
+                root,
+                segment_seconds=1,
+                disk_free_bytes=lambda _: next(checks),
+            )
+            writer.append_exchange(exchange())
+            with self.assertRaisesRegex(CaptureLimitReached, "disk reserve"):
+                writer.rotate(1000)
+            run = load_capture_tree(root / "captures", root)[0]
+            run_end = json.loads((writer.run_directory / "run-end.json").read_text())
+            self.assertEqual(run_end["reason"], "size_limit")
+            self.assertEqual(run.segments[0].end["reason"], "size_limit")
 
     def test_transport_loss_keeps_completed_prefix(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

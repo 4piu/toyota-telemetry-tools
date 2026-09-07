@@ -105,6 +105,13 @@ class SchedulerTests(unittest.TestCase):
         self.assertIsNone(scheduler.select(1000, slack_ms=1000))
         self.assertIsNone(scheduler.next_due_ms())
 
+    def test_background_work_waits_for_maximum_or_available_slack(self) -> None:
+        scheduler = DeterministicScheduler([acquisition(0x1001)])
+        scheduler.update_acquisition("700-708-session/0x1001", background=True)
+        self.assertIsNone(scheduler.select(0))
+        decision = scheduler.select(0, slack_ms=10)
+        self.assertEqual(decision.reason, "slack_fill")
+
     def test_phase_d_rejects_multiple_endpoints(self) -> None:
         other = acquisition(0x1002)
         other["endpoint_id"] = "7b0-7b8-session"

@@ -36,6 +36,7 @@ project structure of its own to copy.
 
 | Command | Purpose |
 |---|---|
+| `telemetry collect` | Execute one current admitted endpoint plan through the private adapter worker. This verb is live; there is no `--live` option. |
 | `telemetry-build-plan` | Build a bounded, tiered DID plan from a catalog and platform profile. |
 | `telemetry-probe` | Probe every ECU endpoint the catalog knows, and write configuration for those that answer. |
 | `telemetry-validate` | Reconstruct progress and run qualification, road, or experiment batches through a configured backend. |
@@ -71,9 +72,14 @@ legacy live command path.
 The native capture service writes an immutable run around that scheduler:
 admitted-plan provenance, create-new JSONL segments, continuous run sequence
 numbers across rotation, bounded storage, clean stop/transport-loss prefixes,
-and explicit offline recovery that leaves the crashed source untouched. Native
-capture services are still offline-tested and are not yet connected to an
-adapter command.
+and explicit offline recovery that leaves the crashed source untouched.
+
+Phase-D collection now uses Python `telemetry collect` as the public scheduler,
+decoder, capture, heartbeat, and stop owner. It launches one private long-lived
+C# worker for the selected endpoint; that worker owns only the adapter, CAN,
+ISO-TP, and session lifetime and enforces the admitted byte-exact request
+allowlist. The collector/worker integration is covered by synthetic offline
+tests. It has not yet been exercised on a vehicle.
 
 ## Guides
 

@@ -29,6 +29,7 @@ class NativeRunWriter:
         run_id: str,
         created_utc: str,
         backend_kind: str,
+        endpoint_id: str | None = None,
         run_note: str | None = None,
         independence: str = "unknown",
         disk_free_bytes: Callable[[Path], int] | None = None,
@@ -45,9 +46,16 @@ class NativeRunWriter:
         ):
             raise ValueError("native capture requires a live-authorized admitted plan")
         sessions = self.plan.get("endpoint_sessions")
-        if not isinstance(sessions, list) or len(sessions) != 1:
-            raise ValueError("Phase D native capture requires exactly one endpoint session")
-        self.endpoint_id = str(sessions[0]["endpoint_id"])
+        if not isinstance(sessions, list) or not sessions:
+            raise ValueError("native capture requires at least one endpoint session")
+        available_endpoints = [str(row["endpoint_id"]) for row in sessions]
+        if endpoint_id is None:
+            if len(available_endpoints) != 1:
+                raise ValueError("endpoint_id is required for a multi-endpoint admitted plan")
+            endpoint_id = available_endpoints[0]
+        if endpoint_id not in available_endpoints:
+            raise ValueError(f"endpoint is absent from admitted plan: {endpoint_id}")
+        self.endpoint_id = endpoint_id
         if independence not in {"unknown", "reviewed_independent"}:
             raise ValueError("invalid run independence")
         if not isinstance(created_utc, str) or not created_utc:
@@ -147,8 +155,13 @@ class NativeRunWriter:
         self._require_open()
         if not self.needs_rotation(now_ms):
             raise ValueError("segment rotation requested before its duration elapsed")
+        try:
+            self._assert_next_segment_budget()
+        except CaptureLimitReached:
+            self._finish_segment("size_limit")
+            self._finish_run("size_limit")
+            raise
         complete = self._finish_segment("rotation")
-        self._assert_next_segment_budget()
         self._open_segment(now_ms)
         return complete
 

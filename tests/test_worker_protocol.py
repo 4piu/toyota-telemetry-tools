@@ -26,8 +26,10 @@ def plan() -> dict:
             "response_can_id": "0x708",
             "session_recipe_id": "extended",
             "network": {"type": "classical-can", "bitrate": 500000, "addressing": "normal"},
+            "request_start_floor_ms": 100,
             "initial_response_timeout_ms": 1000,
             "response_pending_budget_ms": 10000,
+            "transport_retries": 2,
             "session_setup": [{
                 "request_hex": "3E 00",
                 "expected_prefix_hex": "7E 00",

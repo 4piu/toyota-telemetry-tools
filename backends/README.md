@@ -1,5 +1,12 @@
 # Validation backends
 
+The Phase-D collection path launches the selected executable privately as
+`--worker --config PATH`. Python `telemetry collect` owns scheduling, decoding,
+capture files, heartbeat, and public `stop`; the C# process keeps one adapter,
+CAN channel, ISO-TP conversation, and diagnostic session alive and accepts only
+exact-schema JSONL `exchange` and `stop` commands. This private mode is not an
+operator CLI and its temporary config lives under ignored project scratch.
+
 These are the programs that actually talk to the vehicle. `telemetry-validate`
 never opens a CAN device itself — it builds a bounded, allowlisted command and
 runs one of these per batch.
@@ -199,6 +206,7 @@ Telemetry.Can.Core/       shared; no device or vehicle knowledge
   BackendConfig.cs        config load and validation
   ICanChannel.cs          the device abstraction
   IsoTpTransport.cs       ISO-TP framing, UDS exchange, allowlists
+  WorkerProtocol.cs       private exact-schema transaction worker
   BoundedJsonlLog.cs      candidate-capture schema 1 writer
   CandidateRunner.cs      probes, qualification, batch capture
   Options.cs              the CLI contract

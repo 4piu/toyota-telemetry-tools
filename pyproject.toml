@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.scripts]
+telemetry = "toyota_telemetry.cli:main"
 telemetry-build-plan = "toyota_telemetry.planning:main"
 telemetry-analyze-capture = "toyota_telemetry.capture:main"
 telemetry-validate = "toyota_telemetry.execution:main"

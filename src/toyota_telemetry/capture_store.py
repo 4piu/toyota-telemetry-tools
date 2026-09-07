@@ -428,7 +428,8 @@ def _validate_native_plan(
         {
             "document_type", "schema_version", "project_id", "profile_id", "created_utc",
             "source_hashes", "admitted", "live_authorized", "admission", "stress",
-            "storage", "endpoint_sessions", "acquisitions", "objectives", "content_sha256",
+            "storage", "endpoint_sessions", "acquisitions", "objectives", "decodes",
+            "content_sha256",
         },
     )
     if (

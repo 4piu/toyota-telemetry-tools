@@ -139,6 +139,9 @@ def compile_plan(
                     }
                 )
 
+    if not compiled_objectives:
+        raise ValueError("all included collection objectives are already complete")
+
     costs = repository.acquisition_cost_facts()
     safety = transport["safety"]
     floor = int(safety["request_start_floor_ms"])
@@ -243,8 +246,10 @@ def compile_plan(
                 "response_can_id": endpoint["response_can_id"],
                 "session_recipe_id": recipe["id"],
                 "network": transport["network"],
+                "request_start_floor_ms": safety["request_start_floor_ms"],
                 "initial_response_timeout_ms": safety["initial_response_timeout_ms"],
                 "response_pending_budget_ms": safety["response_pending_budget_ms"],
+                "transport_retries": safety["transport_retries"],
                 "session_setup": [
                     dict(step) for step in recipe["steps"]
                 ] + sorted(
@@ -271,6 +276,7 @@ def compile_plan(
     maximum_session_utilization = max(
         (load["session_utilization"] for load in load_by_endpoint.values()), default=0.0
     )
+    decodes = _compile_decodes(repository, compiled_objectives)
     body = {
         "document_type": "telemetry.admitted-plan",
         "schema_version": 1,
@@ -291,6 +297,7 @@ def compile_plan(
         "endpoint_sessions": endpoint_sessions,
         "acquisitions": acquisitions,
         "objectives": compiled_objectives,
+        "decodes": decodes,
     }
     body["content_sha256"] = hashlib.sha256(_json_bytes(body)).hexdigest()
     encoded = _json_bytes(body)
@@ -298,6 +305,54 @@ def compile_plan(
     if output is not None:
         _atomic_write(output, encoded)
     return body, file_sha256
+
+
+def _compile_decodes(
+    repository: ProjectRepository, objectives: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    required = {row["signal_ref"] for row in objectives}
+    for objective in objectives:
+        required.update(objective["applicability_dependencies"])
+    by_signal: dict[str, list[dict[str, Any]]] = {}
+    for row in repository.catalog_variants():
+        by_signal.setdefault(row["signal_ref"], []).append(row)
+    reviews = {row["signal_ref"]: row for row in repository.review["signals"]}
+    endpoint_by_ecu = {
+        int(ecu): endpoint["id"]
+        for endpoint in repository.transport["endpoints"]
+        for ecu in endpoint["ecu_keys"]
+    }
+    result = []
+    for signal_ref in sorted(required, key=SignalRef.parse):
+        variants = by_signal.get(signal_ref, [])
+        if not variants:
+            raise ValueError(f"collection decode does not resolve catalog signal: {signal_ref}")
+        review = reviews.get(signal_ref)
+        selected = None
+        if review is not None and review["catalog_variant_id"] is not None:
+            selected = next(
+                (row for row in variants if row["catalog_variant_id"] == review["catalog_variant_id"]),
+                None,
+            )
+        if selected is None:
+            formulas = {row.get("formula", "raw") for row in variants}
+            if len(formulas) != 1 and not (review and review["formula_override"] is not None):
+                raise ValueError(f"collection decode formula is ambiguous: {signal_ref}")
+            selected = min(variants, key=lambda row: row["catalog_variant_id"])
+        ref = SignalRef.parse(signal_ref)
+        formula = (
+            review["formula_override"]
+            if review is not None and review["formula_override"] is not None
+            else selected.get("formula", "raw")
+        )
+        result.append({
+            "acquisition_id": f"{endpoint_by_ecu[ref.ecu_key]}/0x{ref.data_id:04X}",
+            "signal_ref": signal_ref,
+            "first_bit": ref.first_bit,
+            "last_bit": ref.last_bit,
+            "formula": formula,
+        })
+    return result
 
 
 def _applicability_refs(node: Mapping[str, Any]) -> set[str]:

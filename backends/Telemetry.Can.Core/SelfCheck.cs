@@ -84,6 +84,48 @@ namespace Telemetry.Can.Core
                 new byte[] { 0x02, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 },
                 allowlist,
                 "unallowlisted session control");
+
+            RunWorkerProtocolChecks();
+        }
+
+        private static void RunWorkerProtocolChecks()
+        {
+            WorkerCommand exchange = WorkerCommand.Parse(
+                "{\"command\":\"exchange\",\"schema_version\":1," +
+                "\"sequence\":7,\"request_hex\":\"22 10 75\"}");
+            if (!String.Equals(exchange.Name, "exchange", StringComparison.Ordinal) ||
+                exchange.Sequence != 7 ||
+                !Hex.Equal(exchange.Request, new byte[] { 0x22, 0x10, 0x75 }))
+            {
+                throw new InvalidOperationException("Worker command self-check failed.");
+            }
+            WorkerCommand stop = WorkerCommand.Parse(
+                "{\"command\":\"stop\",\"schema_version\":1}");
+            if (!String.Equals(stop.Name, "stop", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("Worker stop self-check failed.");
+            }
+            AssertWorkerCommandRejected(
+                "{\"command\":\"exchange\",\"schema_version\":2," +
+                "\"sequence\":1,\"request_hex\":\"22 10 75\"}",
+                "wrong schema version");
+            AssertWorkerCommandRejected(
+                "{\"command\":\"stop\",\"schema_version\":1,\"extra\":true}",
+                "unknown field");
+        }
+
+        private static void AssertWorkerCommandRejected(string line, string label)
+        {
+            try
+            {
+                WorkerCommand.Parse(line);
+            }
+            catch (FormatException)
+            {
+                return;
+            }
+            throw new InvalidOperationException(
+                "Worker protocol self-check failed to reject " + label + ".");
         }
 
         /// <summary>Prove every request this run could transmit is covered by

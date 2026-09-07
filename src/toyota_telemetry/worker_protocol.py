@@ -34,8 +34,8 @@ def build_worker_config(
     session = sessions[0]
     expected_session = {
         "endpoint_id", "tester_can_id", "response_can_id", "session_recipe_id",
-        "network", "initial_response_timeout_ms", "response_pending_budget_ms",
-        "session_setup",
+        "network", "request_start_floor_ms", "initial_response_timeout_ms",
+        "response_pending_budget_ms", "transport_retries", "session_setup",
     }
     _exact_keys(session, expected_session, "endpoint session")
 

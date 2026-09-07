@@ -11,6 +11,7 @@ from tests.test_legacy_migration import make_legacy_project
 from toyota_telemetry.admission import compile_plan, validate_objective_shape
 from toyota_telemetry.capture_store import inspect_capture_tree
 from toyota_telemetry.capture_writer import NativeRunWriter, recover_incomplete_segment
+from toyota_telemetry.collector import load_verified_plan
 from toyota_telemetry.exporting import export_project
 from toyota_telemetry.legacy_migration import convert_legacy_project
 from toyota_telemetry.objectives import ReplayObservation, ReplayRun, replay_objectives
@@ -242,6 +243,28 @@ class PlanningAndExportTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(output.read_bytes()).hexdigest(), digest)
             self.assertNotIn("backend", plan)
             self.assertNotIn("--live", output.read_text())
+            self.assertEqual(
+                plan["decodes"],
+                [{
+                    "acquisition_id": f"{plan['endpoint_sessions'][0]['endpoint_id']}/0x1002",
+                    "signal_ref": "372/0x1002/0..15",
+                    "first_bit": 0,
+                    "last_bit": 15,
+                    "formula": "raw / 1000",
+                }],
+            )
+            self.assertEqual(
+                plan["endpoint_sessions"][0]["session_setup"][0]["expected_prefix_hex"],
+                "50 03",
+            )
+            verified, verified_bytes = load_verified_plan(output, repository)
+            self.assertEqual(verified, plan)
+            self.assertEqual(verified_bytes, output.read_bytes())
+            original_policy = repository.paths.collection_policy.read_bytes()
+            repository.paths.collection_policy.write_bytes(original_policy + b" ")
+            with self.assertRaisesRegex(ValueError, "stale: collection_policy"):
+                load_verified_plan(output, repository)
+            repository.paths.collection_policy.write_bytes(original_policy)
             inspection = inspect_capture_tree(repository.paths.captures, repository.root)
             self.assertEqual(inspection["runs"], 1)
             self.assertEqual(inspection["exchanges"], 1)
@@ -289,6 +312,15 @@ class PlanningAndExportTests(unittest.TestCase):
             root.mkdir()
             repository, _ = migrated_repository(root)
             with self.assertRaisesRegex(ValueError, "no included objectives"):
+                compile_plan(repository, available_disk_mib=1024, created_utc="x")
+
+    def test_completed_policy_cannot_authorize_unnecessary_collection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "vehicle"
+            root.mkdir()
+            repository, rows = migrated_repository(root)
+            repository = author_collection_policy(repository, rows, minimum_observations=1)
+            with self.assertRaisesRegex(ValueError, "already complete"):
                 compile_plan(repository, available_disk_mib=1024, created_utc="x")
 
     def test_policy_change_reuses_all_recorded_observations(self) -> None:

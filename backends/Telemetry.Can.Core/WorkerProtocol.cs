@@ -370,6 +370,13 @@ namespace Telemetry.Can.Core
                         inbox.ExchangeOutstanding = false;
                     }
                 }
+                lock (inbox.Gate)
+                {
+                    if (inbox.Failure != null)
+                    {
+                        throw new FormatException("worker input failed: " + inbox.Failure.Message);
+                    }
+                }
                 if (RunState.StopRequested)
                 {
                     WriteEvent("{\"event\":\"stopped\",\"schema_version\":1,\"reason\":\"stop\"}");
