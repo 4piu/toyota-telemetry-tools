@@ -14,6 +14,14 @@ not a pin: it moves under you.
 
 ## Unreleased
 
+### Changed
+
+- The one-time legacy converter now preserves collection settings only in each
+  run's non-authoritative snapshot and creates an empty active collection
+  policy. Planning refuses an empty policy, while current objective replay and
+  review queries continue to use all structurally valid observations across
+  runs regardless of the settings under which they were recorded.
+
 ### Added
 
 - Offline objective/applicability replay, cost-based safety admission, exact

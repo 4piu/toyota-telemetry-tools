@@ -116,7 +116,8 @@ def load_capture_tree(captures_root: Path, project_root: Path) -> tuple[CaptureR
             "admitted-plan",
             {
                 "document_type", "schema_version", "project_id", "profile_id", "origin",
-                "source_sha256", "endpoint_id", "acquisition_ids", "live_authorized",
+                "source_sha256", "endpoint_id", "acquisition_ids", "collection_settings",
+                "live_authorized",
             },
         )
         if (
@@ -127,6 +128,14 @@ def load_capture_tree(captures_root: Path, project_root: Path) -> tuple[CaptureR
             or _sha256(plan_bytes) != start["admitted_plan_sha256"]
         ):
             raise ValueError(f"{directory}: admitted plan hash or schema mismatch")
+        settings = _object(plan["collection_settings"], "admitted-plan.collection_settings")
+        _keys(
+            settings,
+            "admitted-plan.collection_settings",
+            {"authority", "mode", "batch_id", "period_ms"},
+        )
+        if settings["authority"] != "legacy_snapshot":
+            raise ValueError(f"{directory}: imported settings are not a legacy snapshot")
 
         segment_paths = sorted(directory.glob("*.segment.complete.jsonl"))
         if not segment_paths:

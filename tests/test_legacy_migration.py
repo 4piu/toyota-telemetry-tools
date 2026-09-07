@@ -162,8 +162,26 @@ class LegacyMigrationTests(unittest.TestCase):
 
             converted_review = json.loads((destination / "review/signals.json").read_text())
             self.assertEqual(converted_review["signals"][0]["formula_override"], "raw / 1000")
+            converted_policy = json.loads((destination / "config/collection-policy.json").read_text())
+            self.assertEqual(converted_policy["class_defaults"], {})
+            self.assertEqual(converted_policy["acquisitions"], [])
+            self.assertEqual(converted_policy["objectives"], [])
+            self.assertEqual(report["identity_counts"]["policy_acquisitions"], 0)
+            self.assertEqual(report["identity_counts"]["policy_objectives"], 0)
             converted = next(item for item in report["captures"] if item["status"] == "converted")
             self.assertEqual(hashlib.sha256(source_capture.read_bytes()).hexdigest(), converted["source_sha256"])
+            admitted_plan = json.loads(
+                (destination / "captures" / converted["run_id"] / "admitted-plan.json").read_text()
+            )
+            self.assertEqual(
+                admitted_plan["collection_settings"],
+                {
+                    "authority": "legacy_snapshot",
+                    "batch_id": "one",
+                    "mode": "candidate_qualification",
+                    "period_ms": 100,
+                },
+            )
             for relative, digest in report["authored_output_hashes"].items():
                 self.assertEqual(hashlib.sha256((destination / relative).read_bytes()).hexdigest(), digest)
             for relative, digest in converted["output_hashes"].items():

@@ -27,7 +27,7 @@ from .capture import (
     validate_capture_context,
 )
 from .identity import SignalRef
-from .planning import classify_tier, validate_config
+from .planning import validate_config
 from .repository import ProjectRepository
 
 
@@ -43,7 +43,6 @@ AUTHORED_INPUTS = {
     "unsupported": "data/map/unsupported.csv",
     "catalog_manifest": "data/catalog/manifest.json",
 }
-TIER_PRIORITIES = {"fast": 80, "normal": 50, "slow": 30, "archive": 10}
 
 
 def _sha256(data: bytes) -> str:
@@ -238,57 +237,9 @@ def _catalog_rows(map_rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     return rows
 
 
-def _build_policy(
-    profile: dict[str, Any], map_rows: list[dict[str, str]], endpoint_by_ecu: Mapping[int, str]
-) -> dict[str, Any]:
-    grouped: dict[tuple[int, str], list[dict[str, str]]] = defaultdict(list)
-    unique_signals: dict[str, dict[str, str]] = {}
-    for row in map_rows:
-        did = f"0x{int(row['data_id'], 16):04X}"
-        grouped[(int(row["ecu_key"]), did)].append(row)
-        unique_signals.setdefault(_signal_ref(row), row)
-    acquisition_rules: dict[str, dict[str, Any]] = {}
-    objectives = []
-    signal_tiers: dict[str, str] = {}
-    for (ecu_key, did), rows in grouped.items():
-        names = list(dict.fromkeys(row.get("name", "") for row in rows if row.get("name")))
-        tier = classify_tier(names, False, profile["selection"], profile["policies"])
-        policy = profile["policies"][tier]
-        target = int(policy["period_ms"]) * int(policy.get("maximum_dids_per_batch", 1))
-        acquisition_id = f"{endpoint_by_ecu[ecu_key]}/{did}"
-        rule = {
-            "acquisition_id": acquisition_id,
-            "included": True,
-            "priority": TIER_PRIORITIES[tier],
-            "target_interval_ms": target,
-            "maximum_interval_ms": target,
-        }
-        previous = acquisition_rules.get(acquisition_id)
-        if previous is None or rule["target_interval_ms"] < previous["target_interval_ms"]:
-            acquisition_rules[acquisition_id] = rule
-        for row in rows:
-            signal_tiers[_signal_ref(row)] = tier
+def _build_policy(profile: Mapping[str, Any]) -> dict[str, Any]:
+    """Create an unconfigured policy without promoting legacy scheduling intent."""
 
-    for signal_ref, row in sorted(unique_signals.items(), key=lambda item: SignalRef.parse(item[0])):
-        tier = signal_tiers[signal_ref]
-        old = profile["policies"][tier]
-        target = int(old["period_ms"]) * int(old.get("maximum_dids_per_batch", 1))
-        objectives.append(
-            {
-                "signal_ref": signal_ref,
-                "objective_id": "legacy-exploration",
-                "class": "exploration",
-                "included": True,
-                "priority": TIER_PRIORITIES[tier],
-                "target_interval_ms": target,
-                "maximum_interval_ms": target,
-                "targets": {
-                    "minimum_total_observations": int(old["minimum_samples_per_did"]),
-                    "minimum_time_span_seconds": int(old["duration_seconds"]),
-                },
-                "applicability": None,
-            }
-        )
     return {
         "document_type": "telemetry.collection-policy",
         "schema_version": 1,
@@ -299,19 +250,9 @@ def _build_policy(
             "capture_tree_max_mib": 2048,
             "disk_reserve_mib": 256,
         },
-        "class_defaults": {
-            "exploration": {
-                "priority": 50,
-                "target_interval_ms": 2000,
-                "maximum_interval_ms": 2000,
-                "targets": {
-                    "minimum_total_observations": 20,
-                    "minimum_time_span_seconds": 60,
-                },
-            }
-        },
-        "acquisitions": sorted(acquisition_rules.values(), key=lambda item: item["acquisition_id"]),
-        "objectives": objectives,
+        "class_defaults": {},
+        "acquisitions": [],
+        "objectives": [],
     }
 
 
@@ -473,6 +414,12 @@ def _capture_output(
         "source_sha256": source_sha,
         "endpoint_id": endpoint_id,
         "acquisition_ids": acquisition_ids,
+        "collection_settings": {
+            "authority": "legacy_snapshot",
+            "mode": start["mode"],
+            "batch_id": start.get("batch_id"),
+            "period_ms": start.get("period_ms"),
+        },
         "live_authorized": False,
     }
     plan_bytes = _json_bytes(plan)
@@ -622,7 +569,7 @@ def convert_legacy_project(
     project_id, repository_url = _project_marker_values(paths["project_marker"])
 
     transport, endpoint_by_ecu = _build_transport(backend, mapped_transport)
-    policy = _build_policy(profile, map_rows, endpoint_by_ecu)
+    policy = _build_policy(profile)
     review = _build_review(str(profile["profile_id"]), curation_rows, overrides)
     local_settings = _build_local_settings(project_id, profile, backend)
     catalog_rows = _catalog_rows(map_rows)
@@ -747,7 +694,7 @@ def convert_legacy_project(
         },
         "did_reconciliation": reconciliation,
         "deferred_decisions": {
-            "semantic_classes": "All legacy signal objectives remain exploration until reviewed.",
+            "collection_policy": "Legacy scheduling settings remain non-authoritative run snapshots; the active policy is empty until reviewed.",
             "applicability": "No applicability conditions were inferred from legacy observations.",
             "run_independence": "Every imported run has independence unknown.",
         },

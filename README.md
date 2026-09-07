@@ -56,6 +56,12 @@ Converted evidence must be reviewed before cutover. The command and every old
 schema reader will be removed once that migration is accepted; it is not a
 compatibility path.
 
+The converter preserves each legacy run's collection settings only as a
+non-authoritative snapshot. It does not turn legacy tiers, periods, or sample
+limits into current objectives: the converted collection policy starts empty,
+and planning cannot authorize live collection until reviewed targets are
+added. Existing observations remain available across later policy changes.
+
 ## Guides
 
 - **[Quickstart](docs/quickstart.md)** — the command sequence end to end.

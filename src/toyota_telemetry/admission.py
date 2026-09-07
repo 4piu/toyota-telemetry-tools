@@ -73,6 +73,8 @@ def compile_plan(
 
     policy = repository.policy
     transport = repository.transport
+    if not any(row["included"] for row in policy["objectives"]):
+        raise ValueError("collection policy has no included objectives")
     storage = policy["storage"]
     required_disk = storage["disk_reserve_mib"] + storage["segment_max_mib"]
     if available_disk_mib < required_disk:

@@ -409,8 +409,6 @@ def validate_policy(document: Mapping[str, Any]) -> None:
     _integer(storage["disk_reserve_mib"], "collection policy.storage.disk_reserve_mib", 1)
 
     defaults = _object(document["class_defaults"], "collection policy.class_defaults")
-    if not defaults:
-        raise ValueError("collection policy.class_defaults must not be empty")
     if unknown := defaults.keys() - CLASSES:
         raise ValueError(f"collection policy has unknown classes: {', '.join(sorted(unknown))}")
     for name, raw in defaults.items():

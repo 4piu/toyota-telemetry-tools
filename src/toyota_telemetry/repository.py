@@ -517,6 +517,35 @@ class ProjectRepository:
             }
         return result
 
+    def signal_observations(self, signal_ref: str) -> list[dict[str, Any]]:
+        """Return every cached observation for one signal across all runs."""
+
+        canonical = str(SignalRef.parse(signal_ref))
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            rows = connection.execute(
+                "SELECT o.run_id, o.sequence, o.raw_value, o.decoded_value, "
+                "o.applicability, e.document_json "
+                "FROM signal_observation o JOIN acquisition_exchange e "
+                "ON e.run_id = o.run_id AND e.sequence = o.sequence "
+                "WHERE o.signal_ref = ? ORDER BY o.run_id, o.sequence",
+                (canonical,),
+            )
+            result = []
+            for run_id, sequence, raw_value, decoded, applicability, document in rows:
+                exchange = json.loads(document)
+                result.append(
+                    {
+                        "run_id": run_id,
+                        "sequence": sequence,
+                        "response_utc": exchange["response_utc"],
+                        "response_elapsed_ms": exchange["response_elapsed_ms"],
+                        "raw_hex": bytes(raw_value).hex(" ").upper(),
+                        "decoded_value": decoded,
+                        "recorded_applicability": applicability,
+                    }
+                )
+            return result
+
     def _populate_cache(
         self,
         connection: sqlite3.Connection,

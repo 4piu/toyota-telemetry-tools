@@ -50,6 +50,38 @@ def migrated_repository(root: Path) -> tuple[ProjectRepository, list[dict]]:
     return ProjectRepository(destination), rows
 
 
+def author_collection_policy(
+    repository: ProjectRepository,
+    catalog_rows: list[dict],
+    *,
+    minimum_observations: int = 1,
+) -> ProjectRepository:
+    endpoint_id = repository.transport["endpoints"][0]["id"]
+    policy = {
+        **repository.policy,
+        "class_defaults": {},
+        "acquisitions": [{
+            "acquisition_id": f"{endpoint_id}/0x1002",
+            "included": True,
+            "priority": 50,
+            "target_interval_ms": 1000,
+            "maximum_interval_ms": 2000,
+        }],
+        "objectives": [objective(
+            objective_id="reviewed-target",
+            **{
+                "class": "exploration",
+                "target_interval_ms": 1000,
+                "maximum_interval_ms": 2000,
+                "targets": {"minimum_total_observations": minimum_observations},
+            },
+        )],
+    }
+    repository.write_authored_document("collection_policy", policy)
+    repository.rebuild_cache(catalog_rows, repository.paths.captures)
+    return ProjectRepository(repository.root)
+
+
 def tree_hashes(root: Path) -> dict[str, str]:
     return {
         path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -142,7 +174,8 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, _ = migrated_repository(root)
+            repository, rows = migrated_repository(root)
+            repository = author_collection_policy(repository, rows, minimum_observations=2)
             output = repository.paths.plans / "admitted-plan.json"
             plan, digest = compile_plan(
                 repository,
@@ -164,7 +197,8 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, _ = migrated_repository(root)
+            repository, rows = migrated_repository(root)
+            repository = author_collection_policy(repository, rows, minimum_observations=2)
             with self.assertRaisesRegex(ValueError, "insufficient disk"):
                 compile_plan(repository, available_disk_mib=1, created_utc="x")
             row = repository.policy["objectives"][0]
@@ -173,6 +207,7 @@ class PlanningAndExportTests(unittest.TestCase):
                 "minimum_changed_observations": 1,
                 "minimum_applicable_seconds": 1,
             }
+            row.pop("deadband", None)
             with self.assertRaisesRegex(ValueError, "reviewed deadband"):
                 compile_plan(repository, available_disk_mib=1024, created_utc="x")
             row["class"] = "exploration"
@@ -188,8 +223,36 @@ class PlanningAndExportTests(unittest.TestCase):
             capture.unlink()
             destination = root / "scratch/migration-v1"
             convert_legacy_project(root, destination, "deadbeef")
+            repository = ProjectRepository(destination)
+            rows = json.loads((destination / "result/catalog-rows.json").read_text())
+            repository = author_collection_policy(repository, rows, minimum_observations=2)
             with self.assertRaisesRegex(ValueError, "missing latency/response-size"):
-                compile_plan(ProjectRepository(destination), available_disk_mib=1024, created_utc="x")
+                compile_plan(repository, available_disk_mib=1024, created_utc="x")
+
+    def test_empty_policy_cannot_authorize_collection(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "vehicle"
+            root.mkdir()
+            repository, _ = migrated_repository(root)
+            with self.assertRaisesRegex(ValueError, "no included objectives"):
+                compile_plan(repository, available_disk_mib=1024, created_utc="x")
+
+    def test_policy_change_reuses_all_recorded_observations(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "vehicle"
+            root.mkdir()
+            repository, rows = migrated_repository(root)
+            signal_ref = "372/0x1002/0..15"
+            before = repository.signal_observations(signal_ref)
+            self.assertEqual(len(before), 1)
+
+            repository = author_collection_policy(repository, rows, minimum_observations=1)
+            self.assertTrue(repository.replay_progress()[0]["complete"])
+            self.assertEqual(repository.signal_observations(signal_ref), before)
+
+            repository = author_collection_policy(repository, rows, minimum_observations=2)
+            self.assertFalse(repository.replay_progress()[0]["complete"])
+            self.assertEqual(repository.signal_observations(signal_ref), before)
 
     def test_export_is_reproducible_and_privacy_minimized(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
