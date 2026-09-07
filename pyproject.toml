@@ -13,6 +13,7 @@ telemetry-validate = "toyota_telemetry.execution:main"
 telemetry-review = "toyota_telemetry.review:main"
 telemetry-map = "toyota_telemetry.mapping:main"
 telemetry-probe = "toyota_telemetry.probing:main"
+telemetry-migrate-legacy = "toyota_telemetry.legacy_migration:main"
 
 [build-system]
 requires = ["hatchling"]
