@@ -12,7 +12,7 @@ import threading
 import time
 from typing import Any, Callable, Mapping, Protocol
 
-from .capture import evaluate_formula, extract_raw
+from .decoding import evaluate_formula, extract_raw
 from .capture_writer import CaptureLimitReached, NativeRunWriter
 from .capture_store import canonical_document_bytes, capture_set_hash
 from .identity import AcquisitionRef, SignalRef

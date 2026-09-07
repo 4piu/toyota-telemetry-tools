@@ -7,13 +7,12 @@ import tempfile
 import unittest
 import uuid
 
-from tests.test_legacy_migration import make_legacy_project
+from tests.project_fixture import make_current_project
 from toyota_telemetry.admission import compile_plan, validate_objective_shape
 from toyota_telemetry.capture_store import inspect_capture_tree
 from toyota_telemetry.capture_writer import NativeRunWriter, recover_incomplete_segment
 from toyota_telemetry.collector import load_verified_plan
 from toyota_telemetry.exporting import export_project
-from toyota_telemetry.legacy_migration import convert_legacy_project
 from toyota_telemetry.objectives import ReplayObservation, ReplayRun, replay_objectives
 from toyota_telemetry.repository import ProjectRepository
 
@@ -45,12 +44,11 @@ def objective(**changes: object) -> dict:
     return row
 
 
-def migrated_repository(root: Path) -> tuple[ProjectRepository, list[dict]]:
-    make_legacy_project(root)
-    destination = root / "scratch/migration-v1"
-    convert_legacy_project(root, destination, "deadbeef")
-    rows = json.loads((destination / "result/catalog-rows.json").read_text())
-    return ProjectRepository(destination), rows
+def current_repository(root: Path) -> tuple[ProjectRepository, list[dict]]:
+    rows = make_current_project(root)
+    repository = ProjectRepository(root)
+    repository.rebuild_cache(rows, repository.paths.captures)
+    return repository, rows
 
 
 def author_collection_policy(
@@ -229,7 +227,7 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, rows = migrated_repository(root)
+            repository, rows = current_repository(root)
             repository = author_collection_policy(repository, rows, minimum_observations=2)
             output = repository.paths.plans / "admitted-plan.json"
             plan, digest = compile_plan(
@@ -274,7 +272,7 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, rows = migrated_repository(root)
+            repository, rows = current_repository(root)
             repository = author_collection_policy(repository, rows, minimum_observations=2)
             with self.assertRaisesRegex(ValueError, "insufficient disk"):
                 compile_plan(repository, available_disk_mib=1, created_utc="x")
@@ -296,12 +294,9 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            capture = make_legacy_project(root)
-            capture.unlink()
-            destination = root / "scratch/migration-v1"
-            convert_legacy_project(root, destination, "deadbeef")
-            repository = ProjectRepository(destination)
-            rows = json.loads((destination / "result/catalog-rows.json").read_text())
+            rows = make_current_project(root, include_capture=False)
+            repository = ProjectRepository(root)
+            repository.rebuild_cache(rows, repository.paths.captures)
             repository = author_collection_policy(repository, rows, minimum_observations=2)
             with self.assertRaisesRegex(ValueError, "missing latency/response-size"):
                 compile_plan(repository, available_disk_mib=1024, created_utc="x")
@@ -310,7 +305,7 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, _ = migrated_repository(root)
+            repository, _ = current_repository(root)
             with self.assertRaisesRegex(ValueError, "no included objectives"):
                 compile_plan(repository, available_disk_mib=1024, created_utc="x")
 
@@ -318,7 +313,7 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, rows = migrated_repository(root)
+            repository, rows = current_repository(root)
             repository = author_collection_policy(repository, rows, minimum_observations=1)
             with self.assertRaisesRegex(ValueError, "already complete"):
                 compile_plan(repository, available_disk_mib=1024, created_utc="x")
@@ -327,7 +322,7 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, rows = migrated_repository(root)
+            repository, rows = current_repository(root)
             signal_ref = "372/0x1002/0..15"
             before = repository.signal_observations(signal_ref)
             self.assertEqual(len(before), 1)
@@ -344,7 +339,7 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, rows = migrated_repository(root)
+            repository, rows = current_repository(root)
             repository = author_collection_policy(repository, rows, minimum_observations=10)
             plan_path = repository.paths.plans / "admitted-plan.json"
             plan, _ = compile_plan(
@@ -410,7 +405,7 @@ class PlanningAndExportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, _ = migrated_repository(root)
+            repository, _ = current_repository(root)
             first = export_project(
                 repository,
                 toolkit_version="0.4.0-dev",

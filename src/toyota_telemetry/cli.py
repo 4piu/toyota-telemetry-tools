@@ -35,6 +35,7 @@ from .tui import OperatorTui
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="telemetry")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     catalog = subcommands.add_parser("catalog", help="catalog cache operations")

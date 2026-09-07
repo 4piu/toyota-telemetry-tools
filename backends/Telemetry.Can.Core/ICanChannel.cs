@@ -13,8 +13,8 @@ namespace Telemetry.Can.Core
     /// </summary>
     internal interface ICanChannel : IDisposable
     {
-        /// <summary>Human-readable device description for the capture record
-        /// and the dry-run plan, e.g. "PCAN-Basic PCAN_USBBUS1".</summary>
+        /// <summary>Human-readable local device description used in operator
+        /// diagnostics, e.g. "PCAN-Basic PCAN_USBBUS1".</summary>
         string Description { get; }
 
         /// <summary>Value written to the capture's <c>transport.backend</c>
@@ -39,7 +39,7 @@ namespace Telemetry.Can.Core
         /// rather than as a timeout.</summary>
         void CheckStatus(string context);
 
-        /// <summary>Refuse to run live when another client owns the device.
+        /// <summary>Refuse to open when another client owns the device.
         /// Two clients on one channel silently corrupt each other's view of
         /// the bus. No-op where the transport cannot detect this.</summary>
         void RefuseConcurrentClients();

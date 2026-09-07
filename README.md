@@ -2,11 +2,11 @@
 
 The programs behind [`70Y074-telemetry`](https://github.com/4piu/70Y074-telemetry),
 the template a vehicle repository is created from: a dependency-free Python
-package, two vehicle-facing backends, and the extraction utilities that turn an
+package, four vehicle-facing adapter workers, and extraction utilities that turn an
 OEM database into candidate telemetry.
 
 Nothing here is specific to a vehicle. Endpoints, session setup, DID selection,
-and tier policy come from a platform repository's configuration; this
+and objective policy come from a platform repository's configuration; this
 repository supplies the machinery that reads it.
 
 ## Install into a platform project
@@ -44,10 +44,9 @@ project structure of its own to copy.
 | `telemetry capture inspect` | Validate and summarize the private capture tree without printing payload bytes. |
 | `telemetry export` | Generate the tracked, privacy-minimized project result from authored sources and private evidence. |
 
-Every command prints a human summary by default, `--json` for the machine
-document, and reports its version with `--version`. See
-[`tools/README.md`](tools/README.md) for the shared output options and the
-Techstream encoding contract.
+Finite data commands print a human summary by default and accept `--json` for
+one machine document. `telemetry collect --json` emits versioned JSON Lines.
+Use `telemetry --version` for the package version.
 
 The scheduler service is pure and deterministic. It
 accepts one admitted endpoint's acquisition rows and an explicit monotonic
@@ -59,7 +58,7 @@ admitted-plan provenance, create-new JSONL segments, continuous run sequence
 numbers across rotation, bounded storage, clean stop/transport-loss prefixes,
 and explicit offline recovery that leaves the crashed source untouched.
 
-Phase-D collection now uses Python `telemetry collect` as the public scheduler,
+Collection uses Python `telemetry collect` as the public scheduler,
 decoder, capture, heartbeat, and stop owner. It launches one private long-lived
 C# worker for the selected endpoint; that worker owns only the adapter, CAN,
 ISO-TP, and session lifetime and enforces the admitted byte-exact request
@@ -77,8 +76,7 @@ save to their tracked authored document.
 
 - **[Quickstart](docs/quickstart.md)** — the command sequence end to end.
 - [Progressive validation](docs/progressive-validation.md) — the capture loop
-  in detail: plans, qualification, road batches, experiments, and the evidence
-  ledger.
+  in detail: objectives, admission, mixed-cadence collection, and evidence.
 - [Adding an adapter](docs/adding-an-adapter.md) — implementing the backend
   contract for a device that is not PCAN, J2534, or gs_usb.
 
@@ -89,13 +87,14 @@ decoded, what each evidence state claims — lives in the
 ## Backends
 
 [`backends/`](backends/README.md) holds the programs that talk to a vehicle:
-configuration-driven clients for PCAN-Basic, J2534, gs_usb (candleLight_fw
+private workers for PCAN-Basic, J2534, gs_usb (candleLight_fw
 and its clone family), and slcan (LAWICEL over a CDC-ACM serial port) that
-implement the runner's executable contract. They build with the C# compiler
+implement the collector's transaction contract. They build with the C# compiler
 shipped with Windows and need no SDK.
 
-You should not have to write C# to use one on a new vehicle — endpoint, session
-setup, and DID range come from a `backend-config.json` the project supplies.
+You should not have to write C# to use one on a new vehicle—endpoint, session,
+and safety facts come from tracked transport authority, while local device
+binding comes from ignored settings.
 Adding a different adapter means implementing one seven-member interface.
 
 ## Releases

@@ -58,14 +58,9 @@ def calls_helper(tree: ast.AST, name: str) -> bool:
 
 class CliArgumentTests(unittest.TestCase):
     def test_every_referenced_option_is_declared(self) -> None:
-        # Options common to every command are declared once, in console.py.
-        shared = declared_options(
-            ast.parse((PACKAGE / "console.py").read_text(encoding="utf-8"))
-        )
+        shared: set[str] = set()
         checked = 0
         for path in sorted(PACKAGE.glob("*.py")):
-            if path.name == "console.py":
-                continue
             tree = ast.parse(path.read_text(encoding="utf-8"))
             declared = declared_options(tree)
             if not declared:

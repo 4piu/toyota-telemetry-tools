@@ -17,7 +17,7 @@ namespace Telemetry.Backend.Gsusb
 
         private static int Main(string[] args)
         {
-            return CandidateRunner.Run(OpenChannel, args, ToolName);
+            return BackendEntry.Run(OpenChannel, args, ToolName);
         }
 
         private static ICanChannel OpenChannel(BackendConfig config)

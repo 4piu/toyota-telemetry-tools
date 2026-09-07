@@ -275,5 +275,5 @@ if (-not $SkipToolkit) {
     Write-Host '  activate     .\.venv\Scripts\Activate.ps1'
 }
 if (-not $SkipToolkit) {
-    Write-Host '  then         telemetry-validate status --config data\config\validation-profile.json'
+    Write-Host '  then         telemetry review'
 }

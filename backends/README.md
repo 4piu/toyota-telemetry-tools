@@ -1,227 +1,56 @@
-# Validation backends
+# Private CAN adapter workers
 
-The Phase-D collection path launches the selected executable privately as
-`--worker --config PATH`. Python `telemetry collect` owns scheduling, decoding,
-capture files, heartbeat, and public `stop`; the C# process keeps one adapter,
-CAN channel, ISO-TP conversation, and diagnostic session alive and accepts only
-exact-schema JSONL `exchange` and `stop` commands. This private mode is not an
-operator CLI and its temporary config lives under ignored project scratch.
+The C# executables are private implementation details of `telemetry collect`.
+Each keeps one adapter channel, ISO-TP conversation, and diagnostic session
+alive for one endpoint. It accepts only ordered transactions from the Python
+collector through an exact JSON-Lines protocol and enforces the admitted
+byte-exact request allowlist again at the vehicle-facing boundary.
 
-These are the programs that actually talk to the vehicle. `telemetry-validate`
-never opens a CAN device itself — it builds a bounded, allowlisted command and
-runs one of these per batch.
+The worker does not own scheduling, decoding, objective progress, capture
+files, public status, or operator interaction. It permits one outstanding
+request and supports stop while a response is pending.
 
-You need exactly one working backend for your adapter. All shipped backends
-are configuration-driven: **you should not need to edit any C# to use one on a
-new vehicle.** Everything vehicle-specific lives in a `backend-config.json`
-that you write.
+## Supported adapters
 
-## Which backend
-
-| Backend | Adapter | Process |
-|---|---|---|
-| `telemetry-pcan` | PEAK PCAN-USB, or any adapter whose firmware the PEAK driver enumerates as a PCAN channel (for example a CANable flashed with PCAN-compatible firmware) | x64 |
-| `telemetry-j2534` | A J2534 / PassThru interface with a vendor DLL | x86 by default; x64 if the vendor DLL is 64-bit |
-| `telemetry-gsusb` | Any [candleLight_fw](https://github.com/candle-usb/candleLight_fw)-family adapter — a CANable flashed with `candleLight_fw`, the reference candleLight board, cantact, and their many clones | x64 |
-| `telemetry-slcan` | Any adapter whose firmware speaks the LAWICEL/slcan ASCII protocol over a CDC-ACM virtual COM port — no vendor driver, just `System.IO.Ports` | AnyCPU |
-
-All three operate the adapter in **raw CAN** mode and run the same
-application-managed ISO-TP layer. That is deliberate: it keeps every backend
-byte-identical on the bus, so a result from one adapter can be compared with a
-result from another. Letting a J2534 adapter do ISO-TP internally would make
-transport behaviour vendor-specific and the comparison meaningless.
-
-## Build
-
-No SDK is required. The build uses the C# compiler that ships with Windows.
-
-```powershell
-.\build.ps1                      # every backend into backends\bin\Release
-.\build.ps1 -Backend pcan        # just one
-.\build.ps1 -J2534Platform x64   # for a 64-bit vendor DLL
-```
-
-`telemetry-gsusb` also copies `libusb-1.0.dll` next to the executable — its
-fallback transport's only dependency; do not run the `.exe` from outside its
-build output directory, or that copy will not be found.
-
-Build straight into your platform project's ignored scratch directory so the
-binary is never committed and never assumed to sit in a sibling checkout:
-
-```powershell
-.\build.ps1 -OutputDirectory C:\path\to\my-platform-project\scratch\bin
-```
-
-Then point the platform's `validation-profile.json` at it:
-
-```json
-"backend": {
-  "schema_version": 1,
-  "executable": "scratch/bin/telemetry-pcan.exe",
-  "arguments": ["--config", "data/config/backend-config.json"],
-  "mode_arguments": {
-    "qualification": ["--candidate-qualify", "--live"],
-    "road": ["--candidate-batch", "--live"]
-  }
-}
-```
-
-## Verify before connecting to a vehicle
-
-```powershell
-.\bin\Release\telemetry-pcan.exe --self-test --output selftest.jsonl
-```
-
-This opens no device. It asserts ISO-TP segmentation byte-for-byte (single
-frame, first frame, both consecutive-frame boundaries), checks that the
-transmit allowlist accepts what it should and rejects everything else, and
-writes a synthetic capture so the JSONL writer is exercised end to end. Run it
-after every build and after any change to the core.
-
-Confirm the toolkit agrees with the output:
-
-```powershell
-telemetry-analyze-capture selftest.jsonl --ecu-key 0 --minimum-samples 1
-```
-
-## gs_usb: two transports, and why
-
-`telemetry-gsusb` tries native WinUSB first — the zero-driver path
-candleLight_fw's Microsoft OS descriptors are designed for — and falls back to
-libusb only if that fails. Both were needed in practice: a unit whose WinUSB
-binding candleLight_fw's own WCID descriptors installed automatically (no
-Zadig, no warning in Device Manager) still refused `libusb_open`-style access
-with no diagnosable cause, on every combination tried (elevated shell, a
-Zadig-forced WinUSB rebind, a current `libusb-1.0.dll`). Rebinding the same
-unit to **libusbK** through Zadig fixed it immediately, and once it does, the
-libusb fallback here handles it transparently — libusb's Windows backend
-detects and speaks either driver.
-
-If a fresh adapter's Device Manager entry looks fine but `telemetry-gsusb`
-still fails to open it, this is the fix: Zadig, **Options → List All
-Devices**, find the adapter, replace its driver with **libusbK** instead of
-WinUSB.
-
-## slcan: firmware is not one-size-fits-all
-
-Unlike gs_usb, where `candleLight_fw` maintains a board list you can flash
-as-is, slcan firmware for a CANable-family clone is not necessarily built
-for your exact board — the STM32F042 reference design and later F072-based
-clones differ in flash size and can differ in LED and transceiver-control
-pin wiring. Flashing a firmware built for a different schematic without
-checking is not just "LEDs might not light": a firmware that actively drives
-a GPIO pin your board wires to something else is a real risk, not a
-theoretical one. See
-[`Telemetry.Backend.Slcan/firmware/README.md`](Telemetry.Backend.Slcan/firmware/README.md)
-for what was actually verified pin-by-pin against known-good hardware before
-flashing, and how to redo that check for a different board.
-
-## Bring-up order
-
-Do these in order the first time on any vehicle. Each step isolates a
-different failure, which matters because a wiring fault and a gateway routing
-failure look identical from the application.
-
-```powershell
-# 1. Config parses, endpoint reads back correctly, nothing transmitted.
-.\telemetry-pcan.exe --config data\config\backend-config.json --probe
-
-# 2. Standardized OBD query. Proves bit timing, TX, RX, filtering, and wiring
-#    without depending on any manufacturer-specific endpoint.
-.\telemetry-pcan.exe --config data\config\backend-config.json --obd-probe --live
-
-# 3. One tester-present to your configured endpoint. Proves gateway routing.
-.\telemetry-pcan.exe --config data\config\backend-config.json --probe --live
-```
-
-If step 2 fails, the problem is electrical or bit timing — not the ECU. A
-blinking adapter LED and an OK controller status are both consistent with
-completely miswired CAN-L and ground.
-
-After step 3 passes, use `telemetry-validate` rather than calling the backend
-directly; it owns batching, progress, and validation.
-
-## Writing `backend-config.json`
-
-Copy [`templates/backend-config.json`](https://github.com/4piu/70Y074-telemetry/blob/main/data/config/backend-config.json). The
-fields that need real values:
-
-| Field | How to obtain it |
+| Executable | Adapter API |
 |---|---|
-| `transport.bitrate` | The vehicle's diagnostic CAN bitrate, commonly 500000. |
-| `transport.tester_can_id` / `response_can_id` | The diagnostic endpoint for your target ECU. |
-| `session_setup` | **The hard part — see below.** |
-| `limits.did_min` / `did_max` | The DID range you are willing to schedule. |
-| `device.pcan.channel` | `PCAN_USBBUS1` unless you have several adapters. |
-| `device.j2534.dll` | Absolute path to the vendor PassThru DLL. |
-| `device.gsusb.vendor_id` / `product_id` | Four hex digits each; default `1d50`/`606f` is correct for every candleLight_fw board. |
-| `device.gsusb.serial` | Only needed with more than one gs_usb adapter attached at once. |
-| `device.slcan.port` | The adapter's COM port, e.g. `"COM8"` — check Device Manager. Required; there is no portable default. |
+| `telemetry-pcan.exe` | PEAK PCAN-Basic and compatible devices |
+| `telemetry-j2534.exe` | SAE J2534 PassThru DLLs |
+| `telemetry-gsusb.exe` | candleLight/gs_usb over WinUSB or libusb |
+| `telemetry-slcan.exe` | LAWICEL/slcan over a serial port |
 
-`session_setup` is replayed in order before any DID is read, and each step's
-response must start with its `expect` prefix. A step may not be a
-ReadDataByIdentifier request; DIDs are supplied with `--did` so they appear in
-the capture record.
+Adapter paths, channels, and serial-device names belong in the vehicle
+project's ignored `scratch/local-settings.json`. Portable endpoints, session
+steps, timing bounds, and dynamic-DID definitions belong in its tracked
+`config/transport.json`. Python composes those authorities with the admitted
+plan into a temporary exact worker config under ignored scratch.
 
-### Recovering the session setup
+## Build and offline verification
 
-There is currently **no automated way to derive the session-setup sequence for
-a new platform.** This is the least-solved step in the whole workflow and the
-one most likely to block a fork.
-
-What worked here: capture a real tester conversation over J2534 while the
-manufacturer's diagnostic application reads a live data list, then read the
-setup requests off the trace. See
-[capturing a J2534 conversation](https://github.com/4piu/70Y074-telemetry/blob/main/docs/03-locate/j2534-capture.md) and
-[reconstructing the transport](https://github.com/4piu/70Y074-telemetry/blob/main/docs/04-reconstruct/diagnostic-transport.md),
-and use [`tools/j2534/parse-j2534-log.py`](../tools/j2534/parse-j2534-log.py)
-to turn the log into a request timeline.
-
-The three-step tester-present / default-session / extended-session sequence in
-the template is common on Toyota platforms and is a reasonable first guess, but
-it is a guess. Do not assume it transfers. If your ECU answers a DID read
-without any setup at all, an empty-looking session is still expressed as at
-least one step — use tester present alone.
-
-Better acquisition paths for this information are an open question; see
-[open questions](https://github.com/4piu/70Y074-telemetry/blob/main/docs/open-questions.md).
-
-## Adding a backend for another adapter
-
-Implement [`ICanChannel`](Telemetry.Can.Core/ICanChannel.cs) — seven members —
-and a `Main` that hands `CandidateRunner.Run` a factory. That is the entire
-device-specific surface; ISO-TP, allowlists, capture logging, scheduling,
-retries, and the CLI contract are all shared. `Telemetry.Backend.Pcan` is about
-250 lines and is a reasonable model.
-
-The behavioural requirements a channel must meet, and the acceptance test it
-should pass, are in
-[adding an adapter](../docs/adding-an-adapter.md).
-
-## Layout
-
-```text
-Telemetry.Can.Core/       shared; no device or vehicle knowledge
-  Json.cs                 strict minimal JSON reader
-  BackendConfig.cs        config load and validation
-  ICanChannel.cs          the device abstraction
-  IsoTpTransport.cs       ISO-TP framing, UDS exchange, allowlists
-  WorkerProtocol.cs       private exact-schema transaction worker
-  BoundedJsonlLog.cs      candidate-capture schema 1 writer
-  CandidateRunner.cs      probes, qualification, batch capture
-  Options.cs              the CLI contract
-  SelfCheck.cs            offline byte-exact assertions
-  Hex.cs                  byte/hex/JSON helpers
-
-Telemetry.Backend.Pcan/   PCAN-Basic binding
-Telemetry.Backend.J2534/  J2534 PassThru binding
-Telemetry.Backend.Gsusb/  gs_usb binding (candleLight_fw and its clone family)
-  GsUsbProtocol.cs        wire structs and bit-timing math; transport-agnostic
-  IGsUsbTransport.cs      what a transport must do
-  WinUsbTransport.cs      primary: native WinUSB via SetupAPI, no bundled DLL
-  LibUsbTransport.cs      fallback: libusb-1.0, bundled - see runtime/
-  GsUsbChannel.cs         ICanChannel: tries WinUSB, falls back to libusb
-Telemetry.Backend.Slcan/  slcan/LAWICEL binding (CDC-ACM serial, no native driver)
-  SlcanChannel.cs         ICanChannel over System.IO.Ports.SerialPort
-  firmware/               what was flashed to verify this, and how to rebuild it
+```powershell
+.\build.ps1 -OutputDirectory .\bin\Release
+.\bin\Release\telemetry-pcan.exe --self-test
+.\bin\Release\telemetry-j2534.exe --self-test
+.\bin\Release\telemetry-gsusb.exe --self-test
+.\bin\Release\telemetry-slcan.exe --self-test
 ```
+
+Self-test checks ISO-TP framing, payload/frame allowlists, and worker command
+schema handling without opening a device. Unknown command-line arguments fail.
+The only other accepted process form is the private
+`--worker --config PATH` protocol launched by `telemetry collect`; operators
+should not invoke it directly.
+
+## Safety boundary
+
+- Classical CAN, standard 11-bit identifiers, and normal ISO-TP addressing
+  only.
+- One endpoint and one in-flight transaction per worker.
+- Session steps and requests must exactly match the temporary admitted worker
+  config.
+- No vehicle control, coding, clearing, security access, memory access, or
+  programming operations.
+- No adapter auto-detection or fallback between bindings.
+
+See [adding an adapter](../docs/adding-an-adapter.md) for the narrow channel
+interface and test expectations.

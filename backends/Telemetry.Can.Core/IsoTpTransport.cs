@@ -1,12 +1,11 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
 
 namespace Telemetry.Can.Core
 {
-    /// <summary>Cooperative stop flag set by the Ctrl+C handler.</summary>
+    /// <summary>Cooperative stop flag set by the worker control reader.</summary>
     internal static class RunState
     {
         private static volatile bool stopRequested;
@@ -435,22 +434,6 @@ namespace Telemetry.Can.Core
             }
             throw new InvalidOperationException(
                 "Raw CAN frame failed the transmit allowlist: " + Hex.Format(frame));
-        }
-
-        /// <summary>Session-setup requests plus one ReadDataByIdentifier per
-        /// selected DID. Nothing else can be transmitted in candidate mode.</summary>
-        internal static byte[][] BuildCandidateAllowlist(BackendConfig config, List<int> dids)
-        {
-            List<byte[]> allowed = new List<byte[]>();
-            foreach (SessionStep step in config.SessionSetup)
-            {
-                allowed.Add(step.Request);
-            }
-            foreach (int did in dids)
-            {
-                allowed.Add(ReadDataByIdentifier(did));
-            }
-            return allowed.ToArray();
         }
 
         internal static byte[] ReadDataByIdentifier(int did)

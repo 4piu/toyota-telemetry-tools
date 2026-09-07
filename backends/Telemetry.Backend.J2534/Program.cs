@@ -9,7 +9,7 @@ namespace Telemetry.Backend.J2534
 
         private static int Main(string[] args)
         {
-            return CandidateRunner.Run(OpenChannel, args, ToolName);
+            return BackendEntry.Run(OpenChannel, args, ToolName);
         }
 
         private static ICanChannel OpenChannel(BackendConfig config)

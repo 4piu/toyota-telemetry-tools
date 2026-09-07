@@ -1,46 +1,22 @@
-# Updating the pin
+# Updating the toolkit revision
 
-`upstream.revision` is the only pin, and it belongs to the platform
-repository's owner: nothing upstream reaches a project until they change it.
-A platform project needs a toolkit checkout anyway — the backends are built
-from its source and the Techstream scripts are run from it — so the toolkit is
-installed from that checkout rather than resolved from a package index or a Git
-URL. A second pin would be free to disagree with the first, and resolving one on
-every run would need the network to tell you it had not changed.
+The vehicle project's `telemetry-project.toml` owns `[toolkit].revision`.
+Nothing in the toolkit silently advances it.
 
-Pin a release tag: `revision = "v0.3.0"`. Tags and commit hashes are both
-immutable and the setup script resolves either; a branch is not a pin, because
-it moves under you. The [changelog](../CHANGELOG.md) says what a bump costs —
-entries marked **Breaking** require a change in the platform repository before
-its commands will run again. `telemetry-validate --version` reports what is
-currently installed.
+During coordinated pre-release development a project may intentionally select
+`main` so integration failures surface immediately. Before publication, select
+the exact reviewed release tag or commit instead.
 
-[`tools/setup-platform-project.ps1`](../tools/setup-platform-project.ps1) reads
-the marker and applies it: checkout, backend build, and toolkit install into a
-project `.venv`. The marker records which toolkit revision was reviewed; it
-does not imply shared ancestry or a whole-repository merge relationship.
+To update safely:
 
-## Checklist
+1. Read `CHANGELOG.md`, especially breaking entries.
+2. Ensure the managed toolkit checkout has no local edits.
+3. Update `toolkit.revision` in the project marker.
+4. Run `tools/setup-platform-project.ps1` from the selected toolkit checkout.
+5. Verify `telemetry --version`, rebuild the private cache, inspect captures,
+   compile a plan offline, and regenerate the result.
+6. Review project and result diffs before committing.
 
-1. Fetch this repository as a remote, read the
-   [changelog](../CHANGELOG.md) since the pinned revision, and act on
-   anything marked **Breaking** before going further.
-2. Rebuild the backends and run `--self-test`.
-3. Run `telemetry-validate status` and confirm the progress numbers are
-   unchanged — progress is reconstructed from immutable captures, so a
-   difference means a behaviour change worth understanding first.
-4. Run `telemetry-review --check data/map/signals.csv` for each ECU.
-5. Advance `upstream.revision` only to the revision actually reviewed, then
-   re-run `setup-platform-project.ps1` so the backends and the installed
-   toolkit both follow it.
-6. Update any `blob/<revision>/` links in the project's own docs to the same
-   revision, if it has any that point here.
-
-Platform-specific programs may initially contain reusable code discovered
-during experimentation. Extract that mechanism into this repository behind a
-configuration or backend contract, verify parity against the platform evidence,
-then leave only endpoint policy and hardware integration in the platform repo.
-
-What a platform repository is, and what belongs on which side, is the
-[platform-project contract](https://github.com/4piu/70Y074-telemetry/blob/main/docs/platform-projects.md).
-
+Setup resolves the selected revision once, uses the same checkout for Python
+and every C# worker, and refuses to move a dirty checkout. A branch selection
+is intentionally moving; a release tag or commit is reproducible.

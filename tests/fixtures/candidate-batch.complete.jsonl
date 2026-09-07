@@ -1,5 +1,0 @@
-{"record":"session_start","schema_version":1,"profile_id":"example-platform","tool":"synthetic","mode":"candidate_batch","batch_id":"fixture-road","transport":{"backend":"synthetic","bitrate":500000,"tester_id":"0x700","response_id":"0x708"},"dids":["0x1000"],"period_ms":100}
-{"record":"candidate_sample","sequence":1,"did":"0x1000","request_elapsed_ms":100,"response_elapsed_ms":110,"latency_ms":10,"request_hex":"22 10 00","response_hex":"62 10 00 01","supported":true,"qualification_status":"supported","negative_response_code":null}
-{"record":"candidate_sample","sequence":2,"did":"0x1000","request_elapsed_ms":200,"response_elapsed_ms":210,"latency_ms":10,"request_hex":"22 10 00","response_hex":"62 10 00 02","supported":true,"qualification_status":"supported","negative_response_code":null,"retry_count":1}
-{"record":"session_end","reason":"completed","sample_count":2,"did_counts":{"0x1000":2}}
-

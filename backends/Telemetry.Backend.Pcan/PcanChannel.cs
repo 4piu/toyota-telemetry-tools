@@ -49,7 +49,7 @@ namespace Telemetry.Backend.Pcan
                 if (processes.Length != 0)
                 {
                     throw new InvalidOperationException(
-                        "PCAN-View is running. Close it completely before --live so there is " +
+                        "PCAN-View is running. Close it completely before collection so there is " +
                         "only one CAN client on the channel.");
                 }
             }

@@ -129,14 +129,14 @@ if ($Backend -eq 'all' -or $Backend -eq 'slcan') {
 Write-Output ''
 Write-Output "Verify the build before connecting to a vehicle:"
 if ($Backend -eq 'all' -or $Backend -eq 'pcan') {
-    Write-Output "  $OutputDirectory\telemetry-pcan.exe --self-test --output selftest.jsonl"
+    Write-Output "  $OutputDirectory\telemetry-pcan.exe --self-test"
 }
 if ($Backend -eq 'all' -or $Backend -eq 'j2534') {
-    Write-Output "  $OutputDirectory\telemetry-j2534.exe --self-test --output selftest.jsonl"
+    Write-Output "  $OutputDirectory\telemetry-j2534.exe --self-test"
 }
 if ($Backend -eq 'all' -or $Backend -eq 'gsusb') {
-    Write-Output "  $OutputDirectory\telemetry-gsusb.exe --self-test --output selftest.jsonl"
+    Write-Output "  $OutputDirectory\telemetry-gsusb.exe --self-test"
 }
 if ($Backend -eq 'all' -or $Backend -eq 'slcan') {
-    Write-Output "  $OutputDirectory\telemetry-slcan.exe --self-test --output selftest.jsonl"
+    Write-Output "  $OutputDirectory\telemetry-slcan.exe --self-test"
 }

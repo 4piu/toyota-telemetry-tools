@@ -1,6 +1,6 @@
 # Changelog
 
-A platform repository decides when to move: `upstream.revision` in its
+A platform repository decides when to move: `toolkit.revision` in its
 `telemetry-project.toml` is the only pin, and nothing here reaches downstream
 until its owner changes it. This file exists so that decision can be made
 without reading the diff.
@@ -13,6 +13,24 @@ Pin a tag rather than a branch — `revision = "v0.3.0"` — and
 not a pin: it moves under you.
 
 ## Unreleased
+
+## 0.4.0
+
+### Breaking
+
+- Replaced the schema-1 project marker and `data/` configuration tree with the
+  exact schema-2 marker, tracked `config/` and `review/` authorities, generated
+  `result/` generations, and private derived state under `scratch/`. There is
+  no old-schema reader or runtime migration fallback.
+- Replaced all standalone console scripts with the single `telemetry`
+  dispatcher. Offline intent uses `catalog import`, `cache rebuild`, `plan`,
+  `capture inspect`, `review`, and `export`; live collection is the `collect`
+  verb. The live-mode flag and fixed-tier batch commands were removed rather
+  than aliased.
+- Replaced short-lived backend batches with a Python-owned adaptive collector
+  and a private long-lived C# transaction worker. Capture files now use
+  immutable schema-1 run directories and segments; old capture files are not
+  accepted.
 
 ### Changed
 
@@ -35,10 +53,8 @@ not a pin: it moves under you.
 - Offline objective/applicability replay, cost-based safety admission, exact
   capture inspection, and immutable generation-based CSV/JSON export for the
   schema-v2 project repository. These services do not open an adapter.
-- Exact schema-v2 project repository primitives and the temporary
-  `telemetry-migrate-legacy` command used to reconcile private pre-0.4 evidence
-  into immutable runs. This converter is deliberately not a compatibility
-  layer and will be removed after the one-time migration is reviewed.
+- Exact schema-v2 project repository primitives. The temporary one-time XA50
+  converter was removed after its reconciliation output was accepted.
 - `telemetry-gsusb`: a backend for candleLight_fw and its clone family (the
   gs_usb protocol) — CANable boards flashed with `candleLight_fw`, the
   reference candleLight board, cantact, and their many board-specific

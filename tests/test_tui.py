@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from tests.test_phase_c import migrated_repository
+from tests.test_phase_c import current_repository
 from toyota_telemetry.repository import ProjectRepository
 from toyota_telemetry.tui import (
     OperatorTui,
@@ -58,7 +58,7 @@ class ReviewDraftTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, _ = migrated_repository(root)
+            repository, _ = current_repository(root)
             with mock.patch("builtins.input", return_value="q"), mock.patch(
                 "toyota_telemetry.tui.subprocess.Popen"
             ) as popen:
@@ -69,7 +69,7 @@ class ReviewDraftTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, _ = migrated_repository(root)
+            repository, _ = current_repository(root)
             path = repository.paths.signal_review
             before = path.read_bytes()
             signal_ref = repository.review["signals"][0]["signal_ref"]
@@ -84,7 +84,7 @@ class ReviewDraftTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
-            repository, rows = migrated_repository(root)
+            repository, rows = current_repository(root)
             from tests.test_phase_c import author_collection_policy
             repository = author_collection_policy(repository, rows, minimum_observations=2)
             path = repository.paths.collection_policy

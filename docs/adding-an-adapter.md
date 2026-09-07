@@ -1,83 +1,60 @@
 # Add an adapter backend
 
-Working backends for PCAN-Basic, J2534, and gs_usb ship in [`backends/`](../backends/README.md).
-Adding another transport means implementing `ICanChannel` — seven members — and a
-`Main`; ISO-TP, allowlists, capture logging, and this CLI contract are shared.
-Read this page for the behaviour a channel must provide.
+PCAN-Basic, J2534, gs_usb, and slcan workers ship in [`backends/`](../backends/README.md).
+An adapter changes transport, not project policy or signal meaning.
 
-An adapter changes transport, not signal meaning. Preserve a small boundary so the same acquisition state machine and decoder can be tested through multiple devices.
+## Channel boundary
 
-## Required backend behavior
+A new backend implements the small `ICanChannel` interface and a `Main` that
+delegates to `BackendEntry.Run`. That entry exposes only offline self-test and
+the private worker protocol. Python remains the public collector.
 
-- Open/close a configured channel and report actual bitrate/controller state.
-- Send an 11/29-bit CAN frame with monotonic host timestamp.
-- Receive frames with ID, DLC/data, timestamp, overflow/error indications.
-- Apply the narrowest available hardware/software filters.
-- Support listen-only where the controller permits it.
-- Expose cancellation and deterministic cleanup.
+The channel must:
 
-ISO-TP can be above this boundary or supplied by the OS/adapter, but the choice and padding/addressing configuration must be explicit. A serial bridge protocol should be length-delimited with versioning, timestamps, error frames, and bounded buffers; SLCAN is useful for interoperability but can be less precise for timing/error reporting.
+- open and close one configured classical-CAN channel;
+- send standard 11-bit frames with exactly eight data bytes;
+- receive frames without interpreting UDS payloads;
+- apply the narrowest available response-ID filter;
+- surface controller, overflow, and transport errors promptly;
+- refuse detectable concurrent ownership;
+- support cooperative stop and deterministic cleanup.
 
-## Acceptance test
+The shared layer owns ISO-TP framing, session setup, response-pending handling,
+timeouts, and byte-exact allowlist enforcement. Device-specific code must not
+add a second scheduler, capture writer, project parser, or fallback binding.
 
-1. Dry-run produces no device open or frames.
-2. Wrong profile, bitrate, endpoint, or non-allowlisted payload fails closed.
-3. Known OBD request proves physical TX/RX where applicable.
-4. One benign OEM tester-present validates gateway routing.
-5. A known multi-frame response validates ISO-TP and flow control.
-6. Raw payload and decoded values match another proven backend.
-7. A stability run reports loss, timing, cancellation, and cleanup.
+## Private process contract
 
-Document electrical isolation, transceiver voltage, termination, connector mapping, firmware/driver version, and whether it has been tested or is only planned.
-
-## Progressive-validation executable contract
-
-The generic `telemetry-validate` runner can invoke any backend described by the
-platform's `validation-profile.json`. The configured executable is never opened
-during dry-run or status commands. Live mode invokes it without a shell and
-appends structured arguments.
-
-Qualification invocation:
+The executable accepts:
 
 ```text
-<executable> <fixed args> <qualification mode args>
-  --batch-id <id> --period-ms <n> --max-log-mib <n>
-  --output <create-new.partial.jsonl> --did 0xNNNN
+<executable> --self-test
+<executable> --worker --config <temporary-exact-schema.json>
 ```
 
-Road/extended-state invocation:
+Unknown arguments fail. The worker form is launched only by
+`telemetry collect`. It reads exact JSON-Lines `exchange` and `stop` commands
+from stdin and emits exact `ready`, `response_pending`, `result`, and `stopped`
+events on stdout. There is one in-flight transaction. A request must match the
+temporary allowlist byte-for-byte before any frame is sent.
 
-```text
-<executable> <fixed args> <road mode args>
-  --batch-id <id> --period-ms <n> --duration-seconds <n>
-  --transport-retries <n> --max-log-mib <n>
-  --output <create-new.partial.jsonl> --quiet
-  --did 0xNNNN [--did 0xNNNN ...]
-```
+Machine-local adapter settings come from the vehicle project's ignored local
+settings and are embedded in the temporary worker config. Portable endpoint,
+session, and safety facts come from tracked transport authority. No backend
+auto-detection or cross-adapter fallback is permitted.
 
-For a custom operator-completed experiment, `--duration-seconds 0` means no
-time deadline. The log-size bound still applies, and the process is expected to
-run until cancellation or a real error. A positive value remains a hard maximum.
+## Acceptance
 
-The backend owns device access, CAN/ISO-TP, diagnostic-session setup, filters,
-timeouts, response-pending handling, cancellation, and cleanup. It must reject
-unconfigured endpoints and services independently of the runner. A successful
-process writes candidate-capture schema 1:
+1. `--self-test` opens no device and checks shared framing, allowlists, and
+   protocol schema behavior.
+2. Wrong/unknown worker fields and protocol versions fail closed.
+3. An unallowlisted payload cannot reach `ICanChannel.Write`.
+4. One known single-frame and one known multi-frame response match a proven
+   backend byte-for-byte.
+5. Timeout, response pending, cancellation, channel failure, and cleanup are
+   exercised without losing a valid completed prefix in the Python capture.
+6. Adapter selection and channel binding remain private and exact.
 
-- first record: `session_start`, `schema_version: 1`, matching `profile_id`,
-  mode `candidate_qualification` or `candidate_batch`, ordered `dids`, transport
-  metadata, and scheduling bounds;
-- sample records: contiguous `sequence`, round-robin `did`, request/response
-  monotonic milliseconds, latency, `request_hex`, `response_hex`, boolean
-  `supported`, qualification status/NRC, and optional nonnegative `retry_count`;
-- final record: exactly one `session_end`, reason `completed` or `user_stop`,
-  total sample count, and exact per-DID counts.
-
-Flush each JSONL record. On Ctrl+C, use `reason: user_stop`, flush the final
-record, close the CAN interface, and return nonzero. The generic runner accepts
-that reason as completion only for a custom experiment that meets its minimum
-sample and integrity checks; qualification and progressive road runs remain
-incomplete. On other errors, write an error/final record when possible and
-return nonzero. Never claim a timeout is a negative UDS reply. The runner
-performs independent structural validation before it promotes the partial
-capture to complete.
+Document electrical isolation, transceiver voltage, termination, connector
+mapping, firmware/driver version, and whether hardware behavior is measured or
+only planned. Hardware tests are explicit and separate from offline self-test.
