@@ -16,6 +16,10 @@ not a pin: it moves under you.
 
 ### Added
 
+- Exact schema-v2 project repository primitives and the temporary
+  `telemetry-migrate-legacy` command used to reconcile private pre-0.4 evidence
+  into immutable runs. This converter is deliberately not a compatibility
+  layer and will be removed after the one-time migration is reviewed.
 - `telemetry-gsusb`: a backend for candleLight_fw and its clone family (the
   gs_usb protocol) — CANable boards flashed with `candleLight_fw`, the
   reference candleLight board, cantact, and their many board-specific

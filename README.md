@@ -42,11 +42,19 @@ project structure of its own to copy.
 | `telemetry-analyze-capture` | Independently validate and summarize one capture file. |
 | `telemetry-review` | Aggregate every capture into a per-signal evidence ledger; list what still needs excitation; check a curated map against the observations. |
 | `telemetry-map` | Emit a complete signal map from the catalog annotated with observations, plus the DIDs a vehicle refused. |
+| `telemetry-migrate-legacy` | Temporary pre-0.4 converter for the reviewed one-time migration of legacy project evidence. |
 
 Every command prints a human summary by default, `--json` for the machine
 document, and reports its version with `--version`. See
 [`tools/README.md`](tools/README.md) for the shared output options and the
 Techstream encoding contract.
+
+`telemetry-migrate-legacy` is intentionally transitional. It reads legacy
+schema-1 captures without modifying them, writes only below an explicit ignored
+`scratch/` destination, and emits a privacy-minimized reconciliation report.
+Converted evidence must be reviewed before cutover. The command and every old
+schema reader will be removed once that migration is accepted; it is not a
+compatibility path.
 
 ## Guides
 
