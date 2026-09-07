@@ -16,6 +16,9 @@ not a pin: it moves under you.
 
 ### Added
 
+- Offline objective/applicability replay, cost-based safety admission, exact
+  capture inspection, and immutable generation-based CSV/JSON export for the
+  schema-v2 project repository. These services do not open an adapter.
 - Exact schema-v2 project repository primitives and the temporary
   `telemetry-migrate-legacy` command used to reconcile private pre-0.4 evidence
   into immutable runs. This converter is deliberately not a compatibility

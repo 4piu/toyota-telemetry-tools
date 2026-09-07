@@ -6,6 +6,7 @@ from contextlib import closing
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sqlite3
@@ -15,6 +16,7 @@ from typing import Any, Iterable, Mapping
 
 from .capture_store import capture_set_hash, load_capture_tree
 from .identity import AcquisitionRef, SignalRef, canonical_did
+from .objectives import ReplayObservation, ReplayRun, replay_objectives
 from .schemas import (
     validate_local_settings,
     validate_policy,
@@ -402,6 +404,118 @@ class ProjectRepository:
                     f"SELECT {order} FROM {table} ORDER BY {order}"
                 ).fetchall()
             return snapshot
+
+    def replay_progress(self) -> list[dict[str, Any]]:
+        """Recompute objective progress from immutable cached observations."""
+
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            runs = [
+                ReplayRun(run_id, json.loads(document)["independence"])
+                for run_id, document in connection.execute(
+                    "SELECT run_id, document_json FROM run ORDER BY run_id"
+                )
+            ]
+            observations = []
+            for run_id, sequence, signal_ref, raw_value, decoded, exchange_json in connection.execute(
+                "SELECT o.run_id, o.sequence, o.signal_ref, o.raw_value, o.decoded_value, e.document_json "
+                "FROM signal_observation o JOIN acquisition_exchange e "
+                "ON e.run_id = o.run_id AND e.sequence = o.sequence "
+                "ORDER BY o.run_id, o.sequence, o.signal_ref"
+            ):
+                exchange = json.loads(exchange_json)
+                observations.append(
+                    ReplayObservation(
+                        run_id,
+                        sequence,
+                        int(exchange["response_elapsed_ms"]),
+                        exchange["response_utc"],
+                        signal_ref,
+                        int.from_bytes(raw_value, "big"),
+                        decoded,
+                    )
+                )
+            progress = replay_objectives(self.policy["objectives"], runs, observations)
+            connection.execute("DELETE FROM objective_progress")
+            connection.executemany(
+                "INSERT INTO objective_progress(signal_ref, objective_id, document_json) VALUES (?, ?, ?)",
+                (
+                    (row["signal_ref"], row["objective_id"], _canonical_json(row))
+                    for row in progress
+                ),
+            )
+            connection.commit()
+            return progress
+
+    def acquisition_cost_facts(self) -> dict[str, dict[str, Any]]:
+        """Return deterministic observed latency and payload-size facts."""
+
+        grouped: dict[str, dict[str, Any]] = {}
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            rows = connection.execute(
+                "SELECT acquisition_id, response, latency_ms, outcome "
+                "FROM acquisition_exchange ORDER BY acquisition_id, run_id, sequence"
+            )
+            for acquisition_id, response, latency_ms, outcome in rows:
+                facts = grouped.setdefault(
+                    acquisition_id,
+                    {"latencies": [], "maximum_response_bytes": 0, "outcomes": {}},
+                )
+                facts["latencies"].append(int(latency_ms))
+                facts["maximum_response_bytes"] = max(
+                    facts["maximum_response_bytes"], len(response) if response is not None else 0
+                )
+                facts["outcomes"][outcome] = facts["outcomes"].get(outcome, 0) + 1
+        result = {}
+        for acquisition_id, facts in sorted(grouped.items()):
+            ordered = sorted(facts.pop("latencies"))
+            index = math.ceil(len(ordered) * 0.95) - 1
+            result[acquisition_id] = {
+                "sample_count": len(ordered),
+                "latency_p95_ms": ordered[max(0, index)],
+                **facts,
+            }
+        return result
+
+    def catalog_variants(self) -> list[dict[str, Any]]:
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            return [
+                json.loads(document)
+                for (document,) in connection.execute(
+                    "SELECT document_json FROM catalog_variant ORDER BY signal_ref, catalog_variant_id"
+                )
+            ]
+
+    def cached_source_hashes(self) -> dict[str, str]:
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            return dict(
+                connection.execute("SELECT kind, sha256 FROM source_file ORDER BY kind")
+            )
+
+    def signal_observation_summary(self) -> dict[str, dict[str, Any]]:
+        grouped: dict[str, dict[str, Any]] = {}
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            for signal_ref, raw_value, decoded in connection.execute(
+                "SELECT signal_ref, raw_value, decoded_value FROM signal_observation "
+                "ORDER BY signal_ref, run_id, sequence"
+            ):
+                row = grouped.setdefault(
+                    signal_ref,
+                    {"observations": 0, "raw_values": set(), "decoded_values": []},
+                )
+                row["observations"] += 1
+                row["raw_values"].add(bytes(raw_value))
+                if decoded is not None:
+                    row["decoded_values"].append(float(decoded))
+        result = {}
+        for signal_ref, row in grouped.items():
+            decoded_values = row["decoded_values"]
+            result[signal_ref] = {
+                "observations": row["observations"],
+                "distinct_raw_values": len(row["raw_values"]),
+                "decoded_minimum": min(decoded_values) if decoded_values else None,
+                "decoded_maximum": max(decoded_values) if decoded_values else None,
+            }
+        return result
 
     def _populate_cache(
         self,

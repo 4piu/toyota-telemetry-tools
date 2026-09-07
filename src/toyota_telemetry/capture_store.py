@@ -136,6 +136,13 @@ def load_capture_tree(captures_root: Path, project_root: Path) -> tuple[CaptureR
         )
         if [segment.index for segment in segments] != list(range(1, len(segments) + 1)):
             raise ValueError(f"{directory}: segment indexes are not contiguous")
+        run_sequences = [
+            exchange["run_sequence"]
+            for segment in segments
+            for exchange in segment.exchanges
+        ]
+        if run_sequences != list(range(1, len(run_sequences) + 1)):
+            raise ValueError(f"{directory}: run-global exchange sequence is not contiguous")
 
         end, _ = _exact_json(directory / "run-end.json")
         _keys(
@@ -157,6 +164,35 @@ def load_capture_tree(captures_root: Path, project_root: Path) -> tuple[CaptureR
             raise ValueError(f"{directory}: run-end does not match its segments")
         runs.append(CaptureRun(run_id, start, segments))
     return tuple(runs)
+
+
+def inspect_capture_tree(captures_root: Path, project_root: Path) -> dict[str, Any]:
+    """Return a privacy-minimized structural summary without payload bytes."""
+
+    runs = load_capture_tree(captures_root, project_root)
+    outcomes: dict[str, int] = {}
+    segments = 0
+    exchanges = 0
+    observations = 0
+    for run in runs:
+        segments += len(run.segments)
+        for segment in run.segments:
+            exchanges += len(segment.exchanges)
+            for exchange in segment.exchanges:
+                outcome = exchange["outcome"]
+                outcomes[outcome] = outcomes.get(outcome, 0) + 1
+                observations += len(exchange["observations"])
+    return {
+        "document_type": "telemetry.capture-inspection",
+        "schema_version": 1,
+        "capture_set_sha256": capture_set_hash(captures_root),
+        "runs": len(runs),
+        "segments": segments,
+        "exchanges": exchanges,
+        "observations": observations,
+        "outcomes": dict(sorted(outcomes.items())),
+        "privacy": "No payload bytes, timestamps, notes, adapter identifiers, or paths are reported.",
+    }
 
 
 def _read_segment(path: Path, run_id: str, project_root: Path) -> CaptureSegment:
@@ -231,9 +267,14 @@ def _validate_exchange(
         or exchange["run_id"] != run_id
         or exchange["segment_index"] != segment_index
         or exchange["segment_sequence"] != sequence
-        or exchange["run_sequence"] != sequence
     ):
         raise ValueError(f"{path}: invalid exchange sequence")
+    if (
+        not isinstance(exchange["run_sequence"], int)
+        or isinstance(exchange["run_sequence"], bool)
+        or exchange["run_sequence"] < 1
+    ):
+        raise ValueError(f"{path}: invalid run-global exchange sequence")
     acquisition = AcquisitionRef.parse(exchange["acquisition_id"])
     if acquisition.endpoint_id != exchange["endpoint_id"]:
         raise ValueError(f"{path}: exchange endpoint identity mismatch")
