@@ -10,7 +10,7 @@
     the toolkit from it keeps them at the same revision by construction, and
     needs the network only when the checkout itself changes.
 
-    Reads [upstream] and [paths] from the project's telemetry-project.toml,
+    Reads [toolkit] and [paths] from the project's schema-2 telemetry-project.toml,
     fetches this repository at the pinned revision, builds the backends into
     the project's ignored scratch tree, and installs the toolkit into a project
     virtual environment. Every step is skippable and each is safe to re-run.
@@ -135,15 +135,18 @@ if (-not (Test-Path -LiteralPath $projectFile -PathType Leaf)) {
 }
 
 $project = Read-ProjectToml -Path $projectFile
-foreach ($required in 'upstream.repository', 'upstream.revision') {
+if ($project['schema_version'] -ne '2') {
+    throw "$projectFile must use exact schema_version 2."
+}
+foreach ($required in 'toolkit.repository', 'toolkit.revision') {
     if (-not $project.ContainsKey($required) -or -not $project[$required]) {
         throw "$projectFile does not set $required."
     }
 }
-$repository = $project['upstream.repository']
-$revision = $project['upstream.revision']
+$repository = $project['toolkit.repository']
+$revision = $project['toolkit.revision']
 if ($revision -like 'replace-with-*') {
-    throw "$projectFile still has the template's placeholder revision. Set upstream.revision to the tools release you reviewed, then run this again."
+    throw "$projectFile still has the template's placeholder revision. Set toolkit.revision to the tools release you reviewed, then run this again."
 }
 $scratch = if ($project.ContainsKey('paths.scratch')) { $project['paths.scratch'] } else { 'scratch' }
 
@@ -159,7 +162,7 @@ if (-not $Toolkit) {
 $Toolkit = [System.IO.Path]::GetFullPath($Toolkit)
 
 Write-Step "project    $ProjectRoot"
-Write-Step "upstream   $repository @ $revision"
+Write-Step "toolkit    $repository @ $revision"
 
 # ----------------------------------------------------------------- the toolkit
 
@@ -227,7 +230,7 @@ else {
 $tagHash = & git -C $Toolkit rev-parse --verify --quiet "refs/tags/$revision"
 $pinnedByTag = ($LASTEXITCODE -eq 0 -and $tagHash)
 if (-not $pinnedByTag -and $revision -notmatch '^[0-9a-f]{7,40}$') {
-    Write-Warning "upstream.revision is '$revision', not a release tag or a commit hash. A branch moves, so this setup is not reproducible; pin the reviewed release before publishing."
+    Write-Warning "toolkit.revision is '$revision', not a release tag or a commit hash. A branch moves; this is intentional only during coordinated pre-release development."
 }
 
 # ----------------------------------------------------------------- backends
