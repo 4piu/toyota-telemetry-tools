@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 from tests.test_legacy_migration import make_legacy_project
-from toyota_telemetry.admission import compile_plan
+from toyota_telemetry.admission import compile_plan, validate_objective_shape
 from toyota_telemetry.capture_store import inspect_capture_tree
 from toyota_telemetry.exporting import export_project
 from toyota_telemetry.legacy_migration import convert_legacy_project
@@ -90,6 +90,58 @@ def tree_hashes(root: Path) -> dict[str, str]:
 
 
 class ObjectiveReplayTests(unittest.TestCase):
+    def test_every_objective_class_accepts_and_credits_its_required_shape(self) -> None:
+        cases = {
+            "descriptive": {
+                "minimum_total_observations": 2,
+                "minimum_distinct_runs": 1,
+                "maximum_distinct_raw_values": 1,
+            },
+            "snapshot": {
+                "minimum_total_observations": 2,
+                "minimum_distinct_runs": 1,
+            },
+            "switch_or_enum": {"required_raw_states": [7]},
+            "fast_dynamic": {
+                "minimum_changed_observations": 1,
+                "minimum_applicable_seconds": 1,
+            },
+            "slow_trend": {
+                "minimum_total_observations": 2,
+                "minimum_time_span_seconds": 1,
+            },
+            "counter_or_history": {
+                "minimum_total_observations": 2,
+                "minimum_distinct_runs": 1,
+            },
+            "exploration": {"minimum_total_observations": 2},
+        }
+        for class_name, targets in cases.items():
+            with self.subTest(class_name=class_name):
+                row = objective(
+                    **{
+                        "class": class_name,
+                        "targets": targets,
+                        "deadband": 1.0,
+                    }
+                )
+                validate_objective_shape(row)
+                changed = class_name == "fast_dynamic"
+                observations = [
+                    ReplayObservation(
+                        "run-a", 1, 0, None, "372/0x1002/0..15", 7, 7.0
+                    ),
+                    ReplayObservation(
+                        "run-a", 2, 1000, None, "372/0x1002/0..15",
+                        9 if changed else 7,
+                        9.0 if changed else 7.0,
+                    ),
+                ]
+                result = replay_objectives(
+                    [row], [ReplayRun("run-a", "reviewed_independent")], observations
+                )[0]
+                self.assertTrue(result["complete"])
+
     def test_every_counter_and_segment_run_boundaries(self) -> None:
         runs = [ReplayRun("run-a", "reviewed_independent"), ReplayRun("run-b", "unknown")]
         observations = [
