@@ -28,6 +28,10 @@ not a pin: it moves under you.
   maximum-deadline precedence, deficit/opportunity/cost scoring, aging,
   background slack filling, bounded failure backoff, stable ties, one
   outstanding request, and no catch-up bursts.
+- Create-new native run/segment capture writing with plan snapshots, monotonic
+  run-global sequencing, time rotation without session state, storage/disk
+  bounds, clean valid-prefix finalization, crash quarantine, explicit prefix
+  recovery, and incremental-ingestion equivalence with a clean cache rebuild.
 - Offline objective/applicability replay, cost-based safety admission, exact
   capture inspection, and immutable generation-based CSV/JSON export for the
   schema-v2 project repository. These services do not open an adapter.

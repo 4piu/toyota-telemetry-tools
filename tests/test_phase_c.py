@@ -5,10 +5,12 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import uuid
 
 from tests.test_legacy_migration import make_legacy_project
 from toyota_telemetry.admission import compile_plan, validate_objective_shape
 from toyota_telemetry.capture_store import inspect_capture_tree
+from toyota_telemetry.capture_writer import NativeRunWriter, recover_incomplete_segment
 from toyota_telemetry.exporting import export_project
 from toyota_telemetry.legacy_migration import convert_legacy_project
 from toyota_telemetry.objectives import ReplayObservation, ReplayRun, replay_objectives
@@ -305,6 +307,72 @@ class PlanningAndExportTests(unittest.TestCase):
             repository = author_collection_policy(repository, rows, minimum_observations=2)
             self.assertFalse(repository.replay_progress()[0]["complete"])
             self.assertEqual(repository.signal_observations(signal_ref), before)
+
+    def test_native_run_incremental_ingestion_matches_clean_rebuild(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "vehicle"
+            root.mkdir()
+            repository, rows = migrated_repository(root)
+            repository = author_collection_policy(repository, rows, minimum_observations=10)
+            plan_path = repository.paths.plans / "admitted-plan.json"
+            plan, _ = compile_plan(
+                repository,
+                available_disk_mib=4096,
+                created_utc="2026-01-01T00:00:00Z",
+                output=plan_path,
+            )
+            acquisition = plan["acquisitions"][0]
+            native_exchange = {
+                "acquisition_id": acquisition["acquisition_id"],
+                "endpoint_id": acquisition["endpoint_id"],
+                "data_id": acquisition["data_id"],
+                "response_utc": "2026-01-01T00:00:00Z",
+                "request_elapsed_ms": 0,
+                "response_elapsed_ms": 10,
+                "request_hex": acquisition["request_hex"],
+                "response_hex": "62 10 02 00 01",
+                "outcome": "positive",
+                "negative_response_code": None,
+                "pending_count": 0,
+                "pending_duration_ms": 0,
+                "latency_ms": 10,
+                "retry_count": 0,
+                "scheduler_reason": "target_due",
+                "objective_ids": acquisition["objective_ids"],
+                "observations": [{
+                    "signal_ref": "372/0x1002/0..15",
+                    "raw_hex": "00 01",
+                    "decoded_value": 0.001,
+                    "applicability": "true",
+                }],
+            }
+            writer = NativeRunWriter(
+                repository.paths.captures,
+                plan,
+                plan_path.read_bytes(),
+                run_id=str(uuid.uuid4()),
+                created_utc="2026-01-01T00:00:00Z",
+                backend_kind="synthetic",
+                disk_free_bytes=lambda _: 10**12,
+            )
+            writer.append_exchange(native_exchange)
+            writer.segment_duration_ms = 1
+            writer.rotate(1)
+            later = {
+                **native_exchange,
+                "request_elapsed_ms": 1,
+                "response_elapsed_ms": 11,
+            }
+            writer.append_exchange(later)
+            incomplete = writer.crash()
+
+            repository.ingest_captures(repository.paths.captures)
+            recover_incomplete_segment(incomplete)
+            repository.ingest_captures(repository.paths.captures)
+            incremental = repository.cache_snapshot()
+            repository.paths.database.unlink()
+            repository.rebuild_cache(rows, repository.paths.captures)
+            self.assertEqual(repository.cache_snapshot(), incremental)
 
     def test_export_is_reproducible_and_privacy_minimized(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

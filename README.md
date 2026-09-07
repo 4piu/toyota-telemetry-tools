@@ -68,6 +68,13 @@ clock, making deadline, priority, slack-fill, failure-backoff, and no-catch-up
 behavior testable without opening an adapter. It is not connected to the
 legacy live command path.
 
+The native capture service writes an immutable run around that scheduler:
+admitted-plan provenance, create-new JSONL segments, continuous run sequence
+numbers across rotation, bounded storage, clean stop/transport-loss prefixes,
+and explicit offline recovery that leaves the crashed source untouched. Native
+capture services are still offline-tested and are not yet connected to an
+adapter command.
+
 ## Guides
 
 - **[Quickstart](docs/quickstart.md)** — the command sequence end to end.

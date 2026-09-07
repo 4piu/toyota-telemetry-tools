@@ -15,6 +15,13 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def canonical_document_bytes(value: Mapping[str, Any]) -> bytes:
+    return (
+        json.dumps(value, ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True)
+        + "\n"
+    ).encode("utf-8")
+
+
 def _keys(value: Mapping[str, Any], where: str, expected: set[str]) -> None:
     missing = expected - value.keys()
     unknown = value.keys() - expected
@@ -93,55 +100,55 @@ def load_capture_tree(captures_root: Path, project_root: Path) -> tuple[CaptureR
     for directory in sorted(path for path in captures_root.iterdir() if path.is_dir()):
         run_id = canonical_run_id(directory.name)
         start, _ = _exact_json(directory / "run-start.json")
-        _keys(
-            start,
-            "run-start",
-            {
-                "document_type", "schema_version", "run_id", "project_id", "profile_id",
-                "origin", "independence", "created_utc", "backend_kind", "endpoint_id",
-                "ecu_key", "source_sha256", "admitted_plan_sha256", "privacy",
-            },
-        )
+        origin = start.get("origin")
+        if origin == "legacy_import":
+            _keys(
+                start,
+                "run-start",
+                {
+                    "document_type", "schema_version", "run_id", "project_id", "profile_id",
+                    "origin", "independence", "created_utc", "backend_kind", "endpoint_id",
+                    "ecu_key", "source_sha256", "admitted_plan_sha256", "privacy",
+                },
+            )
+            if start["independence"] != "unknown":
+                raise ValueError(f"{directory}: invalid imported run independence")
+        elif origin == "native":
+            _keys(
+                start,
+                "run-start",
+                {
+                    "document_type", "schema_version", "run_id", "project_id", "profile_id",
+                    "origin", "independence", "created_utc", "backend_kind", "endpoint_id",
+                    "run_note", "source_hashes", "admitted_plan_sha256", "privacy",
+                },
+            )
+            if start["independence"] not in {"unknown", "reviewed_independent"}:
+                raise ValueError(f"{directory}: invalid native run independence")
+        else:
+            raise ValueError(f"{directory}: unsupported run origin")
         if (
             start["document_type"] != "telemetry.run-start"
             or start["schema_version"] != 1
             or start["run_id"] != run_id
-            or start["origin"] != "legacy_import"
-            or start["independence"] != "unknown"
         ):
-            raise ValueError(f"{directory}: invalid imported run-start")
+            raise ValueError(f"{directory}: invalid run-start")
         plan, plan_bytes = _exact_json(directory / "admitted-plan.json")
-        _keys(
-            plan,
-            "admitted-plan",
-            {
-                "document_type", "schema_version", "project_id", "profile_id", "origin",
-                "source_sha256", "endpoint_id", "acquisition_ids", "collection_settings",
-                "live_authorized",
-            },
-        )
-        if (
-            plan["document_type"] != "telemetry.admitted-plan"
-            or plan["schema_version"] != 1
-            or plan["origin"] != "legacy_import"
-            or plan["live_authorized"] is not False
-            or _sha256(plan_bytes) != start["admitted_plan_sha256"]
-        ):
-            raise ValueError(f"{directory}: admitted plan hash or schema mismatch")
-        settings = _object(plan["collection_settings"], "admitted-plan.collection_settings")
-        _keys(
-            settings,
-            "admitted-plan.collection_settings",
-            {"authority", "mode", "batch_id", "period_ms"},
-        )
-        if settings["authority"] != "legacy_snapshot":
-            raise ValueError(f"{directory}: imported settings are not a legacy snapshot")
+        if origin == "legacy_import":
+            _validate_imported_plan(plan, directory)
+        else:
+            _validate_native_plan(plan, directory, start)
+        if _sha256(plan_bytes) != start["admitted_plan_sha256"]:
+            raise ValueError(f"{directory}: admitted plan hash mismatch")
 
         segment_paths = sorted(directory.glob("*.segment.complete.jsonl"))
         if not segment_paths:
-            raise ValueError(f"{directory}: imported run has no complete segment")
+            if origin == "native" and list(directory.glob("*.segment.*complete.jsonl")):
+                continue
+            raise ValueError(f"{directory}: run has no complete segment")
         segments = tuple(
-            _read_segment(path, run_id, project_root) for path in segment_paths
+            _read_segment(path, run_id, project_root, origin, start["admitted_plan_sha256"])
+            for path in segment_paths
         )
         if [segment.index for segment in segments] != list(range(1, len(segments) + 1)):
             raise ValueError(f"{directory}: segment indexes are not contiguous")
@@ -153,24 +160,32 @@ def load_capture_tree(captures_root: Path, project_root: Path) -> tuple[CaptureR
         if run_sequences != list(range(1, len(run_sequences) + 1)):
             raise ValueError(f"{directory}: run-global exchange sequence is not contiguous")
 
-        end, _ = _exact_json(directory / "run-end.json")
-        _keys(
-            end,
-            "run-end",
-            {
-                "document_type", "schema_version", "run_id", "reason", "segment_hashes",
-                "source_sha256",
-            },
-        )
+        run_end_path = directory / "run-end.json"
+        if not run_end_path.is_file():
+            if origin == "native" and list(directory.glob("*.segment.*complete.jsonl")):
+                runs.append(CaptureRun(run_id, start, segments))
+                continue
+            raise FileNotFoundError(run_end_path)
+        end, _ = _exact_json(run_end_path)
+        end_keys = {"document_type", "schema_version", "run_id", "reason", "segment_hashes"}
+        if origin == "legacy_import":
+            end_keys.add("source_sha256")
+        _keys(end, "run-end", end_keys)
         expected_hashes = [segment.sha256 for segment in segments]
         if (
             end["document_type"] != "telemetry.run-end"
             or end["schema_version"] != 1
             or end["run_id"] != run_id
-            or end["source_sha256"] != start["source_sha256"]
             or end["segment_hashes"] != expected_hashes
+            or end["reason"] not in (
+                {"plan_complete", "operator_stop", "recovered_prefix"}
+                if origin == "legacy_import"
+                else {"operator_stop", "transport_lost", "plan_complete", "size_limit", "recovered_prefix"}
+            )
         ):
             raise ValueError(f"{directory}: run-end does not match its segments")
+        if origin == "legacy_import" and end["source_sha256"] != start["source_sha256"]:
+            raise ValueError(f"{directory}: imported run-end source mismatch")
         runs.append(CaptureRun(run_id, start, segments))
     return tuple(runs)
 
@@ -204,7 +219,13 @@ def inspect_capture_tree(captures_root: Path, project_root: Path) -> dict[str, A
     }
 
 
-def _read_segment(path: Path, run_id: str, project_root: Path) -> CaptureSegment:
+def _read_segment(
+    path: Path,
+    run_id: str,
+    project_root: Path,
+    origin: str,
+    admitted_plan_sha256: str,
+) -> CaptureSegment:
     data = path.read_bytes()
     if data.startswith(b"\xef\xbb\xbf") or not data.endswith(b"\n"):
         raise ValueError(f"{path}: segment must be UTF-8 without BOM and newline-terminated")
@@ -217,19 +238,34 @@ def _read_segment(path: Path, run_id: str, project_root: Path) -> CaptureSegment
     if len(records) < 2:
         raise ValueError(f"{path}: segment is incomplete")
     start, end = records[0], records[-1]
-    _keys(
-        start,
-        "segment_start",
-        {"record", "schema_version", "run_id", "segment_index", "origin", "source_sha256"},
-    )
-    if start["record"] != "segment_start" or start["schema_version"] != 1 or start["run_id"] != run_id:
+    start_keys = {"record", "schema_version", "run_id", "segment_index", "origin"}
+    start_keys.add("source_sha256" if origin == "legacy_import" else "admitted_plan_sha256")
+    if origin == "native" and (
+        "recovered_from_sha256" in start or "recovered_prefix_bytes" in start
+    ):
+        start_keys.update({"recovered_from_sha256", "recovered_prefix_bytes"})
+    _keys(start, "segment_start", start_keys)
+    if (
+        start["record"] != "segment_start"
+        or start["schema_version"] != 1
+        or start["run_id"] != run_id
+        or start["origin"] != origin
+    ):
         raise ValueError(f"{path}: invalid segment_start")
+    if origin == "native" and start["admitted_plan_sha256"] != admitted_plan_sha256:
+        raise ValueError(f"{path}: segment plan hash mismatch")
+    if "recovered_prefix_bytes" in start and (
+        not isinstance(start["recovered_prefix_bytes"], int)
+        or isinstance(start["recovered_prefix_bytes"], bool)
+        or start["recovered_prefix_bytes"] < 1
+    ):
+        raise ValueError(f"{path}: invalid recovered prefix length")
     index = start["segment_index"]
     if not isinstance(index, int) or isinstance(index, bool) or index < 1:
         raise ValueError(f"{path}: invalid segment index")
     exchanges: list[dict[str, Any]] = []
     for expected, exchange in enumerate(records[1:-1], 1):
-        _validate_exchange(exchange, path, run_id, index, expected)
+        _validate_exchange(exchange, path, run_id, index, expected, origin)
         exchanges.append(exchange)
     _keys(
         end,
@@ -242,7 +278,14 @@ def _read_segment(path: Path, run_id: str, project_root: Path) -> CaptureSegment
         or end["run_id"] != run_id
         or end["segment_index"] != index
         or end["exchange_count"] != len(exchanges)
-        or end["reason"] not in {"plan_complete", "operator_stop", "recovered_prefix"}
+        or end["reason"] not in (
+            {"plan_complete", "operator_stop", "recovered_prefix"}
+            if origin == "legacy_import"
+            else {
+                "rotation", "operator_stop", "transport_lost", "plan_complete",
+                "size_limit", "recovered_prefix",
+            }
+        )
     ):
         raise ValueError(f"{path}: invalid segment_end")
     return CaptureSegment(
@@ -257,7 +300,12 @@ def _read_segment(path: Path, run_id: str, project_root: Path) -> CaptureSegment
 
 
 def _validate_exchange(
-    exchange: dict[str, Any], path: Path, run_id: str, segment_index: int, sequence: int
+    exchange: dict[str, Any],
+    path: Path,
+    run_id: str,
+    segment_index: int,
+    sequence: int,
+    origin: str,
 ) -> None:
     _keys(
         exchange,
@@ -294,12 +342,19 @@ def _validate_exchange(
     if request != bytes((0x22, acquisition.data_id >> 8, acquisition.data_id & 0xFF)):
         raise ValueError(f"{path}: exchange is not the declared 0x22 request")
     outcome = exchange["outcome"]
-    if outcome not in {"positive", "negative"}:
-        raise ValueError(f"{path}: unsupported imported exchange outcome")
+    allowed_outcomes = (
+        {"positive", "negative"}
+        if origin == "legacy_import"
+        else {"positive", "negative", "timeout", "transport_error", "abandoned"}
+    )
+    if outcome not in allowed_outcomes:
+        raise ValueError(f"{path}: unsupported exchange outcome")
     if outcome == "positive" and (response is None or not response.startswith(bytes((0x62, acquisition.data_id >> 8, acquisition.data_id & 0xFF)))):
         raise ValueError(f"{path}: invalid positive response")
     if outcome == "negative" and (response is None or not response.startswith(b"\x7f\x22")):
         raise ValueError(f"{path}: invalid negative response")
+    if outcome in {"timeout", "transport_error", "abandoned"} and response is not None:
+        raise ValueError(f"{path}: failed exchange must not contain a response")
     for field in ("request_elapsed_ms", "response_elapsed_ms", "latency_ms", "retry_count"):
         if not isinstance(exchange[field], int) or isinstance(exchange[field], bool) or exchange[field] < 0:
             raise ValueError(f"{path}: exchange.{field} must be a nonnegative integer")
@@ -312,14 +367,81 @@ def _validate_exchange(
             raise ValueError(f"{path}: exchange.{field} must be a nonnegative integer or null")
     if exchange["response_elapsed_ms"] < exchange["request_elapsed_ms"]:
         raise ValueError(f"{path}: exchange response precedes request")
-    if not isinstance(exchange["objective_ids"], list) or not isinstance(exchange["observations"], list):
+    if (
+        not isinstance(exchange["objective_ids"], list)
+        or not all(isinstance(value, str) and value for value in exchange["objective_ids"])
+        or not isinstance(exchange["observations"], list)
+    ):
         raise ValueError(f"{path}: exchange arrays are invalid")
+    if outcome != "positive" and exchange["observations"]:
+        raise ValueError(f"{path}: failed exchange must not contain observations")
     for observation in exchange["observations"]:
         _keys(observation, "observation", {"signal_ref", "raw_hex", "decoded_value", "applicability"})
         ref = SignalRef.parse(observation["signal_ref"])
-        if ref.data_id != acquisition.data_id or observation["applicability"] != "unknown":
+        allowed_applicability = (
+            {"unknown"} if origin == "legacy_import" else {"true", "false", "unknown"}
+        )
+        if (
+            ref.data_id != acquisition.data_id
+            or observation["applicability"] not in allowed_applicability
+        ):
             raise ValueError(f"{path}: observation identity or applicability mismatch")
         _hex_bytes(observation["raw_hex"], "observation.raw_hex")
         value = observation["decoded_value"]
         if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool)):
             raise ValueError(f"{path}: decoded observation must be numeric or null")
+
+
+def _validate_imported_plan(plan: dict[str, Any], directory: Path) -> None:
+    _keys(
+        plan,
+        "admitted-plan",
+        {
+            "document_type", "schema_version", "project_id", "profile_id", "origin",
+            "source_sha256", "endpoint_id", "acquisition_ids", "collection_settings",
+            "live_authorized",
+        },
+    )
+    if (
+        plan["document_type"] != "telemetry.admitted-plan"
+        or plan["schema_version"] != 1
+        or plan["origin"] != "legacy_import"
+        or plan["live_authorized"] is not False
+    ):
+        raise ValueError(f"{directory}: imported admitted plan schema mismatch")
+    settings = _object(plan["collection_settings"], "admitted-plan.collection_settings")
+    _keys(
+        settings,
+        "admitted-plan.collection_settings",
+        {"authority", "mode", "batch_id", "period_ms"},
+    )
+    if settings["authority"] != "legacy_snapshot":
+        raise ValueError(f"{directory}: imported settings are not a legacy snapshot")
+
+
+def _validate_native_plan(
+    plan: dict[str, Any], directory: Path, start: Mapping[str, Any]
+) -> None:
+    _keys(
+        plan,
+        "admitted-plan",
+        {
+            "document_type", "schema_version", "project_id", "profile_id", "created_utc",
+            "source_hashes", "admitted", "live_authorized", "admission", "stress",
+            "storage", "endpoint_sessions", "acquisitions", "objectives", "content_sha256",
+        },
+    )
+    if (
+        plan["document_type"] != "telemetry.admitted-plan"
+        or plan["schema_version"] != 1
+        or plan["admitted"] is not True
+        or plan["live_authorized"] is not True
+        or plan["project_id"] != start["project_id"]
+        or plan["profile_id"] != start["profile_id"]
+        or plan["source_hashes"] != start["source_hashes"]
+    ):
+        raise ValueError(f"{directory}: native admitted plan schema mismatch")
+    content = dict(plan)
+    content_sha256 = content.pop("content_sha256")
+    if _sha256(canonical_document_bytes(content)) != content_sha256:
+        raise ValueError(f"{directory}: native admitted plan content hash mismatch")

@@ -302,6 +302,8 @@ class ProjectRepository:
             os.replace(temporary, database)
         finally:
             temporary.unlink(missing_ok=True)
+        if self.policy["objectives"]:
+            self.replay_progress()
 
     def refresh_cache(
         self,
@@ -335,6 +337,8 @@ class ProjectRepository:
                 (capture_set_hash(captures_root),),
             )
             connection.commit()
+        if self.policy["objectives"]:
+            self.replay_progress()
 
     def _validate_catalog_rows(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
@@ -635,12 +639,22 @@ class ProjectRepository:
             if existing is not None:
                 if existing[0] != encoded_start:
                     raise ValueError(f"capture run identity collision: {run.run_id}")
-                continue
-            connection.execute(
-                "INSERT INTO run(run_id, origin, document_json) VALUES (?, ?, ?)",
-                (run.run_id, run.start["origin"], encoded_start),
-            )
+            else:
+                connection.execute(
+                    "INSERT INTO run(run_id, origin, document_json) VALUES (?, ?, ?)",
+                    (run.run_id, run.start["origin"], encoded_start),
+                )
             for segment in run.segments:
+                existing_segment = connection.execute(
+                    "SELECT sha256 FROM segment WHERE run_id = ? AND segment_index = ?",
+                    (run.run_id, segment.index),
+                ).fetchone()
+                if existing_segment is not None:
+                    if existing_segment[0] != segment.sha256:
+                        raise ValueError(
+                            f"capture segment identity collision: {run.run_id}/{segment.index}"
+                        )
+                    continue
                 connection.execute(
                     "INSERT INTO segment(run_id, segment_index, state, path, sha256, document_json) "
                     "VALUES (?, ?, 'complete', ?, ?, ?)",
