@@ -62,6 +62,12 @@ limits into current objectives: the converted collection policy starts empty,
 and planning cannot authorize live collection until reviewed targets are
 added. Existing observations remain available across later policy changes.
 
+Phase-D development now includes a pure deterministic scheduler service. It
+accepts one admitted endpoint's acquisition rows and an explicit monotonic
+clock, making deadline, priority, slack-fill, failure-backoff, and no-catch-up
+behavior testable without opening an adapter. It is not connected to the
+legacy live command path.
+
 ## Guides
 
 - **[Quickstart](docs/quickstart.md)** — the command sequence end to end.

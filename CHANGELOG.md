@@ -24,6 +24,10 @@ not a pin: it moves under you.
 
 ### Added
 
+- A deterministic single-endpoint mixed-cadence scheduler core with hard
+  maximum-deadline precedence, deficit/opportunity/cost scoring, aging,
+  background slack filling, bounded failure backoff, stable ties, one
+  outstanding request, and no catch-up bursts.
 - Offline objective/applicability replay, cost-based safety admission, exact
   capture inspection, and immutable generation-based CSV/JSON export for the
   schema-v2 project repository. These services do not open an adapter.
