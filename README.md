@@ -36,39 +36,23 @@ project structure of its own to copy.
 
 | Command | Purpose |
 |---|---|
+| `telemetry catalog import` | Import normalized catalog rows and rebuild the private derived cache. |
+| `telemetry cache rebuild` | Rebuild the private derived cache from authored inputs, catalog rows, and captures. |
+| `telemetry plan` | Compile and admit collection work offline. |
 | `telemetry collect` | Execute one current admitted endpoint plan through the private adapter worker. This verb is live; there is no `--live` option. |
 | `telemetry review` | Open the dependency-free offline-first operator interface for plan, policy, collection, evidence, replay, and review work. |
-| `telemetry-build-plan` | Build a bounded, tiered DID plan from a catalog and platform profile. |
-| `telemetry-probe` | Probe every ECU endpoint the catalog knows, and write configuration for those that answer. |
-| `telemetry-validate` | Reconstruct progress and run qualification, road, or experiment batches through a configured backend. |
-| `telemetry-analyze-capture` | Independently validate and summarize one capture file. |
-| `telemetry-review` | Aggregate every capture into a per-signal evidence ledger; list what still needs excitation; check a curated map against the observations. |
-| `telemetry-map` | Emit a complete signal map from the catalog annotated with observations, plus the DIDs a vehicle refused. |
-| `telemetry-migrate-legacy` | Temporary pre-0.4 converter for the reviewed one-time migration of legacy project evidence. |
+| `telemetry capture inspect` | Validate and summarize the private capture tree without printing payload bytes. |
+| `telemetry export` | Generate the tracked, privacy-minimized project result from authored sources and private evidence. |
 
 Every command prints a human summary by default, `--json` for the machine
 document, and reports its version with `--version`. See
 [`tools/README.md`](tools/README.md) for the shared output options and the
 Techstream encoding contract.
 
-`telemetry-migrate-legacy` is intentionally transitional. It reads legacy
-schema-1 captures without modifying them, writes only below an explicit ignored
-`scratch/` destination, and emits a privacy-minimized reconciliation report.
-Converted evidence must be reviewed before cutover. The command and every old
-schema reader will be removed once that migration is accepted; it is not a
-compatibility path.
-
-The converter preserves each legacy run's collection settings only as a
-non-authoritative snapshot. It does not turn legacy tiers, periods, or sample
-limits into current objectives: the converted collection policy starts empty,
-and planning cannot authorize live collection until reviewed targets are
-added. Existing observations remain available across later policy changes.
-
-Phase-D development now includes a pure deterministic scheduler service. It
+The scheduler service is pure and deterministic. It
 accepts one admitted endpoint's acquisition rows and an explicit monotonic
 clock, making deadline, priority, slack-fill, failure-backoff, and no-catch-up
-behavior testable without opening an adapter. It is not connected to the
-legacy live command path.
+behavior testable without opening an adapter.
 
 The native capture service writes an immutable run around that scheduler:
 admitted-plan provenance, create-new JSONL segments, continuous run sequence
