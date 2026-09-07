@@ -37,6 +37,7 @@ project structure of its own to copy.
 | Command | Purpose |
 |---|---|
 | `telemetry collect` | Execute one current admitted endpoint plan through the private adapter worker. This verb is live; there is no `--live` option. |
+| `telemetry review` | Open the dependency-free offline-first operator interface for plan, policy, collection, evidence, replay, and review work. |
 | `telemetry-build-plan` | Build a bounded, tiered DID plan from a catalog and platform profile. |
 | `telemetry-probe` | Probe every ECU endpoint the catalog knows, and write configuration for those that answer. |
 | `telemetry-validate` | Reconstruct progress and run qualification, road, or experiment batches through a configured backend. |
@@ -80,6 +81,13 @@ C# worker for the selected endpoint; that worker owns only the adapter, CAN,
 ISO-TP, and session lifetime and enforces the admitted byte-exact request
 allowlist. The collector/worker integration is covered by synthetic offline
 tests. It has not yet been exercised on a vehicle.
+
+The first operator interface is available through `telemetry review`. Merely
+opening or navigating it does not start a backend. Its explicit Start action
+shows the adapter, endpoint, capture path, plan hash, and admission state before
+launching `telemetry collect --json`; it never controls the C# worker directly.
+Review and collection-policy edits remain in memory until an explicit atomic
+save to their tracked authored document.
 
 ## Guides
 

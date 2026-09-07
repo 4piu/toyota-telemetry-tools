@@ -23,6 +23,7 @@ from .collector import (
 from .project import find_project_root
 from .repository import ProjectRepository
 from .worker_protocol import build_worker_config, write_worker_config
+from .tui import OperatorTui
 
 
 def main() -> int:
@@ -34,8 +35,21 @@ def main() -> int:
     collect.add_argument("--endpoint")
     collect.add_argument("--note")
     collect.add_argument("--json", action="store_true", dest="as_json")
+    collect.set_defaults(handler=_collect)
+    review = subcommands.add_parser("review", help="open the offline-first operator interface")
+    review.add_argument("--project-root", type=Path)
+    review.set_defaults(handler=_review)
     args = parser.parse_args()
-    return _collect(args)
+    return vars(args)["handler"](args)
+
+
+def _review(args: argparse.Namespace) -> int:
+    try:
+        root = args.project_root.resolve() if args.project_root else find_project_root()
+        return OperatorTui(ProjectRepository(root)).run()
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
 
 
 def _collect(args: argparse.Namespace) -> int:

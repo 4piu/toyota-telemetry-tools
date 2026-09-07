@@ -110,6 +110,10 @@ namespace Telemetry.Can.Core
         private ExchangeResult ExchangeCore(
             byte[] request, byte[] expectedPrefix, string label, bool allowNegative)
         {
+            if (RunState.StopRequested)
+            {
+                throw new OperationCanceledException("Stopped by user.");
+            }
             EnforceUdsAllowlist(request, allowedRequests);
             Stopwatch latency = Stopwatch.StartNew();
             if (verbose)

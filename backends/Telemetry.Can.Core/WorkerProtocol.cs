@@ -255,6 +255,13 @@ namespace Telemetry.Can.Core
                 RunState.Reset();
                 WorkerConfig config = WorkerConfig.Load(args[2]);
                 SelfCheck.RunFramingChecks();
+                Inbox inbox = StartCommandReader();
+                if (RunState.StopRequested)
+                {
+                    WriteEvent("{\"event\":\"stopped\",\"schema_version\":1,\"reason\":\"stop\"}");
+                    exitCode = 0;
+                    return true;
+                }
                 using (ICanChannel channel = openChannel(config.Backend))
                 {
                     channel.RefuseConcurrentClients();
@@ -283,8 +290,13 @@ namespace Telemetry.Can.Core
                         "{\"event\":\"ready\",\"schema_version\":1,\"endpoint_id\":\"" +
                         Hex.JsonEscape(config.EndpointId) + "\",\"backend_kind\":\"" +
                         Hex.JsonEscape(channel.BackendName) + "\"}");
-                    RunLoop(transport, config, channel);
+                    RunLoop(transport, config, channel, inbox);
                 }
+                exitCode = 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("{\"event\":\"stopped\",\"schema_version\":1,\"reason\":\"stop\"}");
                 exitCode = 0;
             }
             catch (Exception exc)
@@ -296,13 +308,8 @@ namespace Telemetry.Can.Core
         }
 
         private static void RunLoop(
-            IsoTpTransport transport, WorkerConfig config, ICanChannel channel)
+            IsoTpTransport transport, WorkerConfig config, ICanChannel channel, Inbox inbox)
         {
-            Inbox inbox = new Inbox();
-            Thread reader = new Thread(delegate() { ReadCommands(inbox); });
-            reader.IsBackground = true;
-            reader.Name = "telemetry-worker-stdin";
-            reader.Start();
             HashSet<int> sequences = new HashSet<int>();
             while (true)
             {
@@ -384,6 +391,16 @@ namespace Telemetry.Can.Core
                 }
                 channel.CheckStatus("after worker transaction");
             }
+        }
+
+        private static Inbox StartCommandReader()
+        {
+            Inbox inbox = new Inbox();
+            Thread reader = new Thread(delegate() { ReadCommands(inbox); });
+            reader.IsBackground = true;
+            reader.Name = "telemetry-worker-stdin";
+            reader.Start();
+            return inbox;
         }
 
         private static void ReadCommands(Inbox inbox)
