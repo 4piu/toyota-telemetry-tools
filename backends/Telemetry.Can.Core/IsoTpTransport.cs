@@ -20,6 +20,11 @@ namespace Telemetry.Can.Core
         {
             stopRequested = true;
         }
+
+        internal static void Reset()
+        {
+            stopRequested = false;
+        }
     }
 
     internal sealed class ExchangeResult
@@ -28,18 +33,29 @@ namespace Telemetry.Can.Core
         internal readonly long LatencyMs;
         internal readonly bool IsNegative;
         internal readonly byte NegativeResponseCode;
+        internal readonly int PendingCount;
+        internal readonly long PendingDurationMs;
 
         internal ExchangeResult(byte[] payload, long latencyMs)
-            : this(payload, latencyMs, false, 0)
+            : this(payload, latencyMs, false, 0, 0, 0)
         {
         }
 
         internal ExchangeResult(byte[] payload, long latencyMs, bool isNegative, byte negativeResponseCode)
+            : this(payload, latencyMs, isNegative, negativeResponseCode, 0, 0)
+        {
+        }
+
+        internal ExchangeResult(
+            byte[] payload, long latencyMs, bool isNegative, byte negativeResponseCode,
+            int pendingCount, long pendingDurationMs)
         {
             Payload = payload;
             LatencyMs = latencyMs;
             IsNegative = isNegative;
             NegativeResponseCode = negativeResponseCode;
+            PendingCount = pendingCount;
+            PendingDurationMs = pendingDurationMs;
         }
     }
 
@@ -61,6 +77,7 @@ namespace Telemetry.Can.Core
         private readonly int responsePendingBudgetMs;
         private readonly bool verbose;
         private readonly byte[][] allowedRequests;
+        internal Action<int, long> PendingObserved;
 
         internal IsoTpTransport(
             ICanChannel channel,
@@ -102,12 +119,23 @@ namespace Telemetry.Can.Core
 
             SendPayload(request, label);
             byte[] response = ReceivePayload(label, timeoutMs);
+            int pendingCount = 0;
+            long pendingStartedMs = 0;
 
             // NRC 0x78 (responsePending) may repeat; bound the total wait so a
             // stuck ECU cannot hold the session open indefinitely.
             while (response.Length >= 3 &&
                    response[0] == 0x7F && response[1] == request[0] && response[2] == 0x78)
             {
+                pendingCount++;
+                if (pendingStartedMs == 0)
+                {
+                    pendingStartedMs = latency.ElapsedMilliseconds;
+                }
+                if (PendingObserved != null)
+                {
+                    PendingObserved(pendingCount, latency.ElapsedMilliseconds - pendingStartedMs);
+                }
                 if (verbose)
                 {
                     Console.WriteLine("UDS RX " + label + ": response pending (NRC 0x78)");
@@ -131,7 +159,9 @@ namespace Telemetry.Can.Core
             {
                 if (allowNegative)
                 {
-                    return new ExchangeResult(response, latency.ElapsedMilliseconds, true, response[2]);
+                    return new ExchangeResult(
+                        response, latency.ElapsedMilliseconds, true, response[2], pendingCount,
+                        pendingCount == 0 ? 0 : latency.ElapsedMilliseconds - pendingStartedMs);
                 }
                 throw new InvalidOperationException(
                     "ECU negative response to " + label + ": service=0x" +
@@ -145,7 +175,9 @@ namespace Telemetry.Can.Core
                     "Unexpected response to " + label + ": " + Hex.Format(response) +
                     " (expected prefix " + Hex.Format(expectedPrefix) + ")");
             }
-            return new ExchangeResult(response, latency.ElapsedMilliseconds, false, 0);
+            return new ExchangeResult(
+                response, latency.ElapsedMilliseconds, false, 0, pendingCount,
+                pendingCount == 0 ? 0 : latency.ElapsedMilliseconds - pendingStartedMs);
         }
 
         private void SendPayload(byte[] payload, string label)

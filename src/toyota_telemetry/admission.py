@@ -225,9 +225,14 @@ def compile_plan(
             )
 
     endpoint_sessions = []
-    dynamic_by_endpoint: dict[str, list[str]] = {}
+    dynamic_by_endpoint: dict[str, list[dict[str, Any]]] = {}
     for dynamic in transport["dynamic_dids"]:
-        dynamic_by_endpoint.setdefault(dynamic["endpoint_id"], []).append(dynamic["definition_hex"])
+        dynamic_by_endpoint.setdefault(dynamic["endpoint_id"], []).append({
+            "request_hex": dynamic["definition_hex"],
+            "expected_prefix_hex": dynamic["expected_prefix_hex"],
+            "label": f"define dynamic DID {dynamic['target_did']}",
+            "tolerate_negative": False,
+        })
     for endpoint_id in sorted({row["endpoint_id"] for row in acquisitions}):
         endpoint = endpoint_rows[endpoint_id]
         recipe = recipe_rows[endpoint["session_recipe_id"]]
@@ -237,8 +242,15 @@ def compile_plan(
                 "tester_can_id": endpoint["tester_can_id"],
                 "response_can_id": endpoint["response_can_id"],
                 "session_recipe_id": recipe["id"],
-                "session_request_hex": [step["request_hex"] for step in recipe["steps"]],
-                "dynamic_definition_hex": sorted(dynamic_by_endpoint.get(endpoint_id, [])),
+                "network": transport["network"],
+                "initial_response_timeout_ms": safety["initial_response_timeout_ms"],
+                "response_pending_budget_ms": safety["response_pending_budget_ms"],
+                "session_setup": [
+                    dict(step) for step in recipe["steps"]
+                ] + sorted(
+                    dynamic_by_endpoint.get(endpoint_id, []),
+                    key=lambda row: row["request_hex"],
+                ),
             }
         )
     stress = {

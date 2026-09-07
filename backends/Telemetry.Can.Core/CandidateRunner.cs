@@ -24,6 +24,11 @@ namespace Telemetry.Can.Core
         /// <summary>Entry point shared by every backend's Main.</summary>
         internal static int Run(Func<BackendConfig, ICanChannel> openChannel, string[] args, string toolName)
         {
+            int workerExitCode;
+            if (WorkerRunner.TryRun(openChannel, args, toolName, out workerExitCode))
+            {
+                return workerExitCode;
+            }
             try
             {
                 Options options = Options.Parse(args, toolName);

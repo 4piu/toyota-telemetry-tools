@@ -52,6 +52,8 @@ namespace Telemetry.Can.Core
         internal uint DidMinimum;
         internal uint DidMaximum;
         internal int ResponsePendingBudgetMs;
+        internal int InitialResponseTimeoutMs;
+        internal byte[][] WorkerAllowlist;
         internal JsonValue Device;
 
         /// <summary>
