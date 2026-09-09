@@ -262,7 +262,7 @@ class RepositoryTests(unittest.TestCase):
             repository = ProjectRepository(root)
             repository.rebuild_cache(catalog)
             first = repository.cache_snapshot()
-            self.assertEqual(first["schema_meta"][0], ("cache_schema_version", "1"))
+            self.assertEqual(first["schema_meta"][0], ("cache_schema_version", "2"))
             self.assertEqual(len(first["catalog_variant"]), 1)
             self.assertEqual(first["run"], [])
             self.assertFalse(repository.refresh_cache(catalog))

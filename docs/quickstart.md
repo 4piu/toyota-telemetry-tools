@@ -71,19 +71,25 @@ recipe (`config/transport.json` `session_recipes`) against each candidate
 `TESTER_CAN_ID:RESPONSE_CAN_ID:SESSION_RECIPE_ID`, and records whether it
 responded as a provisional fact — it never edits tracked transport. `preflight
 dids` does the same against `--endpoint` (a confirmed endpoint id, or a
-`TESTER:RESPONSE` candidate id from a prior responding discovery run) plus one
+`tester-response-session-recipe` candidate id printed by a prior responding
+discovery run) plus one
 `--did` read each, recording support/negative/timeout outcomes as provisional
 facts — it never authors a collection objective.
 
 Both commands' results are provisional SQLite facts with no durable source:
 `telemetry cache rebuild` does not repopulate them, so re-run either command
 after a rebuild if you still need the facts. Promoting a responding discovery
-candidate into a tracked confirmed endpoint is a separate, explicit review
-step (`toyota_telemetry.discovery.promote_confirmed_endpoint`, called with the
-ECU keys and provenance the operator supplies) that atomically writes
-`config/transport.json`; there is no CLI shortcut that constructs a new
-session or dynamic-DID definition, matching the read-only, reviewed-bytes-only
-safety boundary.
+candidate into a tracked confirmed endpoint is the separate `[t] endpoint
+curation` action in `telemetry-tui`. The operator supplies ECU keys and tracked
+provenance, reviews the resulting endpoint, and types `SAVE` before the TUI
+atomically writes `config/transport.json`; there is no CLI shortcut that
+constructs a new session or dynamic-DID definition, matching the read-only,
+reviewed-bytes-only safety boundary.
+
+The probe parent derives a finite wall-clock deadline from the tracked initial
+response and response-pending budgets plus a three-second process margin. It
+kills a worker that exceeds that bound and also terminates the child if the
+operator interrupts the command.
 
 ## Live collection
 

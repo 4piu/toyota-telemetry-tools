@@ -69,10 +69,13 @@ directly.
   definition, and ReadDataByIdentifier. No vehicle control, coding, clearing,
   security access, memory access, or programming operation is a recognized
   shape, regardless of what the transaction table contains.
+- DefineByIdentifier requires one or more complete source-DID/position/size
+  tuples; truncated tuples and zero/overflowing ranges are rejected.
 - No adapter auto-detection or fallback between bindings.
 - No automatic CAN ID or DID sweep: `telemetry discover endpoints` and
   `telemetry preflight dids` only ever probe candidates the operator names
-  explicitly, one bounded probe per invocation.
+  explicitly. The Python parent enforces a wall-clock deadline derived from
+  the tracked per-step response bounds and terminates a stuck probe worker.
 
 See [adding an adapter](../docs/adding-an-adapter.md) for the narrow channel
 interface and test expectations.

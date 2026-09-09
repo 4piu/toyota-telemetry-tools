@@ -47,6 +47,18 @@ not a pin: it moves under you.
   explicit review action (`toyota_telemetry.discovery
   .promote_confirmed_endpoint`) that atomically writes
   `config/transport.json` through the existing authored-document writer.
+- Discovery candidate IDs now include the session recipe and are also the
+  eventual promoted endpoint IDs, preserving identity and preflight cost facts
+  across curation. `telemetry-tui` exposes the explicit endpoint-promotion
+  action.
+- DID preflight canonicalizes and enforces the tracked project DID range,
+  correlates worker results with the requested candidate/backend, carries
+  `tolerate_negative` into the probe worker, supplies positive latency/response
+  facts to admission, and has a derived parent-process wall-clock deadline.
+- The query-cache schema is version 2 after adding provisional discovery and
+  preflight tables; older caches fail clearly and require `telemetry cache
+  rebuild`. The generic dynamic-DID guard now validates every complete
+  source-DID/position/size tuple.
 
 ## 0.4.0
 

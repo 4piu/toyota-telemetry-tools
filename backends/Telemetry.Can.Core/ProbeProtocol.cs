@@ -12,12 +12,15 @@ namespace Telemetry.Can.Core
         internal readonly byte[] Request;
         internal readonly byte[] ExpectedPrefix;
         internal readonly string Label;
+        internal readonly bool TolerateNegative;
 
-        internal ProbeStep(byte[] request, byte[] expectedPrefix, string label)
+        internal ProbeStep(
+            byte[] request, byte[] expectedPrefix, string label, bool tolerateNegative)
         {
             Request = request;
             ExpectedPrefix = expectedPrefix;
             Label = label;
+            TolerateNegative = tolerateNegative;
         }
     }
 
@@ -110,12 +113,15 @@ namespace Telemetry.Can.Core
             {
                 string where = "session_setup[" + index.ToString(CultureInfo.InvariantCulture) + "]";
                 JsonValue step = steps[index];
-                step.RejectUnknownMembers(where, "request_hex", "expected_prefix_hex", "label");
+                step.RejectUnknownMembers(
+                    where, "request_hex", "expected_prefix_hex", "label", "tolerate_negative");
                 byte[] request = ParseBytes(step, where, "request_hex");
                 TelemetryGuard.Enforce(request, TelemetryGuardContext.SessionSetup);
                 result.SessionSetup[index] = new ProbeStep(
                     request, ParseBytes(step, where, "expected_prefix_hex"),
-                    RequiredText(step, where, "label"));
+                    RequiredText(step, where, "label"),
+                    step.Member(where, "tolerate_negative")
+                        .AsBoolean(where + ".tolerate_negative"));
             }
 
             JsonValue read;
@@ -126,7 +132,7 @@ namespace Telemetry.Can.Core
                 TelemetryGuard.Enforce(request, TelemetryGuardContext.Transaction);
                 result.ReadStep = new ProbeStep(
                     request, ParseBytes(read, "preflight_read", "expected_prefix_hex"),
-                    RequiredText(read, "preflight_read", "label"));
+                    RequiredText(read, "preflight_read", "label"), false);
             }
 
             backend.Device = root.Member("", "device");
@@ -212,7 +218,8 @@ namespace Telemetry.Can.Core
                             // observation.
                             responded = stepResponded;
                         }
-                        if (!stepResponded)
+                        if (!SessionStepAllowsContinuation(
+                                outcome.Outcome, step.TolerateNegative))
                         {
                             sessionComplete = false;
                             break;
@@ -258,6 +265,12 @@ namespace Telemetry.Can.Core
                 exitCode = 1;
             }
             return true;
+        }
+
+        internal static bool SessionStepAllowsContinuation(
+            string outcome, bool tolerateNegative)
+        {
+            return outcome == "positive" || (outcome == "negative" && tolerateNegative);
         }
 
         private sealed class StepOutcome

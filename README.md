@@ -54,9 +54,9 @@ guard and single-shot `--probe` worker protocol as `telemetry collect`'s
 long-lived worker; results are provisional SQLite facts with no durable
 source, so `telemetry cache rebuild` does not repopulate them. Promoting a
 responding discovery candidate into a tracked confirmed endpoint is a
-separate explicit review action
-(`toyota_telemetry.discovery.promote_confirmed_endpoint`) that atomically
-writes `config/transport.json`.
+separate explicit endpoint-curation action in `telemetry-tui`; it previews the
+candidate, ECU membership, and provenance before an explicit tracked save to
+`config/transport.json`.
 
 Finite data commands print a human summary by default and accept `--json` for
 one machine document. `telemetry collect --json` emits versioned JSON Lines.

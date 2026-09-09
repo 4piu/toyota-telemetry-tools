@@ -26,7 +26,7 @@ from .schemas import (
 )
 
 
-CACHE_SCHEMA_VERSION = 1
+CACHE_SCHEMA_VERSION = 2
 _CACHE_TABLES = (
     "schema_meta",
     "source_file",
@@ -46,6 +46,8 @@ _CACHE_TABLES = (
     "did_status",
     "objective_progress",
     "export_generation",
+    "discovery_candidate",
+    "did_preflight",
 )
 
 
@@ -352,6 +354,11 @@ class ProjectRepository:
             if connection.execute("PRAGMA user_version").fetchone()[0] != CACHE_SCHEMA_VERSION:
                 raise ValueError("project cache schema version mismatch; run telemetry cache rebuild")
 
+    def ensure_cache_ready(self) -> None:
+        """Require the exact current cache schema before a cache-backed operation."""
+
+        self._require_cache()
+
     def record_discovery_candidate(self, fact: Mapping[str, Any]) -> None:
         """Store one provisional `telemetry discover endpoints` result.
 
@@ -391,6 +398,7 @@ class ProjectRepository:
     def discovery_candidates(self) -> list[dict[str, Any]]:
         if not self.paths.database.is_file():
             return []
+        self._require_cache()
         with closing(sqlite3.connect(self.paths.database)) as connection:
             rows = connection.execute(
                 "SELECT document_json FROM discovery_candidate ORDER BY candidate_id"
@@ -426,6 +434,7 @@ class ProjectRepository:
     def did_preflight_facts(self, endpoint_id: str | None = None) -> list[dict[str, Any]]:
         if not self.paths.database.is_file():
             return []
+        self._require_cache()
         with closing(sqlite3.connect(self.paths.database)) as connection:
             if endpoint_id is None:
                 rows = connection.execute(
@@ -550,8 +559,15 @@ class ProjectRepository:
             return progress
 
     def acquisition_cost_facts(self) -> dict[str, dict[str, Any]]:
-        """Return deterministic observed latency and payload-size facts."""
+        """Return deterministic observed latency and payload-size facts.
 
+        Positive DID preflight reads are qualification evidence for the same
+        endpoint/DID acquisition identity used by planning. They complement
+        historical capture exchanges so a newly qualified DID does not need a
+        collection run before its first plan can be admitted.
+        """
+
+        self._require_cache()
         grouped: dict[str, dict[str, Any]] = {}
         with closing(sqlite3.connect(self.paths.database)) as connection:
             rows = connection.execute(
@@ -568,6 +584,25 @@ class ProjectRepository:
                     facts["maximum_response_bytes"], len(response) if response is not None else 0
                 )
                 facts["outcomes"][outcome] = facts["outcomes"].get(outcome, 0) + 1
+            for endpoint_id, data_id, document in connection.execute(
+                "SELECT endpoint_id, data_id, document_json FROM did_preflight "
+                "ORDER BY endpoint_id, data_id"
+            ):
+                fact = json.loads(document)
+                read = fact["result"]["read"]
+                if read is None or read.get("attempted") is not True or read["outcome"] != "positive":
+                    continue
+                response_hex = read["response_hex"]
+                acquisition_id = f"{endpoint_id}/{canonical_did(data_id)}"
+                facts = grouped.setdefault(
+                    acquisition_id,
+                    {"latencies": [], "maximum_response_bytes": 0, "outcomes": {}},
+                )
+                facts["latencies"].append(int(read["latency_ms"]))
+                facts["maximum_response_bytes"] = max(
+                    facts["maximum_response_bytes"], len(bytes.fromhex(response_hex))
+                )
+                facts["outcomes"]["positive"] = facts["outcomes"].get("positive", 0) + 1
         result = {}
         for acquisition_id, facts in sorted(grouped.items()):
             ordered = sorted(facts.pop("latencies"))

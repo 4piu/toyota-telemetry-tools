@@ -46,6 +46,9 @@ The probe form is launched only by `telemetry discover endpoints` and
 attempts its configured session-setup steps and at most one
 ReadDataByIdentifier, prints exactly one `probe_result` JSON line, and exits.
 Every attempted request passes the same telemetry guard as the worker form.
+Session steps carry their exact `tolerate_negative` policy; a non-tolerated
+negative response prevents the optional DID read. The Python parent enforces a
+derived wall-clock deadline and terminates the child on timeout or interruption.
 
 Machine-local adapter settings come from the vehicle project's ignored local
 settings and are embedded in the temporary worker config. Portable endpoint,

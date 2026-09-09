@@ -16,6 +16,7 @@ from toyota_telemetry.tui import (
     PolicyDraft,
     ReviewDraft,
     StopController,
+    TransportDraft,
     TransportMonitor,
     main,
 )
@@ -134,6 +135,35 @@ class OperatorTuiTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), before)
             draft.save()
             self.assertEqual(ProjectRepository(repository.root).policy["objectives"][0]["priority"], 75)
+
+    def test_endpoint_promotion_is_memory_only_until_explicit_atomic_save(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "vehicle"
+            root.mkdir()
+            repository, _ = current_repository(root)
+            candidate = {
+                "candidate_id": "7d2-7da-session-a1769d23a560",
+                "tester_can_id": "0x7D2",
+                "response_can_id": "0x7DA",
+                "session_recipe_id": "session-a1769d23a560",
+                "responded": True,
+                "observed_utc": "2026-01-01T00:00:00Z",
+                "result": {},
+            }
+            repository.record_discovery_candidate(candidate)
+            path = repository.paths.transport
+            before = path.read_bytes()
+            draft = TransportDraft(repository)
+            draft.promote(
+                candidate["candidate_id"], [397], ["docs/findings/example.md"]
+            )
+            self.assertEqual(path.read_bytes(), before)
+            draft.save()
+            saved = ProjectRepository(repository.root).transport
+            promoted = next(
+                row for row in saved["endpoints"] if row["id"] == candidate["candidate_id"]
+            )
+            self.assertEqual(promoted["ecu_keys"], [397])
 
 
 if __name__ == "__main__":

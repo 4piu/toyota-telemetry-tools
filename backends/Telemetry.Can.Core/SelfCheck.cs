@@ -102,13 +102,24 @@ namespace Telemetry.Can.Core
                 "ECUReset");
 
             TelemetryGuard.Enforce(
-                new byte[] { 0x2C, 0x01, 0xF3, 0x01, 0x10, 0xA0 }, TelemetryGuardContext.SessionSetup);
+                new byte[] { 0x2C, 0x01, 0xF3, 0x01, 0x10, 0xA0, 0x01, 0x02 },
+                TelemetryGuardContext.SessionSetup);
             AssertGuardRejected(
-                new byte[] { 0x2C, 0x01, 0x01, 0x02, 0x10, 0xA0 }, TelemetryGuardContext.SessionSetup,
+                new byte[] { 0x2C, 0x01, 0x01, 0x02, 0x10, 0xA0, 0x01, 0x02 },
+                TelemetryGuardContext.SessionSetup,
                 "a DefineByIdentifier target outside the dynamic-identifier range");
             AssertGuardRejected(
-                new byte[] { 0x2C, 0x02, 0xF3, 0x01, 0x10, 0xA0 }, TelemetryGuardContext.SessionSetup,
+                new byte[] { 0x2C, 0x02, 0xF3, 0x01, 0x10, 0xA0, 0x01, 0x02 },
+                TelemetryGuardContext.SessionSetup,
                 "DefineByMemoryAddress instead of DefineByIdentifier");
+            AssertGuardRejected(
+                new byte[] { 0x2C, 0x01, 0xF3, 0x01, 0x10, 0xA0 },
+                TelemetryGuardContext.SessionSetup,
+                "a truncated DefineByIdentifier source tuple");
+            AssertGuardRejected(
+                new byte[] { 0x2C, 0x01, 0xF3, 0x01, 0x10, 0xA0, 0x00, 0x02 },
+                TelemetryGuardContext.SessionSetup,
+                "a zero-position DefineByIdentifier source tuple");
 
             RunWorkerProtocolChecks();
             RunProbeProtocolChecks();
@@ -122,15 +133,24 @@ namespace Telemetry.Can.Core
                 "\"bitrate\":500000,\"addressing\":\"normal\",\"tester_can_id\":\"0x700\"," +
                 "\"response_can_id\":\"0x708\",\"initial_response_timeout_ms\":300," +
                 "\"response_pending_budget_ms\":2000},\"session_setup\":[{\"request_hex\":\"3E 00\"," +
-                "\"expected_prefix_hex\":\"7E 00\",\"label\":\"tester present\"}]," +
+                "\"expected_prefix_hex\":\"7E 00\",\"label\":\"tester present\"," +
+                "\"tolerate_negative\":true}]," +
                 "\"preflight_read\":{\"request_hex\":\"22 10 75\",\"expected_prefix_hex\":\"62 10 75\"," +
                 "\"label\":\"read 0x1075\"},\"device\":{\"pcan\":{\"channel\":\"PCAN_USBBUS1\"}}}";
             ProbeConfig loaded = LoadProbeConfig(validConfig);
             if (!String.Equals(loaded.CandidateId, "700-708", StringComparison.Ordinal) ||
                 loaded.SessionSetup.Length != 1 || loaded.ReadStep == null ||
-                loaded.ReadStep.Request.Length != 3)
+                loaded.ReadStep.Request.Length != 3 ||
+                !loaded.SessionSetup[0].TolerateNegative)
             {
                 throw new InvalidOperationException("Probe config self-check failed.");
+            }
+            if (!ProbeRunner.SessionStepAllowsContinuation("negative", true) ||
+                ProbeRunner.SessionStepAllowsContinuation("negative", false) ||
+                ProbeRunner.SessionStepAllowsContinuation("timeout", true))
+            {
+                throw new InvalidOperationException(
+                    "Probe session tolerate-negative self-check failed.");
             }
 
             string discoveryOnly =
@@ -139,7 +159,8 @@ namespace Telemetry.Can.Core
                 "\"bitrate\":500000,\"addressing\":\"normal\",\"tester_can_id\":\"0x700\"," +
                 "\"response_can_id\":\"0x708\",\"initial_response_timeout_ms\":300," +
                 "\"response_pending_budget_ms\":2000},\"session_setup\":[{\"request_hex\":\"3E 00\"," +
-                "\"expected_prefix_hex\":\"7E 00\",\"label\":\"tester present\"}]," +
+                "\"expected_prefix_hex\":\"7E 00\",\"label\":\"tester present\"," +
+                "\"tolerate_negative\":true}]," +
                 "\"device\":{\"pcan\":{\"channel\":\"PCAN_USBBUS1\"}}}";
             if (LoadProbeConfig(discoveryOnly).ReadStep != null)
             {

@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sqlite3
+import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 from toyota_telemetry.discovery import (
+    JsonlProbeClient,
     discover_endpoints,
     preflight_dids,
     promote_confirmed_endpoint,
@@ -197,7 +201,11 @@ def scripted_factory(results: list[dict]):
     queue = list(results)
 
     def factory(config_path: Path):
-        return ScriptedProbeWorker(queue.pop(0))
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        result = queue.pop(0)
+        result["candidate_id"] = config["candidate_id"]
+        result["backend_kind"] = next(iter(config["device"]))
+        return ScriptedProbeWorker(result)
 
     return factory
 
@@ -221,10 +229,94 @@ class DiscoveryTests(unittest.TestCase):
             self.assertEqual([row["responded"] for row in results], [True, False])
             stored = repository.discovery_candidates()
             self.assertEqual(len(stored), 2)
-            self.assertEqual(stored[0]["candidate_id"], "0x700:0x708")
+            self.assertEqual(stored[0]["candidate_id"], "700-708-extended")
             self.assertTrue(stored[0]["responded"])
-            self.assertEqual(stored[1]["candidate_id"], "0x701:0x709")
+            self.assertEqual(stored[1]["candidate_id"], "701-709-extended")
             self.assertFalse(stored[1]["responded"])
+
+    def test_candidate_identity_includes_the_session_recipe(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_project(root)
+            document = transport()
+            document["session_recipes"].append({
+                "id": "default",
+                "steps": [{
+                    "request_hex": "10 01",
+                    "expected_prefix_hex": "50 01",
+                    "label": "default session",
+                    "tolerate_negative": False,
+                }],
+            })
+            write_json(root / "config/transport.json", document)
+            repository = make_repository(root)
+            discover_endpoints(
+                repository, root,
+                [("0x700", "0x708", "extended"), ("0x700", "0x708", "default")],
+                utc_now=lambda: "2026-01-01T00:00:00Z",
+                probe_worker_factory=scripted_factory([
+                    probe_result(responded=True), probe_result(responded=True),
+                ]),
+            )
+            self.assertEqual(
+                [row["candidate_id"] for row in repository.discovery_candidates()],
+                ["700-708-default", "700-708-extended"],
+            )
+
+    def test_probe_config_preserves_session_negative_tolerance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_project(root)
+            repository = make_repository(root)
+
+            def factory(config_path: Path):
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    [row["tolerate_negative"] for row in config["session_setup"]],
+                    [True, False],
+                )
+                result = probe_result(responded=True)
+                result["candidate_id"] = config["candidate_id"]
+                result["backend_kind"] = next(iter(config["device"]))
+                return ScriptedProbeWorker(result)
+
+            discover_endpoints(
+                repository, root, [("0x700", "0x708", "extended")],
+                utc_now=lambda: "2026-01-01T00:00:00Z",
+                probe_worker_factory=factory,
+            )
+
+    def test_probe_result_must_match_requested_candidate_and_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_project(root)
+            repository = make_repository(root)
+            with self.assertRaisesRegex(RuntimeError, "candidate_id does not match"):
+                discover_endpoints(
+                    repository, root, [("0x700", "0x708", "extended")],
+                    utc_now=lambda: "2026-01-01T00:00:00Z",
+                    probe_worker_factory=lambda _: ScriptedProbeWorker(
+                        probe_result(responded=True)
+                    ),
+                )
+
+    def test_old_cache_version_fails_before_writing_provisional_facts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_project(root)
+            connection = sqlite3.connect(root / "scratch/project.sqlite")
+            try:
+                connection.execute("PRAGMA user_version = 1")
+                connection.commit()
+            finally:
+                connection.close()
+            repository = ProjectRepository(root)
+            with self.assertRaisesRegex(ValueError, "cache schema version mismatch"):
+                discover_endpoints(
+                    repository, root, [("0x700", "0x708", "extended")],
+                    utc_now=lambda: "2026-01-01T00:00:00Z",
+                    probe_worker_factory=scripted_factory([probe_result(responded=True)]),
+                )
 
     def test_discover_endpoints_requires_at_least_one_candidate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -276,6 +368,46 @@ class PreflightTests(unittest.TestCase):
             self.assertEqual(len(stored), 2)
             self.assertEqual(policy(), repository.policy)
 
+    def test_preflight_canonicalizes_and_enforces_project_did_range(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_project(root)
+            repository = make_repository(root)
+            with self.assertRaisesRegex(ValueError, "outside the tracked project range"):
+                preflight_dids(
+                    repository, root, "700-708-extended", ["0x0000"],
+                    utc_now=lambda: "2026-01-01T00:00:00Z",
+                    probe_worker_factory=scripted_factory([]),
+                )
+            with self.assertRaisesRegex(ValueError, "invalid DID"):
+                preflight_dids(
+                    repository, root, "700-708-extended", ["0x100"],
+                    utc_now=lambda: "2026-01-01T00:00:00Z",
+                    probe_worker_factory=scripted_factory([]),
+                )
+
+    def test_positive_preflight_supplies_planning_cost_fact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_project(root)
+            repository = make_repository(root)
+            preflight_dids(
+                repository, root, "700-708-extended", ["0x1075"],
+                utc_now=lambda: "2026-01-01T00:00:00Z",
+                probe_worker_factory=scripted_factory([
+                    probe_result(responded=True, read_outcome="positive")
+                ]),
+            )
+            self.assertEqual(
+                repository.acquisition_cost_facts()["700-708-extended/0x1075"],
+                {
+                    "sample_count": 1,
+                    "latency_p95_ms": 8,
+                    "maximum_response_bytes": 5,
+                    "outcomes": {"positive": 1},
+                },
+            )
+
     def test_preflight_requires_at_least_one_did(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -298,7 +430,7 @@ class PreflightTests(unittest.TestCase):
                 probe_worker_factory=scripted_factory([probe_result(responded=True)]),
             )
             results = preflight_dids(
-                repository, root, "0x7D2:0x7DA", ["0x1075"],
+                repository, root, "7d2-7da-extended", ["0x1075"],
                 utc_now=lambda: "2026-01-01T00:00:01Z",
                 probe_worker_factory=scripted_factory(
                     [probe_result(responded=True, read_outcome="positive")]
@@ -318,7 +450,7 @@ class PreflightTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "did not respond"):
                 preflight_dids(
-                    repository, root, "0x7D2:0x7DA", ["0x1075"],
+                    repository, root, "7d2-7da-extended", ["0x1075"],
                     utc_now=lambda: "2026-01-01T00:00:01Z",
                 )
 
@@ -351,7 +483,7 @@ class PreflightTests(unittest.TestCase):
 class PromotionTests(unittest.TestCase):
     def test_promote_confirmed_endpoint_builds_a_valid_transport_document(self) -> None:
         candidate = {
-            "candidate_id": "0x7D2:0x7DA",
+            "candidate_id": "7d2-7da-extended",
             "tester_can_id": "0x7D2",
             "response_can_id": "0x7DA",
             "session_recipe_id": "extended",
@@ -363,14 +495,14 @@ class PromotionTests(unittest.TestCase):
         validate_transport(updated)
         ids = [row["id"] for row in updated["endpoints"]]
         self.assertEqual(ids, sorted(ids))
-        self.assertIn("7d2-7da", ids)
-        promoted = next(row for row in updated["endpoints"] if row["id"] == "7d2-7da")
+        self.assertIn("7d2-7da-extended", ids)
+        promoted = next(row for row in updated["endpoints"] if row["id"] == "7d2-7da-extended")
         self.assertEqual(promoted["state"], "confirmed")
         self.assertEqual(promoted["ecu_keys"], [397])
 
     def test_promote_confirmed_endpoint_rejects_a_non_responding_candidate(self) -> None:
         candidate = {
-            "candidate_id": "0x7D2:0x7DA",
+            "candidate_id": "7d2-7da-extended",
             "tester_can_id": "0x7D2",
             "response_can_id": "0x7DA",
             "session_recipe_id": "extended",
@@ -381,7 +513,7 @@ class PromotionTests(unittest.TestCase):
 
     def test_promote_confirmed_endpoint_rejects_conflicting_ecu_keys(self) -> None:
         candidate = {
-            "candidate_id": "0x701:0x709",
+            "candidate_id": "701-709-extended",
             "tester_can_id": "0x701",
             "response_can_id": "0x709",
             "session_recipe_id": "extended",
@@ -392,7 +524,7 @@ class PromotionTests(unittest.TestCase):
 
     def test_promote_confirmed_endpoint_requires_provenance(self) -> None:
         candidate = {
-            "candidate_id": "0x701:0x709",
+            "candidate_id": "701-709-extended",
             "tester_can_id": "0x701",
             "response_can_id": "0x709",
             "session_recipe_id": "extended",
@@ -400,6 +532,28 @@ class PromotionTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "at least one provenance"):
             promote_confirmed_endpoint(transport(), candidate, [500], [])
+
+
+class ProbeClientTests(unittest.TestCase):
+    def test_wall_clock_timeout_kills_the_probe_process(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "probe.json"
+            write_json(config_path, {
+                "transport": {
+                    "initial_response_timeout_ms": 100,
+                    "response_pending_budget_ms": 200,
+                },
+                "session_setup": [{}],
+            })
+            process = mock.Mock()
+            process.communicate.side_effect = [
+                subprocess.TimeoutExpired("probe", 3.3),
+                ("", ""),
+            ]
+            with mock.patch("toyota_telemetry.discovery.subprocess.Popen", return_value=process):
+                with self.assertRaisesRegex(RuntimeError, "wall-clock bound"):
+                    JsonlProbeClient(Path("worker.exe"), config_path).probe()
+            process.kill.assert_called_once_with()
 
 
 if __name__ == "__main__":

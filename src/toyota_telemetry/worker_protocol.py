@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from .identity import canonical_did
 from .project import atomic_json
 
 
@@ -142,6 +143,9 @@ def build_probe_config(
             "request_hex": _canonical_hex(row["request_hex"], "session request"),
             "expected_prefix_hex": _canonical_hex(row["expected_prefix_hex"], "session response"),
             "label": _text(row["label"], "session label"),
+            "tolerate_negative": _boolean(
+                row["tolerate_negative"], "session tolerance"
+            ),
         })
 
     safety = _object(transport["safety"], "transport safety")
@@ -166,7 +170,15 @@ def build_probe_config(
         "device": {kind: dict(settings)},
     }
     if read_data_id is not None:
+        read_data_id = canonical_did(read_data_id)
         did = int(read_data_id, 16)
+        did_min = int(canonical_did(safety["did_min"]), 16)
+        did_max = int(canonical_did(safety["did_max"]), 16)
+        if not did_min <= did <= did_max:
+            raise ValueError(
+                f"preflight DID {read_data_id} is outside the tracked project range "
+                f"0x{did_min:04X}..0x{did_max:04X}"
+            )
         config["preflight_read"] = {
             "request_hex": f"22 {did >> 8:02X} {did & 0xFF:02X}",
             "expected_prefix_hex": f"62 {did >> 8:02X} {did & 0xFF:02X}",

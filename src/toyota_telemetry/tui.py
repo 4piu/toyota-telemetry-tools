@@ -15,6 +15,7 @@ from typing import Any, Callable
 from .collector import parse_public_event
 from .collection_service import run_collection
 from .capture_store import load_capture_tree
+from .discovery import promote_confirmed_endpoint
 from .project import find_project_root
 from .repository import ProjectRepository
 
@@ -144,6 +145,28 @@ class PolicyDraft:
 
     def save(self) -> None:
         self.repository.write_authored_document("collection_policy", self.document)
+
+
+class TransportDraft:
+    """In-memory endpoint promotions from provisional discovery facts."""
+
+    def __init__(self, repository: ProjectRepository) -> None:
+        self.repository = repository
+        self.document = copy.deepcopy(repository.transport)
+
+    def promote(self, candidate_id: str, ecu_keys: list[int], provenance: list[str]) -> None:
+        matches = [
+            row for row in self.repository.discovery_candidates()
+            if row["candidate_id"] == candidate_id
+        ]
+        if len(matches) != 1:
+            raise ValueError("discovery candidate must resolve exactly once")
+        self.document = promote_confirmed_endpoint(
+            self.document, matches[0], ecu_keys, provenance
+        )
+
+    def save(self) -> None:
+        self.repository.write_authored_document("transport", self.document)
 
 
 class CollectionTask:
@@ -280,7 +303,8 @@ class OperatorTui:
             print("\nTelemetry TUI")
             print(
                 "  [p] run plan  [c] collection goals  [s] collect  "
-                "[e] evidence  [h] history  [r] signal curation  [q] quit"
+                "[e] evidence  [h] history  [r] signal curation  "
+                "[t] endpoint curation  [q] quit"
             )
             choice = input("> ").strip().lower()
             if choice == "q":
@@ -293,6 +317,8 @@ class OperatorTui:
                 self._start_collection(plan_path)
             elif choice == "r":
                 self._edit_review()
+            elif choice == "t":
+                self._promote_endpoint()
             elif choice == "e":
                 print(json.dumps(self.evidence_review(input("Signal reference: ").strip()), indent=2))
             elif choice == "h":
@@ -373,6 +399,35 @@ class OperatorTui:
             changes["target_interval_ms"] = int(target)
         draft.update(signal_ref, objective_id, **changes)
         if input("Save tracked policy? Type SAVE: ").strip() == "SAVE":
+            draft.save()
+
+    def _promote_endpoint(self) -> None:
+        draft = TransportDraft(self.repository)
+        candidates = self.repository.discovery_candidates()
+        if not candidates:
+            raise ValueError("no provisional discovery candidates are available")
+        print(json.dumps([
+            {
+                "candidate_id": row["candidate_id"],
+                "responded": row["responded"],
+                "session_recipe_id": row["session_recipe_id"],
+                "observed_utc": row["observed_utc"],
+            }
+            for row in candidates
+        ], indent=2))
+        candidate_id = input("Responding candidate ID: ").strip()
+        ecu_keys = [
+            int(value.strip(), 0)
+            for value in input("ECU keys (comma-separated integers): ").split(",")
+            if value.strip()
+        ]
+        provenance = input("Tracked provenance reference: ").strip()
+        draft.promote(candidate_id, ecu_keys, [provenance] if provenance else [])
+        promoted = next(
+            row for row in draft.document["endpoints"] if row["id"] == candidate_id
+        )
+        print(json.dumps(promoted, indent=2))
+        if input("Save tracked transport? Type SAVE: ").strip() == "SAVE":
             draft.save()
 
 

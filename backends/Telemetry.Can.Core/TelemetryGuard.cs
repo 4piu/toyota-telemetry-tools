@@ -72,7 +72,8 @@ namespace Telemetry.Can.Core
                     }
                     return;
                 case 0x2C: // DefineByIdentifier: dynamic-DID definition only.
-                    if (request.Length < 4 || request[1] != 0x01)
+                    if (request.Length < 8 || request[1] != 0x01 ||
+                        (request.Length - 4) % 4 != 0)
                     {
                         throw Reject(request, "an unsupported DefineByIdentifier shape");
                     }
@@ -81,6 +82,16 @@ namespace Telemetry.Can.Core
                     {
                         throw Reject(
                             request, "a DefineByIdentifier target outside the dynamic-identifier range");
+                    }
+                    for (int offset = 4; offset < request.Length; offset += 4)
+                    {
+                        int position = request[offset + 2];
+                        int size = request[offset + 3];
+                        if (position < 1 || size < 1 || position + size - 1 > 0xFF)
+                        {
+                            throw Reject(
+                                request, "an invalid DefineByIdentifier source tuple");
+                        }
                     }
                     return;
                 default:

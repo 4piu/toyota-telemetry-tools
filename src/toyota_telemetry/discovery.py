@@ -18,11 +18,13 @@ set of transactions rather than an open-ended bus scan.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess
 import tempfile
 from typing import Any, Callable, Mapping, Protocol
 
+from .identity import canonical_did, stable_slug
 from .repository import ProjectRepository
 from .worker_protocol import build_probe_config, parse_probe_result, write_probe_config
 
@@ -45,16 +47,36 @@ class JsonlProbeClient:
         self.config_path = config_path
 
     def probe(self) -> Mapping[str, Any]:
-        completed = subprocess.run(
+        config = json.loads(self.config_path.read_text(encoding="utf-8"))
+        transport = config["transport"]
+        step_count = len(config["session_setup"]) + (1 if "preflight_read" in config else 0)
+        timeout_seconds = 3.0 + step_count * (
+            transport["initial_response_timeout_ms"]
+            + transport["response_pending_budget_ms"]
+        ) / 1000.0
+        process = subprocess.Popen(
             [str(self.executable), "--probe", "--config", str(self.config_path)],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
         )
-        if completed.returncode != 0:
-            detail = completed.stderr.strip() or f"exit code {completed.returncode}"
+        try:
+            stdout, stderr = process.communicate(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired as exc:
+            process.kill()
+            process.communicate()
+            raise RuntimeError(
+                f"probe process exceeded {timeout_seconds:.3f} second wall-clock bound"
+            ) from exc
+        except BaseException:
+            process.kill()
+            process.communicate()
+            raise
+        if process.returncode != 0:
+            detail = stderr.strip() or f"exit code {process.returncode}"
             raise RuntimeError(f"probe process failed: {detail}")
-        lines = [line for line in completed.stdout.splitlines() if line.strip()]
+        lines = [line for line in stdout.splitlines() if line.strip()]
         if len(lines) != 1:
             raise RuntimeError("probe process must emit exactly one result line")
         return parse_probe_result(lines[0])
@@ -95,11 +117,16 @@ def discover_endpoints(
 
     if not candidates:
         raise ValueError("telemetry discover endpoints requires at least one --candidate")
+    repository.ensure_cache_ready()
     backend = _local_backend(repository)
     factory = probe_worker_factory or default_probe_worker_factory(repository, root)
     results = []
     for tester_can_id, response_can_id, session_recipe_id in candidates:
-        candidate_id = f"{tester_can_id}:{response_can_id}"
+        tester_can_id = _canonical_can_id(tester_can_id)
+        response_can_id = _canonical_can_id(response_can_id)
+        if tester_can_id == response_can_id:
+            raise ValueError("candidate tester and response CAN IDs must differ")
+        candidate_id = _candidate_id(tester_can_id, response_can_id, session_recipe_id)
         config = build_probe_config(
             repository.transport, candidate_id, tester_can_id, response_can_id,
             session_recipe_id, backend,
@@ -134,13 +161,23 @@ def preflight_dids(
 
     if not data_ids:
         raise ValueError("telemetry preflight dids requires at least one --did")
+    repository.ensure_cache_ready()
     tester_can_id, response_can_id, session_recipe_id = _resolve_preflight_target(
         repository, endpoint_id
     )
     backend = _local_backend(repository)
     factory = probe_worker_factory or default_probe_worker_factory(repository, root)
     results = []
-    for data_id in data_ids:
+    did_min = int(repository.transport["safety"]["did_min"], 16)
+    did_max = int(repository.transport["safety"]["did_max"], 16)
+    for supplied_data_id in data_ids:
+        data_id = canonical_did(supplied_data_id)
+        did = int(data_id, 16)
+        if not did_min <= did <= did_max:
+            raise ValueError(
+                f"preflight DID {data_id} is outside the tracked project range "
+                f"0x{did_min:04X}..0x{did_max:04X}"
+            )
         candidate_id = f"{endpoint_id}/{data_id}"
         config = build_probe_config(
             repository.transport, candidate_id, tester_can_id, response_can_id,
@@ -169,7 +206,15 @@ def _run_probe(
         config_path = Path(directory) / "config.json"
         write_probe_config(config_path, config)
         worker = factory(config_path)
-        return worker.probe()
+        result = worker.probe()
+        if result["candidate_id"] != config["candidate_id"]:
+            raise RuntimeError(
+                "probe result candidate_id does not match the requested candidate"
+            )
+        backend_kind = next(iter(config["device"]))
+        if result["backend_kind"] != backend_kind:
+            raise RuntimeError("probe result backend_kind does not match the requested backend")
+        return result
 
 
 def _resolve_preflight_target(
@@ -194,9 +239,21 @@ def _resolve_preflight_target(
     )
 
 
-def _slug_can_id(value: str) -> str:
-    text = value.lower()
-    return text[2:] if text.startswith("0x") else text
+def _canonical_can_id(value: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"invalid CAN ID: {value!r}")
+    try:
+        parsed = int(value, 16)
+    except ValueError as exc:
+        raise ValueError(f"invalid CAN ID: {value!r}") from exc
+    if not 0 <= parsed <= 0x7FF:
+        raise ValueError(f"CAN ID is outside the classical 11-bit range: {value!r}")
+    return f"0x{parsed:03X}"
+
+
+def _candidate_id(tester_can_id: str, response_can_id: str, session_recipe_id: str) -> str:
+    recipe = stable_slug(session_recipe_id, "session recipe id")
+    return f"{tester_can_id[2:].lower()}-{response_can_id[2:].lower()}-{recipe}"
 
 
 def promote_confirmed_endpoint(
@@ -221,9 +278,13 @@ def promote_confirmed_endpoint(
         raise ValueError("promoting an endpoint requires at least one ecu_key")
     if not provenance:
         raise ValueError("promoting an endpoint requires at least one provenance reference")
-    endpoint_id = (
-        f"{_slug_can_id(candidate['tester_can_id'])}-{_slug_can_id(candidate['response_can_id'])}"
+    endpoint_id = _candidate_id(
+        _canonical_can_id(candidate["tester_can_id"]),
+        _canonical_can_id(candidate["response_can_id"]),
+        candidate["session_recipe_id"],
     )
+    if candidate["candidate_id"] != endpoint_id:
+        raise ValueError("discovery candidate_id does not match its endpoint/session identity")
     existing_ids = {row["id"] for row in transport["endpoints"]}
     if endpoint_id in existing_ids:
         raise ValueError(f"endpoint id already confirmed: {endpoint_id}")
