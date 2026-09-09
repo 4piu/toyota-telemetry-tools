@@ -19,7 +19,7 @@ telemetry capture inspect
 
 ## Define objective-specific completion
 
-Use `telemetry workspace` to curate acquisitions and describe what evidence a
+Use `telemetry-tui` to curate acquisitions and describe what evidence a
 signal actually needs. Available counters cover total or changed observations,
 distinct values, transitions, required states, applicable duration, elapsed
 span, and distinct reviewed runs. Continuous change objectives require a
@@ -72,7 +72,7 @@ idempotent stop request.
 ## Review evidence and export
 
 ```powershell
-telemetry workspace
+telemetry-tui
 telemetry export
 ```
 

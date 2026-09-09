@@ -1,19 +1,21 @@
-"""Dependency-free operator workspace over the public collector contract."""
+"""Standalone dependency-free operator TUI over telemetry library services."""
 
 from __future__ import annotations
 
+import argparse
 import copy
 import hashlib
 import json
 from pathlib import Path
-import subprocess
 import sys
 import threading
 import time
-from typing import Any, Callable, TextIO
+from typing import Any, Callable
 
 from .collector import parse_public_event
+from .collection_service import run_collection
 from .capture_store import load_capture_tree
+from .project import find_project_root
 from .repository import ProjectRepository
 
 
@@ -73,10 +75,10 @@ class TransportMonitor:
 
 
 class StopController:
-    """Map button, hotkey, and Ctrl+C to one idempotent public stop write."""
+    """Map button, hotkey, and Ctrl+C to one idempotent stop signal."""
 
-    def __init__(self, stream: TextIO) -> None:
-        self.stream = stream
+    def __init__(self, stop_event: threading.Event) -> None:
+        self.stop_event = stop_event
         self.requested = False
         self.source: str | None = None
         self._lock = threading.Lock()
@@ -89,8 +91,7 @@ class StopController:
                 return False
             self.requested = True
             self.source = source
-            self.stream.write("stop\n")
-            self.stream.flush()
+            self.stop_event.set()
             return True
 
 
@@ -145,8 +146,8 @@ class PolicyDraft:
         self.repository.write_authored_document("collection_policy", self.document)
 
 
-class CollectorChild:
-    """One `telemetry collect --json` child; never speaks to C# directly."""
+class CollectionTask:
+    """Run the shared collection service without coupling the TUI to the CLI."""
 
     def __init__(
         self,
@@ -159,70 +160,65 @@ class CollectorChild:
         monotonic_ms: Callable[[], int] | None = None,
     ) -> None:
         self.monitor = monitor
+        self.project_root = project_root
+        self.plan_path = plan_path
+        self.endpoint_id = endpoint_id
+        self.note = note
         self.monotonic_ms = monotonic_ms or (lambda: time.monotonic_ns() // 1_000_000)
-        self.command = [
-            sys.executable, "-m", "toyota_telemetry.cli", "collect",
-            "--project-root", str(project_root), "--plan", str(plan_path),
-            "--endpoint", endpoint_id, "--json",
-        ]
-        if note:
-            self.command.extend(("--note", note))
-        self.process: subprocess.Popen[str] | None = None
-        self.stop_controller: StopController | None = None
+        self.stop_event = threading.Event()
+        self.stop_controller = StopController(self.stop_event)
+        self.thread: threading.Thread | None = None
+        self.exit_code: int | None = None
+        self.finish_reason: str | None = None
         self.failure: Exception | None = None
-        self.stderr_lines: list[str] = []
 
     def start(self) -> None:
-        if self.process is not None:
-            raise RuntimeError("collector child is already started")
-        self.process = subprocess.Popen(
-            self.command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            bufsize=1,
-        )
-        assert self.process.stdin is not None
-        self.stop_controller = StopController(self.process.stdin)
-        threading.Thread(target=self._read_events, daemon=True).start()
-        threading.Thread(target=self._read_stderr, daemon=True).start()
+        if self.thread is not None:
+            raise RuntimeError("collection task is already started")
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
 
     def request_stop(self, source: str) -> bool:
-        if self.stop_controller is None:
-            raise RuntimeError("collector child is not started")
         return self.stop_controller.request(source)
 
-    def wait(self, timeout: float | None = None) -> int:
-        if self.process is None:
-            raise RuntimeError("collector child is not started")
-        try:
-            result = self.process.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
-            result = self.process.wait()
-        if self.failure is not None:
-            raise RuntimeError(f"collector event contract failed: {self.failure}") from self.failure
-        return result
+    def is_alive(self) -> bool:
+        return self.thread is not None and self.thread.is_alive()
 
-    def _read_events(self) -> None:
-        assert self.process is not None and self.process.stdout is not None
+    def wait(self, timeout: float | None = None) -> int:
+        if self.thread is None:
+            raise RuntimeError("collection task is not started")
+        self.thread.join(timeout)
+        if self.thread.is_alive():
+            raise RuntimeError("collection service did not stop within timeout")
+        if self.failure is not None:
+            raise RuntimeError(f"collection service failed: {self.failure}") from self.failure
+        assert self.exit_code is not None
+        return self.exit_code
+
+    def _accept_event(self, event: dict[str, Any]) -> None:
+        line = json.dumps(event, separators=(",", ":"), sort_keys=True)
+        self.monitor.accept(line, self.monotonic_ms())
+
+    def _run(self) -> None:
         try:
-            for line in self.process.stdout:
-                self.monitor.accept(line, self.monotonic_ms())
+            self.finish_reason = run_collection(
+                self.project_root,
+                plan_path=self.plan_path,
+                endpoint_id=self.endpoint_id,
+                run_note=self.note,
+                event_sink=self._accept_event,
+                stop_event=self.stop_event,
+            )
+            self.exit_code = 0 if self.finish_reason in {
+                "operator_stop", "plan_complete", "size_limit"
+            } else 1
         except Exception as exc:
             self.failure = exc
-            if self.process.poll() is None:
-                self.process.kill()
-
-    def _read_stderr(self) -> None:
-        assert self.process is not None and self.process.stderr is not None
-        self.stderr_lines.extend(line.rstrip("\r\n") for line in self.process.stderr)
+            self.exit_code = 1
 
 
-class OperatorWorkspace:
-    """Small interactive shell around offline project services and CollectorChild."""
+class OperatorTui:
+    """Small interactive shell around reusable telemetry library services."""
 
     def __init__(self, repository: ProjectRepository) -> None:
         self.repository = repository
@@ -281,7 +277,7 @@ class OperatorWorkspace:
     def run(self) -> int:
         plan_path = self.repository.paths.plans / "admitted-plan.json"
         while True:
-            print("\nTelemetry workspace")
+            print("\nTelemetry TUI")
             print(
                 "  [p] run plan  [c] collection goals  [s] collect  "
                 "[e] evidence  [h] history  [r] signal curation  [q] quit"
@@ -319,25 +315,25 @@ class OperatorWorkspace:
         if input("Start live collection? Type YES: ").strip() != "YES":
             return
         note = input("Optional run note: ") or None
-        child = CollectorChild(
+        task = CollectionTask(
             self.repository.root, plan_path, endpoint, self.monitor, note=note
         )
-        child.start()
+        task.start()
         print("Live collection. Press S to stop.")
         try:
             import msvcrt
             last_state = None
-            while child.process is not None and child.process.poll() is None:
+            while task.is_alive():
                 state = self.monitor.poll(time.monotonic_ns() // 1_000_000)
                 if state != last_state:
                     print("Transport:", state)
                     last_state = state
                 if msvcrt.kbhit() and msvcrt.getwch().lower() == "s":
-                    child.request_stop("hotkey")
+                    task.request_stop("hotkey")
                 time.sleep(0.05)
         except KeyboardInterrupt:
-            child.request_stop("ctrl_c")
-        exit_code = child.wait(timeout=3)
+            task.request_stop("ctrl_c")
+        exit_code = task.wait(timeout=3)
         print("Collection exited:", exit_code, self.monitor.finish_reason)
 
     def _edit_review(self) -> None:
@@ -378,3 +374,19 @@ class OperatorWorkspace:
         draft.update(signal_ref, objective_id, **changes)
         if input("Save tracked policy? Type SAVE: ").strip() == "SAVE":
             draft.save()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="telemetry-tui")
+    parser.add_argument("--project-root", type=Path)
+    args = parser.parse_args()
+    try:
+        root = args.project_root.resolve() if args.project_root else find_project_root()
+        return OperatorTui(ProjectRepository(root)).run()
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -4,33 +4,22 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
-import hashlib
 import json
 from pathlib import Path
 import shutil
 import subprocess
 import sys
-import tempfile
 import threading
 from typing import Any
-import uuid
 
-from .capture_writer import NativeRunWriter
 from .capture_store import inspect_capture_tree
-from .collector import (
-    CollectionCrashed,
-    CollectionRunner,
-    JsonlWorkerClient,
-    load_verified_plan,
-    parse_public_event,
-)
+from .collection_service import run_collection
+from .collector import CollectionCrashed, parse_public_event
 from .project import find_project_root
 from .repository import ProjectRepository
 from .admission import compile_plan
 from .exporting import export_project
 from . import __version__
-from .worker_protocol import build_worker_config, write_worker_config
-from .tui import OperatorWorkspace
 
 
 def main() -> int:
@@ -67,12 +56,6 @@ def main() -> int:
     collect.add_argument("--note")
     collect.add_argument("--json", action="store_true", dest="as_json")
     collect.set_defaults(handler=_collect)
-    workspace = subcommands.add_parser(
-        "workspace", help="open the offline-first operator workspace"
-    )
-    workspace.add_argument("--project-root", type=Path)
-    workspace.set_defaults(handler=_workspace)
-
     capture = subcommands.add_parser("capture", help="private capture operations")
     capture_commands = capture.add_subparsers(dest="capture_command", required=True)
     inspect = capture_commands.add_parser("inspect", help="inspect captures without exposing raw bytes")
@@ -234,15 +217,6 @@ def _toolkit_commit(project_root: Path) -> str:
     return completed.stdout.strip()
 
 
-def _workspace(args: argparse.Namespace) -> int:
-    try:
-        root = _root(args)
-        return OperatorWorkspace(ProjectRepository(root)).run()
-    except (FileNotFoundError, OSError, ValueError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
-
-
 def _collect(args: argparse.Namespace) -> int:
     stop = threading.Event()
     output_lock = threading.Lock()
@@ -257,72 +231,24 @@ def _collect(args: argparse.Namespace) -> int:
 
     try:
         root = _root(args)
-        repository = ProjectRepository(root)
-        if repository.local_settings is None:
-            raise ValueError("local settings are required for live collection")
         plan_path = (
             args.plan.resolve()
             if args.plan and args.plan.is_absolute()
             else (root / args.plan).resolve()
             if args.plan
-            else repository.paths.plans / "admitted-plan.json"
+            else None
         )
-        plan, plan_bytes = load_verified_plan(plan_path, repository)
-        endpoint_ids = [row["endpoint_id"] for row in plan["endpoint_sessions"]]
-        endpoint_id = args.endpoint
-        if endpoint_id is None:
-            if len(endpoint_ids) != 1:
-                raise ValueError("--endpoint is required for a multi-endpoint admitted plan")
-            endpoint_id = endpoint_ids[0]
-        if endpoint_id not in endpoint_ids:
-            raise ValueError(f"endpoint is absent from admitted plan: {endpoint_id}")
-        backend = repository.local_settings["backend"]
-        executable = Path(backend["executable"])
-        if not executable.is_absolute():
-            executable = (root / executable).resolve()
-        if not executable.is_file():
-            raise FileNotFoundError(executable)
-        created = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        run_id = str(uuid.uuid4())
-        emit({
-            "event": "scope", "schema_version": 1, "run_id": run_id,
-            "endpoint_id": endpoint_id, "backend_kind": backend["kind"],
-            "capture_root": repository.paths.captures.relative_to(root).as_posix(),
-            "plan_sha256": hashlib.sha256(plan_bytes).hexdigest(),
-        })
-        worker_config = build_worker_config(plan, endpoint_id, backend)
-        with tempfile.TemporaryDirectory(prefix=".worker-", dir=repository.paths.plans) as directory:
-            worker_config_path = Path(directory) / "config.json"
-            write_worker_config(
-                worker_config_path,
-                worker_config,
-            )
-            writer = NativeRunWriter(
-                repository.paths.captures,
-                plan,
-                plan_bytes,
-                run_id=run_id,
-                created_utc=created,
-                backend_kind=backend["kind"],
-                endpoint_id=endpoint_id,
-                run_note=args.note,
-            )
-            worker = JsonlWorkerClient(executable, worker_config_path)
-            control_errors = _start_public_control(stop)
-            try:
-                runner = CollectionRunner(
-                    plan,
-                    writer,
-                    worker,
-                    event_sink=emit,
-                    stop_event=stop,
-                )
-            except Exception:
-                writer.crash()
-                raise
-            reason = runner.run()
-            if control_errors:
-                raise ValueError(control_errors[0])
+        control_errors = _start_public_control(stop)
+        reason = run_collection(
+            root,
+            plan_path=plan_path,
+            endpoint_id=args.endpoint,
+            run_note=args.note,
+            event_sink=emit,
+            stop_event=stop,
+        )
+        if control_errors:
+            raise ValueError(control_errors[0])
         return 0 if reason in {"operator_stop", "plan_complete", "size_limit"} else 1
     except (CollectionCrashed, FileNotFoundError, OSError, ValueError) as exc:
         emit({"event": "error", "schema_version": 1, "run_id": None, "detail": str(exc)})
