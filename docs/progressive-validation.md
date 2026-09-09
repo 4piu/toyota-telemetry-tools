@@ -19,7 +19,7 @@ telemetry capture inspect
 
 ## Define objective-specific completion
 
-Use `telemetry review` to select acquisitions and describe what evidence a
+Use `telemetry workspace` to curate acquisitions and describe what evidence a
 signal actually needs. Available counters cover total or changed observations,
 distinct values, transitions, required states, applicable duration, elapsed
 span, and distinct reviewed runs. Continuous change objectives require a
@@ -31,7 +31,7 @@ objective declares. Dynamic values do not complete merely by repeating a flat
 sample. Existing structurally valid observations contribute after policy edits
 without being invalidated by their old settings.
 
-## Compile and review
+## Compile and inspect the run plan
 
 ```powershell
 telemetry plan
@@ -69,10 +69,10 @@ Heartbeat, response-pending, disconnected, transport-error, and stale-state
 remain distinct. The interface's button, hotkey, and Ctrl+C all send the same
 idempotent stop request.
 
-## Review and export
+## Review evidence and export
 
 ```powershell
-telemetry review
+telemetry workspace
 telemetry export
 ```
 

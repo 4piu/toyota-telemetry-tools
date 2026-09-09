@@ -1,4 +1,4 @@
-"""Dependency-free Windows operator interface over the public collector contract."""
+"""Dependency-free operator workspace over the public collector contract."""
 
 from __future__ import annotations
 
@@ -221,7 +221,7 @@ class CollectorChild:
         self.stderr_lines.extend(line.rstrip("\r\n") for line in self.process.stderr)
 
 
-class OperatorTui:
+class OperatorWorkspace:
     """Small interactive shell around offline project services and CollectorChild."""
 
     def __init__(self, repository: ProjectRepository) -> None:
@@ -281,8 +281,11 @@ class OperatorTui:
     def run(self) -> int:
         plan_path = self.repository.paths.plans / "admitted-plan.json"
         while True:
-            print("\nTelemetry operator")
-            print("  [p] plan  [c] collection policy  [s] start  [e] evidence  [h] history  [r] review  [q] quit")
+            print("\nTelemetry workspace")
+            print(
+                "  [p] run plan  [c] collection goals  [s] collect  "
+                "[e] evidence  [h] history  [r] signal curation  [q] quit"
+            )
             choice = input("> ").strip().lower()
             if choice == "q":
                 return 0

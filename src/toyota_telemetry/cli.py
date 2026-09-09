@@ -30,7 +30,7 @@ from .admission import compile_plan
 from .exporting import export_project
 from . import __version__
 from .worker_protocol import build_worker_config, write_worker_config
-from .tui import OperatorTui
+from .tui import OperatorWorkspace
 
 
 def main() -> int:
@@ -67,9 +67,11 @@ def main() -> int:
     collect.add_argument("--note")
     collect.add_argument("--json", action="store_true", dest="as_json")
     collect.set_defaults(handler=_collect)
-    review = subcommands.add_parser("review", help="open the offline-first operator interface")
-    review.add_argument("--project-root", type=Path)
-    review.set_defaults(handler=_review)
+    workspace = subcommands.add_parser(
+        "workspace", help="open the offline-first operator workspace"
+    )
+    workspace.add_argument("--project-root", type=Path)
+    workspace.set_defaults(handler=_workspace)
 
     capture = subcommands.add_parser("capture", help="private capture operations")
     capture_commands = capture.add_subparsers(dest="capture_command", required=True)
@@ -232,10 +234,10 @@ def _toolkit_commit(project_root: Path) -> str:
     return completed.stdout.strip()
 
 
-def _review(args: argparse.Namespace) -> int:
+def _workspace(args: argparse.Namespace) -> int:
     try:
         root = _root(args)
-        return OperatorTui(ProjectRepository(root)).run()
+        return OperatorWorkspace(ProjectRepository(root)).run()
     except (FileNotFoundError, OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

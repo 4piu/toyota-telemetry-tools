@@ -7,10 +7,11 @@ import tempfile
 import unittest
 from unittest import mock
 
+from toyota_telemetry.cli import main
 from tests.test_phase_c import current_repository
 from toyota_telemetry.repository import ProjectRepository
 from toyota_telemetry.tui import (
-    OperatorTui,
+    OperatorWorkspace,
     PolicyDraft,
     ReviewDraft,
     StopController,
@@ -53,7 +54,23 @@ class TransportMonitorTests(unittest.TestCase):
                 self.assertEqual(stream.getvalue(), "stop\n")
 
 
-class ReviewDraftTests(unittest.TestCase):
+class WorkspaceCurationTests(unittest.TestCase):
+    def test_workspace_is_the_only_operator_entry_command(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "vehicle"
+            root.mkdir()
+            current_repository(root)
+            arguments = ["telemetry", "workspace", "--project-root", str(root)]
+            with mock.patch("sys.argv", arguments), mock.patch(
+                "builtins.input", return_value="q"
+            ):
+                self.assertEqual(main(), 0)
+            with mock.patch("sys.argv", ["telemetry", "review"]), mock.patch(
+                "sys.stderr", new_callable=io.StringIO
+            ), self.assertRaises(SystemExit) as raised:
+                main()
+            self.assertEqual(raised.exception.code, 2)
+
     def test_open_and_quit_never_starts_a_process(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
@@ -62,7 +79,7 @@ class ReviewDraftTests(unittest.TestCase):
             with mock.patch("builtins.input", return_value="q"), mock.patch(
                 "toyota_telemetry.tui.subprocess.Popen"
             ) as popen:
-                self.assertEqual(OperatorTui(repository).run(), 0)
+                self.assertEqual(OperatorWorkspace(repository).run(), 0)
                 popen.assert_not_called()
 
     def test_review_is_memory_only_until_explicit_atomic_save(self) -> None:

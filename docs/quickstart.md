@@ -38,14 +38,15 @@ Normalized catalog rows and immutable captures also stay under `scratch/`.
 ```powershell
 telemetry catalog import --catalog-rows scratch/catalog-rows.json
 telemetry capture inspect
-telemetry review
+telemetry workspace
 telemetry plan
 telemetry export
 ```
 
 `catalog import` and `cache rebuild` reconstruct the disposable SQLite cache.
-`review` opens the offline-first operator interface; merely opening or
-navigating it never starts a process. `plan` compiles policy and prior evidence
+`workspace` opens the offline-first operator interface; merely opening or
+navigating it never starts a process. Curation in the workspace records human
+facts and collection objectives. `plan` compiles policy and prior evidence
 into a hashed admitted plan without opening an adapter. `export` creates one
 privacy-minimized result generation from source authorities and all valid
 captures.
@@ -55,7 +56,7 @@ cost, safety, decode, or applicability facts also block admission.
 
 ## Live collection
 
-After reviewing the admitted plan and its byte-exact transmit scope:
+After inspecting the admitted plan, resolved transaction scope, and bounds:
 
 ```powershell
 telemetry collect
@@ -67,9 +68,10 @@ private adapter worker. Python owns scheduling, decoding, objective feedback,
 capture rotation, heartbeat, and stop; C# owns only adapter, CAN, ISO-TP, and
 session lifetime.
 
-Use the operator interface for a glanceable status and one stop path. Do not
+Use the operator workspace for a glanceable status and one stop path. Do not
 operate a computer while driving; use a passenger or unattended logger.
 
-The bounded live qualification command remains intentionally unspecified while
-its provisional-result and capture contract is reviewed. Do not use a removed
+The accepted next qualification workflow is `telemetry discover endpoints`
+followed by `telemetry preflight dids`, then curation in the workspace. Those
+two live commands are not implemented in this snapshot; do not use a removed
 pre-0.4 probe program as a substitute.
