@@ -15,6 +15,7 @@ from typing import Any
 from .capture_store import inspect_capture_tree
 from .collection_service import run_collection
 from .collector import CollectionCrashed, parse_public_event
+from .discovery import discover_endpoints, preflight_dids
 from .project import find_project_root
 from .repository import ProjectRepository
 from .admission import compile_plan
@@ -42,6 +43,37 @@ def main() -> int:
     cache_rebuild.add_argument("--catalog-rows", type=Path, required=True)
     cache_rebuild.add_argument("--json", action="store_true", dest="as_json")
     cache_rebuild.set_defaults(handler=_cache_rebuild)
+
+    discover = subcommands.add_parser("discover", help="explicitly live bounded endpoint discovery")
+    discover_commands = discover.add_subparsers(dest="discover_command", required=True)
+    discover_endpoints_cmd = discover_commands.add_parser(
+        "endpoints", help="probe candidate tester/response CAN ID pairs for presence"
+    )
+    discover_endpoints_cmd.add_argument("--project-root", type=Path)
+    discover_endpoints_cmd.add_argument(
+        "--candidate",
+        action="append",
+        required=True,
+        dest="candidates",
+        metavar="TESTER_CAN_ID:RESPONSE_CAN_ID:SESSION_RECIPE_ID",
+        help="one candidate CAN ID pair and reviewed session recipe id; repeatable",
+    )
+    discover_endpoints_cmd.add_argument("--json", action="store_true", dest="as_json")
+    discover_endpoints_cmd.set_defaults(handler=_discover_endpoints)
+
+    preflight = subcommands.add_parser("preflight", help="explicitly live bounded DID preflight")
+    preflight_commands = preflight.add_subparsers(dest="preflight_command", required=True)
+    preflight_dids_cmd = preflight_commands.add_parser(
+        "dids", help="probe candidate DIDs against a confirmed endpoint or discovery candidate"
+    )
+    preflight_dids_cmd.add_argument("--project-root", type=Path)
+    preflight_dids_cmd.add_argument("--endpoint", required=True)
+    preflight_dids_cmd.add_argument(
+        "--did", action="append", required=True, dest="dids", metavar="0xNNNN",
+        help="one candidate data identifier; repeatable",
+    )
+    preflight_dids_cmd.add_argument("--json", action="store_true", dest="as_json")
+    preflight_dids_cmd.set_defaults(handler=_preflight_dids)
 
     plan_command = subcommands.add_parser("plan", help="compile and admit collection work offline")
     plan_command.add_argument("--project-root", type=Path)
@@ -110,6 +142,63 @@ def _cache_rebuild(args: argparse.Namespace) -> int:
             args.as_json,
         )
     except (FileNotFoundError, OSError, ValueError) as exc:
+        return _finite_error(exc, args.as_json)
+
+
+def _parse_candidate(value: str) -> tuple[str, str, str]:
+    parts = value.split(":")
+    if len(parts) != 3 or not all(parts):
+        raise ValueError(
+            "--candidate must be TESTER_CAN_ID:RESPONSE_CAN_ID:SESSION_RECIPE_ID, "
+            f"got: {value!r}"
+        )
+    tester_can_id, response_can_id, session_recipe_id = parts
+    return tester_can_id, response_can_id, session_recipe_id
+
+
+def _discover_endpoints(args: argparse.Namespace) -> int:
+    try:
+        root = _root(args)
+        repository = ProjectRepository(root)
+        candidates = [_parse_candidate(value) for value in args.candidates]
+        results = discover_endpoints(repository, root, candidates, utc_now=_utc_now)
+        responded = sum(1 for row in results if row["responded"])
+        summary = {
+            "schema_version": 1,
+            "operation": "discover_endpoints",
+            "candidates": len(results),
+            "responded": responded,
+            "results": results,
+        }
+        return _emit_finite(
+            summary,
+            f"Probed {len(results)} candidate(s): {responded} responded.",
+            args.as_json,
+        )
+    except (FileNotFoundError, OSError, ValueError, RuntimeError) as exc:
+        return _finite_error(exc, args.as_json)
+
+
+def _preflight_dids(args: argparse.Namespace) -> int:
+    try:
+        root = _root(args)
+        repository = ProjectRepository(root)
+        results = preflight_dids(repository, root, args.endpoint, args.dids, utc_now=_utc_now)
+        supported = sum(1 for row in results if row["outcome"] == "positive")
+        summary = {
+            "schema_version": 1,
+            "operation": "preflight_dids",
+            "endpoint_id": args.endpoint,
+            "dids": len(results),
+            "supported": supported,
+            "results": results,
+        }
+        return _emit_finite(
+            summary,
+            f"Preflighted {len(results)} DID(s) against {args.endpoint}: {supported} supported.",
+            args.as_json,
+        )
+    except (FileNotFoundError, OSError, ValueError, RuntimeError) as exc:
         return _finite_error(exc, args.as_json)
 
 

@@ -1,16 +1,28 @@
 # Private CAN adapter workers
 
-The C# executables are private implementation details of `telemetry collect`.
-Each keeps one adapter channel, ISO-TP conversation, and diagnostic session
-alive for one endpoint. It accepts only ordered transaction identifiers from
-the Python collector through an exact JSON-Lines protocol, resolves each one
-against its own immutable launch-time transaction table, and passes the
-resolved request through the built-in, vehicle-agnostic telemetry guard again
-at the vehicle-facing boundary before it is ever transmitted.
+The C# executables are private implementation details of `telemetry collect`,
+`telemetry discover endpoints`, and `telemetry preflight dids`. Each accepts
+exactly two live process forms:
+
+- `--worker --config PATH` — the long-lived collect worker. It keeps one
+  adapter channel, ISO-TP conversation, and diagnostic session alive for one
+  endpoint, accepting only ordered transaction identifiers from the Python
+  collector through an exact JSON-Lines protocol and resolving each one
+  against its own immutable launch-time transaction table.
+- `--probe --config PATH` — the bounded, single-shot probe used by discovery
+  and preflight. It opens a channel, attempts a fixed session-setup sequence
+  and optionally one ReadDataByIdentifier, prints exactly one JSON result
+  line, and exits. It takes no stdin commands.
+
+Both forms pass every resolved request through the same built-in,
+vehicle-agnostic telemetry guard at the vehicle-facing boundary before it is
+ever transmitted, independent of whichever table or config produced it.
 
 The worker does not own scheduling, decoding, objective progress, capture
 files, public status, or operator interaction. It permits one outstanding
-request and supports stop while a response is pending.
+request and supports stop while a response is pending. The probe owns none of
+that either: it has no scheduler, no capture writer, and no retry logic — one
+bounded attempt per invocation.
 
 ## Supported adapters
 
@@ -37,12 +49,13 @@ plan into a temporary exact worker config under ignored scratch.
 .\bin\Release\telemetry-slcan.exe --self-test
 ```
 
-Self-test checks ISO-TP framing, the built-in telemetry guard, and worker
-command schema handling without opening a device. Unknown command-line
-arguments fail.
-The only other accepted process form is the private
-`--worker --config PATH` protocol launched by `telemetry collect`; operators
-should not invoke it directly.
+Self-test checks ISO-TP framing, the built-in telemetry guard, and
+worker/probe protocol schema handling without opening a device. Unknown
+command-line arguments fail. The only other accepted process forms are the
+private `--worker --config PATH` protocol launched by `telemetry collect` and
+the private `--probe --config PATH` protocol launched by `telemetry discover
+endpoints` / `telemetry preflight dids`; operators should not invoke either
+directly.
 
 ## Safety boundary
 
@@ -57,6 +70,9 @@ should not invoke it directly.
   security access, memory access, or programming operation is a recognized
   shape, regardless of what the transaction table contains.
 - No adapter auto-detection or fallback between bindings.
+- No automatic CAN ID or DID sweep: `telemetry discover endpoints` and
+  `telemetry preflight dids` only ever probe candidates the operator names
+  explicitly, one bounded probe per invocation.
 
 See [adding an adapter](../docs/adding-an-adapter.md) for the narrow channel
 interface and test expectations.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 
 namespace Telemetry.Can.Core
 {
@@ -110,6 +111,82 @@ namespace Telemetry.Can.Core
                 "DefineByMemoryAddress instead of DefineByIdentifier");
 
             RunWorkerProtocolChecks();
+            RunProbeProtocolChecks();
+        }
+
+        private static void RunProbeProtocolChecks()
+        {
+            string validConfig =
+                "{\"document_type\":\"telemetry.adapter-probe\",\"schema_version\":1," +
+                "\"candidate_id\":\"700-708\",\"transport\":{\"network\":\"classical-can\"," +
+                "\"bitrate\":500000,\"addressing\":\"normal\",\"tester_can_id\":\"0x700\"," +
+                "\"response_can_id\":\"0x708\",\"initial_response_timeout_ms\":300," +
+                "\"response_pending_budget_ms\":2000},\"session_setup\":[{\"request_hex\":\"3E 00\"," +
+                "\"expected_prefix_hex\":\"7E 00\",\"label\":\"tester present\"}]," +
+                "\"preflight_read\":{\"request_hex\":\"22 10 75\",\"expected_prefix_hex\":\"62 10 75\"," +
+                "\"label\":\"read 0x1075\"},\"device\":{\"pcan\":{\"channel\":\"PCAN_USBBUS1\"}}}";
+            ProbeConfig loaded = LoadProbeConfig(validConfig);
+            if (!String.Equals(loaded.CandidateId, "700-708", StringComparison.Ordinal) ||
+                loaded.SessionSetup.Length != 1 || loaded.ReadStep == null ||
+                loaded.ReadStep.Request.Length != 3)
+            {
+                throw new InvalidOperationException("Probe config self-check failed.");
+            }
+
+            string discoveryOnly =
+                "{\"document_type\":\"telemetry.adapter-probe\",\"schema_version\":1," +
+                "\"candidate_id\":\"700-708\",\"transport\":{\"network\":\"classical-can\"," +
+                "\"bitrate\":500000,\"addressing\":\"normal\",\"tester_can_id\":\"0x700\"," +
+                "\"response_can_id\":\"0x708\",\"initial_response_timeout_ms\":300," +
+                "\"response_pending_budget_ms\":2000},\"session_setup\":[{\"request_hex\":\"3E 00\"," +
+                "\"expected_prefix_hex\":\"7E 00\",\"label\":\"tester present\"}]," +
+                "\"device\":{\"pcan\":{\"channel\":\"PCAN_USBBUS1\"}}}";
+            if (LoadProbeConfig(discoveryOnly).ReadStep != null)
+            {
+                throw new InvalidOperationException(
+                    "Probe config self-check failed: discovery-only config carried a read step.");
+            }
+
+            AssertProbeConfigRejected(
+                validConfig.Replace("\"tester_can_id\":\"0x700\"", "\"tester_can_id\":\"0x708\""),
+                "identical tester and response CAN identifiers");
+            AssertProbeConfigRejected(
+                validConfig.Replace(
+                    "\"request_hex\":\"3E 00\",\"expected_prefix_hex\":\"7E 00\"",
+                    "\"request_hex\":\"27 01\",\"expected_prefix_hex\":\"67 01\""),
+                "SecurityAccess in a probe session-setup step");
+        }
+
+        private static ProbeConfig LoadProbeConfig(string json)
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllText(path, json);
+                return ProbeConfig.Load(path);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        private static void AssertProbeConfigRejected(string json, string label)
+        {
+            try
+            {
+                LoadProbeConfig(json);
+            }
+            catch (FormatException)
+            {
+                return;
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+            throw new InvalidOperationException(
+                "Probe config self-check failed to reject " + label + ".");
         }
 
         private static void RunWorkerProtocolChecks()

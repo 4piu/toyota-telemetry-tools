@@ -38,10 +38,25 @@ project structure of its own to copy.
 |---|---|
 | `telemetry catalog import` | Import normalized catalog rows and rebuild the private derived cache. |
 | `telemetry cache rebuild` | Rebuild the private derived cache from authored inputs, catalog rows, and captures. |
+| `telemetry discover endpoints` | Explicitly live: probe operator-named candidate tester/response CAN ID pairs, replaying a reviewed session recipe, for presence. Records provisional facts only; never edits tracked transport. |
+| `telemetry preflight dids` | Explicitly live: probe operator-named candidate DIDs against a confirmed endpoint or a responding discovery candidate. Records provisional facts only; never authors a collection objective. |
 | `telemetry plan` | Compile and admit collection work offline. |
 | `telemetry collect` | Execute one current admitted endpoint plan through the private adapter worker. This verb is live; there is no `--live` option. |
 | `telemetry capture inspect` | Validate and summarize the private capture tree without printing payload bytes. |
 | `telemetry export` | Generate the tracked, privacy-minimized project result from authored sources and private evidence. |
+
+`telemetry discover endpoints` and `telemetry preflight dids` never sweep an
+ID range automatically: every candidate CAN ID pair (`--candidate
+TESTER:RESPONSE:SESSION_RECIPE_ID`, repeatable) and every candidate DID
+(`--did 0xNNNN`, repeatable) is named explicitly, keeping each run a small,
+bounded, reviewable set of transactions. Both use the same built-in telemetry
+guard and single-shot `--probe` worker protocol as `telemetry collect`'s
+long-lived worker; results are provisional SQLite facts with no durable
+source, so `telemetry cache rebuild` does not repopulate them. Promoting a
+responding discovery candidate into a tracked confirmed endpoint is a
+separate explicit review action
+(`toyota_telemetry.discovery.promote_confirmed_endpoint`) that atomically
+writes `config/transport.json`.
 
 Finite data commands print a human summary by default and accept `--json` for
 one machine document. `telemetry collect --json` emits versioned JSON Lines.

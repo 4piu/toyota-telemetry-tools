@@ -54,6 +54,37 @@ captures.
 An empty policy is valid but cannot authorize collection. Missing reviewed
 cost, safety, decode, or applicability facts also block admission.
 
+## Endpoint discovery and DID preflight
+
+Before a candidate endpoint has a confirmed entry in `config/transport.json`,
+or before a candidate DID is curated into policy, use the two explicitly live
+qualification commands. Both are bounded: every candidate is named on the
+command line, never swept automatically.
+
+```powershell
+telemetry discover endpoints --candidate 0x700:0x708:default-extended
+telemetry preflight dids --endpoint 700-708-extended --did 0x1075 --did 0x1090
+```
+
+`discover endpoints` opens the adapter, replays the named reviewed session
+recipe (`config/transport.json` `session_recipes`) against each candidate
+`TESTER_CAN_ID:RESPONSE_CAN_ID:SESSION_RECIPE_ID`, and records whether it
+responded as a provisional fact — it never edits tracked transport. `preflight
+dids` does the same against `--endpoint` (a confirmed endpoint id, or a
+`TESTER:RESPONSE` candidate id from a prior responding discovery run) plus one
+`--did` read each, recording support/negative/timeout outcomes as provisional
+facts — it never authors a collection objective.
+
+Both commands' results are provisional SQLite facts with no durable source:
+`telemetry cache rebuild` does not repopulate them, so re-run either command
+after a rebuild if you still need the facts. Promoting a responding discovery
+candidate into a tracked confirmed endpoint is a separate, explicit review
+step (`toyota_telemetry.discovery.promote_confirmed_endpoint`, called with the
+ECU keys and provenance the operator supplies) that atomically writes
+`config/transport.json`; there is no CLI shortcut that constructs a new
+session or dynamic-DID definition, matching the read-only, reviewed-bytes-only
+safety boundary.
+
 ## Live collection
 
 After inspecting the admitted plan, resolved transaction scope, and bounds:
@@ -70,8 +101,3 @@ session lifetime.
 
 Use `telemetry-tui` for a glanceable status and one stop path. Do not
 operate a computer while driving; use a passenger or unattended logger.
-
-The accepted next qualification workflow is `telemetry discover endpoints`
-followed by `telemetry preflight dids`, then curation in the TUI. Those
-two live commands are not implemented in this snapshot; do not use a removed
-pre-0.4 probe program as a substitute.

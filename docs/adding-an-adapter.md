@@ -7,7 +7,7 @@ An adapter changes transport, not project policy or signal meaning.
 
 A new backend implements the small `ICanChannel` interface and a `Main` that
 delegates to `BackendEntry.Run`. That entry exposes only offline self-test and
-the private worker protocol. Python remains the public collector.
+the private worker and probe protocols. Python remains the public collector.
 
 The channel must:
 
@@ -30,6 +30,7 @@ The executable accepts:
 ```text
 <executable> --self-test
 <executable> --worker --config <temporary-exact-schema.json>
+<executable> --probe --config <temporary-exact-schema.json>
 ```
 
 Unknown arguments fail. The worker form is launched only by
@@ -39,6 +40,12 @@ events on stdout. There is one in-flight transaction. An `exchange` command
 names a `transaction_id`, never request bytes; the worker resolves it against
 its own immutable launch-time transaction table, and the resolved request must
 pass the built-in telemetry guard before any frame is sent.
+
+The probe form is launched only by `telemetry discover endpoints` and
+`telemetry preflight dids`. It takes no stdin commands: it opens a channel,
+attempts its configured session-setup steps and at most one
+ReadDataByIdentifier, prints exactly one `probe_result` JSON line, and exits.
+Every attempted request passes the same telemetry guard as the worker form.
 
 Machine-local adapter settings come from the vehicle project's ignored local
 settings and are embedded in the temporary worker config. Portable endpoint,

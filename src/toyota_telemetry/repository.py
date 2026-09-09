@@ -53,6 +53,11 @@ def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def _exact_keys(value: Mapping[str, Any], keys: set[str], where: str) -> None:
+    if set(value) != keys:
+        raise ValueError(f"{where} fields mismatch: expected {sorted(keys)}, got {sorted(value)}")
+
+
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -339,6 +344,100 @@ class ProjectRepository:
             connection.commit()
         if self.policy["objectives"]:
             self.replay_progress()
+
+    def _require_cache(self) -> None:
+        if not self.paths.database.is_file():
+            raise ValueError("project cache is missing; run telemetry cache rebuild first")
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            if connection.execute("PRAGMA user_version").fetchone()[0] != CACHE_SCHEMA_VERSION:
+                raise ValueError("project cache schema version mismatch; run telemetry cache rebuild")
+
+    def record_discovery_candidate(self, fact: Mapping[str, Any]) -> None:
+        """Store one provisional `telemetry discover endpoints` result.
+
+        Discovery facts are provisional: unlike captures, catalog rows, and
+        authored documents, they have no durable source to rebuild from, so
+        `rebuild_cache` does not repopulate this table. A stale or missing
+        fact after a rebuild is expected; re-run discovery to refresh it.
+        """
+
+        _exact_keys(
+            fact,
+            {
+                "candidate_id", "tester_can_id", "response_can_id", "session_recipe_id",
+                "responded", "observed_utc", "result",
+            },
+            "discovery candidate fact",
+        )
+        self._require_cache()
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO discovery_candidate("
+                "candidate_id, tester_can_id, response_can_id, session_recipe_id, responded, "
+                "observed_utc, document_json"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    fact["candidate_id"],
+                    fact["tester_can_id"],
+                    fact["response_can_id"],
+                    fact["session_recipe_id"],
+                    1 if fact["responded"] else 0,
+                    fact["observed_utc"],
+                    _canonical_json(fact),
+                ),
+            )
+            connection.commit()
+
+    def discovery_candidates(self) -> list[dict[str, Any]]:
+        if not self.paths.database.is_file():
+            return []
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            rows = connection.execute(
+                "SELECT document_json FROM discovery_candidate ORDER BY candidate_id"
+            ).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
+    def record_did_preflight(self, fact: Mapping[str, Any]) -> None:
+        """Store one provisional `telemetry preflight dids` result. Provisional
+        like `record_discovery_candidate`: not repopulated by `rebuild_cache`.
+        """
+
+        _exact_keys(
+            fact,
+            {"endpoint_id", "data_id", "outcome", "observed_utc", "result"},
+            "DID preflight fact",
+        )
+        self._require_cache()
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO did_preflight("
+                "endpoint_id, data_id, outcome, observed_utc, document_json"
+                ") VALUES (?, ?, ?, ?, ?)",
+                (
+                    fact["endpoint_id"],
+                    fact["data_id"],
+                    fact["outcome"],
+                    fact["observed_utc"],
+                    _canonical_json(fact),
+                ),
+            )
+            connection.commit()
+
+    def did_preflight_facts(self, endpoint_id: str | None = None) -> list[dict[str, Any]]:
+        if not self.paths.database.is_file():
+            return []
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            if endpoint_id is None:
+                rows = connection.execute(
+                    "SELECT document_json FROM did_preflight ORDER BY endpoint_id, data_id"
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT document_json FROM did_preflight WHERE endpoint_id = ? "
+                    "ORDER BY data_id",
+                    (endpoint_id,),
+                ).fetchall()
+        return [json.loads(row[0]) for row in rows]
 
     def _validate_catalog_rows(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
@@ -887,6 +986,23 @@ def _create_cache_schema(connection: sqlite3.Connection) -> None:
             created_utc TEXT NOT NULL,
             manifest_sha256 TEXT NOT NULL,
             document_json TEXT NOT NULL
+        );
+        CREATE TABLE discovery_candidate (
+            candidate_id TEXT PRIMARY KEY,
+            tester_can_id TEXT NOT NULL,
+            response_can_id TEXT NOT NULL,
+            session_recipe_id TEXT NOT NULL,
+            responded INTEGER NOT NULL,
+            observed_utc TEXT NOT NULL,
+            document_json TEXT NOT NULL
+        );
+        CREATE TABLE did_preflight (
+            endpoint_id TEXT NOT NULL,
+            data_id TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            observed_utc TEXT NOT NULL,
+            document_json TEXT NOT NULL,
+            PRIMARY KEY(endpoint_id, data_id)
         );
         """
     )

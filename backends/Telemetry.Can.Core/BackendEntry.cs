@@ -19,13 +19,18 @@ namespace Telemetry.Can.Core
             {
                 return workerExitCode;
             }
+            int probeExitCode;
+            if (ProbeRunner.TryRun(openChannel, args, toolName, out probeExitCode))
+            {
+                return probeExitCode;
+            }
             try
             {
                 if (args.Length == 1 && String.Equals(args[0], "--self-test", StringComparison.Ordinal))
                 {
                     SelfCheck.RunFramingChecks();
                     Console.WriteLine(
-                        "Framing, telemetry-guard, and worker-protocol self-checks passed; " +
+                        "Framing, telemetry-guard, and worker/probe-protocol self-checks passed; " +
                         "no device was opened.");
                     return 0;
                 }
@@ -38,7 +43,7 @@ namespace Telemetry.Can.Core
                     return 0;
                 }
                 throw new ArgumentException(
-                    "Use --self-test or the private --worker --config PATH protocol.");
+                    "Use --self-test or the private --worker/--probe --config PATH protocols.");
             }
             catch (Exception exc)
             {
@@ -54,8 +59,12 @@ namespace Telemetry.Can.Core
             Console.WriteLine("Usage:");
             Console.WriteLine("  " + toolName + " --self-test");
             Console.WriteLine("  " + toolName + " --worker --config PATH");
+            Console.WriteLine("  " + toolName + " --probe --config PATH");
             Console.WriteLine();
             Console.WriteLine("The worker form is launched and controlled only by telemetry collect.");
+            Console.WriteLine(
+                "The probe form is launched only by telemetry discover endpoints and " +
+                "telemetry preflight dids.");
         }
     }
 }

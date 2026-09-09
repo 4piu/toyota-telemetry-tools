@@ -27,6 +27,27 @@ not a pin: it moves under you.
   the transaction table or plan that produced it. There is no compatibility
   fallback for the old wire shape.
 
+### Added
+
+- `telemetry discover endpoints` and `telemetry preflight dids`: explicitly
+  live, bounded commands completing the accepted Phase-F preparation
+  workflow. Discovery probes operator-named candidate tester/response CAN ID
+  pairs by replaying an already-reviewed session recipe; preflight probes
+  operator-named candidate DIDs against a confirmed endpoint or a responding
+  discovery candidate. Neither sweeps an ID range automatically, and neither
+  edits tracked transport authority or authors a collection objective;
+  results are provisional SQLite facts (`ProjectRepository
+  .record_discovery_candidate` / `.record_did_preflight`, `.discovery_candidates()`
+  / `.did_preflight_facts()`) with no durable source, so `telemetry cache
+  rebuild` does not repopulate them. Both share the collect worker's
+  built-in telemetry guard through a new bounded, single-shot `--probe
+  --config PATH` process form (`toyota_telemetry.discovery`,
+  `backends/Telemetry.Can.Core/ProbeProtocol.cs`). Promoting a responding
+  discovery candidate into a tracked confirmed endpoint is a separate,
+  explicit review action (`toyota_telemetry.discovery
+  .promote_confirmed_endpoint`) that atomically writes
+  `config/transport.json` through the existing authored-document writer.
+
 ## 0.4.0
 
 ### Breaking

@@ -113,6 +113,129 @@ def write_worker_config(path: Path, config: Mapping[str, Any]) -> None:
     atomic_json(path, dict(config), replace=False)
 
 
+def build_probe_config(
+    transport: Mapping[str, Any],
+    candidate_id: str,
+    tester_can_id: str,
+    response_can_id: str,
+    session_recipe_id: str,
+    backend: Mapping[str, Any],
+    *,
+    read_data_id: str | None = None,
+) -> dict[str, Any]:
+    """Build one temporary, single-shot probe config for a candidate CAN ID
+    pair, replaying an already-reviewed session recipe from tracked
+    transport authority. Used by `telemetry discover endpoints` (no
+    read_data_id) and `telemetry preflight dids` (one read_data_id)."""
+
+    _exact_keys(backend, {"kind", "executable", "settings"}, "local backend")
+    kind = _text(backend["kind"], "local backend kind")
+    settings = _object(backend["settings"], "local backend settings")
+
+    network = _object(transport["network"], "transport network")
+    recipes = {row["id"]: row for row in transport.get("session_recipes", [])}
+    if session_recipe_id not in recipes:
+        raise ValueError(f"unknown session_recipe_id: {session_recipe_id}")
+    session_setup = []
+    for row in recipes[session_recipe_id]["steps"]:
+        session_setup.append({
+            "request_hex": _canonical_hex(row["request_hex"], "session request"),
+            "expected_prefix_hex": _canonical_hex(row["expected_prefix_hex"], "session response"),
+            "label": _text(row["label"], "session label"),
+        })
+
+    safety = _object(transport["safety"], "transport safety")
+    config: dict[str, Any] = {
+        "document_type": "telemetry.adapter-probe",
+        "schema_version": SCHEMA_VERSION,
+        "candidate_id": _text(candidate_id, "candidate_id"),
+        "transport": {
+            "network": network["type"],
+            "bitrate": _integer(network["bitrate"], "network bitrate", 10_000),
+            "addressing": network["addressing"],
+            "tester_can_id": _text(tester_can_id, "tester_can_id"),
+            "response_can_id": _text(response_can_id, "response_can_id"),
+            "initial_response_timeout_ms": _integer(
+                safety["initial_response_timeout_ms"], "initial response timeout", 1
+            ),
+            "response_pending_budget_ms": _integer(
+                safety["response_pending_budget_ms"], "response-pending budget", 1
+            ),
+        },
+        "session_setup": session_setup,
+        "device": {kind: dict(settings)},
+    }
+    if read_data_id is not None:
+        did = int(read_data_id, 16)
+        config["preflight_read"] = {
+            "request_hex": f"22 {did >> 8:02X} {did & 0xFF:02X}",
+            "expected_prefix_hex": f"62 {did >> 8:02X} {did & 0xFF:02X}",
+            "label": f"read {read_data_id}",
+        }
+    return config
+
+
+def write_probe_config(path: Path, config: Mapping[str, Any]) -> None:
+    atomic_json(path, dict(config), replace=False)
+
+
+def parse_probe_result(line: str) -> dict[str, Any]:
+    try:
+        value = json.loads(line)
+    except json.JSONDecodeError as exc:
+        raise ValueError("probe emitted invalid JSON") from exc
+    value = _object(value, "probe event")
+    if value.get("event") != "probe_result":
+        raise ValueError(f"unknown probe event: {value.get('event')!r}")
+    _exact_keys(
+        value,
+        {
+            "event", "schema_version", "candidate_id", "backend_kind", "responded",
+            "session_steps", "read",
+        },
+        "probe result",
+    )
+    if value["schema_version"] != SCHEMA_VERSION:
+        raise ValueError("probe event schema mismatch")
+    _text(value["candidate_id"], "probe candidate_id")
+    _text(value["backend_kind"], "probe backend_kind")
+    _boolean(value["responded"], "probe responded")
+    if not isinstance(value["session_steps"], list):
+        raise ValueError("probe session_steps must be a list")
+    for step in value["session_steps"]:
+        step = _object(step, "probe session step")
+        _exact_keys(
+            step, {"label", "outcome", "latency_ms", "nrc", "response_hex"}, "probe session step"
+        )
+        _text(step["label"], "probe step label")
+        _probe_step_outcome(step)
+    if value["read"] is not None:
+        read = _object(value["read"], "probe read")
+        if read.get("attempted") is False:
+            _exact_keys(read, {"attempted", "outcome"}, "probe read")
+            if read["outcome"] != "session_unavailable":
+                raise ValueError("probe read outcome must be session_unavailable when not attempted")
+        else:
+            _exact_keys(
+                read, {"attempted", "outcome", "latency_ms", "nrc", "response_hex"}, "probe read"
+            )
+            _probe_step_outcome(read)
+    return value
+
+
+def _probe_step_outcome(step: Mapping[str, Any]) -> None:
+    if step["outcome"] not in {"positive", "negative", "timeout", "transport_error"}:
+        raise ValueError("probe step outcome is invalid")
+    _integer(step["latency_ms"], "probe step latency_ms", 0)
+    if step["nrc"] is not None:
+        nrc = _text(step["nrc"], "probe step nrc")
+        if len(nrc) != 4 or not nrc.startswith("0x"):
+            raise ValueError("probe step nrc must be canonical 0xNN")
+        int(nrc[2:], 16)
+    if step["response_hex"] is not None:
+        _canonical_hex(step["response_hex"], "probe step response_hex")
+
+
 def exchange_command(sequence: int, transaction_id: str) -> str:
     """Select one entry from the worker's own immutable transaction table.
 
