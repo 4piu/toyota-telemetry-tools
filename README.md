@@ -60,8 +60,10 @@ and explicit offline recovery that leaves the crashed source untouched.
 Collection uses Python `telemetry collect` as the public scheduler,
 decoder, capture, heartbeat, and stop owner. It launches one private long-lived
 C# worker for the selected endpoint; that worker owns only the adapter, CAN,
-ISO-TP, and session lifetime and enforces the admitted byte-exact request
-allowlist. The collector/worker integration is covered by synthetic offline
+ISO-TP, and session lifetime, resolves each runtime transaction by identifier
+against its own immutable launch-time table, and passes every resolved
+request through the built-in, vehicle-agnostic telemetry guard before
+transmission. The collector/worker integration is covered by synthetic offline
 tests. It has not yet been exercised on a vehicle.
 
 The standalone operator application is available as `telemetry-tui`. It uses

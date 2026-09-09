@@ -25,7 +25,7 @@ namespace Telemetry.Can.Core
                 {
                     SelfCheck.RunFramingChecks();
                     Console.WriteLine(
-                        "Framing, byte-exact allowlist, and worker-protocol self-checks passed; " +
+                        "Framing, telemetry-guard, and worker-protocol self-checks passed; " +
                         "no device was opened.");
                     return 0;
                 }

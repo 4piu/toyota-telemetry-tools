@@ -134,7 +134,7 @@ class ScriptedWorker:
         return {"event": "ready", "schema_version": 1,
                 "endpoint_id": "700-708-session", "backend_kind": "synthetic"}
 
-    def exchange(self, sequence: int, request_hex: str, event_sink) -> dict:
+    def exchange(self, sequence: int, transaction_id: str, event_sink) -> dict:
         self.exchange_count += 1
         if self.pending:
             event_sink({"event": "response_pending", "schema_version": 1,
@@ -163,7 +163,7 @@ class ScriptedWorker:
 
 
 class StopAwareWorker(ScriptedWorker):
-    def exchange(self, sequence: int, request_hex: str, event_sink) -> dict:
+    def exchange(self, sequence: int, transaction_id: str, event_sink) -> dict:
         self.exchange_count += 1
         deadline = time.monotonic() + 1
         while self.stop_count == 0 and time.monotonic() < deadline:

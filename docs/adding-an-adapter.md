@@ -20,8 +20,8 @@ The channel must:
 - support cooperative stop and deterministic cleanup.
 
 The shared layer owns ISO-TP framing, session setup, response-pending handling,
-timeouts, and byte-exact allowlist enforcement. Device-specific code must not
-add a second scheduler, capture writer, project parser, or fallback binding.
+timeouts, and the built-in telemetry guard. Device-specific code must not add
+a second scheduler, capture writer, project parser, or fallback binding.
 
 ## Private process contract
 
@@ -35,8 +35,10 @@ The executable accepts:
 Unknown arguments fail. The worker form is launched only by
 `telemetry collect`. It reads exact JSON-Lines `exchange` and `stop` commands
 from stdin and emits exact `ready`, `response_pending`, `result`, and `stopped`
-events on stdout. There is one in-flight transaction. A request must match the
-temporary allowlist byte-for-byte before any frame is sent.
+events on stdout. There is one in-flight transaction. An `exchange` command
+names a `transaction_id`, never request bytes; the worker resolves it against
+its own immutable launch-time transaction table, and the resolved request must
+pass the built-in telemetry guard before any frame is sent.
 
 Machine-local adapter settings come from the vehicle project's ignored local
 settings and are embedded in the temporary worker config. Portable endpoint,
@@ -45,10 +47,11 @@ auto-detection or cross-adapter fallback is permitted.
 
 ## Acceptance
 
-1. `--self-test` opens no device and checks shared framing, allowlists, and
-   protocol schema behavior.
+1. `--self-test` opens no device and checks shared framing, the telemetry
+   guard, and protocol schema behavior.
 2. Wrong/unknown worker fields and protocol versions fail closed.
-3. An unallowlisted payload cannot reach `ICanChannel.Write`.
+3. A request the telemetry guard does not recognize cannot reach
+   `ICanChannel.Write`.
 4. One known single-frame and one known multi-frame response match a proven
    backend byte-for-byte.
 5. Timeout, response pending, cancellation, channel failure, and cleanup are

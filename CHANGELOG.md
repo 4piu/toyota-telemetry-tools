@@ -14,6 +14,19 @@ not a pin: it moves under you.
 
 ## Unreleased
 
+### Breaking
+
+- The private worker protocol's `exchange` command now names a
+  `transaction_id` instead of resupplying `request_hex`; the worker resolves
+  the identifier against its own immutable launch-time transaction table
+  (itself unchanged in shape apart from a new required `transaction_id` field
+  per entry). The transmit-time byte-exact allowlist (`EnforceUdsAllowlist`,
+  `EnforceFrameAllowlist`, `BackendConfig.WorkerAllowlist`) is replaced by the
+  built-in, vehicle-agnostic `TelemetryGuard`, which validates the shape of
+  every resolved session-setup step and runtime transaction independently of
+  the transaction table or plan that produced it. There is no compatibility
+  fallback for the old wire shape.
+
 ## 0.4.0
 
 ### Breaking

@@ -49,18 +49,22 @@ def build_worker_config(
         acquisition = _object(acquisition, f"acquisitions[{index}]")
         if acquisition.get("endpoint_id") != endpoint_id:
             continue
+        transaction_id = _text(
+            acquisition.get("acquisition_id"), f"acquisitions[{index}].acquisition_id"
+        )
         request = _canonical_hex(acquisition.get("request_hex"), f"acquisitions[{index}].request_hex")
         data_id = _text(acquisition.get("data_id"), f"acquisitions[{index}].data_id")
         did = int(data_id, 16)
         expected = f"62 {did >> 8:02X} {did & 0xFF:02X}"
         transactions.append({
+            "transaction_id": transaction_id,
             "request_hex": request,
             "expected_prefix_hex": expected,
             "label": f"read {data_id}",
         })
     if not transactions:
         raise ValueError(f"worker endpoint has no admitted transactions: {endpoint_id}")
-    transactions.sort(key=lambda row: row["request_hex"])
+    transactions.sort(key=lambda row: row["transaction_id"])
 
     network = _object(session["network"], "endpoint session network")
     _exact_keys(network, {"type", "bitrate", "addressing"}, "endpoint session network")
@@ -109,14 +113,21 @@ def write_worker_config(path: Path, config: Mapping[str, Any]) -> None:
     atomic_json(path, dict(config), replace=False)
 
 
-def exchange_command(sequence: int, request_hex: str) -> str:
+def exchange_command(sequence: int, transaction_id: str) -> str:
+    """Select one entry from the worker's own immutable transaction table.
+
+    The command never resupplies request bytes: it names a transaction_id the
+    worker already holds from its launch configuration, so a compromised or
+    buggy caller cannot substitute a different payload at runtime.
+    """
+
     if not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 1:
         raise ValueError("worker command sequence must be a positive integer")
     value = {
         "command": "exchange",
         "schema_version": SCHEMA_VERSION,
         "sequence": sequence,
-        "request_hex": _canonical_hex(request_hex, "worker command request_hex"),
+        "transaction_id": _text(transaction_id, "worker command transaction_id"),
     }
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 

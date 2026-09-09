@@ -59,13 +59,10 @@ namespace Telemetry.Can.Core
     }
 
     /// <summary>
-    /// Application-managed ISO-TP (ISO 15765-2) over raw Classical CAN, with a
-    /// byte-exact transmit allowlist enforced at both the UDS payload level and
-    /// the individual CAN frame level.
-    ///
-    /// Both allowlists are derived from the same <see cref="Hex.IsoTpFrames"/>
-    /// expansion used to transmit, so a payload that passes the first check can
-    /// never produce a frame that fails the second for a different reason.
+    /// Application-managed ISO-TP (ISO 15765-2) over raw Classical CAN. Every
+    /// resolved request passes through the built-in <see cref="TelemetryGuard"/>
+    /// immediately before transmission; the guard is independent of the
+    /// transaction table and plan that produced the request.
     /// </summary>
     internal sealed class IsoTpTransport
     {
@@ -75,15 +72,13 @@ namespace Telemetry.Can.Core
         private readonly int timeoutMs;
         private readonly int responsePendingBudgetMs;
         private readonly bool verbose;
-        private readonly byte[][] allowedRequests;
         internal Action<int, long> PendingObserved;
 
         internal IsoTpTransport(
             ICanChannel channel,
             BackendConfig config,
             int timeoutMs,
-            bool verbose,
-            byte[][] allowedRequests)
+            bool verbose)
         {
             this.channel = channel;
             this.testerCanId = config.TesterCanId;
@@ -91,29 +86,31 @@ namespace Telemetry.Can.Core
             this.timeoutMs = timeoutMs;
             this.responsePendingBudgetMs = config.ResponsePendingBudgetMs;
             this.verbose = verbose;
-            this.allowedRequests = allowedRequests;
         }
 
-        internal ExchangeResult Exchange(byte[] request, byte[] expectedPrefix, string label)
+        internal ExchangeResult Exchange(
+            byte[] request, byte[] expectedPrefix, string label, TelemetryGuardContext context)
         {
-            return ExchangeCore(request, expectedPrefix, label, false);
+            return ExchangeCore(request, expectedPrefix, label, false, context);
         }
 
         /// <summary>Qualification needs the NRC rather than an exception: a
         /// negative response is a result, not a failure.</summary>
-        internal ExchangeResult ExchangeAllowNegative(byte[] request, byte[] expectedPrefix, string label)
+        internal ExchangeResult ExchangeAllowNegative(
+            byte[] request, byte[] expectedPrefix, string label, TelemetryGuardContext context)
         {
-            return ExchangeCore(request, expectedPrefix, label, true);
+            return ExchangeCore(request, expectedPrefix, label, true, context);
         }
 
         private ExchangeResult ExchangeCore(
-            byte[] request, byte[] expectedPrefix, string label, bool allowNegative)
+            byte[] request, byte[] expectedPrefix, string label, bool allowNegative,
+            TelemetryGuardContext context)
         {
             if (RunState.StopRequested)
             {
                 throw new OperationCanceledException("Stopped by user.");
             }
-            EnforceUdsAllowlist(request, allowedRequests);
+            TelemetryGuard.Enforce(request, context);
             Stopwatch latency = Stopwatch.StartNew();
             if (verbose)
             {
@@ -356,7 +353,6 @@ namespace Telemetry.Can.Core
 
         private void WriteCanFrame(byte[] data, string label)
         {
-            EnforceFrameAllowlist(data, allowedRequests);
             channel.Write(testerCanId, data);
             if (verbose)
             {
@@ -387,53 +383,6 @@ namespace Telemetry.Can.Core
                     Thread.SpinWait(20);
                 }
             }
-        }
-
-        // ---- allowlists ----
-
-        internal static void EnforceUdsAllowlist(byte[] request, byte[][] allowedRequests)
-        {
-            foreach (byte[] allowed in allowedRequests)
-            {
-                if (Hex.Equal(request, allowed))
-                {
-                    return;
-                }
-            }
-            throw new InvalidOperationException(
-                "UDS request failed the transmit allowlist: " + Hex.Format(request));
-        }
-
-        internal static void EnforceFrameAllowlist(byte[] frame, byte[][] allowedRequests)
-        {
-            if (frame == null || frame.Length != 8)
-            {
-                throw new InvalidOperationException(
-                    "Raw ISO-TP CAN frames must contain exactly eight bytes.");
-            }
-
-            // Tester flow control carries no request payload and is always
-            // permitted; every other transmitted frame must be a fragment of an
-            // allowlisted request.
-            byte[] flowControl = new byte[8];
-            flowControl[0] = 0x30;
-            if (Hex.Equal(frame, flowControl))
-            {
-                return;
-            }
-
-            foreach (byte[] request in allowedRequests)
-            {
-                foreach (byte[] allowedFrame in Hex.IsoTpFrames(request))
-                {
-                    if (Hex.Equal(frame, allowedFrame))
-                    {
-                        return;
-                    }
-                }
-            }
-            throw new InvalidOperationException(
-                "Raw CAN frame failed the transmit allowlist: " + Hex.Format(frame));
         }
 
         internal static byte[] ReadDataByIdentifier(int did)

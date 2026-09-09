@@ -9,12 +9,14 @@ namespace Telemetry.Can.Core
 {
     internal sealed class WorkerTransaction
     {
+        internal readonly string Id;
         internal readonly byte[] Request;
         internal readonly byte[] ExpectedPrefix;
         internal readonly string Label;
 
-        internal WorkerTransaction(byte[] request, byte[] expectedPrefix, string label)
+        internal WorkerTransaction(string id, byte[] request, byte[] expectedPrefix, string label)
         {
+            Id = id;
             Request = request;
             ExpectedPrefix = expectedPrefix;
             Label = label;
@@ -97,7 +99,6 @@ namespace Telemetry.Can.Core
             List<JsonValue> steps = root.Member("", "session_setup")
                 .AsArray("session_setup", 1, 16);
             backend.SessionSetup = new SessionStep[steps.Count];
-            List<byte[]> allowlist = new List<byte[]>();
             for (int index = 0; index < steps.Count; index++)
             {
                 string where = "session_setup[" + index.ToString(CultureInfo.InvariantCulture) + "]";
@@ -105,17 +106,13 @@ namespace Telemetry.Can.Core
                 step.RejectUnknownMembers(
                     where, "request_hex", "expected_prefix_hex", "label", "tolerate_negative");
                 byte[] request = ParseBytes(step, where, "request_hex");
-                if (request[0] != 0x10 && request[0] != 0x3E && request[0] != 0x2C)
-                {
-                    throw new FormatException(where + " uses a service outside the session allowlist.");
-                }
+                TelemetryGuard.Enforce(request, TelemetryGuardContext.SessionSetup);
                 SessionStep parsed = new SessionStep(
                     request,
                     ParseBytes(step, where, "expected_prefix_hex"),
                     RequiredText(step, where, "label"),
                     step.Member(where, "tolerate_negative").AsBoolean(where + ".tolerate_negative"));
                 backend.SessionSetup[index] = parsed;
-                allowlist.Add(parsed.Request);
             }
 
             List<JsonValue> transactions = root.Member("", "allowed_transactions")
@@ -125,32 +122,33 @@ namespace Telemetry.Can.Core
             {
                 string where = "allowed_transactions[" + index.ToString(CultureInfo.InvariantCulture) + "]";
                 JsonValue item = transactions[index];
-                item.RejectUnknownMembers(where, "request_hex", "expected_prefix_hex", "label");
+                item.RejectUnknownMembers(
+                    where, "transaction_id", "request_hex", "expected_prefix_hex", "label");
+                string id = RequiredText(item, where, "transaction_id");
                 byte[] request = ParseBytes(item, where, "request_hex");
-                if (request.Length != 3 || request[0] != 0x22)
+                TelemetryGuard.Enforce(request, TelemetryGuardContext.Transaction);
+                for (int prior = 0; prior < index; prior++)
                 {
-                    throw new FormatException(where + " must be one ReadDataByIdentifier request.");
-                }
-                foreach (WorkerTransaction prior in result.Transactions)
-                {
-                    if (prior != null && Hex.Equal(prior.Request, request))
+                    if (String.Equals(result.Transactions[prior].Id, id, StringComparison.Ordinal))
                     {
-                        throw new FormatException(where + " duplicates an allowlisted request.");
+                        throw new FormatException(where + ".transaction_id duplicates an earlier entry.");
+                    }
+                    if (Hex.Equal(result.Transactions[prior].Request, request))
+                    {
+                        throw new FormatException(where + " duplicates an earlier request.");
                     }
                 }
-                WorkerTransaction parsed = new WorkerTransaction(
+                result.Transactions[index] = new WorkerTransaction(
+                    id,
                     request,
                     ParseBytes(item, where, "expected_prefix_hex"),
                     RequiredText(item, where, "label"));
-                result.Transactions[index] = parsed;
-                allowlist.Add(parsed.Request);
             }
             backend.Device = root.Member("", "device");
             if (backend.Device.Kind != JsonKind.Object)
             {
                 throw new FormatException("'device' must be an object.");
             }
-            backend.WorkerAllowlist = allowlist.ToArray();
             result.Backend = backend;
             return result;
         }
@@ -182,13 +180,13 @@ namespace Telemetry.Can.Core
     {
         internal readonly string Name;
         internal readonly int Sequence;
-        internal readonly byte[] Request;
+        internal readonly string TransactionId;
 
-        private WorkerCommand(string name, int sequence, byte[] request)
+        private WorkerCommand(string name, int sequence, string transactionId)
         {
             Name = name;
             Sequence = sequence;
-            Request = request;
+            TransactionId = transactionId;
         }
 
         internal static WorkerCommand Parse(string line)
@@ -205,12 +203,15 @@ namespace Telemetry.Can.Core
             {
                 throw new FormatException("unknown worker command '" + name + "'");
             }
-            root.RejectUnknownMembers("", "command", "schema_version", "sequence", "request_hex");
+            root.RejectUnknownMembers("", "command", "schema_version", "sequence", "transaction_id");
             RequireVersion(root);
             int sequence = root.Member("", "sequence").AsInteger("sequence", 1, Int32.MaxValue);
-            byte[] request = Hex.Parse(
-                root.Member("", "request_hex").AsString("request_hex"), "request_hex");
-            return new WorkerCommand(name, sequence, request);
+            string transactionId = root.Member("", "transaction_id").AsString("transaction_id");
+            if (String.IsNullOrWhiteSpace(transactionId))
+            {
+                throw new FormatException("'transaction_id' must not be empty.");
+            }
+            return new WorkerCommand(name, sequence, transactionId);
         }
 
         private static void RequireVersion(JsonValue root)
@@ -274,12 +275,12 @@ namespace Telemetry.Can.Core
                         channel,
                         config.Backend,
                         config.Backend.InitialResponseTimeoutMs,
-                        false,
-                        config.Backend.WorkerAllowlist);
+                        false);
                     foreach (SessionStep step in config.Backend.SessionSetup)
                     {
                         ExchangeResult setup = transport.ExchangeAllowNegative(
-                            step.Request, step.ExpectedPrefix, step.Label);
+                            step.Request, step.ExpectedPrefix, step.Label,
+                            TelemetryGuardContext.SessionSetup);
                         if (setup.IsNegative && !step.TolerateNegative)
                         {
                             throw new InvalidOperationException(
@@ -325,7 +326,7 @@ namespace Telemetry.Can.Core
                         "worker exchange sequence was already used: " +
                         command.Sequence.ToString(CultureInfo.InvariantCulture));
                 }
-                WorkerTransaction transaction = FindTransaction(config, command.Request);
+                WorkerTransaction transaction = FindTransaction(config, command.TransactionId);
                 Stopwatch elapsed = Stopwatch.StartNew();
                 int pendingCount = 0;
                 long pendingDurationMs = 0;
@@ -342,7 +343,8 @@ namespace Telemetry.Can.Core
                             ",\"pending_duration_ms\":" + durationMs.ToString(CultureInfo.InvariantCulture) + "}");
                     };
                     ExchangeResult result = transport.ExchangeAllowNegative(
-                        transaction.Request, transaction.ExpectedPrefix, transaction.Label);
+                        transaction.Request, transaction.ExpectedPrefix, transaction.Label,
+                        TelemetryGuardContext.Transaction);
                     WriteResult(
                         command.Sequence,
                         result.IsNegative ? "negative" : "positive",
@@ -478,17 +480,17 @@ namespace Telemetry.Can.Core
             }
         }
 
-        private static WorkerTransaction FindTransaction(WorkerConfig config, byte[] request)
+        private static WorkerTransaction FindTransaction(WorkerConfig config, string transactionId)
         {
             foreach (WorkerTransaction transaction in config.Transactions)
             {
-                if (Hex.Equal(transaction.Request, request))
+                if (String.Equals(transaction.Id, transactionId, StringComparison.Ordinal))
                 {
                     return transaction;
                 }
             }
             throw new InvalidOperationException(
-                "worker request failed the configured transaction allowlist: " + Hex.Format(request));
+                "worker exchange named an unknown transaction_id: " + transactionId);
         }
 
         private static readonly object OutputGate = new object();

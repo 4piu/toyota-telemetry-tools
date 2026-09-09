@@ -55,6 +55,9 @@ class WorkerProtocolTests(unittest.TestCase):
         })
         self.assertEqual(config["document_type"], "telemetry.adapter-worker")
         self.assertEqual(config["allowed_transactions"][0]["expected_prefix_hex"], "62 10 01")
+        self.assertEqual(
+            config["allowed_transactions"][0]["transaction_id"], "700-708-session/0x1001"
+        )
         self.assertEqual(config["device"], {"pcan": {"channel": "PCAN_USBBUS1"}})
         encoded = json.dumps(config)
         self.assertNotIn("objective", encoded)
@@ -74,12 +77,13 @@ class WorkerProtocolTests(unittest.TestCase):
 
     def test_commands_are_exact_and_canonical(self) -> None:
         self.assertEqual(
-            exchange_command(7, "22 10 01"),
-            '{"command":"exchange","request_hex":"22 10 01","schema_version":1,"sequence":7}',
+            exchange_command(7, "700-708-session/0x1001"),
+            '{"command":"exchange","schema_version":1,"sequence":7,'
+            '"transaction_id":"700-708-session/0x1001"}',
         )
         self.assertEqual(stop_command(), '{"command":"stop","schema_version":1}')
-        with self.assertRaisesRegex(ValueError, "space-separated"):
-            exchange_command(1, "221001")
+        with self.assertRaisesRegex(ValueError, "non-empty string"):
+            exchange_command(1, "")
 
     def test_every_worker_event_shape_is_exact(self) -> None:
         events = [

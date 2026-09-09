@@ -35,7 +35,6 @@ namespace Telemetry.Can.Core
         internal SessionStep[] SessionSetup;
         internal int ResponsePendingBudgetMs;
         internal int InitialResponseTimeoutMs;
-        internal byte[][] WorkerAllowlist;
         internal JsonValue Device;
 
         internal string DeviceString(string section, string name, string fallback)

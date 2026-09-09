@@ -67,23 +67,47 @@ namespace Telemetry.Can.Core
                 },
                 "minimum multi-frame payload");
 
-            // Allowlist behaviour, both directions.
-            byte[][] allowlist = { singleRequest };
-            IsoTpTransport.EnforceUdsAllowlist(singleRequest, allowlist);
-            AssertRejected(
-                IsoTpTransport.ReadDataByIdentifier(0x1090), allowlist, "unrelated DID");
+            // Telemetry guard behaviour: recognized read-only shapes pass,
+            // every control/coding/security/programming service is rejected
+            // outright regardless of what any transaction table might contain.
+            TelemetryGuard.Enforce(singleRequest, TelemetryGuardContext.Transaction);
+            AssertGuardRejected(
+                new byte[] { 0x22, 0x10, 0x75, 0x00 }, TelemetryGuardContext.Transaction,
+                "an oversized ReadDataByIdentifier request");
+            AssertGuardRejected(
+                new byte[] { 0x27, 0x01 }, TelemetryGuardContext.Transaction,
+                "SecurityAccess as a runtime transaction");
+            AssertGuardRejected(
+                new byte[] { 0x2E, 0x10, 0x75, 0x00 }, TelemetryGuardContext.Transaction,
+                "WriteDataByIdentifier as a runtime transaction");
+            AssertGuardRejected(
+                new byte[] { 0x10, 0x01 }, TelemetryGuardContext.Transaction,
+                "DiagnosticSessionControl as a runtime transaction");
 
-            byte[] flowControl = new byte[8];
-            flowControl[0] = 0x30;
-            IsoTpTransport.EnforceFrameAllowlist(flowControl, allowlist);
-            AssertFrameRejected(
-                new byte[] { 0x03, 0x22, 0x10, 0x90, 0x00, 0x00, 0x00, 0x00 },
-                allowlist,
-                "frame for an unrelated DID");
-            AssertFrameRejected(
-                new byte[] { 0x02, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00 },
-                allowlist,
-                "unallowlisted session control");
+            TelemetryGuard.Enforce(new byte[] { 0x3E, 0x00 }, TelemetryGuardContext.SessionSetup);
+            TelemetryGuard.Enforce(new byte[] { 0x10, 0x01 }, TelemetryGuardContext.SessionSetup);
+            TelemetryGuard.Enforce(new byte[] { 0x10, 0x03 }, TelemetryGuardContext.SessionSetup);
+            AssertGuardRejected(
+                new byte[] { 0x10, 0x02 }, TelemetryGuardContext.SessionSetup,
+                "programmingSession");
+            AssertGuardRejected(
+                new byte[] { 0x10, 0x04 }, TelemetryGuardContext.SessionSetup,
+                "safetySystemDiagnosticSession");
+            AssertGuardRejected(
+                new byte[] { 0x22, 0x10, 0x75 }, TelemetryGuardContext.SessionSetup,
+                "a runtime read used as a session-setup step");
+            AssertGuardRejected(
+                new byte[] { 0x11, 0x01 }, TelemetryGuardContext.SessionSetup,
+                "ECUReset");
+
+            TelemetryGuard.Enforce(
+                new byte[] { 0x2C, 0x01, 0xF3, 0x01, 0x10, 0xA0 }, TelemetryGuardContext.SessionSetup);
+            AssertGuardRejected(
+                new byte[] { 0x2C, 0x01, 0x01, 0x02, 0x10, 0xA0 }, TelemetryGuardContext.SessionSetup,
+                "a DefineByIdentifier target outside the dynamic-identifier range");
+            AssertGuardRejected(
+                new byte[] { 0x2C, 0x02, 0xF3, 0x01, 0x10, 0xA0 }, TelemetryGuardContext.SessionSetup,
+                "DefineByMemoryAddress instead of DefineByIdentifier");
 
             RunWorkerProtocolChecks();
         }
@@ -92,10 +116,11 @@ namespace Telemetry.Can.Core
         {
             WorkerCommand exchange = WorkerCommand.Parse(
                 "{\"command\":\"exchange\",\"schema_version\":1," +
-                "\"sequence\":7,\"request_hex\":\"22 10 75\"}");
+                "\"sequence\":7,\"transaction_id\":\"700-708-session/0x1075\"}");
             if (!String.Equals(exchange.Name, "exchange", StringComparison.Ordinal) ||
                 exchange.Sequence != 7 ||
-                !Hex.Equal(exchange.Request, new byte[] { 0x22, 0x10, 0x75 }))
+                !String.Equals(
+                    exchange.TransactionId, "700-708-session/0x1075", StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("Worker command self-check failed.");
             }
@@ -107,7 +132,7 @@ namespace Telemetry.Can.Core
             }
             AssertWorkerCommandRejected(
                 "{\"command\":\"exchange\",\"schema_version\":2," +
-                "\"sequence\":1,\"request_hex\":\"22 10 75\"}",
+                "\"sequence\":1,\"transaction_id\":\"700-708-session/0x1075\"}",
                 "wrong schema version");
             AssertWorkerCommandRejected(
                 "{\"command\":\"stop\",\"schema_version\":1,\"extra\":true}",
@@ -150,32 +175,18 @@ namespace Telemetry.Can.Core
             }
         }
 
-        private static void AssertRejected(byte[] request, byte[][] allowlist, string label)
+        private static void AssertGuardRejected(byte[] request, TelemetryGuardContext context, string label)
         {
             try
             {
-                IsoTpTransport.EnforceUdsAllowlist(request, allowlist);
+                TelemetryGuard.Enforce(request, context);
             }
             catch (InvalidOperationException)
             {
                 return;
             }
             throw new InvalidOperationException(
-                "Allowlist self-check failed: " + label + " was accepted.");
-        }
-
-        private static void AssertFrameRejected(byte[] frame, byte[][] allowlist, string label)
-        {
-            try
-            {
-                IsoTpTransport.EnforceFrameAllowlist(frame, allowlist);
-            }
-            catch (InvalidOperationException)
-            {
-                return;
-            }
-            throw new InvalidOperationException(
-                "Frame allowlist self-check failed: " + label + " was accepted.");
+                "Telemetry guard self-check failed to reject " + label + ".");
         }
     }
 }

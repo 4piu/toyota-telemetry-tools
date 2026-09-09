@@ -51,7 +51,7 @@ class TransactionWorker(Protocol):
     def exchange(
         self,
         sequence: int,
-        request_hex: str,
+        transaction_id: str,
         event_sink: Callable[[Mapping[str, Any]], None],
     ) -> Mapping[str, Any]: ...
     def request_stop(self) -> None: ...
@@ -88,10 +88,10 @@ class JsonlWorkerClient:
     def exchange(
         self,
         sequence: int,
-        request_hex: str,
+        transaction_id: str,
         event_sink: Callable[[Mapping[str, Any]], None],
     ) -> Mapping[str, Any]:
-        self._write(exchange_command(sequence, request_hex))
+        self._write(exchange_command(sequence, transaction_id))
         while True:
             event = self._read_event()
             if event["event"] == "response_pending":
@@ -323,7 +323,7 @@ class CollectionRunner:
             self._worker_sequence += 1
             result = self.worker.exchange(
                 self._worker_sequence,
-                acquisition["request_hex"],
+                acquisition["acquisition_id"],
                 self._worker_event,
             )
             if result["outcome"] != "timeout" or attempt == retries or self.stop_event.is_set():
