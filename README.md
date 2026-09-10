@@ -53,10 +53,10 @@ bounded, reviewable set of transactions. Both use the same built-in telemetry
 guard and single-shot `--probe` worker protocol as `telemetry collect`'s
 long-lived worker; results are provisional SQLite facts with no durable
 source, so `telemetry cache rebuild` does not repopulate them. Promoting a
-responding discovery candidate into a tracked confirmed endpoint is a
-separate explicit endpoint-curation action in `telemetry-tui`; it previews the
-candidate, ECU membership, and provenance before an explicit tracked save to
-`config/transport.json`.
+responding discovery candidate into a tracked confirmed endpoint remains a
+separate explicit curation operation over the
+`toyota_telemetry.discovery.promote_confirmed_endpoint` library service; it is
+not a probing side effect or a CLI shortcut.
 
 Finite data commands print a human summary by default and accept `--json` for
 one machine document. `telemetry collect --json` emits versioned JSON Lines.
@@ -81,14 +81,10 @@ request through the built-in, vehicle-agnostic telemetry guard before
 transmission. The collector/worker integration is covered by synthetic offline
 tests. It has not yet been exercised on a vehicle.
 
-The standalone operator application is available as `telemetry-tui`. It uses
-the toolkit components as library services rather than treating CLI output as
-an application API. Merely opening or navigating it does not start a backend.
-Its explicit Start action shows the adapter, endpoint, capture path, plan hash,
-and admission state before it starts the shared collection service; it never
-controls the C# worker directly.
-Signal-curation and collection-policy edits remain in memory until an explicit
-atomic save to their tracked authored document.
+A cross-platform desktop operator application is planned over the toolkit's
+library services. Until it is implemented, `telemetry` is the executable
+surface and tracked curation remains an explicit development workflow in the
+vehicle project.
 
 ## Guides
 

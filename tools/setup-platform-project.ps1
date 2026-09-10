@@ -274,6 +274,3 @@ Write-Host "  toolkit      $Toolkit"
 if (-not $SkipToolkit) {
     Write-Host '  activate     .\.venv\Scripts\Activate.ps1'
 }
-if (-not $SkipToolkit) {
-    Write-Host '  then         telemetry-tui'
-}

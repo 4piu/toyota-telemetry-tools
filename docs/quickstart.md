@@ -38,18 +38,15 @@ Normalized catalog rows and immutable captures also stay under `scratch/`.
 ```powershell
 telemetry catalog import --catalog-rows scratch/catalog-rows.json
 telemetry capture inspect
-telemetry-tui
 telemetry plan
 telemetry export
 ```
 
 `catalog import` and `cache rebuild` reconstruct the disposable SQLite cache.
-`telemetry-tui` opens the standalone offline-first operator application;
-merely opening or navigating it never starts a process. Curation in the TUI
-records human facts and collection objectives. `plan` compiles policy and prior evidence
-into a hashed admitted plan without opening an adapter. `export` creates one
-privacy-minimized result generation from source authorities and all valid
-captures.
+Tracked signal review and collection policy record human facts and objectives.
+`plan` compiles policy and prior evidence into a hashed admitted plan without
+opening an adapter. `export` creates one privacy-minimized result generation
+from source authorities and all valid captures.
 
 An empty policy is valid but cannot authorize collection. Missing reviewed
 cost, safety, decode, or applicability facts also block admission.
@@ -79,12 +76,10 @@ facts — it never authors a collection objective.
 Both commands' results are provisional SQLite facts with no durable source:
 `telemetry cache rebuild` does not repopulate them, so re-run either command
 after a rebuild if you still need the facts. Promoting a responding discovery
-candidate into a tracked confirmed endpoint is the separate `[t] endpoint
-curation` action in `telemetry-tui`. The operator supplies ECU keys and tracked
-provenance, reviews the resulting endpoint, and types `SAVE` before the TUI
-atomically writes `config/transport.json`; there is no CLI shortcut that
-constructs a new session or dynamic-DID definition, matching the read-only,
-reviewed-bytes-only safety boundary.
+candidate is a separate reviewed curation operation over the
+`promote_confirmed_endpoint` library service. There is no CLI shortcut that
+constructs a new session or dynamic-DID definition; discovery itself never
+writes `config/transport.json`.
 
 The probe parent derives a finite wall-clock deadline from the tracked initial
 response and response-pending budgets plus a three-second process margin. It
@@ -105,5 +100,4 @@ private adapter worker. Python owns scheduling, decoding, objective feedback,
 capture rotation, heartbeat, and stop; C# owns only adapter, CAN, ISO-TP, and
 session lifetime.
 
-Use `telemetry-tui` for a glanceable status and one stop path. Do not
-operate a computer while driving; use a passenger or unattended logger.
+Do not operate a computer while driving; use a passenger or unattended logger.

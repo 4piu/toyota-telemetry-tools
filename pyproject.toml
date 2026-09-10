@@ -8,7 +8,6 @@ dependencies = []
 
 [project.scripts]
 telemetry = "toyota_telemetry.cli:main"
-telemetry-tui = "toyota_telemetry.tui:main"
 
 [build-system]
 requires = ["hatchling"]

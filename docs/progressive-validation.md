@@ -19,12 +19,12 @@ telemetry capture inspect
 
 ## Define objective-specific completion
 
-Use `telemetry-tui` to curate acquisitions and describe what evidence a
-signal actually needs. Available counters cover total or changed observations,
-distinct values, transitions, required states, applicable duration, elapsed
-span, and distinct reviewed runs. Continuous change objectives require a
-reviewed deadband. Structured applicability can depend on other collected
-signals and has explicit true, false, and unknown states.
+Curate acquisitions and describe what evidence a signal actually needs in the
+tracked collection policy. Available counters cover total or changed
+observations, distinct values, transitions, required states, applicable
+duration, elapsed span, and distinct reviewed runs. Continuous change
+objectives require a reviewed deadband. Structured applicability can depend on
+other collected signals and has explicit true, false, and unknown states.
 
 Descriptive or slow-changing values need not vary to earn the counters their
 objective declares. Dynamic values do not complete merely by repeating a flat
@@ -72,7 +72,6 @@ idempotent stop request.
 ## Review evidence and export
 
 ```powershell
-telemetry-tui
 telemetry export
 ```
 

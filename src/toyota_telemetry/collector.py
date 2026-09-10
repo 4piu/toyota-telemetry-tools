@@ -491,7 +491,7 @@ def load_verified_plan(path: Path, repository: Any) -> tuple[dict[str, Any], byt
 
 
 def parse_public_event(line: str) -> dict[str, Any]:
-    """Validate the exact JSONL contract consumed by the future TUI."""
+    """Validate the exact public JSONL event contract."""
 
     try:
         event = json.loads(line)

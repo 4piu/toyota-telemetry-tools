@@ -16,6 +16,10 @@ not a pin: it moves under you.
 
 ### Breaking
 
+- The unpublished `telemetry-tui` prompt prototype and console entry point are
+  removed. The toolkit retains only the `telemetry` executable surface while a
+  separate cross-platform desktop operator application is designed over
+  library services. There is no compatibility alias.
 - The private worker protocol's `exchange` command now names a
   `transaction_id` instead of resupplying `request_hex`; the worker resolves
   the identifier against its own immutable launch-time transaction table
@@ -49,8 +53,8 @@ not a pin: it moves under you.
   `config/transport.json` through the existing authored-document writer.
 - Discovery candidate IDs now include the session recipe and are also the
   eventual promoted endpoint IDs, preserving identity and preflight cost facts
-  across curation. `telemetry-tui` exposes the explicit endpoint-promotion
-  action.
+  across curation. The endpoint-promotion library service remains the explicit
+  tracked review boundary.
 - DID preflight canonicalizes and enforces the tracked project DID range,
   correlates worker results with the requested candidate/backend, carries
   `tolerate_negative` into the probe worker, supplies positive latency/response
