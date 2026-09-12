@@ -81,10 +81,50 @@ request through the built-in, vehicle-agnostic telemetry guard before
 transmission. The collector/worker integration is covered by synthetic offline
 tests. It has not yet been exercised on a vehicle.
 
-A cross-platform desktop operator application is planned over the toolkit's
-library services. Until it is implemented, `telemetry` is the executable
-surface and tracked curation remains an explicit development workflow in the
-vehicle project.
+## Desktop prototype
+
+The optional cross-platform PySide6 operator application has a Foundation
+prototype. Install the GUI extra and launch it without a project:
+
+```powershell
+uv sync --extra gui
+uv run --extra gui telemetry-ui
+```
+
+An existing project path may be supplied as the positional argument. The
+prototype remains entirely offline: it establishes the final shell and
+navigation, validates only that a selected directory contains
+`telemetry-project.toml`, demonstrates a virtual 10,000-row signal table, and
+reduces a synthetic million-point series to a viewport-bounded PyQtGraph view.
+It does not load project authorities, open an adapter, plan, edit, or collect.
+Those workflows are added in the gated slices documented by the workspace
+operator-UI specification.
+
+The default install remains dependency-free and `telemetry` remains the
+headless/automation interface. Importing the core package does not import Qt,
+NumPy, or PyQtGraph.
+
+Windows packaging is a separate development operation so compiler/deployment
+tools do not enter either runtime dependency set. The tested prototype command
+uses Nuitka directly because `pyside6-deploy` persists environment-specific
+paths in its generated spec and does not forward PyQtGraph's dynamically
+imported Qt modules reliably across isolated environments:
+
+```powershell
+uv run --isolated --python 3.13 --extra gui --group package python -m nuitka `
+  src/toyota_telemetry/ui/app.py --enable-plugin=pyside6 --standalone `
+  --assume-yes-for-downloads --noinclude-qt-translations `
+  --include-qt-plugins=platforminputcontexts `
+  --include-module=PySide6.QtOpenGL `
+  --include-module=PySide6.QtOpenGLWidgets `
+  --windows-console-mode=force --output-dir=scratch/operator-bundle `
+  --output-filename=telemetry-ui-prototype.exe
+```
+
+The isolated Python 3.13 environment is intentional: current Nuitka 2.8 does
+not compile against Python 3.14's changed internal garbage-collector layout.
+This packaging constraint does not limit the installed application or core
+toolkit, which are tested on Python 3.14.
 
 ## Guides
 

@@ -33,6 +33,14 @@ not a pin: it moves under you.
 
 ### Added
 
+- Added the optional `gui` dependency extra and `telemetry-ui` Foundation
+  prototype. It starts offline with no project or adapter, establishes the
+  PySide6 shell/navigation/inspector/status regions, exercises a virtual
+  10,000-row signal table, and renders a synthetic million-point evidence
+  source only after viewport-bounded first/minimum/maximum/last reduction.
+  Latest-generation background jobs cancel superseded work and prevent stale
+  results from repainting. Core installation and `telemetry` remain free of
+  GUI imports and dependencies.
 - `telemetry discover endpoints` and `telemetry preflight dids`: explicitly
   live, bounded commands completing the accepted Phase-F preparation
   workflow. Discovery probes operator-named candidate tester/response CAN ID

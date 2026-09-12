@@ -6,8 +6,28 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+gui = [
+    "numpy>=2.3,<3",
+    "pyqtgraph>=0.14,<1",
+    "pyside6>=6.10,<7",
+]
+
 [project.scripts]
 telemetry = "toyota_telemetry.cli:main"
+telemetry-ui = "toyota_telemetry.ui.app:main"
+
+[dependency-groups]
+package = [
+    "nuitka>=2.8,<3",
+    "ordered-set>=4.1,<5",
+    "pip>=25,<27",
+    "zstandard>=0.23,<1",
+]
+test = [
+    "pytest>=8.4,<10",
+    "pytest-qt>=4.5,<5",
+]
 
 [build-system]
 requires = ["hatchling"]
