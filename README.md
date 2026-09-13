@@ -83,8 +83,8 @@ tests. It has not yet been exercised on a vehicle.
 
 ## Desktop prototype
 
-The optional cross-platform PySide6 operator application has a Foundation
-prototype. Install the GUI extra and launch it without a project:
+The optional cross-platform PySide6 operator application has an offline
+interaction prototype. Install the GUI extra and launch it without a project:
 
 ```powershell
 uv sync --extra gui
@@ -92,13 +92,16 @@ uv run --extra gui telemetry-ui
 ```
 
 An existing project path may be supplied as the positional argument. The
-prototype remains entirely offline: it establishes the final shell and
-navigation, validates only that a selected directory contains
-`telemetry-project.toml`, demonstrates a virtual 10,000-row signal table, and
-reduces a synthetic million-point series to a viewport-bounded PyQtGraph view.
-It does not load project authorities, open an adapter, plan, edit, or collect.
-Those workflows are added in the gated slices documented by the workspace
-operator-UI specification.
+prototype remains entirely offline. It previews readiness cards,
+connector-specific settings, explicit endpoint and DID preparation, grouped
+signals and direct goals, batch editing, plan review, collection monitoring,
+evidence controls, and scheduler replay. Safe local mock interactions work;
+live and project-mutating actions are visibly disabled. The signal table still
+virtualizes 10,000 rows and the evidence page reduces a synthetic million-point
+series to a viewport-bounded PyQtGraph view. The prototype does not load
+project authorities, open an adapter, transmit, save edits, compile a real
+plan, or collect. Those services are added in the gated slices documented by
+the workspace operator-UI specification.
 
 The default install remains dependency-free and `telemetry` remains the
 headless/automation interface. Importing the core package does not import Qt,

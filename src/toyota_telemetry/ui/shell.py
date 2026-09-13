@@ -19,7 +19,15 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .pages import EvidencePrototypePage, HomePage, PlaceholderPage, SignalPrototypePage
+from .pages import (
+    CollectPrototypePage,
+    CuratePrototypePage,
+    EvidencePrototypePage,
+    HomePage,
+    PlanPrototypePage,
+    PreparePrototypePage,
+    ReplayPrototypePage,
+)
 
 
 class OperatorWindow(QMainWindow):
@@ -45,12 +53,12 @@ class OperatorWindow(QMainWindow):
 
         self.pages = QStackedWidget()
         self.home_page = HomePage()
-        self.prepare_page = PlaceholderPage("Prepare")
-        self.curate_page = SignalPrototypePage()
-        self.plan_page = PlaceholderPage("Plan")
-        self.collect_page = PlaceholderPage("Collect")
+        self.prepare_page = PreparePrototypePage()
+        self.curate_page = CuratePrototypePage()
+        self.plan_page = PlanPrototypePage()
+        self.collect_page = CollectPrototypePage()
         self.evidence_page = EvidencePrototypePage()
-        self.replay_page = PlaceholderPage("Replay")
+        self.replay_page = ReplayPrototypePage()
         for page in (
             self.home_page,
             self.prepare_page,
@@ -73,8 +81,8 @@ class OperatorWindow(QMainWindow):
         title_font.setBold(True)
         self.inspector_title.setFont(title_font)
         self.inspector_body = QLabel(
-            "The Foundation prototype is offline. Select Curate or Evidence to exercise "
-            "large-data presentation boundaries."
+            "This prototype is fully offline. It previews the intended controls and "
+            "information architecture without loading or changing project authority."
         )
         self.inspector_body.setWordWrap(True)
         inspector_layout.addWidget(self.inspector_title)
@@ -94,6 +102,7 @@ class OperatorWindow(QMainWindow):
         self.navigation.currentRowChanged.connect(self._navigate)
         self.navigation.setCurrentRow(0)
         self.home_page.choose_project.connect(self.choose_project)
+        self.home_page.navigate_requested.connect(self.navigation.setCurrentRow)
         self._build_actions()
         self._build_status_bar()
 
@@ -154,7 +163,7 @@ class OperatorWindow(QMainWindow):
         self.project_status.setText(resolved.name)
         self.setWindowTitle(f"Telemetry Operator — {resolved.name}")
         self.statusBar().showMessage(
-            "Project marker found. Full readiness loading is part of the next slice.", 6000
+            "Project marker found. Preview data remains synthetic; project loading is not implemented.", 6000
         )
         return True
 
@@ -164,21 +173,16 @@ class OperatorWindow(QMainWindow):
         self.pages.setCurrentIndex(row)
         name = self.NAVIGATION[row]
         self.inspector_title.setText(name)
-        if name == "Curate":
-            self.inspector_body.setText(
-                "Virtual model/view table: 10,000 rows are generated on demand rather than "
-                "copied into widget items."
-            )
-        elif name == "Evidence":
-            self.inspector_body.setText(
-                "The plot receives at most four ordered representatives per horizontal "
-                "pixel from a synthetic million-point source."
-            )
-        else:
-            self.inspector_body.setText(
-                "This page establishes the final navigation position. Its domain workflow "
-                "is intentionally deferred to a later implementation slice."
-            )
+        descriptions = {
+            "Home": "Readiness cards distinguish evidence, status, and the next action. All counts are examples.",
+            "Prepare": "Connection is machine-local. Endpoint discovery and DID preflight are explicit live operations and stay disabled in this preview.",
+            "Curate": "Signals share acquisition fields by endpoint + DID. Signal meaning and completion goals remain individual.",
+            "Plan": "Building a plan is offline. Review acknowledges one exact validated plan hash; example diagnostics remain visible here.",
+            "Collect": "This glanceable monitor is illustrative only. The adapter remains closed and live controls are disabled.",
+            "Evidence": "The plot receives at most four ordered representatives per horizontal pixel from a synthetic million-point source.",
+            "Replay": "Past decisions are read-only and paired with the immutable settings snapshot captured for that run.",
+        }
+        self.inspector_body.setText(descriptions[name])
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.evidence_page.cancel()

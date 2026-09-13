@@ -33,6 +33,12 @@ not a pin: it moves under you.
 
 ### Added
 
+- Expanded the desktop Foundation into an offline interaction preview covering
+  Home readiness, connector-specific preparation, endpoint/DID candidates,
+  signal curation, linked DID acquisition settings, direct and batch goal
+  editing, plan review, collection monitoring, evidence controls, and replay.
+  Navigation and harmless mock interactions work; live and project-mutating
+  actions remain disabled and clearly labeled.
 - Added the optional `gui` dependency extra and `telemetry-ui` Foundation
   prototype. It starts offline with no project or adapter, establishes the
   PySide6 shell/navigation/inspector/status regions, exercises a virtual
