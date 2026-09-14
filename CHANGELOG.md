@@ -38,12 +38,15 @@ not a pin: it moves under you.
   and Analyze recordings. Connector setup no longer contains endpoint/DID
   work; source selection and hierarchical verification are explicit; target
   controls separate definition, completion requirements, and recorded
-  progress; collection readiness replaces a top-level Plan page; and scheduler
-  replay is an advanced run diagnostic. Navigation and harmless mock
-  interactions work while live and project-mutating actions remain disabled.
+  progress; and collection readiness replaces a top-level Plan page. Inclusion
+  is directly checkable in the grouped tree, technical threshold jargon
+  are replaced by an explicit threshold sentence, the unused global inspector
+  is removed, and deferred source/diagnostic placeholders are absent.
+  Navigation and harmless mock interactions work while live and
+  project-mutating actions remain disabled.
 - Added the optional `gui` dependency extra and `telemetry-ui` Foundation
   prototype. It starts offline with no project or adapter, establishes the
-  PySide6 shell/navigation/inspector/status regions, exercises a virtual
+  PySide6 shell/navigation/status regions, exercises a virtual
   10,000-row signal table, and renders a synthetic million-point evidence
   source only after viewport-bounded first/minimum/maximum/last reduction.
   Latest-generation background jobs cancel superseded work and prevent stale

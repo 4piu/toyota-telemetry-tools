@@ -95,10 +95,10 @@ An existing project path may be supplied as the positional argument. The
 prototype remains entirely offline. Its second workflow draft uses the task
 destinations Overview, Connect hardware, Build signal list, Verify with
 vehicle, Set collection targets, Collect data, and Analyze recordings. It
-previews TIS/file/future-J2534 source selection, hierarchical endpoint/DID
-verification, visually grouped DID signals, direct completion requirements,
-automatic collection readiness, overall run progress, bounded evidence, and
-advanced scheduling diagnostics. Safe local mock interactions work; live and
+previews TIS-database/file source selection, hierarchical endpoint/DID
+verification, visually grouped DID signals with inclusion checkboxes, direct
+completion requirements, automatic collection readiness, overall run progress,
+bounded evidence, and run/segment details. Safe local mock interactions work; live and
 project-mutating actions are visibly disabled. The candidate table still
 virtualizes 10,000 rows and analysis reduces a synthetic million-point series
 to a viewport-bounded PyQtGraph view. The prototype does not load project

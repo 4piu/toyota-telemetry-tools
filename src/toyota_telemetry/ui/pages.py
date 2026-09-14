@@ -146,7 +146,7 @@ class OverviewPage(QWidget):
             )
         else:
             self.project_label.setText(
-                f"{path.name} | {path} | Profile loading deferred | Adapter closed"
+                f"{path.name} | {path} | Profile: example | Adapter closed"
             )
 
 
@@ -214,7 +214,7 @@ class BuildSignalListPage(QWidget):
 
         source_row = QHBoxLayout()
         self.source = QComboBox()
-        self.source.addItems(("TIS database", "Normalized file", "J2534 / Techstream dump (future)"))
+        self.source.addItems(("TIS database", "Normalized file"))
         source_row.addWidget(QLabel("Source"))
         source_row.addWidget(self.source)
         source_row.addStretch(1)
@@ -242,14 +242,6 @@ class BuildSignalListPage(QWidget):
         file_form.addRow("File", candidate_file)
         self.source_settings.addWidget(normalized)
 
-        future = QGroupBox("Future source")
-        future_layout = QVBoxLayout(future)
-        future_layout.addWidget(
-            QLabel(
-                "J2534 parsing utilities exist, but the reviewed candidate-source contract is not implemented."
-            )
-        )
-        self.source_settings.addWidget(future)
         self.source.currentIndexChanged.connect(self.source_settings.setCurrentIndex)
         layout.addWidget(self.source_settings)
 
@@ -379,11 +371,11 @@ class CollectionTargetsPage(QWidget):
 
         splitter = QSplitter()
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(("Endpoint / DID / signal", "Support", "Target", "Recorded progress"))
+        self.tree.setHeaderLabels(("Include / endpoint / DID / signal", "Support", "Target", "Recorded progress"))
         groups = (
             (
                 "Powertrain / DID 0xF40D",
-                "Linked: 1 s target / 5 s maximum",
+                "1 s target / 5 s maximum",
                 (
                     ("Coolant temperature", "Supported", "Samples + elapsed span", "12 runs / 6 min remaining"),
                     ("Coolant validity", "Supported", "Required states", "2 of 3 states"),
@@ -391,7 +383,7 @@ class CollectionTargetsPage(QWidget):
             ),
             (
                 "Hybrid control / DID 0xF421",
-                "Linked: 100 ms target / 250 ms maximum",
+                "100 ms target / 250 ms maximum",
                 (
                     ("Wheel speed FL", "Supported", "Meaningful changes", "82% complete"),
                     ("Wheel speed FR", "Supported", "Meaningful changes", "79% complete"),
@@ -403,55 +395,68 @@ class CollectionTargetsPage(QWidget):
         group_brush = self.palette().brush(QPalette.ColorRole.AlternateBase)
         for identity, shared, signals in groups:
             parent = QTreeWidgetItem((identity, "Verified", shared, "DID baseline available"))
+            parent.setFlags(
+                parent.flags()
+                | Qt.ItemFlag.ItemIsUserCheckable
+                | Qt.ItemFlag.ItemIsAutoTristate
+            )
+            parent.setCheckState(0, Qt.CheckState.Checked)
             parent.setToolTip(2, "Shared by all signals read from this endpoint and DID")
             for column in range(self.tree.columnCount()):
                 parent.setBackground(column, group_brush)
             self.tree.addTopLevelItem(parent)
             for signal in signals:
-                parent.addChild(QTreeWidgetItem(signal))
+                child = QTreeWidgetItem(signal)
+                child.setFlags(child.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                child.setCheckState(0, Qt.CheckState.Checked)
+                parent.addChild(child)
             parent.setExpanded(True)
         self.tree.resizeColumnToContents(0)
         self.tree.resizeColumnToContents(2)
         splitter.addWidget(self.tree)
 
-        inspector = QWidget()
-        inspector_layout = QVBoxLayout(inspector)
+        details = QWidget()
+        details.setMinimumWidth(420)
+        details_layout = QVBoxLayout(details)
         definition = QGroupBox("Signal definition")
         definition_form = QFormLayout(definition)
         definition_form.addRow("Signal", QLabel("Wheel speed FL"))
         definition_form.addRow("Field", QLabel("bits 0..15, unsigned big-endian"))
         definition_form.addRow("Unit / formula", QLabel("km/h | raw * 0.01"))
         definition_form.addRow("Support / source", QLabel("Verified | TIS + vehicle baseline"))
-        inspector_layout.addWidget(definition)
+        details_layout.addWidget(definition)
 
         target = QGroupBox("Collection target")
         target_form = QFormLayout(target)
-        included = QCheckBox("Include in collection")
-        included.setChecked(True)
-        target_form.addRow("Enabled", included)
         condition = QComboBox()
         condition.addItems(("Always", "Vehicle moving", "ICE running", "Custom condition..."))
         condition.setCurrentText("Vehicle moving")
         target_form.addRow("Collect when", condition)
         target_form.addRow("Minimum samples", _spin(500))
-        target_form.addRow("Minimum meaningful changes", _spin(120))
-        target_form.addRow("Change deadband", _spin(1, " km/h"))
+        target_form.addRow("Minimum changes", _spin(120))
+        change_help = QLabel(
+            "A change counts when consecutive decoded values differ by at least "
+            "the minimum difference below."
+        )
+        change_help.setWordWrap(True)
+        target_form.addRow(change_help)
+        target_form.addRow("Minimum difference", _spin(1, " km/h"))
         shared_target = _spin(100, " ms")
         shared_target.setToolTip("Shared by all signals read from this endpoint and DID")
-        target_form.addRow("Linked  DID target interval", shared_target)
+        target_form.addRow("DID target interval", shared_target)
         shared_maximum = _spin(250, " ms")
         shared_maximum.setToolTip("Shared by all signals read from this endpoint and DID")
-        target_form.addRow("Linked  DID maximum interval", shared_maximum)
-        inspector_layout.addWidget(target)
+        target_form.addRow("DID maximum interval", shared_maximum)
+        details_layout.addWidget(target)
 
         progress = QGroupBox("Recorded progress")
         progress_form = QFormLayout(progress)
         progress_form.addRow("Valid samples", QLabel("386 / 500"))
-        progress_form.addRow("Meaningful changes", QLabel("84 / 120"))
+        progress_form.addRow("Changes", QLabel("84 / 120"))
         progress_form.addRow("Runs", QLabel("8"))
         progress_form.addRow("Last value", QLabel("0.0 km/h, two days ago"))
-        inspector_layout.addWidget(progress)
-        splitter.addWidget(inspector)
+        details_layout.addWidget(progress)
+        splitter.addWidget(details)
         splitter.setSizes((620, 470))
         layout.addWidget(splitter, 1)
         self.feedback = QLabel(
@@ -460,7 +465,7 @@ class CollectionTargetsPage(QWidget):
         layout.addWidget(self.feedback)
         batch.clicked.connect(
             lambda: self.feedback.setText(
-                "Batch preview: 6 signals, 3 unique DIDs, 4 unselected siblings affected by linked intervals."
+                "Batch preview: 6 signals, 3 unique DIDs, 4 unselected siblings affected by shared intervals."
             )
         )
         save = QPushButton("Save signal review and collection targets")
@@ -689,21 +694,17 @@ class AnalyzeRecordingsPage(QWidget):
         summary_form.addRow("Settings snapshot", QLabel("PCAN_USBBUS1 | 48 DIDs | immutable"))
         summary_form.addRow("Compiled hash", QLabel("4a51...c9e2 (example)"))
         layout.addWidget(summary)
-        diagnostics = QGroupBox("Why was this sampled? (advanced scheduling diagnostics)")
-        diagnostics.setCheckable(True)
-        diagnostics.setChecked(False)
-        diagnostics_layout = QVBoxLayout(diagnostics)
-        diagnostics_layout.addWidget(
+        layout.addWidget(
             _table(
-                ("Time", "DID", "Decision", "Reason", "Remaining", "Outcome"),
+                ("Segment", "Samples", "Valid", "Errors", "Storage"),
                 (
-                    ("00:00.100", "F421", "Selected", "Maximum interval due", "36 changes", "Positive"),
-                    ("00:00.124", "F40D", "Deferred", "Not due for 876 ms", "6 min", "-"),
-                    ("00:00.148", "F423", "Selected", "Required state still unseen", "3 states", "Timeout"),
+                    ("1", "18,442", "18,401", "41", "7.8 MiB"),
+                    ("2", "19,106", "19,072", "34", "8.0 MiB"),
+                    ("3", "9,821", "9,814", "7", "4.2 MiB"),
                 ),
-            )
+            ),
+            1,
         )
-        layout.addWidget(diagnostics, 1)
         return page
 
     def cancel(self) -> None:

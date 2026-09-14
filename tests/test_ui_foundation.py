@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 
-from PySide6.QtCore import QThreadPool
+from PySide6.QtCore import QThreadPool, Qt
 from PySide6.QtWidgets import QPushButton
 
 from toyota_telemetry.ui.shell import OperatorWindow
@@ -19,6 +19,8 @@ def test_shell_starts_offline_without_project_or_adapter(qtbot) -> None:
     assert window.transport_status.text() == "Offline"
     assert window.adapter_status.text() == "Adapter closed"
     assert window.signal_list_page.model.rowCount() == 10_000
+    assert window._splitter.count() == 2
+    assert window.signal_list_page.source.count() == 2
     assert [window.navigation.item(row).text() for row in range(7)] == [
         "Overview",
         "Connect hardware",
@@ -67,6 +69,11 @@ def test_target_and_verification_views_group_by_endpoint_and_did(qtbot) -> None:
     assert window.verify_page.tree.topLevelItem(0).childCount() == 3
     assert window.targets_page.tree.topLevelItemCount() == 2
     assert window.targets_page.tree.topLevelItem(1).childCount() == 4
+    assert window.targets_page.tree.topLevelItem(1).checkState(0) == Qt.CheckState.Checked
+    assert (
+        window.targets_page.tree.topLevelItem(1).child(0).checkState(0)
+        == Qt.CheckState.Checked
+    )
 
 
 def test_vehicle_and_project_mutating_preview_actions_are_disabled(qtbot) -> None:

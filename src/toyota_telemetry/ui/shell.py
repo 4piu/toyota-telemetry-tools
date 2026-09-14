@@ -8,7 +8,6 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFileDialog,
-    QFrame,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -16,7 +15,6 @@ from PySide6.QtWidgets import (
     QSplitter,
     QStackedWidget,
     QStatusBar,
-    QVBoxLayout,
 )
 
 from .pages import (
@@ -78,31 +76,11 @@ class OperatorWindow(QMainWindow):
         ):
             self.pages.addWidget(page)
 
-        inspector = QFrame()
-        inspector.setObjectName("inspector")
-        inspector.setFrameShape(QFrame.Shape.StyledPanel)
-        inspector.setMinimumWidth(220)
-        inspector.setMaximumWidth(360)
-        inspector_layout = QVBoxLayout(inspector)
-        self.inspector_title = QLabel("Overview")
-        title_font = self.inspector_title.font()
-        title_font.setBold(True)
-        self.inspector_title.setFont(title_font)
-        self.inspector_body = QLabel(
-            "This prototype is fully offline. It previews the intended controls and "
-            "information architecture without loading or changing project authority."
-        )
-        self.inspector_body.setWordWrap(True)
-        inspector_layout.addWidget(self.inspector_title)
-        inspector_layout.addWidget(self.inspector_body)
-        inspector_layout.addStretch(1)
-
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setObjectName("main-splitter")
         splitter.addWidget(self.navigation)
         splitter.addWidget(self.pages)
-        splitter.addWidget(inspector)
-        splitter.setSizes([180, 970, 290])
+        splitter.setSizes([180, 1260])
         splitter.setStretchFactor(1, 1)
         self._splitter = splitter
         self.setCentralWidget(splitter)
@@ -179,18 +157,6 @@ class OperatorWindow(QMainWindow):
         if not 0 <= row < self.pages.count():
             return
         self.pages.setCurrentIndex(row)
-        name = self.NAVIGATION[row]
-        self.inspector_title.setText(name)
-        descriptions = {
-            "Overview": "Readiness cards distinguish evidence, status, and the next action. All counts are examples.",
-            "Connect hardware": "Only machine-local connector settings belong here. Vehicle endpoints and DIDs are verified later.",
-            "Build signal list": "Source adapters normalize TIS, file, or future log input into one provisional inventory with provenance.",
-            "Verify with vehicle": "A finite live job probes each required endpoint before preflighting its selected DIDs.",
-            "Set collection targets": "DID acquisition settings are linked. Signal definitions, completion requirements, and recorded progress are visually separate.",
-            "Collect data": "Readiness compilation is automatic. Scheduler detail stays collapsed while overall progress and safe stop remain prominent.",
-            "Analyze recordings": "All valid runs are visible by default. Advanced run detail can explain past scheduler decisions when needed.",
-        }
-        self.inspector_body.setText(descriptions[name])
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.analyze_page.cancel()
