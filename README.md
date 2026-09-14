@@ -92,15 +92,18 @@ uv run --extra gui telemetry-ui
 ```
 
 An existing project path may be supplied as the positional argument. The
-prototype remains entirely offline. It previews readiness cards,
-connector-specific settings, explicit endpoint and DID preparation, grouped
-signals and direct goals, batch editing, plan review, collection monitoring,
-evidence controls, and scheduler replay. Safe local mock interactions work;
-live and project-mutating actions are visibly disabled. The signal table still
-virtualizes 10,000 rows and the evidence page reduces a synthetic million-point
-series to a viewport-bounded PyQtGraph view. The prototype does not load
-project authorities, open an adapter, transmit, save edits, compile a real
-plan, or collect. Those services are added in the gated slices documented by
+prototype remains entirely offline. Its second workflow draft uses the task
+destinations Overview, Connect hardware, Build signal list, Verify with
+vehicle, Set collection targets, Collect data, and Analyze recordings. It
+previews TIS/file/future-J2534 source selection, hierarchical endpoint/DID
+verification, visually grouped DID signals, direct completion requirements,
+automatic collection readiness, overall run progress, bounded evidence, and
+advanced scheduling diagnostics. Safe local mock interactions work; live and
+project-mutating actions are visibly disabled. The candidate table still
+virtualizes 10,000 rows and analysis reduces a synthetic million-point series
+to a viewport-bounded PyQtGraph view. The prototype does not load project
+authorities, open an adapter, transmit, save edits, compile a real collection
+scope, or collect. Those services are added in the gated slices documented by
 the workspace operator-UI specification.
 
 The default install remains dependency-free and `telemetry` remains the

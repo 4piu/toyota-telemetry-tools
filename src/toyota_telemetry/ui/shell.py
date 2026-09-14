@@ -1,4 +1,4 @@
-"""Stable application shell for the desktop Foundation prototype."""
+"""Stable application shell for the offline desktop workflow prototype."""
 
 from __future__ import annotations
 
@@ -20,18 +20,26 @@ from PySide6.QtWidgets import (
 )
 
 from .pages import (
-    CollectPrototypePage,
-    CuratePrototypePage,
-    EvidencePrototypePage,
-    HomePage,
-    PlanPrototypePage,
-    PreparePrototypePage,
-    ReplayPrototypePage,
+    AnalyzeRecordingsPage,
+    BuildSignalListPage,
+    CollectionTargetsPage,
+    CollectDataPage,
+    ConnectHardwarePage,
+    OverviewPage,
+    VerifyVehiclePage,
 )
 
 
 class OperatorWindow(QMainWindow):
-    NAVIGATION = ("Home", "Prepare", "Curate", "Plan", "Collect", "Evidence", "Replay")
+    NAVIGATION = (
+        "Overview",
+        "Connect hardware",
+        "Build signal list",
+        "Verify with vehicle",
+        "Set collection targets",
+        "Collect data",
+        "Analyze recordings",
+    )
 
     def __init__(self, project_path: Path | None = None, *, restore_settings: bool = True) -> None:
         super().__init__()
@@ -52,21 +60,21 @@ class OperatorWindow(QMainWindow):
             QListWidgetItem(name, self.navigation)
 
         self.pages = QStackedWidget()
-        self.home_page = HomePage()
-        self.prepare_page = PreparePrototypePage()
-        self.curate_page = CuratePrototypePage()
-        self.plan_page = PlanPrototypePage()
-        self.collect_page = CollectPrototypePage()
-        self.evidence_page = EvidencePrototypePage()
-        self.replay_page = ReplayPrototypePage()
+        self.overview_page = OverviewPage()
+        self.connect_page = ConnectHardwarePage()
+        self.signal_list_page = BuildSignalListPage()
+        self.verify_page = VerifyVehiclePage()
+        self.targets_page = CollectionTargetsPage()
+        self.collect_page = CollectDataPage()
+        self.analyze_page = AnalyzeRecordingsPage()
         for page in (
-            self.home_page,
-            self.prepare_page,
-            self.curate_page,
-            self.plan_page,
+            self.overview_page,
+            self.connect_page,
+            self.signal_list_page,
+            self.verify_page,
+            self.targets_page,
             self.collect_page,
-            self.evidence_page,
-            self.replay_page,
+            self.analyze_page,
         ):
             self.pages.addWidget(page)
 
@@ -76,7 +84,7 @@ class OperatorWindow(QMainWindow):
         inspector.setMinimumWidth(220)
         inspector.setMaximumWidth(360)
         inspector_layout = QVBoxLayout(inspector)
-        self.inspector_title = QLabel("Home")
+        self.inspector_title = QLabel("Overview")
         title_font = self.inspector_title.font()
         title_font.setBold(True)
         self.inspector_title.setFont(title_font)
@@ -101,8 +109,8 @@ class OperatorWindow(QMainWindow):
 
         self.navigation.currentRowChanged.connect(self._navigate)
         self.navigation.setCurrentRow(0)
-        self.home_page.choose_project.connect(self.choose_project)
-        self.home_page.navigate_requested.connect(self.navigation.setCurrentRow)
+        self.overview_page.choose_project.connect(self.choose_project)
+        self.overview_page.navigate_requested.connect(self.navigation.setCurrentRow)
         self._build_actions()
         self._build_status_bar()
 
@@ -159,7 +167,7 @@ class OperatorWindow(QMainWindow):
             )
             return False
         self._project_path = resolved
-        self.home_page.set_project(resolved)
+        self.overview_page.set_project(resolved)
         self.project_status.setText(resolved.name)
         self.setWindowTitle(f"Telemetry Operator — {resolved.name}")
         self.statusBar().showMessage(
@@ -174,18 +182,18 @@ class OperatorWindow(QMainWindow):
         name = self.NAVIGATION[row]
         self.inspector_title.setText(name)
         descriptions = {
-            "Home": "Readiness cards distinguish evidence, status, and the next action. All counts are examples.",
-            "Prepare": "Connection is machine-local. Endpoint discovery and DID preflight are explicit live operations and stay disabled in this preview.",
-            "Curate": "Signals share acquisition fields by endpoint + DID. Signal meaning and completion goals remain individual.",
-            "Plan": "Building a plan is offline. Review acknowledges one exact validated plan hash; example diagnostics remain visible here.",
-            "Collect": "This glanceable monitor is illustrative only. The adapter remains closed and live controls are disabled.",
-            "Evidence": "The plot receives at most four ordered representatives per horizontal pixel from a synthetic million-point source.",
-            "Replay": "Past decisions are read-only and paired with the immutable settings snapshot captured for that run.",
+            "Overview": "Readiness cards distinguish evidence, status, and the next action. All counts are examples.",
+            "Connect hardware": "Only machine-local connector settings belong here. Vehicle endpoints and DIDs are verified later.",
+            "Build signal list": "Source adapters normalize TIS, file, or future log input into one provisional inventory with provenance.",
+            "Verify with vehicle": "A finite live job probes each required endpoint before preflighting its selected DIDs.",
+            "Set collection targets": "DID acquisition settings are linked. Signal definitions, completion requirements, and recorded progress are visually separate.",
+            "Collect data": "Readiness compilation is automatic. Scheduler detail stays collapsed while overall progress and safe stop remain prominent.",
+            "Analyze recordings": "All valid runs are visible by default. Advanced run detail can explain past scheduler decisions when needed.",
         }
         self.inspector_body.setText(descriptions[name])
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self.evidence_page.cancel()
+        self.analyze_page.cancel()
         if self._restore_settings:
             self._settings.setValue("window/geometry", self.saveGeometry())
             self._settings.setValue("window/splitter", self._splitter.saveState())

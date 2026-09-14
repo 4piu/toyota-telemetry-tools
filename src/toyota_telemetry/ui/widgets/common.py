@@ -32,7 +32,7 @@ def page_title(title: str, subtitle: str) -> QWidget:
 
 
 class ReadinessCard(QFrame):
-    """Compact status/evidence/action card for the Home dashboard."""
+    """Compact status/evidence/action card for the Overview dashboard."""
 
     def __init__(self, title: str, status: str, evidence: str, action: str) -> None:
         super().__init__()

@@ -7,16 +7,15 @@ from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 
 class SyntheticSignalModel(QAbstractTableModel):
     COLUMNS = (
-        "Signal",
+        "Source",
         "ECU",
         "Endpoint",
-        "DID group",
+        "DID",
+        "Signal",
         "Bits",
-        "Review",
-        "Evidence",
-        "Goal",
-        "Target cadence",
-        "Samples",
+        "Unit",
+        "Decode candidate",
+        "Import status",
     )
 
     def __init__(self, rows: int = 10_000) -> None:
@@ -62,17 +61,15 @@ class SyntheticSignalModel(QAbstractTableModel):
         endpoint = row // 768
         did = 0x1000 + row // 4
         bit_start = (row % 4) * 8
-        cadence = (100, 250, 500, 1_000)[(row // 4) % 4]
         values: tuple[str | int, ...] = (
-            f"Prototype signal {row + 1:05d}",
+            ("TIS database", "Normalized file")[row % 2],
             ("Powertrain", "Hybrid control", "Body", "Chassis")[endpoint % 4],
             f"endpoint-{endpoint + 1:02d}",
             f"0x{did:04X}",
+            f"Candidate signal {row + 1:05d}",
             f"{bit_start}..{bit_start + 7}",
-            ("Needs review", "Reviewed", "Observed")[row % 3],
-            ("No runs", "2 runs", "12 runs", "Complete")[row % 4],
-            ("None", "Snapshot", "Slow trend", "Fast-changing")[row % 4],
-            f"Linked  {cadence} ms",
-            (row * 37) % 20_000,
+            ("rpm", "km/h", "C", "%")[row % 4],
+            ("raw", "raw * 0.01", "raw - 40", "bit")[row % 4],
+            ("New", "Matches existing", "Needs review")[row % 3],
         )
         return values[column]

@@ -33,12 +33,14 @@ not a pin: it moves under you.
 
 ### Added
 
-- Expanded the desktop Foundation into an offline interaction preview covering
-  Home readiness, connector-specific preparation, endpoint/DID candidates,
-  signal curation, linked DID acquisition settings, direct and batch goal
-  editing, plan review, collection monitoring, evidence controls, and replay.
-  Navigation and harmless mock interactions work; live and project-mutating
-  actions remain disabled and clearly labeled.
+- Reworked the offline interaction preview around user tasks: Connect hardware,
+  Build signal list, Verify with vehicle, Set collection targets, Collect data,
+  and Analyze recordings. Connector setup no longer contains endpoint/DID
+  work; source selection and hierarchical verification are explicit; target
+  controls separate definition, completion requirements, and recorded
+  progress; collection readiness replaces a top-level Plan page; and scheduler
+  replay is an advanced run diagnostic. Navigation and harmless mock
+  interactions work while live and project-mutating actions remain disabled.
 - Added the optional `gui` dependency extra and `telemetry-ui` Foundation
   prototype. It starts offline with no project or adapter, establishes the
   PySide6 shell/navigation/inspector/status regions, exercises a virtual

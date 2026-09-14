@@ -18,21 +18,32 @@ def test_shell_starts_offline_without_project_or_adapter(qtbot) -> None:
     assert window.navigation.count() == 7
     assert window.transport_status.text() == "Offline"
     assert window.adapter_status.text() == "Adapter closed"
-    assert window.curate_page.model.rowCount() == 10_000
+    assert window.signal_list_page.model.rowCount() == 10_000
+    assert [window.navigation.item(row).text() for row in range(7)] == [
+        "Overview",
+        "Connect hardware",
+        "Build signal list",
+        "Verify with vehicle",
+        "Set collection targets",
+        "Collect data",
+        "Analyze recordings",
+    ]
 
 
 def test_evidence_plot_receives_bounded_million_point_result(qtbot) -> None:
     window = OperatorWindow(restore_settings=False)
     qtbot.addWidget(window)
     window.show()
-    window.navigation.setCurrentRow(5)
+    window.navigation.setCurrentRow(6)
+
+    evidence = window.analyze_page.evidence_view
 
     qtbot.waitUntil(
-        lambda: "1,000,000 source points" in window.evidence_page.status.text(),
+        lambda: "1,000,000 source points" in evidence.status.text(),
         timeout=10_000,
     )
-    assert window.evidence_page.plot.rendered_points <= 8_000
-    assert "1,000,000 source points" in window.evidence_page.status.text()
+    assert evidence.plot.rendered_points <= 8_000
+    assert "1,000,000 source points" in evidence.status.text()
 
 
 def test_preview_navigation_and_connector_controls_are_interactive(qtbot) -> None:
@@ -40,12 +51,22 @@ def test_preview_navigation_and_connector_controls_are_interactive(qtbot) -> Non
     qtbot.addWidget(window)
     window.show()
 
-    window.home_page.cards[0].action.click()
+    window.overview_page.cards[0].action.click()
     assert window.navigation.currentRow() == 1
-    assert window.pages.currentWidget() is window.prepare_page
+    assert window.pages.currentWidget() is window.connect_page
 
-    window.prepare_page.connector.setCurrentText("gs_usb")
-    assert window.prepare_page.connector_settings.currentIndex() == 2
+    window.connect_page.connector.setCurrentText("gs_usb")
+    assert window.connect_page.connector_settings.currentIndex() == 2
+
+
+def test_target_and_verification_views_group_by_endpoint_and_did(qtbot) -> None:
+    window = OperatorWindow(restore_settings=False)
+    qtbot.addWidget(window)
+
+    assert window.verify_page.tree.topLevelItemCount() == 2
+    assert window.verify_page.tree.topLevelItem(0).childCount() == 3
+    assert window.targets_page.tree.topLevelItemCount() == 2
+    assert window.targets_page.tree.topLevelItem(1).childCount() == 4
 
 
 def test_vehicle_and_project_mutating_preview_actions_are_disabled(qtbot) -> None:
@@ -57,16 +78,15 @@ def test_vehicle_and_project_mutating_preview_actions_are_disabled(qtbot) -> Non
         for button in window.findChildren(QPushButton)
         if button.text()
         in {
-            "Discover 3 explicit candidates (Live)",
-            "Preflight 3 DIDs (Live)",
-            "Start collection",
+            "Use this candidate list",
+            "Verify 2 endpoints and 4 DIDs (Live)",
+            "Review and start collection",
             "Stop safely",
             "Save local settings",
-            "Save goals",
-            "Finish plan review",
+            "Save signal review and collection targets",
         }
     }
-    assert len(disabled_actions) == 7
+    assert len(disabled_actions) == 6
     assert all(not button.isEnabled() for button in disabled_actions.values())
 
 
