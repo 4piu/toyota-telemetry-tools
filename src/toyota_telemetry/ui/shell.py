@@ -89,6 +89,10 @@ class OperatorWindow(QMainWindow):
         self.navigation.setCurrentRow(0)
         self.overview_page.choose_project.connect(self.choose_project)
         self.overview_page.navigate_requested.connect(self.navigation.setCurrentRow)
+        self.connect_page.connector.currentTextChanged.connect(self._connector_changed)
+        self.collect_page.issue_requested.connect(self._open_readiness_issue)
+        self.verify_page.return_to_collect.connect(self._return_to_collect)
+        self.targets_page.return_to_collect.connect(self._return_to_collect)
         self._build_actions()
         self._build_status_bar()
 
@@ -157,6 +161,25 @@ class OperatorWindow(QMainWindow):
         if not 0 <= row < self.pages.count():
             return
         self.pages.setCurrentIndex(row)
+
+    def _connector_changed(self, name: str) -> None:
+        self.verify_page.set_connector(name)
+        self.overview_page.cards[0].detail.setText(
+            f"{name} selected; example settings not saved or validated"
+        )
+
+    def _open_readiness_issue(self, issue_id: str) -> None:
+        if issue_id in self.verify_page.did_items:
+            self.navigation.setCurrentRow(3)
+            self.verify_page.focus_issue(issue_id)
+        else:
+            self.navigation.setCurrentRow(4)
+            self.targets_page.focus_issue(issue_id)
+
+    def _return_to_collect(self) -> None:
+        self.navigation.setCurrentRow(5)
+        self.verify_page.return_button.setVisible(False)
+        self.targets_page.return_button.setVisible(False)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.analyze_page.cancel()

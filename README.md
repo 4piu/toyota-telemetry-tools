@@ -98,13 +98,22 @@ vehicle, Set collection targets, Collect data, and Analyze recordings. It
 previews TIS-database/file source selection, hierarchical endpoint/DID
 verification, visually grouped DID signals with inclusion checkboxes, direct
 completion requirements, automatic collection readiness, overall run progress,
-bounded evidence, and run/segment details. Safe local mock interactions work; live and
-project-mutating actions are visibly disabled. The candidate table still
-virtualizes 10,000 rows and analysis reduces a synthetic million-point series
+bounded evidence, and run/segment details. Safe local mock interactions work;
+live and project-mutating actions are visibly disabled. A separate performance
+table virtualizes 10,000 rows and analysis reduces a synthetic million-point series
 to a viewport-bounded PyQtGraph view. The prototype does not load project
 authorities, open an adapter, transmit, save edits, compile a real collection
 scope, or collect. Those services are added in the gated slices documented by
 the workspace operator-UI specification.
+
+The mock uses one small labeled example inventory across pages; the virtual
+10,000-row table is a separate performance tab. Preview field checks reject
+missing connector/source input but never claim a driver self-test or file
+parse. Tree selection updates details, example target edits persist in the
+current session, verification scope and filters respond locally, readiness
+problems open the named DID/signal and offer a return action, and recording
+selectors change only synthetic display data. Unsupported mock actions remain
+disabled with explanatory tooltips.
 
 The default install remains dependency-free and `telemetry` remains the
 headless/automation interface. Importing the core package does not import Qt,

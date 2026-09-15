@@ -33,6 +33,14 @@ not a pin: it moves under you.
 
 ### Added
 
+- Made the offline operator mock truthful and coherent after an independent
+  usability pass: one labeled example inventory across pages, required-field
+  preview checks without false validation claims, selection-bound target
+  details and session-local drafts, functional example filters and finite
+  verification checkboxes, direct readiness issue navigation with return path,
+  first-use endpoint/DID help, and synthetic recording selectors that visibly
+  change the plot. Real imports, adapter operations, project saves, and plan
+  compilation remain disconnected.
 - Reworked the offline interaction preview around user tasks: Connect hardware,
   Build signal list, Verify with vehicle, Set collection targets, Collect data,
   and Analyze recordings. Connector setup no longer contains endpoint/DID
