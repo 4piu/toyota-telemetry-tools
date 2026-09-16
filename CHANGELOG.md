@@ -91,6 +91,16 @@ not a pin: it moves under you.
   rebuild`. The generic dynamic-DID guard now validates every complete
   source-DID/position/size tuple.
 
+### Fixed
+
+- Corrected fresh-user defects in the offline operator prototype: minimum-size
+  pages now scroll and dense panes stack; live actions and disabled reasons are
+  explicit; DID-state and target columns are consistent; deep-link selection
+  is visible; the idle run monitor is unambiguous; file fields browse; Help and
+  draft state are visible; and analysis uses the shared example inventory with
+  clock time, units, cursor detail, and a quality overlay. Project creation and
+  vehicle bitrate remain in their existing template and transport authorities.
+
 ## 0.4.0
 
 ### Breaking

@@ -14,14 +14,17 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QFrame,
+    QFileDialog,
     QGridLayout,
     QGroupBox,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QSplitter,
     QStackedWidget,
@@ -38,9 +41,18 @@ from PySide6.QtWidgets import (
 from toyota_telemetry.operator import BoundedSeries, bounded_minmax
 
 from .models import SyntheticSignalModel
-from .mock_data import EXAMPLE_DIDS, EXAMPLE_ENDPOINTS, EXAMPLE_SIGNAL_COUNT, EXAMPLE_TARGETS, READINESS_ISSUES, REQUIRED_DIDS
+from .mock_data import (
+    DID_VERIFICATION_STATES,
+    EXAMPLE_DIDS,
+    EXAMPLE_ENDPOINTS,
+    EXAMPLE_RUNS,
+    EXAMPLE_SIGNAL_COUNT,
+    EXAMPLE_TARGETS,
+    READINESS_ISSUES,
+    REQUIRED_DIDS,
+)
 from .tasks import LatestTaskController
-from .widgets import MetricPlot, ReadinessCard, disable_preview, page_title, preview_notice
+from .widgets import MetricPlot, ReadinessCard, disable_preview, disabled_action, page_title, preview_notice
 
 
 PREVIEW_DISABLED = "Preview only: project services are not connected."
@@ -55,18 +67,54 @@ def _button_row(*buttons: QPushButton) -> QHBoxLayout:
     return row
 
 
-def _table(headers: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> QTableWidget:
+def _table(
+    headers: tuple[str, ...],
+    rows: tuple[tuple[str, ...], ...],
+    *,
+    stretch_column: int | None = None,
+    numeric_columns: tuple[int, ...] = (),
+) -> QTableWidget:
     table = QTableWidget(len(rows), len(headers))
     table.setHorizontalHeaderLabels(headers)
     table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+    _emphasize_selection(table)
     table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
     table.setAlternatingRowColors(True)
     table.verticalHeader().setVisible(False)
     for row_index, row in enumerate(rows):
         for column, value in enumerate(row):
-            table.setItem(row_index, column, QTableWidgetItem(value))
-    table.horizontalHeader().setStretchLastSection(True)
+            item = QTableWidgetItem(value)
+            if column in numeric_columns:
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            table.setItem(row_index, column, item)
+    header = table.horizontalHeader()
+    header.setStretchLastSection(False)
+    header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+    if stretch_column is not None:
+        header.setSectionResizeMode(stretch_column, QHeaderView.ResizeMode.Stretch)
     return table
+
+
+def _path_field(field: QLineEdit, caption: str, *, directory: bool = False) -> QWidget:
+    container = QWidget()
+    row = QHBoxLayout(container)
+    row.setContentsMargins(0, 0, 0, 0)
+    row.addWidget(field, 1)
+    browse = QPushButton("Browse...")
+    browse.setAccessibleName(f"Browse for {caption}")
+
+    def choose() -> None:
+        selected = (
+            QFileDialog.getExistingDirectory(container, caption)
+            if directory
+            else QFileDialog.getOpenFileName(container, caption)[0]
+        )
+        if selected:
+            field.setText(selected)
+
+    browse.clicked.connect(choose)
+    row.addWidget(browse)
+    return container
 
 
 def _spin(value: int, suffix: str = "") -> QSpinBox:
@@ -75,6 +123,14 @@ def _spin(value: int, suffix: str = "") -> QSpinBox:
     control.setValue(value)
     control.setSuffix(suffix)
     return control
+
+
+def _emphasize_selection(view: QAbstractItemView) -> None:
+    view.setStyleSheet(
+        "QAbstractItemView::item:selected {"
+        " background: palette(highlight); color: palette(highlighted-text);"
+        " border: 1px solid palette(highlight); }"
+    )
 
 
 class OverviewPage(QWidget):
@@ -91,27 +147,9 @@ class OverviewPage(QWidget):
         self.set_project(project_path)
         layout.addWidget(self.project_label)
 
-        rail = QFrame()
-        rail.setFrameShape(QFrame.Shape.StyledPanel)
-        rail_layout = QHBoxLayout(rail)
-        phases = (
-            ("Connect\nhardware", "Needs setup", 1),
-            ("Build\nsignal list", "Current", 2),
-            ("Verify with\nvehicle", "2 checks needed", 3),
-            ("Set collection\ntargets", "Review needed", 4),
-            ("Collect\ndata", "Not ready", 5),
-            ("Analyze\nrecordings", "Available", 6),
-        )
-        for phase, status, destination in phases:
-            button = QPushButton(f"{phase}\n{status}")
-            button.clicked.connect(
-                lambda checked=False, page=destination: self.navigate_requested.emit(page)
-            )
-            rail_layout.addWidget(button)
-        layout.addWidget(rail)
         layout.addWidget(
             preview_notice(
-                "Recommended next action - Connect hardware: validate a local connector. "
+                "Recommended next action: Connect hardware and validate a local connector. "
                 "All readiness values in this draft are examples."
             )
         )
@@ -132,7 +170,7 @@ class OverviewPage(QWidget):
             card.action.clicked.connect(
                 lambda checked=False, page=destination: self.navigate_requested.emit(page)
             )
-            grid.addWidget(card, index // 4, index % 4)
+            grid.addWidget(card, index // 3, index % 3)
             self.cards.append(card)
         layout.addLayout(grid)
         layout.addStretch(1)
@@ -142,13 +180,9 @@ class OverviewPage(QWidget):
 
     def set_project(self, path: Path | None) -> None:
         if path is None:
-            self.project_label.setText(
-                "Preview project | No project open | Profile: example | Adapter closed"
-            )
+            self.project_label.setText("Example data is shown because no project is open.")
         else:
-            self.project_label.setText(
-                f"{path.name} | {path} | Profile: example | Adapter closed"
-            )
+            self.project_label.setText(f"Project marker: {path.name} | Example data remains in use.")
 
 
 class ConnectHardwarePage(QWidget):
@@ -163,10 +197,9 @@ class ConnectHardwarePage(QWidget):
             )
         )
         layout.addWidget(preview_notice("OFFLINE PREVIEW - adapter closed; no device will be opened."))
-        self.connector_status = QLabel("Example connector: PCAN / PCAN_USBBUS1 | Adapter closed")
-        layout.addWidget(self.connector_status)
 
         settings = QGroupBox("Connector settings")
+        settings.setMaximumWidth(680)
         form = QFormLayout(settings)
         self.connector = QComboBox()
         self.connector.addItems(("PCAN", "J2534", "gs_usb", "slcan"))
@@ -183,7 +216,7 @@ class ConnectHardwarePage(QWidget):
         j2534_form = QFormLayout(j2534)
         self.j2534_dll = QLineEdit()
         self.j2534_dll.setPlaceholderText("Path to vendor PassThru DLL")
-        j2534_form.addRow("PassThru DLL", self.j2534_dll)
+        j2534_form.addRow("PassThru DLL", _path_field(self.j2534_dll, "Select PassThru DLL"))
         self.connector_settings.addWidget(j2534)
 
         gs_usb = QWidget()
@@ -208,17 +241,16 @@ class ConnectHardwarePage(QWidget):
         self.connector_settings.addWidget(slcan)
         form.addRow("Settings", self.connector_settings)
         self.connector.currentIndexChanged.connect(self.connector_settings.setCurrentIndex)
-        self.connector.currentTextChanged.connect(
-            lambda name: self.connector_status.setText(f"Example connector: {name} | Adapter closed")
-        )
         layout.addWidget(settings)
         self.feedback = QLabel("Preview checks required fields only; driver and worker self-test are not run.")
+        self.feedback.setWordWrap(True)
         layout.addWidget(self.feedback)
         validate = QPushButton("Validate settings")
         validate.clicked.connect(self._validate_preview)
         save = QPushButton("Save local settings")
-        disable_preview(save, PREVIEW_DISABLED)
-        layout.addLayout(_button_row(validate, save))
+        action = disabled_action(save, PREVIEW_DISABLED)
+        layout.addWidget(validate, alignment=Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(action)
         layout.addStretch(1)
 
     def _validate_preview(self) -> None:
@@ -260,6 +292,7 @@ class BuildSignalListPage(QWidget):
         source_row.addStretch(1)
         layout.addLayout(source_row)
         self.source_settings = QStackedWidget()
+        self.source_settings.setMaximumWidth(680)
 
         tis = QGroupBox("TIS database selection")
         tis_form = QFormLayout(tis)
@@ -269,7 +302,7 @@ class BuildSignalListPage(QWidget):
         self.model_name.setPlaceholderText("Vehicle model")
         self.model_year = QComboBox()
         self.model_year.addItems(("Select year...",) + tuple(str(value) for value in range(2026, 2017, -1)))
-        tis_form.addRow("Database", self.database)
+        tis_form.addRow("Database", _path_field(self.database, "Select TIS database"))
         tis_form.addRow("Model", self.model_name)
         tis_form.addRow("Model year", self.model_year)
         self.source_settings.addWidget(tis)
@@ -278,7 +311,7 @@ class BuildSignalListPage(QWidget):
         file_form = QFormLayout(normalized)
         self.candidate_file = QLineEdit()
         self.candidate_file.setPlaceholderText("Path to normalized catalog JSON")
-        file_form.addRow("File", self.candidate_file)
+        file_form.addRow("File", _path_field(self.candidate_file, "Select normalized candidate file"))
         self.source_settings.addWidget(normalized)
 
         self.source.currentIndexChanged.connect(self.source_settings.setCurrentIndex)
@@ -296,15 +329,18 @@ class BuildSignalListPage(QWidget):
         self.summary = QLabel(
             f"No source imported. The example inventory below has {EXAMPLE_SIGNAL_COUNT} signals in {len(EXAMPLE_DIDS)} DIDs."
         )
+        self.summary.setWordWrap(True)
         layout.addWidget(self.summary)
 
-        self.tabs = QTabWidget()
         example_rows = tuple(
             (did.source, did.endpoint, f"0x{did.key}", signal, did.state)
             for did in EXAMPLE_DIDS for signal in did.signals
         )
-        self.example_table = _table(("Example source", "ECU", "DID", "Signal", "Verification"), example_rows)
-        self.tabs.addTab(self.example_table, "Example inventory")
+        self.example_table = _table(
+            ("Source", "ECU", "DID", "Signal", "Verification"),
+            example_rows,
+            stretch_column=3,
+        )
         self.search.textChanged.connect(self._filter_examples)
         self.model = SyntheticSignalModel()
         self.proxy = QSortFilterProxyModel(self)
@@ -319,11 +355,12 @@ class BuildSignalListPage(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.verticalHeader().setVisible(False)
         self.table.setColumnWidth(0, 210)
-        self.tabs.addTab(self.table, "10,000-row performance demo")
-        layout.addWidget(self.tabs, 1)
+        # The scale fixture remains available to automated/developer tests, but
+        # is deliberately absent from the operator workflow.
+        self.table.setVisible(False)
+        layout.addWidget(self.example_table, 1)
         accept = QPushButton("Use this candidate list")
-        disable_preview(accept, PREVIEW_DISABLED)
-        layout.addLayout(_button_row(accept))
+        layout.addWidget(disabled_action(accept, PREVIEW_DISABLED))
 
     def _clear_preview(self, _index: int) -> None:
         if hasattr(self, "summary"):
@@ -373,7 +410,8 @@ class VerifyVehiclePage(QWidget):
         layout.addWidget(preview_notice("LIVE OPERATION PREVIEW - explicit finite scope; adapter remains closed."))
         help_text = QLabel(
             "Endpoint = ECU address and session. DID = one data request; its response may contain several signals. "
-            "Verification facts are temporary local results until reviewed and saved."
+            "Verified means a response was recorded; Not verified means no successful check exists; "
+            "Endpoint not verified means its ECU route must be checked first. Results stay temporary until saved."
         )
         help_text.setWordWrap(True)
         layout.addWidget(help_text)
@@ -383,7 +421,7 @@ class VerifyVehiclePage(QWidget):
         self.ecu_filter = QComboBox()
         self.ecu_filter.addItems(("All ECUs", "Powertrain", "Hybrid control"))
         self.state_filter = QComboBox()
-        self.state_filter.addItems(("All states", "Needs verification", "Responded", "Not attempted"))
+        self.state_filter.addItems(("All states",) + DID_VERIFICATION_STATES)
         for combo in (self.source_filter, self.ecu_filter, self.state_filter):
             filters.addWidget(combo)
             combo.currentIndexChanged.connect(self._apply_filters)
@@ -391,6 +429,8 @@ class VerifyVehiclePage(QWidget):
         layout.addLayout(filters)
 
         self.tree = QTreeWidget()
+        _emphasize_selection(self.tree)
+        self.tree.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.tree.setHeaderLabels(("Endpoint / DID", "Selection", "State", "Baseline", "Bytes", "Latency", "Source"))
         group_brush = self.palette().brush(QPalette.ColorRole.AlternateBase)
         self.did_items: dict[str, QTreeWidgetItem] = {}
@@ -418,15 +458,24 @@ class VerifyVehiclePage(QWidget):
         for column in range(self.tree.columnCount()):
             self.tree.resizeColumnToContents(column)
         layout.addWidget(self.tree, 1)
+        self.arrival_notice = QLabel()
+        self.arrival_notice.setWordWrap(True)
+        self.arrival_notice.setVisible(False)
+        layout.addWidget(self.arrival_notice)
         self.scope_label = QLabel()
+        self.scope_label.setWordWrap(True)
         layout.addWidget(self.scope_label)
         self.verify_button = QPushButton()
         self.verify_button.setObjectName("verify-live")
-        disable_preview(self.verify_button, LIVE_DISABLED)
+        verify_action = disabled_action(self.verify_button, LIVE_DISABLED, live=True)
         self.return_button = QPushButton("Return to collection readiness")
         self.return_button.setVisible(False)
         self.return_button.clicked.connect(self.return_to_collect)
-        layout.addLayout(_button_row(self.return_button, self.verify_button))
+        action_row = QHBoxLayout()
+        action_row.addWidget(self.return_button, alignment=Qt.AlignmentFlag.AlignTop)
+        action_row.addStretch(1)
+        action_row.addWidget(verify_action)
+        layout.addLayout(action_row)
         self._update_scope()
 
     def _apply_filters(self, _index: int) -> None:
@@ -443,10 +492,7 @@ class VerifyVehiclePage(QWidget):
                 match = (
                     (source == "All sources" or child.text(6) == source)
                     and (ecu == "All ECUs" or ecu_name == ecu)
-                    and (state == "All states"
-                         or (state == "Needs verification" and child_state in ("Pending", "Waiting for endpoint"))
-                         or (state == "Responded" and child_state == "Responded")
-                         or (state == "Not attempted" and child_state == "Not attempted"))
+                    and (state == "All states" or child_state == state)
                 )
                 child.setHidden(not match)
                 visible_children += int(match)
@@ -461,7 +507,7 @@ class VerifyVehiclePage(QWidget):
             f"Example scope: {self.connector_name} | {endpoints} endpoints | {len(selected)} DIDs | "
             "reviewed sessions = saved ECU setup | <= 12 s example bound | temporary local results"
         )
-        self.verify_button.setText(f"Verify {endpoints} endpoints and {len(selected)} DIDs (Live)")
+        self.verify_button.setText(f"LIVE - Verify {endpoints} endpoints and {len(selected)} DIDs")
 
     def set_connector(self, name: str) -> None:
         self.connector_name = name
@@ -476,11 +522,17 @@ class VerifyVehiclePage(QWidget):
         item.parent().setExpanded(True)
         self.tree.setCurrentItem(item)
         self.tree.scrollToItem(item)
+        self.arrival_notice.setText(
+            f"Collection readiness sent you here to verify DID 0x{did_key}. "
+            "It is selected below; return when the issue is resolved."
+        )
+        self.arrival_notice.setVisible(True)
         self.return_button.setVisible(True)
 
 
 class CollectionTargetsPage(QWidget):
     return_to_collect = Signal()
+    dirty_changed = Signal(bool)
 
     def __init__(self) -> None:
         super().__init__()
@@ -516,13 +568,19 @@ class CollectionTargetsPage(QWidget):
         self.state_filter.addItems(("All targets", "Needs review", "No target", "Incomplete"))
         toolbar.addWidget(self.state_filter)
         batch = QPushButton("Batch edit collection targets...")
-        disable_preview(batch, "Batch editing is not simulated in this offline preview.")
-        toolbar.addWidget(batch)
+        toolbar.addWidget(
+            disabled_action(batch, "Batch editing is not simulated in this offline preview.")
+        )
         layout.addLayout(toolbar)
 
-        splitter = QSplitter()
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter = splitter
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(("Include / endpoint / DID / signal", "Support", "Target", "Recorded progress"))
+        _emphasize_selection(self.tree)
+        self.tree.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        self.tree.setHeaderLabels(
+            ("Signal groups and signals", "Vehicle verification", "Polling interval", "Target status", "Recorded progress")
+        )
         group_brush = self.palette().brush(QPalette.ColorRole.AlternateBase)
         self.signal_items: dict[str, QTreeWidgetItem] = {}
         self.did_groups: dict[str, QTreeWidgetItem] = {}
@@ -530,7 +588,7 @@ class CollectionTargetsPage(QWidget):
             interval = "100 / 250 ms" if did.key == "F421" else "1 / 5 s"
             parent = QTreeWidgetItem((
                 f"{did.endpoint} / DID 0x{did.key} {did.label}",
-                did.state, interval, "Example group",
+                did.state, interval, "", "",
             ))
             parent.setData(0, Qt.ItemDataRole.UserRole, did.key)
             parent.setFlags(
@@ -546,7 +604,7 @@ class CollectionTargetsPage(QWidget):
             self.did_groups[did.key] = parent
             for signal in did.signals:
                 unit, formula, condition, samples, changes, threshold, coverage, status = EXAMPLE_TARGETS[signal]
-                child = QTreeWidgetItem((signal, did.state, status, coverage))
+                child = QTreeWidgetItem((signal, did.state, "", status, coverage))
                 child.setData(0, Qt.ItemDataRole.UserRole, signal)
                 child.setFlags(child.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                 child.setCheckState(0, Qt.CheckState.Unchecked if status == "No target" else Qt.CheckState.Checked)
@@ -562,7 +620,7 @@ class CollectionTargetsPage(QWidget):
         splitter.addWidget(self.tree)
 
         details = QWidget()
-        details.setMinimumWidth(420)
+        details.setMinimumWidth(0)
         details_layout = QVBoxLayout(details)
         definition = QGroupBox("Signal definition")
         definition_form = QFormLayout(definition)
@@ -570,6 +628,13 @@ class CollectionTargetsPage(QWidget):
         self.definition_field = QLabel()
         self.definition_formula = QLabel()
         self.definition_source = QLabel()
+        for value in (
+            self.definition_name,
+            self.definition_field,
+            self.definition_formula,
+            self.definition_source,
+        ):
+            value.setWordWrap(True)
         definition_form.addRow("Signal / group", self.definition_name)
         definition_form.addRow("Field", self.definition_field)
         definition_form.addRow("Unit / formula", self.definition_formula)
@@ -607,15 +672,23 @@ class CollectionTargetsPage(QWidget):
         self.progress_changes = QLabel()
         self.progress_coverage = QLabel()
         self.progress_last = QLabel("No recording loaded; these are example counters")
+        for value in (
+            self.progress_samples,
+            self.progress_changes,
+            self.progress_coverage,
+            self.progress_last,
+        ):
+            value.setWordWrap(True)
         progress_form.addRow("Valid samples", self.progress_samples)
         progress_form.addRow("Changes", self.progress_changes)
         progress_form.addRow("Coverage", self.progress_coverage)
         progress_form.addRow("Last value", self.progress_last)
         details_layout.addWidget(progress)
         splitter.addWidget(details)
-        splitter.setSizes((620, 470))
+        splitter.setSizes((720, 390))
         layout.addWidget(splitter, 1)
         self.feedback = QLabel("Example draft only. Selection updates these details; Save is not connected.")
+        self.feedback.setWordWrap(True)
         layout.addWidget(self.feedback)
         self.condition.currentTextChanged.connect(self._draft_changed)
         for field in (self.minimum_samples, self.minimum_changes, self.minimum_difference):
@@ -623,12 +696,24 @@ class CollectionTargetsPage(QWidget):
         self.did_target.valueChanged.connect(self._did_draft_changed)
         self.did_maximum.valueChanged.connect(self._did_draft_changed)
         save = QPushButton("Save signal review and collection targets")
-        disable_preview(save, PREVIEW_DISABLED)
+        save_action = disabled_action(save, PREVIEW_DISABLED)
         self.return_button = QPushButton("Return to collection readiness")
         self.return_button.setVisible(False)
         self.return_button.clicked.connect(self.return_to_collect)
-        layout.addLayout(_button_row(self.return_button, save))
+        action_row = QHBoxLayout()
+        action_row.addWidget(self.return_button, alignment=Qt.AlignmentFlag.AlignTop)
+        action_row.addStretch(1)
+        action_row.addWidget(save_action)
+        layout.addLayout(action_row)
         self.tree.setCurrentItem(self.signal_items["Wheel speed FL"])
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        super().resizeEvent(event)
+        narrow = event.size().width() < 980
+        orientation = Qt.Orientation.Vertical if narrow else Qt.Orientation.Horizontal
+        if self.splitter.orientation() != orientation:
+            self.splitter.setOrientation(orientation)
+            self.splitter.setSizes((330, 520) if narrow else (720, 390))
 
     def _apply_filters(self, *_args: object) -> None:
         needle = self.search.text().casefold().strip()
@@ -640,7 +725,7 @@ class CollectionTargetsPage(QWidget):
             for child_index in range(parent.childCount()):
                 child = parent.child(child_index)
                 match = (not needle or group_match or needle in child.text(0).casefold()) and (
-                    status == "All targets" or child.text(2).startswith(status)
+                    status == "All targets" or child.text(3).startswith(status)
                 )
                 child.setHidden(not match)
                 visible_children += int(match)
@@ -706,8 +791,9 @@ class CollectionTargetsPage(QWidget):
             "changes": self.minimum_changes.value(),
             "difference": self.minimum_difference.value(),
         })
-        item.setText(2, EXAMPLE_TARGETS[signal][-1] + " (draft)")
+        item.setText(3, EXAMPLE_TARGETS[signal][-1] + " (draft)")
         self.feedback.setText(f"{signal}: local example draft changed; Save is not connected.")
+        self.dirty_changed.emit(True)
 
     def _inclusion_changed(self, item: QTreeWidgetItem, column: int) -> None:
         if column != 0 or item.parent() is None:
@@ -718,6 +804,7 @@ class CollectionTargetsPage(QWidget):
                 f"{signal}: {'included' if item.checkState(0) == Qt.CheckState.Checked else 'excluded'} "
                 "in this local example draft only."
             )
+            self.dirty_changed.emit(True)
 
     def _did_draft_changed(self, *_args: object) -> None:
         if self._loading_detail:
@@ -734,6 +821,7 @@ class CollectionTargetsPage(QWidget):
         self.feedback.setText(
             f"DID 0x{did_key}: shared example intervals changed for {parent.childCount()} child signals; Save is not connected."
         )
+        self.dirty_changed.emit(True)
 
     def focus_issue(self, signal: str) -> None:
         item = self.signal_items[signal]
@@ -742,6 +830,10 @@ class CollectionTargetsPage(QWidget):
         item.parent().setExpanded(True)
         self.tree.setCurrentItem(item)
         self.tree.scrollToItem(item)
+        self.feedback.setText(
+            f"Collection readiness sent you here to review {signal}. "
+            "The highlighted row and details show the affected target."
+        )
         self.return_button.setVisible(True)
 
 
@@ -763,24 +855,26 @@ class CollectDataPage(QWidget):
                 "Example collection readiness: 3 unresolved inputs. No real plan has been compiled."
             )
         )
-        summary = QHBoxLayout()
-        for name, value in (
+        summary = QGridLayout()
+        for index, (name, value) in enumerate((
             ("Unfinished targets", "7"),
             ("Endpoints / DIDs", f"{len(EXAMPLE_ENDPOINTS)} / {len(REQUIRED_DIDS)}"),
-            ("Estimated load", "Not checked"),
-            ("Storage bound", "Not checked"),
-        ):
+            ("Estimated bus load", "Not checked"),
+            ("Maximum storage", "Not checked"),
+        )):
             card = QGroupBox(name)
             card_layout = QVBoxLayout(card)
             card_layout.addWidget(QLabel(value), alignment=Qt.AlignmentFlag.AlignCenter)
-            summary.addWidget(card)
+            summary.addWidget(card, index // 2, index % 2)
         layout.addLayout(summary)
 
         readiness = QGroupBox("Problems to resolve")
         readiness_layout = QVBoxLayout(readiness)
         for issue_id, explanation, action_text in READINESS_ISSUES:
             row = QHBoxLayout()
-            row.addWidget(QLabel(explanation), 1)
+            issue_label = QLabel(explanation)
+            issue_label.setWordWrap(True)
+            row.addWidget(issue_label, 1)
             action = QPushButton(action_text)
             action.clicked.connect(
                 lambda checked=False, key=issue_id: self.issue_requested.emit(key)
@@ -793,21 +887,25 @@ class CollectDataPage(QWidget):
         technical.setCheckable(True)
         technical.setChecked(False)
         technical_layout = QFormLayout(technical)
-        technical_layout.addRow("Compiled scope", QLabel("Unavailable: example inputs have not passed readiness"))
-        technical_layout.addRow("Source state", QLabel("A real compiled hash would be tied to exact reviewed inputs"))
+        compiled_scope = QLabel("Unavailable: example inputs have not passed readiness")
+        compiled_scope.setWordWrap(True)
+        source_state = QLabel("A real compiled hash would be tied to exact reviewed inputs")
+        source_state.setWordWrap(True)
+        technical_layout.addRow("Compiled scope", compiled_scope)
+        technical_layout.addRow("Source state", source_state)
         layout.addWidget(technical)
 
-        monitor = QGroupBox("Run monitor preview - not live")
+        monitor = QGroupBox("Run monitor - no collection is running")
         monitor_layout = QGridLayout(monitor)
-        monitor_layout.addWidget(QLabel("00:42:18 elapsed"), 0, 0)
-        monitor_layout.addWidget(QLabel("Segment 3 / 24 MiB"), 0, 1)
-        monitor_layout.addWidget(QLabel("0.7% recent errors"), 0, 2)
-        monitor_layout.addWidget(QLabel("Heartbeat 0.4 s"), 0, 3)
+        monitor_layout.addWidget(QLabel("--:--:-- elapsed"), 0, 0)
+        monitor_layout.addWidget(QLabel("No segment"), 0, 1)
+        monitor_layout.addWidget(QLabel("Errors --"), 0, 2)
+        monitor_layout.addWidget(QLabel("Heartbeat --"), 0, 3)
         for row, (name, value, text) in enumerate(
             (
-                ("Wheel-speed change coverage", 70, "84 / 120 changes"),
-                ("Coolant elapsed coverage", 50, "6 / 12 minutes"),
-                ("Brake-switch state coverage", 57, "4 / 7 states"),
+                ("Wheel-speed change coverage", 0, "Waiting for a run"),
+                ("Coolant elapsed coverage", 0, "Waiting for a run"),
+                ("Brake-switch state coverage", 0, "Waiting for a run"),
             ),
             start=1,
         ):
@@ -821,11 +919,7 @@ class CollectDataPage(QWidget):
         layout.addStretch(1)
         start = QPushButton("Review and start collection")
         start.setObjectName("start-live")
-        disable_preview(start, LIVE_DISABLED)
-        stop = QPushButton("Stop safely")
-        stop.setObjectName("stop-live")
-        disable_preview(stop, LIVE_DISABLED)
-        layout.addLayout(_button_row(start, stop))
+        layout.addWidget(disabled_action(start, LIVE_DISABLED, live=True))
 
 
 class EvidenceView(QWidget):
@@ -848,46 +942,49 @@ class EvidenceView(QWidget):
             + np.cos(self._x * 0.003) * 6.0
         )
 
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter = splitter
         selector = QWidget()
         selector_layout = QVBoxLayout(selector)
         self.signal_search = QLineEdit()
         self.signal_search.setPlaceholderText("Find a signal")
         selector_layout.addWidget(self.signal_search)
         self.signals = QListWidget()
+        self._signal_names = tuple(EXAMPLE_TARGETS)
         self.signals.addItems(
-            (
-                "Coolant temperature\n12 runs - 6 min remaining",
-                "Wheel speed FL\n8 runs - 36 changes remaining",
-                "Wheel speed FR\n8 runs - 41 changes remaining",
-                "Brake switch\n4 of 7 states seen",
-                "Battery current\n21 runs - complete",
-            )
+            tuple(f"{name}\n{EXAMPLE_TARGETS[name][6]}" for name in self._signal_names)
         )
-        self.signals.setCurrentRow(0)
+        self.signals.setCurrentRow(1)
         selector_layout.addWidget(self.signals, 1)
         self.signals.currentRowChanged.connect(self._signal_changed)
         self.signal_search.textChanged.connect(self._filter_signals)
-        layout.addWidget(selector, 3)
+        splitter.addWidget(selector)
 
         content = QWidget()
+        content.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         content_layout = QVBoxLayout(content)
-        filters = QHBoxLayout()
+        filters = QGridLayout()
         self.run_filter = QComboBox()
-        self.run_filter.addItems(("All example runs", "Example run 1", "Example run 2", "Example run 3"))
+        self.run_filter.addItems(("All recordings",) + EXAMPLE_RUNS)
+        self.run_filter.setMinimumContentsLength(14)
+        self.run_filter.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.time_filter = QComboBox()
         self.time_filter.addItems(("All time", "First half", "Second half"))
         self.quality_filter = QComboBox()
         self.quality_filter.addItems(("All outcomes", "Valid only", "Errors only"))
-        for name, combo in (("Runs", self.run_filter), ("Time", self.time_filter), ("Quality", self.quality_filter)):
-            filters.addWidget(QLabel(name))
-            filters.addWidget(combo)
+        filters.addWidget(QLabel("Runs"), 0, 0)
+        filters.addWidget(self.run_filter, 0, 1, 1, 3)
+        filters.addWidget(QLabel("Time"), 1, 0)
+        filters.addWidget(self.time_filter, 1, 1)
+        filters.addWidget(QLabel("Quality"), 1, 2)
+        filters.addWidget(self.quality_filter, 1, 3)
         self.run_filter.currentIndexChanged.connect(self.refresh)
         self.time_filter.currentIndexChanged.connect(self.refresh)
         self.quality_filter.currentIndexChanged.connect(self.refresh)
-        filters.addStretch(1)
+        filters.setColumnStretch(4, 1)
         content_layout.addLayout(filters)
-        toolbar = QHBoxLayout()
+        toolbar = QGridLayout()
         reset = QPushButton("Reset")
         reset.clicked.connect(self._reset_view)
         previous = QPushButton("Previous run")
@@ -898,29 +995,53 @@ class EvidenceView(QWidget):
         disable_preview(select_range, "Range selection is not simulated in the offline plot preview.")
         autoscale = QPushButton("Autoscale Y")
         autoscale.clicked.connect(self._autoscale_y)
-        for button in (reset, previous, next_run, select_range, autoscale):
-            toolbar.addWidget(button)
+        for column, button in enumerate((reset, previous, next_run, autoscale)):
+            toolbar.addWidget(button, 0, column)
         self.quality_toggle = QCheckBox("Show quality lane")
         self.quality_toggle.setChecked(True)
-        toolbar.addWidget(self.quality_toggle)
+        toolbar.addWidget(select_range, 1, 0)
+        toolbar.addWidget(self.quality_toggle, 1, 1)
         export = QPushButton("Export visible data")
         disable_preview(export, PREVIEW_DISABLED)
-        toolbar.addWidget(export)
-        toolbar.addStretch(1)
+        toolbar.addWidget(export, 1, 2)
+        toolbar.setColumnStretch(3, 1)
         content_layout.addLayout(toolbar)
+        unavailable = QLabel(
+            "Unavailable in this preview: range selection and export require loaded recordings."
+        )
+        unavailable.setWordWrap(True)
+        unavailable.setProperty("muted", True)
+        content_layout.addWidget(unavailable)
         self.status = QLabel("Waiting to build synthetic recording view...")
+        self.status.setWordWrap(True)
         content_layout.addWidget(self.status)
         self.selection_status = QLabel("Selected: Coolant temperature | all three example runs")
+        self.selection_status.setWordWrap(True)
         content_layout.addWidget(self.selection_status)
         self.plot = MetricPlot()
         self.plot.viewport_width_changed.connect(self._schedule_refresh)
         content_layout.addWidget(self.plot, 1)
-        self.quality_message = QLabel("Example quality lane: valid observations and error intervals")
+        self.cursor_status = QLabel("Move the pointer over the plot to inspect elapsed time and value.")
+        self.cursor_status.setWordWrap(True)
+        self.plot.cursor_changed.connect(self.cursor_status.setText)
+        content_layout.addWidget(self.cursor_status)
+        self.quality_message = QLabel("Quality overlay: red marks indicate example error intervals.")
+        self.quality_message.setWordWrap(True)
         content_layout.addWidget(self.quality_message)
-        self.quality_toggle.toggled.connect(self.quality_message.setVisible)
+        self.quality_toggle.toggled.connect(self._quality_toggled)
         self.quality_filter.currentIndexChanged.connect(self._update_quality_message)
-        layout.addWidget(content, 7)
+        splitter.addWidget(content)
+        splitter.setSizes((260, 740))
+        layout.addWidget(splitter, 1)
         QTimer.singleShot(0, self.refresh)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        super().resizeEvent(event)
+        narrow = event.size().width() < 980
+        orientation = Qt.Orientation.Vertical if narrow else Qt.Orientation.Horizontal
+        if self.splitter.orientation() != orientation:
+            self.splitter.setOrientation(orientation)
+            self.splitter.setSizes((230, 620) if narrow else (260, 740))
 
     def _schedule_refresh(self, _width: int) -> None:
         self._debounce.start()
@@ -929,10 +1050,21 @@ class EvidenceView(QWidget):
         width = max(100, int(self.plot.getPlotItem().getViewBox().width()))
         x = self._x
         row = self.signals.currentRow()
-        y = (
-            np.where(np.sin(x * 0.013) > 0, 1.0, 0.0)
-            if row == 3 else self._y * (1.0 if row == 0 else 0.25 + max(row, 0) * 0.15)
-        )
+        name = self._signal_names[max(row, 0)]
+        unit = EXAMPLE_TARGETS[name][0]
+        if name in ("Coolant validity", "Brake switch"):
+            y = np.where(np.sin(x * 0.013) > 0, 1.0, 0.0)
+        elif name == "Coolant temperature":
+            y = 82.0 + self._y * 0.35
+        elif name.startswith("Wheel speed"):
+            y = np.maximum(0.0, 48.0 + self._y * 1.4)
+        elif name == "Battery current":
+            y = self._y * 3.0
+        elif name == "Vehicle identifier":
+            y = np.ones_like(x)
+        else:
+            y = self._y
+        self.plot.set_measurement(name, unit)
         if self.run_filter.currentIndex() > 0:
             part = self.run_filter.currentIndex() - 1
             start = part * len(x) // 3
@@ -960,6 +1092,10 @@ class EvidenceView(QWidget):
         name = self.signals.item(row).text().splitlines()[0]
         self.selection_status.setText(f"Selected: {name} | {self.run_filter.currentText()} | synthetic plot")
         self.refresh()
+
+    def _quality_toggled(self, checked: bool) -> None:
+        self.quality_message.setVisible(checked)
+        self.plot.set_quality_visible(checked)
 
     def _step_run(self, direction: int) -> None:
         current = self.run_filter.currentIndex()
@@ -990,17 +1126,14 @@ class EvidenceView(QWidget):
             self._set_failure("Unexpected evidence result")
             return
         self.plot.set_series(value)
-        self.status.setText(
-            f"Rendered {value.rendered_points:,} representative points from "
-            f"{value.source_points:,} synthetic source points. No recording data was loaded."
-        )
+        self.status.setText("Showing bounded example data; no recording has been loaded.")
 
     def _set_failure(self, detail: str) -> None:
         self.status.setText(f"Could not build recording preview: {detail.splitlines()[-1]}")
 
     def _set_busy(self, busy: bool) -> None:
         if busy:
-            self.status.setText("Building the newest bounded viewport...")
+            self.status.setText("Updating the example plot...")
 
 
 class AnalyzeRecordingsPage(QWidget):
@@ -1015,22 +1148,21 @@ class AnalyzeRecordingsPage(QWidget):
             )
         )
         self.tabs = QTabWidget()
+        self.tabs.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.evidence_view = EvidenceView()
         self.tabs.addTab(self.evidence_view, "Signal analysis")
         self.tabs.addTab(self._run_details(), "Run details")
+        self.evidence_view.run_filter.currentIndexChanged.connect(self._sync_run_detail)
+        self.run_chooser.currentIndexChanged.connect(self._sync_analysis_run)
         layout.addWidget(self.tabs, 1)
 
     def _run_details(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
         self.run_chooser = QComboBox()
-        self.run_chooser.addItems(
-            (
-                "2026-09-11 13:40 - Stopped safely - 42 min - road loop",
-                "2026-09-09 09:12 - Completed - 18 min - stationary",
-                "2026-09-07 16:03 - Failed and finalized - 7 min",
-            )
-        )
+        self.run_chooser.addItems(EXAMPLE_RUNS)
+        self.run_chooser.setMinimumContentsLength(18)
+        self.run_chooser.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         layout.addWidget(self.run_chooser)
         summary = QGroupBox("Run summary")
         summary_form = QFormLayout(summary)
@@ -1038,6 +1170,8 @@ class AnalyzeRecordingsPage(QWidget):
         self.run_result = QLabel()
         self.run_settings = QLabel()
         self.run_hash = QLabel()
+        for value in (self.run_endpoint, self.run_result, self.run_settings, self.run_hash):
+            value.setWordWrap(True)
         summary_form.addRow("Endpoints", self.run_endpoint)
         summary_form.addRow("Result / duration", self.run_result)
         summary_form.addRow("Settings snapshot", self.run_settings)
@@ -1050,7 +1184,10 @@ class AnalyzeRecordingsPage(QWidget):
                     ("2", "19,106", "19,072", "34", "8.0 MiB"),
                     ("3", "9,821", "9,814", "7", "4.2 MiB"),
                 ),
+                stretch_column=0,
+                numeric_columns=(1, 2, 3, 4),
         )
+        self.segment_table.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         layout.addWidget(self.segment_table, 1)
         self.run_chooser.currentIndexChanged.connect(self._select_run)
         self._select_run(0)
@@ -1069,6 +1206,15 @@ class AnalyzeRecordingsPage(QWidget):
         self.run_hash.setText(digest + " - synthetic run; no capture loaded")
         for row in range(self.segment_table.rowCount()):
             self.segment_table.setRowHidden(row, row >= segments)
+
+    def _sync_run_detail(self, index: int) -> None:
+        if index > 0 and self.run_chooser.currentIndex() != index - 1:
+            self.run_chooser.setCurrentIndex(index - 1)
+
+    def _sync_analysis_run(self, index: int) -> None:
+        target = index + 1
+        if self.evidence_view.run_filter.currentIndex() != target:
+            self.evidence_view.run_filter.setCurrentIndex(target)
 
     def cancel(self) -> None:
         self.evidence_view.cancel()

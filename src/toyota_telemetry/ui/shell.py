@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
+    QScrollArea,
     QSplitter,
     QStackedWidget,
     QStatusBar,
@@ -45,6 +47,9 @@ class OperatorWindow(QMainWindow):
         self.setWindowTitle("Telemetry Operator")
         self.resize(1440, 900)
         self.setMinimumSize(1024, 700)
+        self.setStyleSheet(
+            "QPushButton[liveAction=\"true\"] { border-width: 2px; padding: 6px 12px; }"
+        )
         self._settings = QSettings("70Y074", "TelemetryOperator")
         self._restore_settings = restore_settings
         self._project_path: Path | None = None
@@ -54,8 +59,13 @@ class OperatorWindow(QMainWindow):
         self.navigation.setAccessibleName("Workflow navigation")
         self.navigation.setMinimumWidth(150)
         self.navigation.setMaximumWidth(230)
-        for name in self.NAVIGATION:
-            QListWidgetItem(name, self.navigation)
+        for index, name in enumerate(self.NAVIGATION):
+            item = QListWidgetItem(name, self.navigation)
+            item.setToolTip(f"Alt+{index + 1}")
+            item.setData(
+                Qt.ItemDataRole.AccessibleDescriptionRole,
+                f"Workflow destination {index + 1}; shortcut Alt+{index + 1}",
+            )
 
         self.pages = QStackedWidget()
         self.overview_page = OverviewPage()
@@ -74,7 +84,11 @@ class OperatorWindow(QMainWindow):
             self.collect_page,
             self.analyze_page,
         ):
-            self.pages.addWidget(page)
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+            scroll.setWidget(page)
+            self.pages.addWidget(scroll)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setObjectName("main-splitter")
@@ -93,6 +107,8 @@ class OperatorWindow(QMainWindow):
         self.collect_page.issue_requested.connect(self._open_readiness_issue)
         self.verify_page.return_to_collect.connect(self._return_to_collect)
         self.targets_page.return_to_collect.connect(self._return_to_collect)
+        self.targets_page.dirty_changed.connect(self._set_dirty)
+        self._dirty = False
         self._build_actions()
         self._build_status_bar()
 
@@ -122,6 +138,12 @@ class OperatorWindow(QMainWindow):
         close_action.triggered.connect(self.close)
         project_menu.addAction(close_action)
 
+        help_menu = self.menuBar().addMenu("&Help")
+        concepts = QAction("Concepts and workflow", self)
+        concepts.setShortcut(QKeySequence.StandardKey.HelpContents)
+        concepts.triggered.connect(self._show_help)
+        help_menu.addAction(concepts)
+
         for index in range(len(self.NAVIGATION)):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
             shortcut.activated.connect(lambda row=index: self.navigation.setCurrentRow(row))
@@ -132,7 +154,8 @@ class OperatorWindow(QMainWindow):
         self.transport_status = QLabel("Offline")
         self.adapter_status = QLabel("Adapter closed")
         self.project_status = QLabel("No project open")
-        for widget in (self.transport_status, self.adapter_status, self.project_status):
+        self.draft_status = QLabel("Saved")
+        for widget in (self.transport_status, self.adapter_status, self.project_status, self.draft_status):
             status.addPermanentWidget(widget)
 
     def choose_project(self) -> None:
@@ -151,7 +174,7 @@ class OperatorWindow(QMainWindow):
         self._project_path = resolved
         self.overview_page.set_project(resolved)
         self.project_status.setText(resolved.name)
-        self.setWindowTitle(f"Telemetry Operator — {resolved.name}")
+        self._update_window_title()
         self.statusBar().showMessage(
             "Project marker found. Preview data remains synthetic; project loading is not implemented.", 6000
         )
@@ -179,7 +202,33 @@ class OperatorWindow(QMainWindow):
     def _return_to_collect(self) -> None:
         self.navigation.setCurrentRow(5)
         self.verify_page.return_button.setVisible(False)
+        self.verify_page.arrival_notice.setVisible(False)
         self.targets_page.return_button.setVisible(False)
+
+    def _set_dirty(self, dirty: bool) -> None:
+        self._dirty = dirty
+        self.draft_status.setText("Unsaved example changes" if dirty else "Saved")
+        self._update_window_title()
+
+    def _update_window_title(self) -> None:
+        project = f" - {self._project_path.name}" if self._project_path else ""
+        dirty = " *" if self._dirty else ""
+        self.setWindowTitle(f"Telemetry Operator{project}{dirty}")
+
+    def _show_help(self) -> None:
+        QMessageBox.information(
+            self,
+            "Telemetry Operator concepts",
+            "Endpoint: an ECU address plus diagnostic session.\n\n"
+            "DID: one data request. A DID can supply several signals, so its polling interval is shared.\n\n"
+            "Baseline: the value returned during vehicle verification.\n\n"
+            "Estimated bus load: the admitted share of diagnostic communication bandwidth.\n\n"
+            "Maximum storage: the run's configured disk limit.\n\n"
+            "Compiled hash: the identity of the exact reviewed collection scope.\n\n"
+            "Projects are created from the project template outside this application, then opened here. "
+            "CAN bitrate comes from the reviewed vehicle transport configuration.\n\n"
+            "Keyboard: Alt+1 through Alt+7 open the workflow destinations.",
+        )
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.analyze_page.cancel()

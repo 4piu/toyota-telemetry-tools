@@ -22,16 +22,24 @@ class ExampleDid:
 
 
 EXAMPLE_DIDS = (
-    ExampleDid("F190", "Vehicle identifier", "Powertrain", "TIS database", "Responded", "Example identifier", "17", "22 ms", ("Vehicle identifier",)),
-    ExampleDid("F40D", "Coolant temperature", "Powertrain", "TIS database", "Responded", "82 C", "2", "17 ms", ("Coolant temperature", "Coolant validity")),
-    ExampleDid("F423", "Brake switches", "Powertrain", "TIS database", "Pending", "-", "-", "-", ("Brake switch",)),
-    ExampleDid("F421", "Wheel speeds", "Hybrid control", "Normalized file", "Waiting for endpoint", "-", "-", "-", ("Wheel speed FL", "Wheel speed FR", "Wheel speed RL", "Wheel speed RR")),
-    ExampleDid("F430", "Battery current", "Hybrid control", "TIS database", "Not attempted", "-", "-", "-", ("Battery current",)),
+    ExampleDid("F190", "Vehicle identifier", "Powertrain", "TIS database", "Verified", "Example identifier", "17", "22 ms", ("Vehicle identifier",)),
+    ExampleDid("F40D", "Coolant temperature", "Powertrain", "TIS database", "Verified", "82 C", "2", "17 ms", ("Coolant temperature", "Coolant validity")),
+    ExampleDid("F423", "Brake switches", "Powertrain", "TIS database", "Not verified", "-", "-", "-", ("Brake switch",)),
+    ExampleDid("F421", "Wheel speeds", "Hybrid control", "Normalized file", "Endpoint not verified", "-", "-", "-", ("Wheel speed FL", "Wheel speed FR", "Wheel speed RL", "Wheel speed RR")),
+    ExampleDid("F430", "Battery current", "Hybrid control", "TIS database", "Not verified", "-", "-", "-", ("Battery current",)),
 )
 
 EXAMPLE_ENDPOINTS = (
-    ("Powertrain", "0x7E0 / 0x7E8 / default", "Confirmed"),
-    ("Hybrid control", "0x7E2 / 0x7EA / extended", "Probe required"),
+    ("Powertrain", "0x7E0 / 0x7E8 / default", "Verified"),
+    ("Hybrid control", "0x7E2 / 0x7EA / extended", "Not verified"),
+)
+
+DID_VERIFICATION_STATES = ("Verified", "Not verified", "Endpoint not verified")
+
+EXAMPLE_RUNS = (
+    "2026-09-11 13:40 - Stopped safely - 42 min - road loop",
+    "2026-09-09 09:12 - Completed - 18 min - stationary",
+    "2026-09-07 16:03 - Failed and finalized - 7 min",
 )
 
 REQUIRED_DIDS = frozenset(("F40D", "F423", "F421"))

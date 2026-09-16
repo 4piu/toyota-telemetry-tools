@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -37,7 +38,7 @@ class ReadinessCard(QFrame):
     def __init__(self, title: str, status: str, evidence: str, action: str) -> None:
         super().__init__()
         self.setFrameShape(QFrame.Shape.StyledPanel)
-        self.setMinimumWidth(235)
+        self.setMinimumWidth(210)
         self.setMinimumHeight(135)
         self.setMaximumHeight(180)
         layout = QVBoxLayout(self)
@@ -47,6 +48,7 @@ class ReadinessCard(QFrame):
         font.setBold(True)
         name.setFont(font)
         state = QLabel(status)
+        state.setWordWrap(True)
         state.setAlignment(Qt.AlignmentFlag.AlignRight)
         heading.addWidget(name, 1)
         heading.addWidget(state)
@@ -73,3 +75,28 @@ def disable_preview(button: QPushButton, detail: str) -> None:
     button.setEnabled(False)
     button.setToolTip(detail)
     button.setAccessibleDescription(detail)
+
+
+def disabled_action(button: QPushButton, detail: str, *, live: bool = False) -> QWidget:
+    """Return a disabled preview action with a visible, accessible reason."""
+
+    disable_preview(button, detail)
+    if live:
+        font = button.font()
+        font.setBold(True)
+        button.setFont(font)
+        button.setText(f"LIVE - {button.text()}")
+        button.setIcon(button.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning))
+        button.setProperty("liveAction", True)
+    container = QWidget()
+    layout = QVBoxLayout(container)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(3)
+    layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignRight)
+    reason = QLabel(detail)
+    reason.setWordWrap(True)
+    reason.setMaximumWidth(520)
+    reason.setProperty("muted", True)
+    reason.setAccessibleName(f"Why {button.text()} is unavailable")
+    layout.addWidget(reason, alignment=Qt.AlignmentFlag.AlignRight)
+    return container

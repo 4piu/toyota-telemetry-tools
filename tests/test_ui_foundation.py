@@ -40,12 +40,10 @@ def test_evidence_plot_receives_bounded_million_point_result(qtbot) -> None:
 
     evidence = window.analyze_page.evidence_view
 
-    qtbot.waitUntil(
-        lambda: "1,000,000 synthetic source points" in evidence.status.text(),
-        timeout=10_000,
-    )
+    qtbot.waitUntil(lambda: evidence.plot.source_points == 1_000_000, timeout=10_000)
+    qtbot.waitUntil(lambda: evidence.status.text().startswith("Showing bounded"), timeout=10_000)
     assert evidence.plot.rendered_points <= 8_000
-    assert "1,000,000 synthetic source points" in evidence.status.text()
+    assert evidence.status.text() == "Showing bounded example data; no recording has been loaded."
 
 
 def test_preview_navigation_and_connector_controls_are_interactive(qtbot) -> None:
@@ -55,7 +53,7 @@ def test_preview_navigation_and_connector_controls_are_interactive(qtbot) -> Non
 
     window.overview_page.cards[0].action.click()
     assert window.navigation.currentRow() == 1
-    assert window.pages.currentWidget() is window.connect_page
+    assert window.pages.currentWidget().widget() is window.connect_page
 
     window.connect_page.connector.setCurrentText("gs_usb")
     assert window.connect_page.connector_settings.currentIndex() == 2
@@ -114,14 +112,14 @@ def test_selection_filters_and_readiness_navigation_work_in_mock(qtbot) -> None:
     window.targets_page.tree.setCurrentItem(window.targets_page.signal_items["Wheel speed FL"])
     window.targets_page.tree.setCurrentItem(window.targets_page.signal_items["Coolant temperature"])
     assert window.targets_page.minimum_samples.value() == 20
-    assert "draft" in window.targets_page.signal_items["Coolant temperature"].text(2)
+    assert "draft" in window.targets_page.signal_items["Coolant temperature"].text(3)
     window.targets_page.tree.setCurrentItem(window.targets_page.signal_items["Wheel speed FL"])
     window.targets_page.did_target.setValue(120)
     window.targets_page.tree.setCurrentItem(window.targets_page.signal_items["Wheel speed FR"])
     assert window.targets_page.did_target.value() == 120
     assert "120 / 250 ms" in window.targets_page.did_groups["F421"].text(2)
 
-    window.verify_page.state_filter.setCurrentText("Needs verification")
+    window.verify_page.state_filter.setCurrentText("Not verified")
     assert window.verify_page.did_items["F190"].isHidden()
     assert not window.verify_page.did_items["F423"].isHidden()
     window.verify_page.did_items["F423"].setCheckState(0, Qt.CheckState.Unchecked)
@@ -171,15 +169,45 @@ def test_vehicle_and_project_mutating_preview_actions_are_disabled(qtbot) -> Non
         if button.text()
         in {
             "Use this candidate list",
-            "Verify 2 endpoints and 3 DIDs (Live)",
-            "Review and start collection",
-            "Stop safely",
+            "LIVE - Verify 2 endpoints and 3 DIDs",
+            "LIVE - Review and start collection",
             "Save local settings",
             "Save signal review and collection targets",
         }
     }
-    assert len(disabled_actions) == 6
+    assert len(disabled_actions) == 5
     assert all(not button.isEnabled() for button in disabled_actions.values())
+
+
+def test_minimum_window_uses_scrollable_pages_and_clear_target_columns(qtbot) -> None:
+    window = OperatorWindow(restore_settings=False)
+    qtbot.addWidget(window)
+    window.resize(1024, 700)
+    window.show()
+
+    assert all(window.pages.widget(index).widgetResizable() for index in range(window.pages.count()))
+    assert window.overview_page.layout().itemAt(3).layout().columnCount() == 3
+    assert [window.targets_page.tree.headerItem().text(column) for column in range(5)] == [
+        "Signal groups and signals",
+        "Vehicle verification",
+        "Polling interval",
+        "Target status",
+        "Recorded progress",
+    ]
+
+
+def test_shared_inventory_visible_reasons_and_dirty_state(qtbot) -> None:
+    window = OperatorWindow(restore_settings=False)
+    qtbot.addWidget(window)
+    window.show()
+
+    assert window.analyze_page.evidence_view.signals.count() == 9
+    assert window.signal_list_page.table.isHidden()
+    window.targets_page.minimum_samples.setValue(999)
+    assert window.draft_status.text() == "Unsaved example changes"
+    assert window.windowTitle().endswith("*")
+    window.collect_page.issue_requested.emit("F423")
+    assert window.verify_page.arrival_notice.isVisible()
 
 
 def test_latest_task_controller_drops_superseded_result(qtbot) -> None:
