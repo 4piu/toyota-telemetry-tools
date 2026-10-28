@@ -12,9 +12,40 @@ Pin a tag rather than a branch — `revision = "v0.3.0"` — and
 `setup-platform-project.ps1` resolves it to the commit it names. A branch is
 not a pin: it moves under you.
 
-## Unreleased
+## 0.5.0
 
 ### Breaking
+
+- `telemetry` is now a complete noun-verb interface over the shared
+  `OperatorService`, equal to the desktop application. Removed without
+  aliases: `catalog import` (use `source import file|tis`), `discover
+  endpoints` and `preflight dids` (one `verify` probes endpoints, then DIDs),
+  `plan` (readiness is automatic; see `collect --dry-run`), `capture inspect`
+  (`recordings`), and `export` (`result generate`). `cache rebuild` no longer
+  takes `--catalog-rows`; it reads the candidate inventory written by
+  `source import --apply`. Platform repositories must run
+  `telemetry source import file scratch/catalog-rows.json --apply` once.
+- Live commands now confirm: in a terminal they ask for `yes`; scripts must
+  pass `--yes`, accepted only for the scope last printed by `--dry-run`.
+  Exit code 3 means refused.
+- Collection policy schema 2 replaces objective classes, `class_defaults`,
+  `deadband`, and per-objective cadence with one `targets` entry per signal
+  holding explicit `requirements` (`minimum_samples`, `minimum_runs`,
+  `minimum_span_seconds`, `required_states`, `minimum_transitions`,
+  `minimum_changes` with `minimum_difference`, `minimum_applicable_seconds`)
+  and an optional `condition`. Cadence lives only on the shared
+  `acquisitions` (endpoint+DID settings). `minimum_runs` counts every
+  contributing run. Platform policies must be rewritten; empty policies only
+  change `schema_version` to 2 and rename `objectives` to `targets`.
+- Verification results move from the SQLite cache to ignored
+  `scratch/verification-facts.json`, so cache rebuilds keep them. Cache schema
+  is 3; older caches are rebuilt automatically.
+- `tools/catalog/build-catalog.py` and `tools/techstream/build-ecu-profile.py`
+  are replaced by the TIS source adapter; the query script moves into the
+  package. Result `signals.json` reports `target_progress` instead of
+  `objective_progress`.
+- The desktop preview's seven mock pages are replaced by four real pages
+  (Setup, Signals, Collect, Recordings).
 
 - The unpublished `telemetry-tui` prompt prototype and console entry point are
   removed. The toolkit retains only the `telemetry` executable surface while a
@@ -33,6 +64,18 @@ not a pin: it moves under you.
 
 ### Added
 
+- `OperatorService` with candidate inventory, file and TIS sources with
+  previewed reconciliation, an endpoint/DID/signal tree with one verification
+  vocabulary, a shared selector grammar, orchestrated bounded verification,
+  manual endpoint candidates, endpoint confirmation, review/DID/target edits
+  with impact previews, automatic collection readiness with actionable fixes,
+  a project-wide live lock, run recovery/quarantine, CSV export, and an
+  operations table with CLI and desktop parity tests.
+- `telemetry status`, `check`, `connector`, `signals`, `endpoint`,
+  `signal set`, `did set`, `target set|clear`, and `recordings`.
+- A collector `progress` event with overall target completion.
+- Desktop application pages over real project data, with drafts, external-edit
+  detection, exact-scope live confirmation, and live progress.
 - Made the offline operator mock truthful and coherent after an independent
   usability pass: one labeled example inventory across pages, required-field
   preview checks without false validation claims, selection-bound target

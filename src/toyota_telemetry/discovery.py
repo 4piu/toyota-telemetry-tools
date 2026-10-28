@@ -1,19 +1,17 @@
-"""Bounded live endpoint-presence discovery and DID preflight.
+"""Bounded live endpoint-presence probes and DID reads.
 
-Both operations are explicitly live: `telemetry discover endpoints` opens the
-configured local adapter against operator-supplied candidate CAN ID pairs and
-replays an already-reviewed session recipe from tracked transport authority;
-`telemetry preflight dids` does the same against a confirmed endpoint or a
-responding discovery candidate, plus one additional ReadDataByIdentifier per
-requested DID. Neither authors collection objectives or edits tracked
-transport authority; results land as provisional SQLite facts (see
-`ProjectRepository.record_discovery_candidate` / `record_did_preflight`)
-until an explicit `promote_confirmed_endpoint` review action writes a
-confirmed endpoint into `config/transport.json`.
+These are the probe services behind verification (``telemetry verify`` and
+the desktop Verify action). An endpoint probe replays an already-reviewed
+session recipe from tracked transport against one explicitly named
+tester/response CAN ID pair; a DID probe does the same against a confirmed
+endpoint or a responding candidate, plus one ReadDataByIdentifier. Neither
+authors collection targets or edits tracked transport authority; results are
+provisional facts (``ProjectRepository.record_discovery_candidate`` /
+``record_did_preflight``) until an explicit ``promote_confirmed_endpoint``
+review writes a confirmed endpoint into ``config/transport.json``.
 
 There is no automatic CAN ID sweep: every candidate and every DID is named
-explicitly by the operator, keeping each run a small, bounded, reviewable
-set of transactions rather than an open-ended bus scan.
+explicitly, keeping each run a small, bounded, reviewable set of transactions.
 """
 
 from __future__ import annotations
@@ -116,7 +114,7 @@ def discover_endpoints(
     session_recipe_id) candidate and record a provisional fact for each."""
 
     if not candidates:
-        raise ValueError("telemetry discover endpoints requires at least one --candidate")
+        raise ValueError("endpoint discovery requires at least one candidate")
     backend = _local_backend(repository)
     factory = probe_worker_factory or default_probe_worker_factory(repository, root)
     results = []
@@ -156,10 +154,10 @@ def preflight_dids(
 ) -> list[dict[str, Any]]:
     """Probe one or more DIDs against a confirmed endpoint or a responding
     discovery candidate and record a provisional fact for each. Never
-    authors a collection objective from the outcome."""
+    authors a collection target from the outcome."""
 
     if not data_ids:
-        raise ValueError("telemetry preflight dids requires at least one --did")
+        raise ValueError("DID preflight requires at least one DID")
     tester_can_id, response_can_id, session_recipe_id = _resolve_preflight_target(
         repository, endpoint_id
     )

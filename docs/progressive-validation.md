@@ -1,54 +1,67 @@
 # Adaptive evidence collection
 
-The schema-2 workflow replaces fixed qualification and road batches with one
-objective-driven loop. Collection settings explain a run; they never decide
-whether that run's observations remain visible later.
+Collection is one target-driven loop. Collection settings explain a run; they
+never decide whether that run's observations remain visible later. Each step
+is available from `telemetry` and from the desktop application.
 
 ## Sources and derived state
 
 Tracked transport, policy, signal review, and catalog provenance are the
-portable authorities. Raw captures, normalized catalog rows, admitted plans,
-adapter settings, and the SQLite query cache remain private under the project's
-ignored `scratch/` tree. The cache can be deleted and rebuilt without losing a
-human decision.
+portable authorities. Raw captures, the candidate inventory, verification
+results, compiled scopes, adapter settings, and the SQLite query cache remain
+private under the project's ignored `scratch/` tree. The cache can be deleted
+and rebuilt without losing a human decision or a verification result.
 
 ```powershell
-telemetry cache rebuild --catalog-rows scratch/catalog-rows.json
-telemetry capture inspect
+telemetry cache rebuild
+telemetry recordings
 ```
 
-## Define objective-specific completion
+## Define completion directly
 
-Curate acquisitions and describe what evidence a signal actually needs in the
-tracked collection policy. Available counters cover total or changed
-observations, distinct values, transitions, required states, applicable
-duration, elapsed span, and distinct reviewed runs. Continuous change
-objectives require a reviewed deadband. Structured applicability can depend on
-other collected signals and has explicit true, false, and unknown states.
+A collection target says what evidence a signal still needs. There are no goal
+classes; requirements are explicit:
 
-Descriptive or slow-changing values need not vary to earn the counters their
-objective declares. Dynamic values do not complete merely by repeating a flat
-sample. Existing structurally valid observations contribute after policy edits
-without being invalidated by their old settings.
+| Requirement | Counts |
+|---|---|
+| Minimum samples | valid observations while the condition applies |
+| Minimum runs | distinct runs that contributed |
+| Minimum span | wall-clock coverage, including slow change across drives |
+| Required states | raw states that must be observed |
+| Minimum transitions | raw state changes |
+| Minimum changes | consecutive decoded values differing by at least the minimum difference |
+| Minimum applicable time | time observed while the condition is true |
 
-## Compile and inspect the run plan
+A structured condition can depend on other collected signals and has explicit
+true, false, and unknown states. A flat signal still earns samples and span; a
+change requirement is not satisfied by repeating a flat value. Existing valid
+observations contribute after policy edits without being invalidated by the
+settings they were collected under.
+
+Scheduler opportunity follows from what is unmet: unseen states and
+transitions raise demand for state requirements, qualifying changes raise it
+for change requirements, and samples, runs, and span accumulate at the shared
+DID cadence. Complete targets stop contributing demand.
+
+## Readiness and the run scope
 
 ```powershell
-telemetry plan
+telemetry collect --dry-run
 ```
 
-The offline planner resolves each signal objective into a DID acquisition,
-replays prior evidence, estimates p95 transaction cost, checks storage and
-transport limits, and writes a self-contained admitted plan. It refuses empty
-work, already-complete work, unresolved identities, stale sources, and missing
-safety/cost facts.
+Readiness resolves each unfinished target to its endpoint+DID settings,
+replays prior evidence, uses p95 latency and response size from verification
+or earlier runs, checks storage and transport limits, and writes the compiled
+scope under `scratch/plans/`. It refuses empty work, complete work, unresolved
+identities, stale sources, and missing safety or cost facts, naming the command
+that fixes each.
 
 The deterministic scheduler orders one endpoint's work by:
 
 1. overdue maximum interval;
 2. desired cadence using evidence deficit, opportunity, priority, aging, and
    measured cost;
-3. slow/background work that fits available slack.
+3. background work that fits available slack.
 
 There is one outstanding request and no catch-up burst.
 
@@ -58,25 +71,26 @@ There is one outstanding request and no catch-up burst.
 telemetry collect
 ```
 
-Collection is a live verb, not a mode of an offline command. The collector
-keeps one endpoint session open, rotates immutable 60-second/16-MiB segments
-without replaying setup, and updates objective deficits in memory. Completed
+The collector keeps one endpoint session open, rotates immutable segments
+without replaying setup, and updates target deficits in memory. Completed
 segments remain useful after an operator stop, storage limit, or transport
 loss. A crashed partial earns no progress until explicit offline recovery
-copies its valid prefix into a new finalized segment.
+(`telemetry recordings recover RUN`) copies its valid prefix into a new
+finalized segment.
 
-Heartbeat, response-pending, disconnected, transport-error, and stale-state
-remain distinct. The interface's button, hotkey, and Ctrl+C all send the same
-idempotent stop request.
+Heartbeat, response-pending, disconnected, and transport-error states remain
+distinct. A progress event reports elapsed time, reads, failures, and target
+completion. Ctrl+C, `stop` on standard input, and the desktop Stop button all
+make the same idempotent stop request.
 
-## Review evidence and export
+## Review evidence and generate the result
 
 ```powershell
-telemetry export
+telemetry recordings export --signal 372/0x1002/0..15 --output signal.csv
+telemetry result generate
 ```
 
-Evidence review reads all valid observations across all runs. Presentation may
-filter by run, time, or settings, but those filters do not mutate stored data
-or current objective replay. Saving review or policy is explicit and atomic.
-Export creates a new immutable, privacy-minimized generation and never reads a
-previous generated CSV as input.
+Evidence review reads all valid observations across all runs. Filters change
+presentation only. Saving review or policy is explicit and atomic. Result
+generation creates a new immutable, privacy-minimized generation and never
+reads a previously generated CSV as input.

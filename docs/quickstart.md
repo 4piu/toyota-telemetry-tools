@@ -3,6 +3,14 @@
 The toolkit runs inside a schema-2 vehicle project. A project owns vehicle
 facts and evidence; this repository owns reusable programs.
 
+There are two complete, interchangeable interfaces over the same library:
+
+- `telemetry`, a command-line interface for terminals and scripts; and
+- `telemetry-ui`, the desktop application (install the `gui` extra).
+
+Every step below names the command and the desktop page that does the same
+thing. Use either, or both; they read and write the same project files.
+
 ## Install
 
 From the vehicle project root:
@@ -17,87 +25,122 @@ Setup reads `[toolkit]` and `[paths]` from `telemetry-project.toml`, builds all
 private adapter workers into the project's ignored `scratch/bin/`, and installs
 the Python package from that same checkout.
 
-## Project inputs
+`telemetry status` (or the desktop banner) always shows the next useful step
+and the command for it.
 
-The required tracked authorities are:
+## Project files
 
-- `config/transport.json`: confirmed network, endpoints, session bytes,
-  dynamic-DID definitions, and measured safety limits;
-- `config/collection-policy.json`: reviewed acquisitions and signal
-  objectives;
-- `review/signals.json`: reviewed signal identities, decode choices, evidence
-  states, and notes;
-- `result/catalog-manifest.json`: provenance for the normalized private catalog
-  input.
+Tracked authorities:
 
-Adapter selection belongs only in ignored `scratch/local-settings.json`.
-Normalized catalog rows and immutable captures also stay under `scratch/`.
+- `config/transport.json`: confirmed endpoints, session recipes, dynamic-DID
+  definitions, and measured safety limits;
+- `config/collection-policy.json`: shared endpoint+DID settings and signal
+  collection targets;
+- `review/signals.json`: reviewed signal definitions and evidence states;
+- `result/catalog-manifest.json`: privacy-minimized provenance of the
+  candidate list.
 
-## Offline workflow
+Ignored machine-local state under `scratch/`: connector settings, the candidate
+inventory, verification results, captures, the compiled collection scope, and
+the disposable SQLite cache. The tracked JSON files may also be edited by hand;
+`telemetry check` validates them, and the desktop application notices outside
+edits.
 
-```powershell
-telemetry catalog import --catalog-rows scratch/catalog-rows.json
-telemetry capture inspect
-telemetry plan
-telemetry export
-```
-
-`catalog import` and `cache rebuild` reconstruct the disposable SQLite cache.
-Tracked signal review and collection policy record human facts and objectives.
-`plan` compiles policy and prior evidence into a hashed admitted plan without
-opening an adapter. `export` creates one privacy-minimized result generation
-from source authorities and all valid captures.
-
-An empty policy is valid but cannot authorize collection. Missing reviewed
-cost, safety, decode, or applicability facts also block admission.
-
-## Endpoint discovery and DID preflight
-
-Before a candidate endpoint has a confirmed entry in `config/transport.json`,
-or before a candidate DID is curated into policy, use the two explicitly live
-qualification commands. Both are bounded: every candidate is named on the
-command line, never swept automatically.
+## 1. Set up (Setup page)
 
 ```powershell
-telemetry discover endpoints --candidate 0x700:0x708:default-extended
-telemetry preflight dids --endpoint 700-708-extended --did 0x1075 --did 0x1090
+telemetry connector set pcan --channel PCAN_USBBUS1
+telemetry connector check
+telemetry source import file scratch/catalog-rows.json            # preview
+telemetry source import file scratch/catalog-rows.json --apply
+telemetry source import tis --database "C:\...\Techstream\NA" --phase 5 --apply
 ```
 
-`discover endpoints` opens the adapter, replays the named reviewed session
-recipe (`config/transport.json` `session_recipes`) against each candidate
-`TESTER_CAN_ID:RESPONSE_CAN_ID:SESSION_RECIPE_ID`, and records whether it
-responded as a provisional fact — it never edits tracked transport. `preflight
-dids` does the same against `--endpoint` (a confirmed endpoint id, or a
-`tester-response-session-recipe` candidate id printed by a prior responding
-discovery run) plus one
-`--did` read each, recording support/negative/timeout outcomes as provisional
-facts — it never authors a collection objective.
+`connector check` validates settings and runs the worker self-test without
+opening the device. `source import` previews first: counts, conflicts,
+rejected rows, and what changes compared with the current list; `--apply`
+replaces that source's rows, updates the tracked catalog manifest, and
+rebuilds the cache. The TIS source needs Windows and installed Techstream
+databases. Candidate rows never become reviewed authority by being imported.
 
-Both commands' results are provisional SQLite facts with no durable source:
-`telemetry cache rebuild` does not repopulate them, so re-run either command
-after a rebuild if you still need the facts. Promoting a responding discovery
-candidate is a separate reviewed curation operation over the
-`promote_confirmed_endpoint` library service. There is no CLI shortcut that
-constructs a new session or dynamic-DID definition; discovery itself never
-writes `config/transport.json`.
-
-The probe parent derives a finite wall-clock deadline from the tracked initial
-response and response-pending budgets plus a three-second process margin. It
-kills a worker that exceeds that bound and also terminates the child if the
-operator interrupts the command.
-
-## Live collection
-
-After inspecting the admitted plan, resolved transaction scope, and bounds:
+## 2. Verify (Signals page, LIVE)
 
 ```powershell
-telemetry collect
+telemetry signals --state not-verified
+telemetry verify 7a1-7a9 --dry-run
+telemetry verify 7a1-7a9
+telemetry endpoint confirm 7a1-7a9-extended --ecu 405 --source docs/evidence/probe.md
 ```
 
-`collect` is inherently live and has no mode flag. It verifies the current
-source hashes, prints adapter/endpoint/output/plan scope, and then launches one
-private adapter worker. Python owns scheduling, decoding, objective feedback,
-capture rotation, heartbeat, and stop; C# owns only adapter, CAN, ISO-TP, and
-session lifetime.
+Selectors are `ENDPOINT`, `ENDPOINT/0xNNNN`, `ENDPOINT/0xNNNN/FIRST..LAST`, or
+a signal reference `ECU/0xNNNN/FIRST..LAST`, narrowed by `--ecu`, `--state`,
+and `--search`. They choose only from the candidate list; there are no ranges
+or sweeps. An endpoint that is not verified yet is probed first and its DIDs
+are read only if it responds. Results (baseline bytes, latency, outcome) are
+kept in ignored `scratch/verification-facts.json`. `endpoint confirm` writes a
+responding endpoint into tracked transport. `endpoint add
+TESTER:RESPONSE:RECIPE --ecu KEY` adds an address the source did not provide.
 
-Do not operate a computer while driving; use a passenger or unattended logger.
+### Live confirmation
+
+`verify` and `collect` are the only commands that transmit. Both print the
+exact scope first. In a terminal they ask you to type `yes`. In a script,
+`--yes` is accepted only when the scope is identical to the one last printed by
+`--dry-run` for that command; the preview is recorded automatically, so run
+`--dry-run`, review it, then repeat with `--yes`. Ctrl+C or the word `stop`
+on standard input stops safely. Only one live job may run per project.
+
+## 3. Review and set targets (Signals page)
+
+```powershell
+telemetry signal set 372/0x1002/0..15 --name "Battery voltage" --formula "raw / 1000" --unit V
+telemetry did set 700-708-extended/0x1002 --interval 500 --max-interval 1000
+telemetry target set 372/0x1002/0..15 --min-samples 200 --min-runs 3
+telemetry target set 372/0x1003/0..7 --required-states 1,2,3 --when "372/0x1002/0..15 > 11"
+telemetry target set 372/0x1003/8..15 --min-changes 20 --min-difference 0.5
+telemetry target clear 372/0x1003/8..15
+```
+
+A target lists completion requirements directly: minimum samples, runs, span,
+required states, transitions, changes (with a minimum difference in the
+signal's unit), and applicable time. A value of 0 removes one requirement.
+`--when` limits which observations count. DID settings are shared by every
+signal on that endpoint and DID, and edits report the unselected sibling
+signals they affect. Every editing command accepts `--dry-run`. Removing a
+target never removes recordings.
+
+## 4. Collect (Collect page, LIVE)
+
+```powershell
+telemetry collect --dry-run
+telemetry collect --note "highway, passenger operating"
+```
+
+Readiness is compiled automatically. It skips complete targets, requires
+verified latency/size facts, checks request rate, bus and session load,
+storage, decode, and condition dependencies, and reports each problem with
+the command that fixes it. One run collects one endpoint (`--endpoint` when
+targets span several) and stops itself when its targets are complete.
+
+Do not operate a computer while driving; use a passenger or an unattended
+logger.
+
+## 5. Analyze (Recordings page)
+
+```powershell
+telemetry recordings
+telemetry recordings show RUN
+telemetry recordings recover RUN          # interrupted run: keep its valid prefix
+telemetry recordings quarantine RUN       # move an unrecoverable run aside
+telemetry recordings export --signal 372/0x1002/0..15 --output battery.csv
+telemetry result generate
+```
+
+All valid runs are included. Export writes UTC, run, elapsed time, raw bytes,
+decoded value, and condition state for external plotting; the desktop
+application plots the same data with run boundaries kept apart. `result
+generate` writes the tracked, privacy-minimized result generation.
+
+Every command accepts `--json` for one machine-readable document (JSON Lines
+for live commands). Exit codes: 0 success, 1 failure, 2 usage error, 3
+refused by confirmation or safety rules.

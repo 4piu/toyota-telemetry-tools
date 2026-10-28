@@ -303,7 +303,7 @@ class DiscoveryTests(unittest.TestCase):
             root = Path(directory)
             make_project(root)
             repository = make_repository(root)
-            with self.assertRaisesRegex(ValueError, "at least one --candidate"):
+            with self.assertRaisesRegex(ValueError, "at least one candidate"):
                 discover_endpoints(
                     repository, root, [], utc_now=lambda: "2026-01-01T00:00:00Z"
                 )
@@ -392,7 +392,7 @@ class PreflightTests(unittest.TestCase):
             root = Path(directory)
             make_project(root)
             repository = make_repository(root)
-            with self.assertRaisesRegex(ValueError, "at least one --did"):
+            with self.assertRaisesRegex(ValueError, "at least one DID"):
                 preflight_dids(
                     repository, root, "700-708-extended", [],
                     utc_now=lambda: "2026-01-01T00:00:00Z",

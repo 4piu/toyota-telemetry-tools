@@ -34,15 +34,15 @@ The executable accepts:
 ```
 
 Unknown arguments fail. The worker form is launched only by
-`telemetry collect`. It reads exact JSON-Lines `exchange` and `stop` commands
+live collection. It reads exact JSON-Lines `exchange` and `stop` commands
 from stdin and emits exact `ready`, `response_pending`, `result`, and `stopped`
 events on stdout. There is one in-flight transaction. An `exchange` command
 names a `transaction_id`, never request bytes; the worker resolves it against
 its own immutable launch-time transaction table, and the resolved request must
 pass the built-in telemetry guard before any frame is sent.
 
-The probe form is launched only by `telemetry discover endpoints` and
-`telemetry preflight dids`. It takes no stdin commands: it opens a channel,
+The probe form is launched only by verification (`telemetry verify` or the
+desktop Verify action). It takes no stdin commands: it opens a channel,
 attempts its configured session-setup steps and at most one
 ReadDataByIdentifier, prints exactly one `probe_result` JSON line, and exits.
 Every attempted request passes the same telemetry guard as the worker form.

@@ -6,7 +6,7 @@ package, four vehicle-facing adapter workers, and extraction utilities that turn
 OEM database into candidate telemetry.
 
 Nothing here is specific to a vehicle. Endpoints, session setup, DID selection,
-and objective policy come from a platform repository's configuration; this
+and collection targets come from a platform repository's configuration; this
 repository supplies the machinery that reads it.
 
 ## Install into a platform project
@@ -32,101 +32,64 @@ the Techstream scripts are always the revision reviewed. Start a platform
 repository from the template rather than from here; this repository has no
 project structure of its own to copy.
 
-## Commands
+## Two interfaces
 
-| Command | Purpose |
-|---|---|
-| `telemetry catalog import` | Import normalized catalog rows and rebuild the private derived cache. |
-| `telemetry cache rebuild` | Rebuild the private derived cache from authored inputs, catalog rows, and captures. |
-| `telemetry discover endpoints` | Explicitly live: probe operator-named candidate tester/response CAN ID pairs, replaying a reviewed session recipe, for presence. Records provisional facts only; never edits tracked transport. |
-| `telemetry preflight dids` | Explicitly live: probe operator-named candidate DIDs against a confirmed endpoint or a responding discovery candidate. Records provisional facts only; never authors a collection objective. |
-| `telemetry plan` | Compile and admit collection work offline. |
-| `telemetry collect` | Execute one current admitted endpoint plan through the private adapter worker. This verb is live; there is no `--live` option. |
-| `telemetry capture inspect` | Validate and summarize the private capture tree without printing payload bytes. |
-| `telemetry export` | Generate the tracked, privacy-minimized project result from authored sources and private evidence. |
+The toolkit offers two complete, independent user interfaces over one library
+facade (`toyota_telemetry.operator.OperatorService`):
 
-`telemetry discover endpoints` and `telemetry preflight dids` never sweep an
-ID range automatically: every candidate CAN ID pair (`--candidate
-TESTER:RESPONSE:SESSION_RECIPE_ID`, repeatable) and every candidate DID
-(`--did 0xNNNN`, repeatable) is named explicitly, keeping each run a small,
-bounded, reviewable set of transactions. Both use the same built-in telemetry
-guard and single-shot `--probe` worker protocol as `telemetry collect`'s
-long-lived worker; results are provisional SQLite facts with no durable
-source, so `telemetry cache rebuild` does not repopulate them. Promoting a
-responding discovery candidate into a tracked confirmed endpoint remains a
-separate explicit curation operation over the
-`toyota_telemetry.discovery.promote_confirmed_endpoint` library service; it is
-not a probing side effect or a CLI shortcut.
+- `telemetry` — the command-line interface, for terminals and scripts;
+- `telemetry-ui` — the cross-platform PySide6 desktop application.
 
-Finite data commands print a human summary by default and accept `--json` for
-one machine document. `telemetry collect --json` emits versioned JSON Lines.
-Use `telemetry --version` for the package version.
+Either one can take a project from an empty candidate list to analyzed
+recordings without the other. Neither launches or parses the other; a test
+proves that every operation exists in both. The [quickstart](docs/quickstart.md)
+walks the workflow with the command and desktop page for each step.
 
-The scheduler service is pure and deterministic. It
-accepts one admitted endpoint's acquisition rows and an explicit monotonic
-clock, making deadline, priority, slack-fill, failure-backoff, and no-catch-up
-behavior testable without opening an adapter.
+| Step | Command | Desktop page |
+|---|---|---|
+| Readiness and next action | `telemetry status`, `telemetry check` | banner on every page |
+| Connector | `telemetry connector show\|set\|check` | Setup |
+| Candidate list | `telemetry source import file\|tis [--apply]`, `telemetry cache rebuild` | Setup |
+| Browse | `telemetry signals [SELECTOR...]`, `telemetry signals show SELECTOR` | Signals |
+| Endpoints | `telemetry endpoint add\|confirm` | Signals |
+| Verify (LIVE) | `telemetry verify SELECTOR... [--dry-run] [--yes]` | Signals |
+| Review and targets | `telemetry signal set`, `telemetry did set`, `telemetry target set\|clear` | Signals |
+| Collect (LIVE) | `telemetry collect [--dry-run] [--yes]` | Collect |
+| Recordings | `telemetry recordings [show\|recover\|quarantine\|export]` | Recordings |
+| Tracked result | `telemetry result generate` | Recordings |
 
-The native capture service writes an immutable run around that scheduler:
-admitted-plan provenance, create-new JSONL segments, continuous run sequence
-numbers across rotation, bounded storage, clean stop/transport-loss prefixes,
-and explicit offline recovery that leaves the crashed source untouched.
+Only `verify` and `collect` transmit. Both show the exact scope first; the CLI
+asks for `yes` in a terminal, and a scripted `--yes` is accepted only for a
+scope identical to the last recorded `--dry-run`. The desktop application uses
+a confirmation dialog whose default button is Cancel. One live job may own a
+project at a time, whichever interface started it. Verification and selectors
+never sweep CAN ID or DID ranges: they act only on the finite selection shown.
 
-Collection uses Python `telemetry collect` as the public scheduler,
-decoder, capture, heartbeat, and stop owner. It launches one private long-lived
-C# worker for the selected endpoint; that worker owns only the adapter, CAN,
-ISO-TP, and session lifetime, resolves each runtime transaction by identifier
-against its own immutable launch-time table, and passes every resolved
-request through the built-in, vehicle-agnostic telemetry guard before
-transmission. The collector/worker integration is covered by synthetic offline
-tests. It has not yet been exercised on a vehicle.
+Every command prints a human summary by default and accepts `--json`; live
+commands emit versioned JSON Lines. Exit codes are 0 success, 1 failure, 2
+usage error, and 3 refused by confirmation or safety rules.
 
-## Desktop prototype
-
-The optional cross-platform PySide6 operator application has an offline
-interaction prototype. Install the GUI extra and launch it without a project:
+### Desktop application
 
 ```powershell
 uv sync --extra gui
-uv run --extra gui telemetry-ui
+uv run --extra gui telemetry-ui [PROJECT]
 ```
 
-An existing project path may be supplied as the positional argument. The
-prototype remains entirely offline. Its second workflow draft uses the task
-destinations Overview, Connect hardware, Build signal list, Verify with
-vehicle, Set collection targets, Collect data, and Analyze recordings. It
-previews TIS-database/file source selection, hierarchical endpoint/DID
-verification, visually grouped DID signals with inclusion checkboxes, direct
-completion requirements, automatic collection readiness, overall run progress,
-bounded evidence, and run/segment details. Safe local mock interactions work;
-live and project-mutating actions are visibly disabled. A separate performance
-table virtualizes 10,000 rows and analysis reduces a synthetic million-point series
-to a viewport-bounded PyQtGraph view. The prototype does not load project
-authorities, open an adapter, transmit, save edits, compile a real collection
-scope, or collect. Those services are added in the gated slices documented by
-the workspace operator-UI specification.
-
-The mock uses one small labeled example inventory across pages; the virtual
-10,000-row model remains a developer/test fixture and is not exposed in the
-operator workflow. Preview field checks reject
-missing connector/source input but never claim a driver self-test or file
-parse. Tree selection updates details, example target edits persist in the
-current session, verification scope and filters respond locally, readiness
-problems open the named DID/signal and offer a return action, and recording
-selectors change only synthetic display data. Minimum-size pages scroll or
-stack dense panes, vehicle-touching actions are visibly marked `LIVE`, disabled
-actions state their reason on screen, path fields have file pickers, and the
-Help surface explains first-use terms and project/transport ownership.
-
-The default install remains dependency-free and `telemetry` remains the
-headless/automation interface. Importing the core package does not import Qt,
-NumPy, or PyQtGraph.
+Four pages: Setup (project check, connector, candidate sources), Signals (one
+endpoint → DID → signal tree for verification, review, shared DID settings,
+and batch target edits held as a draft until Save), Collect (automatic
+readiness, start/stop, live progress), and Recordings (recovery, runs, plots
+across all valid runs, CSV export, result generation). Each action's tooltip
+and the next-step banner name the equivalent command. The default install
+remains dependency-free; importing the core package does not import Qt, NumPy,
+or PyQtGraph.
 
 Windows packaging is a separate development operation so compiler/deployment
-tools do not enter either runtime dependency set. The tested prototype command
-uses Nuitka directly because `pyside6-deploy` persists environment-specific
-paths in its generated spec and does not forward PyQtGraph's dynamically
-imported Qt modules reliably across isolated environments:
+tools do not enter either runtime dependency set. The tested command uses
+Nuitka directly because `pyside6-deploy` persists environment-specific paths
+in its generated spec and does not forward PyQtGraph's dynamically imported Qt
+modules reliably across isolated environments:
 
 ```powershell
 uv run --isolated --python 3.13 --extra gui --group package python -m nuitka `
@@ -136,7 +99,7 @@ uv run --isolated --python 3.13 --extra gui --group package python -m nuitka `
   --include-module=PySide6.QtOpenGL `
   --include-module=PySide6.QtOpenGLWidgets `
   --windows-console-mode=force --output-dir=scratch/operator-bundle `
-  --output-filename=telemetry-ui-prototype.exe
+  --output-filename=telemetry-ui.exe
 ```
 
 The isolated Python 3.13 environment is intentional: current Nuitka 2.8 does
@@ -144,11 +107,25 @@ not compile against Python 3.14's changed internal garbage-collector layout.
 This packaging constraint does not limit the installed application or core
 toolkit, which are tested on Python 3.14.
 
+### Collection internals
+
+The scheduler is pure and deterministic: one endpoint, an explicit monotonic
+clock, deadline, priority, slack-fill, failure-backoff, and no-catch-up
+behavior testable without an adapter. The capture writer produces immutable
+runs with continuous sequence numbers across rotated segments, bounded
+storage, clean stop/transport-loss prefixes, and explicit offline recovery
+that leaves the crashed source untouched. Python owns scheduling, decoding,
+target feedback, capture, heartbeat, and stop; one private C# worker owns only
+the adapter, CAN, ISO-TP, and session lifetime, resolves each transaction by
+identifier against its launch-time table, and passes every request through the
+built-in, vehicle-agnostic telemetry guard. The collector/worker integration is
+covered by synthetic offline tests; it has not yet been exercised on a vehicle.
+
 ## Guides
 
-- **[Quickstart](docs/quickstart.md)** — the command sequence end to end.
+- **[Quickstart](docs/quickstart.md)** — the workflow end to end, in both interfaces.
 - [Progressive validation](docs/progressive-validation.md) — the capture loop
-  in detail: objectives, admission, mixed-cadence collection, and evidence.
+  in detail: targets, readiness, mixed-cadence collection, and evidence.
 - [Adding an adapter](docs/adding-an-adapter.md) — implementing the backend
   contract for a device that is not PCAN, J2534, or gs_usb.
 
@@ -177,7 +154,8 @@ before its commands will run again. Pin a tag; a branch is not a pin.
 
 ## Repository contract
 
-- `src/` is the Python package; it has no third-party dependencies.
+- `src/` is the Python package; its core has no third-party dependencies and
+  the optional `gui` extra adds the desktop application.
 - `backends/` contains the vehicle-facing clients and their shared transport core.
 - `tools/` contains configurable extraction and analysis utilities.
 - `examples/` demonstrates the method with sanitized vehicle evidence.

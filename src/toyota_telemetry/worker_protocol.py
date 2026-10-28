@@ -126,8 +126,8 @@ def build_probe_config(
 ) -> dict[str, Any]:
     """Build one temporary, single-shot probe config for a candidate CAN ID
     pair, replaying an already-reviewed session recipe from tracked
-    transport authority. Used by `telemetry discover endpoints` (no
-    read_data_id) and `telemetry preflight dids` (one read_data_id)."""
+    transport authority. Used for endpoint probes (no read_data_id)
+    and DID probes (one read_data_id) during verification."""
 
     _exact_keys(backend, {"kind", "executable", "settings"}, "local backend")
     kind = _text(backend["kind"], "local backend kind")

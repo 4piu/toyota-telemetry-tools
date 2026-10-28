@@ -1,7 +1,8 @@
 # Private CAN adapter workers
 
-The C# executables are private implementation details of `telemetry collect`,
-`telemetry discover endpoints`, and `telemetry preflight dids`. Each accepts
+The C# executables are private implementation details of live collection and
+verification (`telemetry collect` / `telemetry verify`, or the desktop
+application's Collect and Verify actions). Each accepts
 exactly two live process forms:
 
 - `--worker --config PATH` — the long-lived collect worker. It keeps one
@@ -9,8 +10,8 @@ exactly two live process forms:
   endpoint, accepting only ordered transaction identifiers from the Python
   collector through an exact JSON-Lines protocol and resolving each one
   against its own immutable launch-time transaction table.
-- `--probe --config PATH` — the bounded, single-shot probe used by discovery
-  and preflight. It opens a channel, attempts a fixed session-setup sequence
+- `--probe --config PATH` — the bounded, single-shot probe used by verification
+  (endpoint and DID probes). It opens a channel, attempts a fixed session-setup sequence
   and optionally one ReadDataByIdentifier, prints exactly one JSON result
   line, and exits. It takes no stdin commands.
 
@@ -18,7 +19,7 @@ Both forms pass every resolved request through the same built-in,
 vehicle-agnostic telemetry guard at the vehicle-facing boundary before it is
 ever transmitted, independent of whichever table or config produced it.
 
-The worker does not own scheduling, decoding, objective progress, capture
+The worker does not own scheduling, decoding, target progress, capture
 files, public status, or operator interaction. It permits one outstanding
 request and supports stop while a response is pending. The probe owns none of
 that either: it has no scheduler, no capture writer, and no retry logic — one
@@ -52,10 +53,9 @@ plan into a temporary exact worker config under ignored scratch.
 Self-test checks ISO-TP framing, the built-in telemetry guard, and
 worker/probe protocol schema handling without opening a device. Unknown
 command-line arguments fail. The only other accepted process forms are the
-private `--worker --config PATH` protocol launched by `telemetry collect` and
-the private `--probe --config PATH` protocol launched by `telemetry discover
-endpoints` / `telemetry preflight dids`; operators should not invoke either
-directly.
+private `--worker --config PATH` protocol launched by collection and the
+private `--probe --config PATH` protocol launched by verification; operators
+should not invoke either directly.
 
 ## Safety boundary
 
@@ -72,9 +72,8 @@ directly.
 - DefineByIdentifier requires one or more complete source-DID/position/size
   tuples; truncated tuples and zero/overflowing ranges are rejected.
 - No adapter auto-detection or fallback between bindings.
-- No automatic CAN ID or DID sweep: `telemetry discover endpoints` and
-  `telemetry preflight dids` only ever probe candidates the operator names
-  explicitly. The Python parent enforces a wall-clock deadline derived from
+- No automatic CAN ID or DID sweep: verification only ever probes the finite
+  endpoint and DID selection the operator confirmed. The Python parent enforces a wall-clock deadline derived from
   the tracked per-step response bounds and terminates a stuck probe worker.
 
 See [adding an adapter](../docs/adding-an-adapter.md) for the narrow channel
