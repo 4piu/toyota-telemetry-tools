@@ -18,11 +18,12 @@ PACKAGE = Path(__file__).resolve().parents[1] / "src" / "toyota_telemetry"
 def declared_options(tree: ast.AST) -> set[str]:
     names: set[str] = set()
     for node in ast.walk(tree):
-        if not (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "add_argument"
-        ):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        if node.func.attr == "set_defaults":
+            names.update(keyword.arg for keyword in node.keywords if keyword.arg)
+            continue
+        if node.func.attr not in {"add_argument", "add_subparsers"}:
             continue
         for keyword in node.keywords:
             if keyword.arg == "dest" and isinstance(keyword.value, ast.Constant):

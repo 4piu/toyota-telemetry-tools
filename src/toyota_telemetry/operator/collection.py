@@ -1,0 +1,181 @@
+"""Automatic collection readiness and the supervised live collection run."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+import re
+import shutil
+import threading
+from typing import Any, Callable, Mapping
+
+from ..admission import compile_plan
+from ..collection_service import run_collection
+from ..repository import ProjectRepository
+from .inventory import refresh_cache
+from .live import LiveLock, scope_hash
+
+
+PLAN_FILE = "admitted-plan.json"
+
+
+@dataclass
+class Problem:
+    message: str
+    fix: str
+    page: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {"message": self.message, "fix": self.fix, "page": self.page}
+
+
+@dataclass
+class CollectionReadiness:
+    ready: bool
+    problems: list[Problem] = field(default_factory=list)
+    endpoints: list[str] = field(default_factory=list)
+    endpoint_id: str | None = None
+    summary: dict[str, Any] = field(default_factory=dict)
+    scope: dict[str, Any] = field(default_factory=dict)
+    digest: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "ready": self.ready,
+            "problems": [problem.as_dict() for problem in self.problems],
+            "endpoints": list(self.endpoints),
+            "endpoint_id": self.endpoint_id,
+            "summary": dict(self.summary),
+            "scope": dict(self.scope),
+            "scope_sha256": self.digest,
+        }
+
+
+def collection_readiness(
+    repository: ProjectRepository,
+    inventory: Mapping[str, Any],
+    *,
+    endpoint_id: str | None = None,
+    available_disk_mib: int | None = None,
+) -> CollectionReadiness:
+    """Compile the current collection scope without opening a connector."""
+
+    readiness = CollectionReadiness(False)
+    if repository.local_settings is None:
+        readiness.problems.append(Problem(
+            "no connector is configured", "telemetry connector set KIND ...", "setup",
+        ))
+    refresh_cache(repository, inventory)
+    if available_disk_mib is None:
+        repository.paths.scratch.mkdir(parents=True, exist_ok=True)
+        available_disk_mib = shutil.disk_usage(repository.paths.scratch).free // (1024 * 1024)
+    try:
+        plan, plan_sha256 = compile_plan(
+            repository,
+            available_disk_mib=available_disk_mib,
+            created_utc=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            output=repository.paths.plans / PLAN_FILE,
+        )
+    except ValueError as exc:
+        readiness.problems.append(_problem_for(str(exc)))
+        return readiness
+
+    readiness.endpoints = [row["endpoint_id"] for row in plan["endpoint_sessions"]]
+    if endpoint_id is None and len(readiness.endpoints) == 1:
+        endpoint_id = readiness.endpoints[0]
+    if endpoint_id is None:
+        readiness.problems.append(Problem(
+            f"targets span {len(readiness.endpoints)} endpoints; one run collects one endpoint",
+            "telemetry collect --endpoint ENDPOINT", "collect",
+        ))
+    elif endpoint_id not in readiness.endpoints:
+        readiness.problems.append(Problem(
+            f"{endpoint_id} has no unfinished targets ready to collect",
+            "choose one of: " + ", ".join(readiness.endpoints), "collect",
+        ))
+        endpoint_id = None
+    readiness.endpoint_id = endpoint_id
+    acquisitions = [
+        row for row in plan["acquisitions"] if endpoint_id is None or row["endpoint_id"] == endpoint_id
+    ]
+    loads = {row["endpoint_id"]: row for row in plan["stress"]["endpoint_loads"]}
+    readiness.summary = {
+        "unfinished_targets": len(plan["objectives"]),
+        "dids": len(acquisitions),
+        "endpoint_count": len(readiness.endpoints),
+        "estimated_bus_utilization": (
+            loads[endpoint_id]["bus_utilization"] if endpoint_id in loads else None
+        ),
+        "request_rate_hz": loads[endpoint_id]["request_rate_hz"] if endpoint_id in loads else None,
+        "capture_tree_max_mib": plan["storage"]["capture_tree_max_mib"],
+        "plan_sha256": plan_sha256,
+    }
+    if endpoint_id is not None and repository.local_settings is not None:
+        backend = repository.local_settings["backend"]
+        session = next(row for row in plan["endpoint_sessions"] if row["endpoint_id"] == endpoint_id)
+        readiness.scope = {
+            "connector": {"kind": backend["kind"], "settings": dict(backend["settings"])},
+            "endpoint": session,
+            "acquisitions": [
+                {
+                    "acquisition_id": row["acquisition_id"],
+                    "request_hex": row["request_hex"],
+                    "priority": row["priority"],
+                    "target_interval_ms": row["target_interval_ms"],
+                    "maximum_interval_ms": row["maximum_interval_ms"],
+                }
+                for row in acquisitions
+            ],
+            "targets": sorted(ref for row in acquisitions for ref in row["objective_ids"]),
+            "storage": plan["storage"],
+            "source_hashes": plan["source_hashes"],
+        }
+        readiness.digest = scope_hash(readiness.scope)
+    readiness.ready = not readiness.problems
+    return readiness
+
+
+def start_collection(
+    repository: ProjectRepository,
+    inventory: Mapping[str, Any],
+    readiness: CollectionReadiness,
+    *,
+    note: str | None,
+    event_sink: Callable[[dict], None],
+    stop_event: threading.Event,
+) -> str:
+    """Run one live collection for a ready scope while owning the project."""
+
+    if not readiness.ready or readiness.endpoint_id is None:
+        raise ValueError("collection is not ready; resolve the readiness problems first")
+    with LiveLock(repository):
+        reason = run_collection(
+            repository.root,
+            plan_path=repository.paths.plans / PLAN_FILE,
+            endpoint_id=readiness.endpoint_id,
+            run_note=note,
+            event_sink=event_sink,
+            stop_event=stop_event,
+        )
+    refresh_cache(ProjectRepository(repository.root), inventory)
+    return reason
+
+
+_FIXES = (
+    (re.compile(r"verify (\S+) first"), "telemetry verify {0}", "signals"),
+    (re.compile(r"needs (\S+/0x[0-9A-F]{4})"), "telemetry did set {0} --include", "signals"),
+    (re.compile(r"no included targets"), "telemetry target set SELECTOR --min-samples N", "signals"),
+    (re.compile(r"already complete"), "raise requirements with `telemetry target set`, or analyze recordings", "recordings"),
+    (re.compile(r"insufficient disk"), "free disk space under scratch/", "setup"),
+    (re.compile(r"endpoint (\S+) .*exceeds tracked limit"), "lengthen intervals with `telemetry did set {0} --interval MS`", "signals"),
+    (re.compile(r"request-start floor"), "lengthen intervals with `telemetry did set ... --interval MS`", "signals"),
+    (re.compile(r"(?:formula is ambiguous|does not resolve catalog signal): (\S+)"), "telemetry signal set {0} --formula EXPR", "signals"),
+)
+
+
+def _problem_for(message: str) -> Problem:
+    for pattern, fix, page in _FIXES:
+        match = pattern.search(message)
+        if match:
+            return Problem(message, fix.format(*match.groups()), page)
+    return Problem(message, "telemetry check", "setup")
