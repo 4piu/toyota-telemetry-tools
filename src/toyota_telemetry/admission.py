@@ -1,4 +1,9 @@
-"""Offline compilation and safety admission for collection plans."""
+"""Offline compilation and safety admission for collection plans.
+
+The compiled plan keeps its schema-1 ``objectives``/``objective_ids`` field
+names so previously captured native runs remain valid. Each compiled entry is
+one collection target, identified by its signal reference.
+"""
 
 from __future__ import annotations
 
@@ -8,21 +13,11 @@ import math
 import os
 from pathlib import Path
 import tempfile
-from typing import Any, Mapping
+from typing import Any
 
 from .identity import AcquisitionRef, SignalRef
+from .objectives import condition_leaves, condition_refs
 from .repository import ProjectRepository
-
-
-REQUIRED_TARGETS = {
-    "descriptive": ({"minimum_total_observations", "minimum_distinct_runs"},),
-    "snapshot": ({"minimum_total_observations", "minimum_distinct_runs"},),
-    "switch_or_enum": ({"required_raw_states"}, {"minimum_transitions"}),
-    "fast_dynamic": ({"minimum_changed_observations", "minimum_applicable_seconds"},),
-    "slow_trend": ({"minimum_time_span_seconds", "minimum_total_observations"},),
-    "counter_or_history": ({"minimum_distinct_runs", "minimum_total_observations"},),
-    "exploration": ({"minimum_total_observations"},),
-}
 
 
 def _json_bytes(value: Any) -> bytes:
@@ -47,21 +42,6 @@ def _atomic_write(path: Path, data: bytes) -> None:
             temporary.unlink(missing_ok=True)
 
 
-def validate_objective_shape(objective: Mapping[str, Any]) -> None:
-    target_keys = set(objective["targets"])
-    choices = REQUIRED_TARGETS[objective["class"]]
-    if not any(required <= target_keys for required in choices):
-        alternatives = " or ".join("+".join(sorted(required)) for required in choices)
-        raise ValueError(
-            f"{objective['signal_ref']}#{objective['objective_id']} lacks required "
-            f"{objective['class']} targets: {alternatives}"
-        )
-    if objective["class"] == "fast_dynamic" and objective.get("deadband") is None:
-        raise ValueError(
-            f"{objective['signal_ref']}#{objective['objective_id']} requires a reviewed deadband"
-        )
-
-
 def compile_plan(
     repository: ProjectRepository,
     *,
@@ -73,8 +53,8 @@ def compile_plan(
 
     policy = repository.policy
     transport = repository.transport
-    if not any(row["included"] for row in policy["objectives"]):
-        raise ValueError("collection policy has no included objectives")
+    if not any(row["included"] for row in policy["targets"]):
+        raise ValueError("collection policy has no included targets")
     storage = policy["storage"]
     required_disk = storage["disk_reserve_mib"] + storage["segment_max_mib"]
     if available_disk_mib < required_disk:
@@ -89,58 +69,57 @@ def compile_plan(
     acquisition_rules = {
         row["acquisition_id"]: row for row in policy["acquisitions"] if row["included"]
     }
-    progress_by_objective = {
-        (row["signal_ref"], row["objective_id"]): row
-        for row in repository.replay_progress()
-    }
-    compiled_objectives = []
-    objective_by_acquisition: dict[str, list[dict[str, Any]]] = {}
+    progress_by_signal = {row["signal_ref"]: row for row in repository.replay_progress()}
+    compiled_targets = []
+    target_by_acquisition: dict[str, list[dict[str, Any]]] = {}
     dependency_by_acquisition: dict[str, list[dict[str, Any]]] = {}
-    for authored in policy["objectives"]:
+    for authored in policy["targets"]:
         if not authored["included"]:
             continue
-        default = policy["class_defaults"].get(authored["class"], {})
-        merged = {**default, **authored}
-        merged["targets"] = {**default.get("targets", {}), **authored["targets"]}
-        validate_objective_shape(merged)
-        prior_progress = progress_by_objective.get(
-            (merged["signal_ref"], merged["objective_id"])
-        )
+        prior_progress = progress_by_signal.get(authored["signal_ref"])
         if prior_progress is not None and prior_progress["complete"]:
             continue
-        signal = SignalRef.parse(merged["signal_ref"])
+        signal = SignalRef.parse(authored["signal_ref"])
         endpoint = endpoint_by_ecu[signal.ecu_key]
         acquisition_id = f"{endpoint['id']}/0x{signal.data_id:04X}"
         if acquisition_id not in acquisition_rules:
-            raise ValueError(f"objective has no included acquisition rule: {merged['signal_ref']}")
-        dependencies = sorted(_applicability_refs(merged["applicability"])) if merged["applicability"] else []
+            raise ValueError(
+                f"target has no included DID settings: {authored['signal_ref']} "
+                f"needs {acquisition_id}"
+            )
+        condition = authored["condition"]
         compiled = {
-            **merged,
+            "signal_ref": authored["signal_ref"],
+            "included": True,
+            "condition": condition,
+            "requirements": dict(authored["requirements"]),
+            "minimum_difference": authored.get("minimum_difference"),
             "acquisition_id": acquisition_id,
-            "applicability_dependencies": dependencies,
+            "condition_dependencies": sorted(condition_refs(condition)) if condition else [],
             "prior_progress": prior_progress,
         }
-        compiled_objectives.append(compiled)
-        objective_by_acquisition.setdefault(acquisition_id, []).append(compiled)
-        if merged["applicability"] is not None:
-            for dependency_ref, maximum_age_ms in _applicability_leaves(merged["applicability"]):
+        compiled_targets.append(compiled)
+        target_by_acquisition.setdefault(acquisition_id, []).append(compiled)
+        if condition is not None:
+            for dependency_ref, maximum_age_ms in condition_leaves(condition):
                 dependency = SignalRef.parse(dependency_ref)
                 dependency_endpoint = endpoint_by_ecu[dependency.ecu_key]
                 dependency_id = f"{dependency_endpoint['id']}/0x{dependency.data_id:04X}"
                 if dependency_id not in acquisition_rules:
                     raise ValueError(
-                        f"applicability dependency has no included acquisition rule: {dependency_ref}"
+                        f"condition signal has no included DID settings: {dependency_ref} "
+                        f"needs {dependency_id}"
                     )
                 dependency_by_acquisition.setdefault(dependency_id, []).append(
                     {
-                        "objective": f"{merged['signal_ref']}#{merged['objective_id']}",
+                        "target": authored["signal_ref"],
                         "maximum_age_ms": maximum_age_ms,
-                        "priority": merged["priority"],
+                        "priority": acquisition_rules[acquisition_id]["priority"],
                     }
                 )
 
-    if not compiled_objectives:
-        raise ValueError("all included collection objectives are already complete")
+    if not compiled_targets:
+        raise ValueError("all included collection targets are already complete")
 
     costs = repository.acquisition_cost_facts()
     safety = transport["safety"]
@@ -153,21 +132,21 @@ def compile_plan(
     acquisitions = []
     load_by_endpoint: dict[str, dict[str, float]] = {}
     for acquisition_id, rule in sorted(acquisition_rules.items(), key=lambda item: AcquisitionRef.parse(item[0])):
-        objective_rows = objective_by_acquisition.get(acquisition_id, [])
+        target_rows = target_by_acquisition.get(acquisition_id, [])
         dependency_rows = dependency_by_acquisition.get(acquisition_id, [])
-        if not objective_rows and not dependency_rows:
+        if not target_rows and not dependency_rows:
             continue
         facts = costs.get(acquisition_id)
         if facts is None or facts["sample_count"] < 1 or facts["maximum_response_bytes"] < 1:
-            raise ValueError(f"missing latency/response-size cost facts: {acquisition_id}")
+            raise ValueError(
+                f"missing latency/response-size facts: verify {acquisition_id} first"
+            )
         target = min(
             [rule["target_interval_ms"]]
-            + [row["target_interval_ms"] for row in objective_rows]
             + [row["maximum_age_ms"] for row in dependency_rows]
         )
         maximum = min(
             [rule["maximum_interval_ms"]]
-            + [row["maximum_interval_ms"] for row in objective_rows]
             + [row["maximum_age_ms"] for row in dependency_rows]
         )
         if target < floor or maximum < floor:
@@ -194,19 +173,18 @@ def compile_plan(
                 "endpoint_id": ref.endpoint_id,
                 "data_id": f"0x{ref.data_id:04X}",
                 "priority": max(
-                    [rule["priority"]]
-                    + [row["priority"] for row in objective_rows]
-                    + [row["priority"] for row in dependency_rows]
+                    [rule["priority"]] + [row["priority"] for row in dependency_rows]
                 ),
                 "target_interval_ms": target,
                 "maximum_interval_ms": maximum,
                 "cost": facts,
                 "request_hex": f"22 {ref.data_id >> 8:02X} {ref.data_id & 0xFF:02X}",
                 "objective_ids": sorted(
-                    f"{row['signal_ref']}#{row['objective_id']}"
-                    for row in objective_rows
+                    (row["signal_ref"] for row in target_rows), key=SignalRef.parse
                 ),
-                "dependency_for": sorted(row["objective"] for row in dependency_rows),
+                "dependency_for": sorted(
+                    {row["target"] for row in dependency_rows}, key=SignalRef.parse
+                ),
             }
         )
     for endpoint_id, load in sorted(load_by_endpoint.items()):
@@ -276,7 +254,7 @@ def compile_plan(
     maximum_session_utilization = max(
         (load["session_utilization"] for load in load_by_endpoint.values()), default=0.0
     )
-    decodes = _compile_decodes(repository, compiled_objectives)
+    decodes = _compile_decodes(repository, compiled_targets)
     body = {
         "document_type": "telemetry.admitted-plan",
         "schema_version": 1,
@@ -296,7 +274,7 @@ def compile_plan(
         "storage": storage,
         "endpoint_sessions": endpoint_sessions,
         "acquisitions": acquisitions,
-        "objectives": compiled_objectives,
+        "objectives": compiled_targets,
         "decodes": decodes,
     }
     body["content_sha256"] = hashlib.sha256(_json_bytes(body)).hexdigest()
@@ -308,11 +286,11 @@ def compile_plan(
 
 
 def _compile_decodes(
-    repository: ProjectRepository, objectives: list[dict[str, Any]]
+    repository: ProjectRepository, targets: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    required = {row["signal_ref"] for row in objectives}
-    for objective in objectives:
-        required.update(objective["applicability_dependencies"])
+    required = {row["signal_ref"] for row in targets}
+    for target in targets:
+        required.update(target["condition_dependencies"])
     by_signal: dict[str, list[dict[str, Any]]] = {}
     for row in repository.catalog_variants():
         by_signal.setdefault(row["signal_ref"], []).append(row)
@@ -353,19 +331,3 @@ def _compile_decodes(
             "formula": formula,
         })
     return result
-
-
-def _applicability_refs(node: Mapping[str, Any]) -> set[str]:
-    if "all" in node:
-        return set().union(*(_applicability_refs(child) for child in node["all"]))
-    if "any" in node:
-        return set().union(*(_applicability_refs(child) for child in node["any"]))
-    return {str(SignalRef.parse(node["signal_ref"]))}
-
-
-def _applicability_leaves(node: Mapping[str, Any]) -> list[tuple[str, int]]:
-    if "all" in node:
-        return [item for child in node["all"] for item in _applicability_leaves(child)]
-    if "any" in node:
-        return [item for child in node["any"] for item in _applicability_leaves(child)]
-    return [(str(SignalRef.parse(node["signal_ref"])), int(node["maximum_age_ms"]))]

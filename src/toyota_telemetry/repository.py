@@ -16,7 +16,7 @@ from typing import Any, Iterable, Mapping
 
 from .capture_store import capture_set_hash, load_capture_tree
 from .identity import AcquisitionRef, SignalRef, canonical_did
-from .objectives import ReplayObservation, ReplayRun, replay_objectives
+from .objectives import ReplayObservation, condition_refs, replay_targets
 from .schemas import (
     validate_local_settings,
     validate_policy,
@@ -26,7 +26,8 @@ from .schemas import (
 )
 
 
-CACHE_SCHEMA_VERSION = 2
+CACHE_SCHEMA_VERSION = 3
+VERIFICATION_FACTS_FILE = "verification-facts.json"
 _CACHE_TABLES = (
     "schema_meta",
     "source_file",
@@ -34,9 +35,8 @@ _CACHE_TABLES = (
     "endpoint",
     "endpoint_ecu",
     "dynamic_did",
-    "policy_class_default",
     "policy_acquisition",
-    "policy_objective",
+    "policy_target",
     "signal_review",
     "catalog_variant",
     "run",
@@ -44,10 +44,8 @@ _CACHE_TABLES = (
     "acquisition_exchange",
     "signal_observation",
     "did_status",
-    "objective_progress",
+    "target_progress",
     "export_generation",
-    "discovery_candidate",
-    "did_preflight",
 )
 
 
@@ -198,10 +196,10 @@ class ProjectRepository:
             if not did_min <= ref.data_id <= did_max:
                 raise ValueError(f"policy acquisition is outside the DID safety range: {ref}")
 
-        for row in self.policy["objectives"]:
+        for row in self.policy["targets"]:
             self._validate_signal_ref(row["signal_ref"], ecu_to_endpoint, did_min, did_max)
-            if row["applicability"] is not None:
-                for signal_ref in _applicability_refs(row["applicability"]):
+            if row["condition"] is not None:
+                for signal_ref in condition_refs(row["condition"]):
                     self._validate_signal_ref(signal_ref, ecu_to_endpoint, did_min, did_max)
         for row in self.review["signals"]:
             self._validate_signal_ref(row["signal_ref"], ecu_to_endpoint, did_min, did_max)
@@ -309,7 +307,7 @@ class ProjectRepository:
             os.replace(temporary, database)
         finally:
             temporary.unlink(missing_ok=True)
-        if self.policy["objectives"]:
+        if self.policy["targets"]:
             self.replay_progress()
 
     def refresh_cache(
@@ -344,7 +342,7 @@ class ProjectRepository:
                 (capture_set_hash(captures_root),),
             )
             connection.commit()
-        if self.policy["objectives"]:
+        if self.policy["targets"]:
             self.replay_progress()
 
     def _require_cache(self) -> None:
@@ -359,13 +357,43 @@ class ProjectRepository:
 
         self._require_cache()
 
-    def record_discovery_candidate(self, fact: Mapping[str, Any]) -> None:
-        """Store one provisional `telemetry discover endpoints` result.
+    @property
+    def verification_facts_path(self) -> Path:
+        return self.paths.scratch / VERIFICATION_FACTS_FILE
 
-        Discovery facts are provisional: unlike captures, catalog rows, and
-        authored documents, they have no durable source to rebuild from, so
-        `rebuild_cache` does not repopulate this table. A stale or missing
-        fact after a rebuild is expected; re-run discovery to refresh it.
+    def _verification_facts(self) -> dict[str, Any]:
+        path = self.verification_facts_path
+        if not path.is_file():
+            return {
+                "document_type": "telemetry.verification-facts",
+                "schema_version": 1,
+                "project_id": self.project_id,
+                "discovery": {},
+                "preflight": {},
+            }
+        document, _ = _exact_json(path)
+        _exact_keys(
+            document,
+            {"document_type", "schema_version", "project_id", "discovery", "preflight"},
+            "verification facts",
+        )
+        if (
+            document["document_type"] != "telemetry.verification-facts"
+            or document["schema_version"] != 1
+            or document["project_id"] != self.project_id
+        ):
+            raise ValueError(f"{path}: verification facts do not belong to this project")
+        return document
+
+    def _write_verification_facts(self, document: Mapping[str, Any]) -> None:
+        _atomic_write(self.verification_facts_path, _encoded_json(document))
+
+    def record_discovery_candidate(self, fact: Mapping[str, Any]) -> None:
+        """Store one provisional endpoint-probe result.
+
+        Verification facts are provisional machine-local observations kept in
+        ignored state beside, not inside, the rebuildable cache, so rebuilding
+        the cache or confirming an endpoint never discards them.
         """
 
         _exact_keys(
@@ -376,77 +404,33 @@ class ProjectRepository:
             },
             "discovery candidate fact",
         )
-        self._require_cache()
-        with closing(sqlite3.connect(self.paths.database)) as connection:
-            connection.execute(
-                "INSERT OR REPLACE INTO discovery_candidate("
-                "candidate_id, tester_can_id, response_can_id, session_recipe_id, responded, "
-                "observed_utc, document_json"
-                ") VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    fact["candidate_id"],
-                    fact["tester_can_id"],
-                    fact["response_can_id"],
-                    fact["session_recipe_id"],
-                    1 if fact["responded"] else 0,
-                    fact["observed_utc"],
-                    _canonical_json(fact),
-                ),
-            )
-            connection.commit()
+        document = self._verification_facts()
+        document["discovery"][fact["candidate_id"]] = json.loads(_canonical_json(fact))
+        self._write_verification_facts(document)
 
     def discovery_candidates(self) -> list[dict[str, Any]]:
-        if not self.paths.database.is_file():
-            return []
-        self._require_cache()
-        with closing(sqlite3.connect(self.paths.database)) as connection:
-            rows = connection.execute(
-                "SELECT document_json FROM discovery_candidate ORDER BY candidate_id"
-            ).fetchall()
-        return [json.loads(row[0]) for row in rows]
+        facts = self._verification_facts()["discovery"]
+        return [facts[key] for key in sorted(facts)]
 
     def record_did_preflight(self, fact: Mapping[str, Any]) -> None:
-        """Store one provisional `telemetry preflight dids` result. Provisional
-        like `record_discovery_candidate`: not repopulated by `rebuild_cache`.
-        """
+        """Store one provisional DID-probe result beside the cache."""
 
         _exact_keys(
             fact,
             {"endpoint_id", "data_id", "outcome", "observed_utc", "result"},
             "DID preflight fact",
         )
-        self._require_cache()
-        with closing(sqlite3.connect(self.paths.database)) as connection:
-            connection.execute(
-                "INSERT OR REPLACE INTO did_preflight("
-                "endpoint_id, data_id, outcome, observed_utc, document_json"
-                ") VALUES (?, ?, ?, ?, ?)",
-                (
-                    fact["endpoint_id"],
-                    fact["data_id"],
-                    fact["outcome"],
-                    fact["observed_utc"],
-                    _canonical_json(fact),
-                ),
-            )
-            connection.commit()
+        document = self._verification_facts()
+        key = f"{fact['endpoint_id']}/{canonical_did(fact['data_id'])}"
+        document["preflight"][key] = json.loads(_canonical_json(fact))
+        self._write_verification_facts(document)
 
     def did_preflight_facts(self, endpoint_id: str | None = None) -> list[dict[str, Any]]:
-        if not self.paths.database.is_file():
-            return []
-        self._require_cache()
-        with closing(sqlite3.connect(self.paths.database)) as connection:
-            if endpoint_id is None:
-                rows = connection.execute(
-                    "SELECT document_json FROM did_preflight ORDER BY endpoint_id, data_id"
-                ).fetchall()
-            else:
-                rows = connection.execute(
-                    "SELECT document_json FROM did_preflight WHERE endpoint_id = ? "
-                    "ORDER BY data_id",
-                    (endpoint_id,),
-                ).fetchall()
-        return [json.loads(row[0]) for row in rows]
+        facts = self._verification_facts()["preflight"]
+        rows = [facts[key] for key in sorted(facts)]
+        if endpoint_id is not None:
+            rows = [row for row in rows if row["endpoint_id"] == endpoint_id]
+        return rows
 
     def _validate_catalog_rows(self, rows: list[dict[str, Any]]) -> None:
         if not rows:
@@ -465,11 +449,11 @@ class ProjectRepository:
             by_signal.setdefault(row["signal_ref"], []).append(row)
             by_variant[row["catalog_variant_id"]] = row
 
-        required_refs = {row["signal_ref"] for row in self.policy["objectives"]}
+        required_refs = {row["signal_ref"] for row in self.policy["targets"]}
         required_refs.update(row["signal_ref"] for row in self.review["signals"])
-        for objective in self.policy["objectives"]:
-            if objective["applicability"] is not None:
-                required_refs.update(_applicability_refs(objective["applicability"]))
+        for target in self.policy["targets"]:
+            if target["condition"] is not None:
+                required_refs.update(condition_refs(target["condition"]))
         missing = sorted(required_refs - by_signal.keys())
         if missing:
             raise ValueError(f"catalog does not resolve signal_ref: {', '.join(missing)}")
@@ -518,15 +502,9 @@ class ProjectRepository:
             return snapshot
 
     def replay_progress(self) -> list[dict[str, Any]]:
-        """Recompute objective progress from immutable cached observations."""
+        """Recompute target progress from immutable cached observations."""
 
         with closing(sqlite3.connect(self.paths.database)) as connection:
-            runs = [
-                ReplayRun(run_id, json.loads(document)["independence"])
-                for run_id, document in connection.execute(
-                    "SELECT run_id, document_json FROM run ORDER BY run_id"
-                )
-            ]
             observations = []
             for run_id, sequence, signal_ref, raw_value, decoded, exchange_json in connection.execute(
                 "SELECT o.run_id, o.sequence, o.signal_ref, o.raw_value, o.decoded_value, e.document_json "
@@ -546,14 +524,11 @@ class ProjectRepository:
                         decoded,
                     )
                 )
-            progress = replay_objectives(self.policy["objectives"], runs, observations)
-            connection.execute("DELETE FROM objective_progress")
+            progress = replay_targets(self.policy["targets"], observations)
+            connection.execute("DELETE FROM target_progress")
             connection.executemany(
-                "INSERT INTO objective_progress(signal_ref, objective_id, document_json) VALUES (?, ?, ?)",
-                (
-                    (row["signal_ref"], row["objective_id"], _canonical_json(row))
-                    for row in progress
-                ),
+                "INSERT INTO target_progress(signal_ref, document_json) VALUES (?, ?)",
+                ((row["signal_ref"], _canonical_json(row)) for row in progress),
             )
             connection.commit()
             return progress
@@ -584,25 +559,20 @@ class ProjectRepository:
                     facts["maximum_response_bytes"], len(response) if response is not None else 0
                 )
                 facts["outcomes"][outcome] = facts["outcomes"].get(outcome, 0) + 1
-            for endpoint_id, data_id, document in connection.execute(
-                "SELECT endpoint_id, data_id, document_json FROM did_preflight "
-                "ORDER BY endpoint_id, data_id"
-            ):
-                fact = json.loads(document)
-                read = fact["result"]["read"]
-                if read is None or read.get("attempted") is not True or read["outcome"] != "positive":
-                    continue
-                response_hex = read["response_hex"]
-                acquisition_id = f"{endpoint_id}/{canonical_did(data_id)}"
-                facts = grouped.setdefault(
-                    acquisition_id,
-                    {"latencies": [], "maximum_response_bytes": 0, "outcomes": {}},
-                )
-                facts["latencies"].append(int(read["latency_ms"]))
-                facts["maximum_response_bytes"] = max(
-                    facts["maximum_response_bytes"], len(bytes.fromhex(response_hex))
-                )
-                facts["outcomes"]["positive"] = facts["outcomes"].get("positive", 0) + 1
+        for fact in self.did_preflight_facts():
+            read = fact["result"]["read"]
+            if read is None or read.get("attempted") is not True or read["outcome"] != "positive":
+                continue
+            acquisition_id = f"{fact['endpoint_id']}/{canonical_did(fact['data_id'])}"
+            facts = grouped.setdefault(
+                acquisition_id,
+                {"latencies": [], "maximum_response_bytes": 0, "outcomes": {}},
+            )
+            facts["latencies"].append(int(read["latency_ms"]))
+            facts["maximum_response_bytes"] = max(
+                facts["maximum_response_bytes"], len(bytes.fromhex(read["response_hex"]))
+            )
+            facts["outcomes"]["positive"] = facts["outcomes"].get("positive", 0) + 1
         result = {}
         for acquisition_id, facts in sorted(grouped.items()):
             ordered = sorted(facts.pop("latencies"))
@@ -727,11 +697,6 @@ class ProjectRepository:
                 "INSERT INTO dynamic_did(endpoint_id, target_did, document_json) VALUES (?, ?, ?)",
                 (dynamic["endpoint_id"], canonical_did(dynamic["target_did"]), _canonical_json(dynamic)),
             )
-        for name, rule in self.policy["class_defaults"].items():
-            connection.execute(
-                "INSERT INTO policy_class_default(class, document_json) VALUES (?, ?)",
-                (name, _canonical_json(rule)),
-            )
         for acquisition in self.policy["acquisitions"]:
             ref = AcquisitionRef.parse(acquisition["acquisition_id"])
             connection.execute(
@@ -739,11 +704,11 @@ class ProjectRepository:
                 "VALUES (?, ?, ?, ?)",
                 (str(ref), ref.endpoint_id, canonical_did(f"0x{ref.data_id:04X}"), _canonical_json(acquisition)),
             )
-        for objective in self.policy["objectives"]:
-            ref = str(SignalRef.parse(objective["signal_ref"]))
+        for target in self.policy["targets"]:
+            ref = str(SignalRef.parse(target["signal_ref"]))
             connection.execute(
-                "INSERT INTO policy_objective(signal_ref, objective_id, document_json) VALUES (?, ?, ?)",
-                (ref, objective["objective_id"], _canonical_json(objective)),
+                "INSERT INTO policy_target(signal_ref, document_json) VALUES (?, ?)",
+                (ref, _canonical_json(target)),
             )
         for review in self.review["signals"]:
             ref = str(SignalRef.parse(review["signal_ref"]))
@@ -868,17 +833,6 @@ class ProjectRepository:
             )
 
 
-def _applicability_refs(node: Mapping[str, Any]) -> Iterable[str]:
-    if "all" in node:
-        for child in node["all"]:
-            yield from _applicability_refs(child)
-    elif "any" in node:
-        for child in node["any"]:
-            yield from _applicability_refs(child)
-    else:
-        yield node["signal_ref"]
-
-
 def _normalized_catalog_rows(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     seen: dict[str, str] = {}
@@ -939,21 +893,15 @@ def _create_cache_schema(connection: sqlite3.Connection) -> None:
             document_json TEXT NOT NULL,
             PRIMARY KEY(endpoint_id, target_did)
         );
-        CREATE TABLE policy_class_default (
-            class TEXT PRIMARY KEY,
-            document_json TEXT NOT NULL
-        );
         CREATE TABLE policy_acquisition (
             acquisition_id TEXT PRIMARY KEY,
             endpoint_id TEXT NOT NULL REFERENCES endpoint(id),
             data_id TEXT NOT NULL,
             document_json TEXT NOT NULL
         );
-        CREATE TABLE policy_objective (
-            signal_ref TEXT NOT NULL,
-            objective_id TEXT NOT NULL,
-            document_json TEXT NOT NULL,
-            PRIMARY KEY(signal_ref, objective_id)
+        CREATE TABLE policy_target (
+            signal_ref TEXT PRIMARY KEY,
+            document_json TEXT NOT NULL
         );
         CREATE TABLE signal_review (
             signal_ref TEXT NOT NULL,
@@ -1008,36 +956,15 @@ def _create_cache_schema(connection: sqlite3.Connection) -> None:
             document_json TEXT NOT NULL,
             PRIMARY KEY(endpoint_id, data_id)
         );
-        CREATE TABLE objective_progress (
-            signal_ref TEXT NOT NULL,
-            objective_id TEXT NOT NULL,
-            document_json TEXT NOT NULL,
-            PRIMARY KEY(signal_ref, objective_id),
-            FOREIGN KEY(signal_ref, objective_id)
-                REFERENCES policy_objective(signal_ref, objective_id)
+        CREATE TABLE target_progress (
+            signal_ref TEXT PRIMARY KEY REFERENCES policy_target(signal_ref),
+            document_json TEXT NOT NULL
         );
         CREATE TABLE export_generation (
             generation_id TEXT PRIMARY KEY,
             created_utc TEXT NOT NULL,
             manifest_sha256 TEXT NOT NULL,
             document_json TEXT NOT NULL
-        );
-        CREATE TABLE discovery_candidate (
-            candidate_id TEXT PRIMARY KEY,
-            tester_can_id TEXT NOT NULL,
-            response_can_id TEXT NOT NULL,
-            session_recipe_id TEXT NOT NULL,
-            responded INTEGER NOT NULL,
-            observed_utc TEXT NOT NULL,
-            document_json TEXT NOT NULL
-        );
-        CREATE TABLE did_preflight (
-            endpoint_id TEXT NOT NULL,
-            data_id TEXT NOT NULL,
-            outcome TEXT NOT NULL,
-            observed_utc TEXT NOT NULL,
-            document_json TEXT NOT NULL,
-            PRIMARY KEY(endpoint_id, data_id)
         );
         """
     )

@@ -117,7 +117,6 @@ def discover_endpoints(
 
     if not candidates:
         raise ValueError("telemetry discover endpoints requires at least one --candidate")
-    repository.ensure_cache_ready()
     backend = _local_backend(repository)
     factory = probe_worker_factory or default_probe_worker_factory(repository, root)
     results = []
@@ -161,7 +160,6 @@ def preflight_dids(
 
     if not data_ids:
         raise ValueError("telemetry preflight dids requires at least one --did")
-    repository.ensure_cache_ready()
     tester_can_id, response_can_id, session_recipe_id = _resolve_preflight_target(
         repository, endpoint_id
     )

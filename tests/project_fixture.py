@@ -86,7 +86,7 @@ def make_current_project(root: Path, *, include_capture: bool = True) -> list[di
     })
     _write_json(root / "config/collection-policy.json", {
         "document_type": "telemetry.collection-policy",
-        "schema_version": 1,
+        "schema_version": 2,
         "profile_id": "test-profile",
         "storage": {
             "segment_seconds": 60,
@@ -94,9 +94,8 @@ def make_current_project(root: Path, *, include_capture: bool = True) -> list[di
             "capture_tree_max_mib": 2048,
             "disk_reserve_mib": 256,
         },
-        "class_defaults": {},
         "acquisitions": [],
-        "objectives": [],
+        "targets": [],
     })
     _write_json(root / "review/signals.json", {
         "document_type": "telemetry.signal-review",

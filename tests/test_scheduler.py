@@ -22,7 +22,7 @@ def acquisition(
         "target_interval_ms": target,
         "maximum_interval_ms": maximum,
         "cost": {"latency_p95_ms": cost},
-        "objective_ids": [f"372/0x{data_id:04X}/0..7#observe"],
+        "objective_ids": [f"372/0x{data_id:04X}/0..7"],
     }
 
 

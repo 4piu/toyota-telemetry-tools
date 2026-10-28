@@ -67,25 +67,13 @@ def transport() -> dict:
 def policy() -> dict:
     return {
         "document_type": "telemetry.collection-policy",
-        "schema_version": 1,
+        "schema_version": 2,
         "profile_id": "test-profile",
         "storage": {
             "segment_seconds": 60,
             "segment_max_mib": 16,
             "capture_tree_max_mib": 2048,
             "disk_reserve_mib": 256,
-        },
-        "class_defaults": {
-            "fast_dynamic": {
-                "priority": 50,
-                "target_interval_ms": 100,
-                "maximum_interval_ms": 250,
-                "targets": {
-                    "minimum_changed_observations": 10,
-                    "minimum_applicable_seconds": 2,
-                    "minimum_distinct_runs": 1,
-                },
-            }
         },
         "acquisitions": [
             {
@@ -96,22 +84,17 @@ def policy() -> dict:
                 "maximum_interval_ms": 250,
             }
         ],
-        "objectives": [
+        "targets": [
             {
                 "signal_ref": "372/0x1002/0..15",
-                "objective_id": "variation",
-                "class": "fast_dynamic",
                 "included": True,
-                "priority": 80,
-                "target_interval_ms": 100,
-                "maximum_interval_ms": 250,
-                "deadband": 0.1,
-                "targets": {
-                    "minimum_changed_observations": 10,
+                "minimum_difference": 0.1,
+                "requirements": {
+                    "minimum_changes": 10,
                     "minimum_applicable_seconds": 2,
-                    "minimum_distinct_runs": 1,
+                    "minimum_runs": 1,
                 },
-                "applicability": {
+                "condition": {
                     "signal_ref": "372/0x1002/0..15",
                     "operator": "gte",
                     "value": 0,
@@ -262,7 +245,7 @@ class RepositoryTests(unittest.TestCase):
             repository = ProjectRepository(root)
             repository.rebuild_cache(catalog)
             first = repository.cache_snapshot()
-            self.assertEqual(first["schema_meta"][0], ("cache_schema_version", "2"))
+            self.assertEqual(first["schema_meta"][0], ("cache_schema_version", "3"))
             self.assertEqual(len(first["catalog_variant"]), 1)
             self.assertEqual(first["run"], [])
             self.assertFalse(repository.refresh_cache(catalog))
@@ -333,7 +316,7 @@ class RepositoryTests(unittest.TestCase):
             root = Path(directory)
             make_project(root)
             document = policy()
-            document["objectives"][0]["signal_ref"] = "999/0x1002/0..15"
+            document["targets"][0]["signal_ref"] = "999/0x1002/0..15"
             write_json(root / "config/collection-policy.json", document)
             with self.assertRaisesRegex(ValueError, "unresolved signal_ref ECU"):
                 ProjectRepository(root)

@@ -1,4 +1,4 @@
-"""Deterministic objective and applicability replay."""
+"""Deterministic collection-target and condition replay."""
 
 from __future__ import annotations
 
@@ -23,23 +23,17 @@ class ReplayObservation:
     segment_index: int = 1
 
 
-@dataclass(frozen=True)
-class ReplayRun:
-    run_id: str
-    independence: str
-
-
-def evaluate_applicability(
+def evaluate_condition(
     node: Mapping[str, Any],
     context: Mapping[str, ReplayObservation],
     run_id: str,
     elapsed_ms: int,
 ) -> str:
-    """Return ``true``, ``false``, or ``unknown`` for one policy tree."""
+    """Return ``true``, ``false``, or ``unknown`` for one condition tree."""
 
     if "all" in node:
         states = [
-            evaluate_applicability(child, context, run_id, elapsed_ms)
+            evaluate_condition(child, context, run_id, elapsed_ms)
             for child in node["all"]
         ]
         if "false" in states:
@@ -47,7 +41,7 @@ def evaluate_applicability(
         return "unknown" if "unknown" in states else "true"
     if "any" in node:
         states = [
-            evaluate_applicability(child, context, run_id, elapsed_ms)
+            evaluate_condition(child, context, run_id, elapsed_ms)
             for child in node["any"]
         ]
         if "true" in states:
@@ -83,40 +77,91 @@ def evaluate_applicability(
         elif operator == "in":
             result = actual in expected
         else:
-            raise ValueError(f"unsupported applicability operator: {operator}")
+            raise ValueError(f"unsupported condition operator: {operator}")
     except TypeError:
         return "unknown"
     return "true" if result else "false"
 
 
-def replay_objectives(
-    objectives: Iterable[Mapping[str, Any]],
-    runs: Iterable[ReplayRun],
+def condition_refs(node: Mapping[str, Any]) -> set[str]:
+    if "all" in node:
+        return set().union(*(condition_refs(child) for child in node["all"]))
+    if "any" in node:
+        return set().union(*(condition_refs(child) for child in node["any"]))
+    return {str(SignalRef.parse(node["signal_ref"]))}
+
+
+def condition_leaves(node: Mapping[str, Any]) -> list[tuple[str, int]]:
+    if "all" in node:
+        return [item for child in node["all"] for item in condition_leaves(child)]
+    if "any" in node:
+        return [item for child in node["any"] for item in condition_leaves(child)]
+    return [(str(SignalRef.parse(node["signal_ref"])), int(node["maximum_age_ms"]))]
+
+
+def requirement_values(counters: Mapping[str, Any]) -> dict[str, Any]:
+    """Map recorded counters onto the requirement names they satisfy."""
+
+    return {
+        "minimum_samples": counters["samples"],
+        "minimum_runs": counters["runs"],
+        "minimum_span_seconds": counters["span_seconds"],
+        "required_states": set(counters["states"]),
+        "minimum_transitions": counters["transitions"],
+        "minimum_changes": counters["changes"],
+        "minimum_applicable_seconds": counters["applicable_seconds"],
+    }
+
+
+def requirements_met(
+    requirements: Mapping[str, Any], counters: Mapping[str, Any]
+) -> dict[str, bool]:
+    values = requirement_values(counters)
+    met = {}
+    for name, required in requirements.items():
+        actual = values[name]
+        if name == "required_states":
+            met[name] = set(required).issubset(actual)
+        else:
+            met[name] = actual >= required
+    return met
+
+
+def requirement_deficit(requirements: Mapping[str, Any], counters: Mapping[str, Any]) -> float:
+    """Return the largest unmet fraction across requirements, from 0 to 1."""
+
+    values = requirement_values(counters)
+    deficits = []
+    for name, required in requirements.items():
+        actual = values[name]
+        if name == "required_states":
+            wanted = set(required)
+            deficits.append(len(wanted - actual) / len(wanted))
+        else:
+            deficits.append(max(0.0, (float(required) - float(actual)) / float(required)))
+    return max(deficits, default=0.0)
+
+
+def replay_targets(
+    targets: Iterable[Mapping[str, Any]],
     observations: Iterable[ReplayObservation],
 ) -> list[dict[str, Any]]:
-    """Replay observations without mutating semantic review conclusions."""
+    """Replay observations into target progress without mutating review."""
 
-    objective_rows = sorted(
-        (dict(row) for row in objectives),
-        key=lambda row: (SignalRef.parse(row["signal_ref"]), row["objective_id"]),
+    target_rows = sorted(
+        (dict(row) for row in targets), key=lambda row: SignalRef.parse(row["signal_ref"])
     )
-    independence = {run.run_id: run.independence for run in runs}
     by_exchange: dict[tuple[str, int], list[ReplayObservation]] = defaultdict(list)
     for observation in observations:
         by_exchange[(observation.run_id, observation.run_sequence)].append(observation)
 
-    state = {
-        (row["signal_ref"], row["objective_id"]): _new_state()
-        for row in objective_rows
-    }
-    objectives_by_signal: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in objective_rows:
-        objectives_by_signal[row["signal_ref"]].append(row)
+    state = {row["signal_ref"]: _new_state() for row in target_rows}
+    targets_by_signal = {row["signal_ref"]: row for row in target_rows}
 
     context: dict[str, ReplayObservation] = {}
     prior: dict[tuple[str, str], ReplayObservation] = {}
     current_run: str | None = None
-    for (run_id, sequence), exchange_observations in sorted(by_exchange.items()):
+    for (run_id, _sequence), exchange_observations in sorted(by_exchange.items()):
         if run_id != current_run:
             context.clear()
             current_run = run_id
@@ -124,62 +169,49 @@ def replay_objectives(
         for observation in ordered:
             context[observation.signal_ref] = observation
         for observation in ordered:
-            for objective in objectives_by_signal.get(observation.signal_ref, []):
-                key = (objective["signal_ref"], objective["objective_id"])
-                applicability = (
-                    "true"
-                    if objective["applicability"] is None
-                    else evaluate_applicability(
-                        objective["applicability"],
-                        context,
-                        run_id,
-                        observation.response_elapsed_ms,
-                    )
+            target = targets_by_signal.get(observation.signal_ref)
+            if target is None:
+                continue
+            condition = (
+                "true"
+                if target["condition"] is None
+                else evaluate_condition(
+                    target["condition"], context, run_id, observation.response_elapsed_ms
                 )
-                progress = state[key]
-                progress["applicability_counts"][applicability] += 1
-                previous = prior.get((run_id, observation.signal_ref))
-                prior[(run_id, observation.signal_ref)] = observation
-                if applicability != "true":
-                    continue
-                _credit(progress, objective, observation, previous, independence)
+            )
+            progress = state[target["signal_ref"]]
+            progress["condition_counts"][condition] += 1
+            previous = prior.get((run_id, observation.signal_ref))
+            prior[(run_id, observation.signal_ref)] = observation
+            if condition != "true":
+                continue
+            _credit(progress, target, observation, previous)
 
-    return [_finish(row, state[(row["signal_ref"], row["objective_id"])]) for row in objective_rows]
+    return [_finish(row, state[row["signal_ref"]]) for row in target_rows]
 
 
 def _new_state() -> dict[str, Any]:
     return {
-        "total": 0,
-        "changed": 0,
+        "samples": 0,
+        "changes": 0,
         "transitions": 0,
-        "distinct": set(),
         "states": set(),
-        "reviewed_runs": set(),
+        "runs": set(),
         "span_by_run": {},
         "utc": [],
-        "last_offset": {},
-        "intervals": [],
-        "applicability_counts": Counter3(),
+        "condition_counts": {"true": 0, "false": 0, "unknown": 0},
     }
-
-
-class Counter3(dict[str, int]):
-    def __init__(self) -> None:
-        super().__init__({"true": 0, "false": 0, "unknown": 0})
 
 
 def _credit(
     progress: dict[str, Any],
-    objective: Mapping[str, Any],
+    target: Mapping[str, Any],
     observation: ReplayObservation,
     previous: ReplayObservation | None,
-    independence: Mapping[str, str],
 ) -> None:
-    progress["total"] += 1
-    progress["distinct"].add(observation.raw_value)
+    progress["samples"] += 1
     progress["states"].add(observation.raw_value)
-    if independence.get(observation.run_id) == "reviewed_independent":
-        progress["reviewed_runs"].add(observation.run_id)
+    progress["runs"].add(observation.run_id)
     first, last = progress["span_by_run"].get(
         observation.run_id,
         (observation.response_elapsed_ms, observation.response_elapsed_ms),
@@ -190,77 +222,44 @@ def _credit(
     )
     if observation.response_utc is not None:
         try:
-            progress["utc"].append(datetime.fromisoformat(observation.response_utc.replace("Z", "+00:00")))
+            progress["utc"].append(
+                datetime.fromisoformat(observation.response_utc.replace("Z", "+00:00"))
+            )
         except ValueError:
             pass
-    last_offset = progress["last_offset"].get(observation.run_id)
-    if last_offset is not None:
-        progress["intervals"].append(observation.response_elapsed_ms - last_offset)
-    progress["last_offset"][observation.run_id] = observation.response_elapsed_ms
     if previous is None or previous.raw_value == observation.raw_value:
         return
     progress["transitions"] += 1
-    if "minimum_changed_observations" not in objective["targets"]:
-        return
-    deadband = objective.get("deadband")
-    if deadband is None:
+    difference = target.get("minimum_difference")
+    if difference is None:
         return
     if previous.decoded_value is not None and observation.decoded_value is not None:
-        if abs(observation.decoded_value - previous.decoded_value) >= float(deadband):
-            progress["changed"] += 1
+        if abs(observation.decoded_value - previous.decoded_value) >= float(difference):
+            progress["changes"] += 1
 
 
-def _finish(objective: Mapping[str, Any], state: dict[str, Any]) -> dict[str, Any]:
+def _finish(target: Mapping[str, Any], state: dict[str, Any]) -> dict[str, Any]:
     applicable_ms = sum(last - first for first, last in state["span_by_run"].values())
-    utc_span = 0.0
+    span = 0.0
     if len(state["utc"]) >= 2:
-        utc_span = (max(state["utc"]) - min(state["utc"])).total_seconds()
+        span = (max(state["utc"]) - min(state["utc"])).total_seconds()
     elif state["span_by_run"]:
-        utc_span = max(last - first for first, last in state["span_by_run"].values()) / 1000
-    intervals = state["intervals"]
+        span = max(last - first for first, last in state["span_by_run"].values()) / 1000
     counters = {
-        "total_observations": state["total"],
-        "changed_observations": state["changed"],
-        "distinct_raw_values": len(state["distinct"]),
+        "samples": state["samples"],
+        "runs": len(state["runs"]),
+        "span_seconds": span,
+        "states": sorted(state["states"]),
         "transitions": state["transitions"],
-        "raw_states": sorted(state["states"]),
+        "changes": state["changes"],
         "applicable_seconds": applicable_ms / 1000,
-        "time_span_seconds": utc_span,
-        "distinct_reviewed_runs": len(state["reviewed_runs"]),
-        "intervals": {
-            "count": len(intervals),
-            "maximum_ms": max(intervals) if intervals else None,
-            "within_target": sum(value <= objective["target_interval_ms"] for value in intervals),
-            "within_maximum": sum(value <= objective["maximum_interval_ms"] for value in intervals),
-        },
     }
-    achieved: dict[str, bool] = {}
-    for target, required in objective["targets"].items():
-        if target == "minimum_total_observations":
-            achieved[target] = counters["total_observations"] >= required
-        elif target == "minimum_changed_observations":
-            achieved[target] = counters["changed_observations"] >= required
-        elif target == "minimum_distinct_raw_values":
-            achieved[target] = counters["distinct_raw_values"] >= required
-        elif target == "maximum_distinct_raw_values":
-            achieved[target] = counters["distinct_raw_values"] <= required and counters["total_observations"] > 0
-        elif target == "minimum_transitions":
-            achieved[target] = counters["transitions"] >= required
-        elif target == "required_raw_states":
-            achieved[target] = set(required).issubset(state["states"])
-        elif target == "minimum_applicable_seconds":
-            achieved[target] = counters["applicable_seconds"] >= required
-        elif target == "minimum_time_span_seconds":
-            achieved[target] = counters["time_span_seconds"] >= required
-        elif target == "minimum_distinct_runs":
-            achieved[target] = counters["distinct_reviewed_runs"] >= required
+    met = requirements_met(target["requirements"], counters)
     return {
-        "signal_ref": objective["signal_ref"],
-        "objective_id": objective["objective_id"],
-        "class": objective["class"],
-        "included": objective["included"],
-        "applicability_counts": dict(state["applicability_counts"]),
+        "signal_ref": target["signal_ref"],
+        "included": target["included"],
+        "condition_counts": dict(state["condition_counts"]),
         "counters": counters,
-        "targets_achieved": achieved,
-        "complete": bool(objective["included"] and achieved and all(achieved.values())),
+        "requirements_met": met,
+        "complete": bool(target["included"] and met and all(met.values())),
     }

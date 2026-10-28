@@ -16,8 +16,8 @@ from .decoding import evaluate_formula, extract_raw
 from .capture_writer import CaptureLimitReached, NativeRunWriter
 from .capture_store import canonical_document_bytes, capture_set_hash
 from .identity import AcquisitionRef, SignalRef
-from .live_progress import LiveObjectiveLedger
-from .objectives import ReplayObservation, evaluate_applicability
+from .live_progress import LiveTargetLedger
+from .objectives import ReplayObservation, evaluate_condition
 from .scheduler import DeterministicScheduler
 from .worker_protocol import exchange_command, parse_event, stop_command
 
@@ -34,6 +34,10 @@ PUBLIC_EVENT_FIELDS = {
     },
     "response_pending": {
         "event", "schema_version", "run_id", "pending_count", "pending_duration_ms",
+    },
+    "progress": {
+        "event", "schema_version", "run_id", "elapsed_ms", "exchanges", "failed_exchanges",
+        "targets", "targets_complete",
     },
     "exchange": {"event", "schema_version", "run_id", "acquisition_id", "outcome"},
     "segment_rotated": {"event", "schema_version", "run_id", "segment_index"},
@@ -206,7 +210,7 @@ class CollectionRunner:
             start_ms=0,
             request_start_floor_ms=self.session["request_start_floor_ms"],
         )
-        self.ledger = LiveObjectiveLedger(self.plan["objectives"])
+        self.ledger = LiveTargetLedger(self.plan["objectives"])
         self._apply_progress()
         self._state_lock = threading.Lock()
         self._state = "disconnected"
@@ -214,6 +218,9 @@ class CollectionRunner:
         self._done = threading.Event()
         self._started_ms = 0
         self._worker_sequence = 0
+        self._exchanges = 0
+        self._failed_exchanges = 0
+        self._target_summary = self.ledger.summary()
         self._context: dict[str, ReplayObservation] = {}
 
     def run(self) -> str:
@@ -301,8 +308,13 @@ class CollectionRunner:
             })
             self.scheduler.complete(decision.acquisition_id, completed, outcome)
             self._apply_progress()
+            summary = self.ledger.summary()
             with self._state_lock:
                 self._current_acquisition = None
+                self._target_summary = summary
+                self._exchanges += 1
+                if outcome != "positive":
+                    self._failed_exchanges += 1
             self._set_state("connected")
             self._emit("exchange", acquisition_id=decision.acquisition_id, outcome=outcome)
             if self.ledger.all_complete():
@@ -374,28 +386,18 @@ class CollectionRunner:
                 value,
             )
         output = []
-        applicability_by_key = {}
-        for objective in self.plan["objectives"]:
-            key = f"{objective['signal_ref']}#{objective['objective_id']}"
-            applicability_by_key[key] = (
-                "true" if objective["applicability"] is None else evaluate_applicability(
-                    objective["applicability"], self._context, self.writer.run_id, elapsed_ms
+        condition_by_signal = {}
+        for target in self.plan["objectives"]:
+            signal_ref = target["signal_ref"]
+            condition_by_signal[signal_ref] = (
+                "true" if target["condition"] is None else evaluate_condition(
+                    target["condition"], self._context, self.writer.run_id, elapsed_ms
                 )
             )
-            self.ledger.set_applicability(key, applicability_by_key[key])
+            self.ledger.set_condition(signal_ref, condition_by_signal[signal_ref])
         for row, raw, value in decoded:
-            states: dict[str, str] = {}
-            for objective in self.plan["objectives"]:
-                if objective["signal_ref"] != row["signal_ref"]:
-                    continue
-                key = f"{objective['signal_ref']}#{objective['objective_id']}"
-                states[key] = applicability_by_key[key]
-            applicability = (
-                "true" if not states or "true" in states.values()
-                else "unknown" if "unknown" in states.values()
-                else "false"
-            )
-            self.ledger.observe(row["signal_ref"], raw, value, states, elapsed_ms)
+            applicability = condition_by_signal.get(row["signal_ref"], "true")
+            self.ledger.observe(row["signal_ref"], raw, value, applicability, elapsed_ms)
             width = (row["last_bit"] - row["first_bit"] + 8) // 8
             output.append({
                 "signal_ref": row["signal_ref"],
@@ -430,7 +432,18 @@ class CollectionRunner:
             with self._state_lock:
                 state = self._state
                 current = self._current_acquisition
+                exchanges = self._exchanges
+                failed = self._failed_exchanges
+                summary = dict(self._target_summary)
             self._emit("heartbeat", state=state, current_acquisition_id=current)
+            self._emit(
+                "progress",
+                elapsed_ms=max(0, self.monotonic_ms() - self._started_ms),
+                exchanges=exchanges,
+                failed_exchanges=failed,
+                targets=summary["targets"],
+                targets_complete=summary["complete"],
+            )
 
     def _set_state(self, state: str) -> None:
         with self._state_lock:

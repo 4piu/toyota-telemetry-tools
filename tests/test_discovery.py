@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import sqlite3
 import subprocess
 import tempfile
 import unittest
@@ -77,7 +76,7 @@ def transport() -> dict:
 def policy() -> dict:
     return {
         "document_type": "telemetry.collection-policy",
-        "schema_version": 1,
+        "schema_version": 2,
         "profile_id": "test-profile",
         "storage": {
             "segment_seconds": 60,
@@ -85,9 +84,8 @@ def policy() -> dict:
             "capture_tree_max_mib": 2048,
             "disk_reserve_mib": 256,
         },
-        "class_defaults": {},
         "acquisitions": [],
-        "objectives": [],
+        "targets": [],
     }
 
 
@@ -300,24 +298,6 @@ class DiscoveryTests(unittest.TestCase):
                     ),
                 )
 
-    def test_old_cache_version_fails_before_writing_provisional_facts(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            make_project(root)
-            connection = sqlite3.connect(root / "scratch/project.sqlite")
-            try:
-                connection.execute("PRAGMA user_version = 1")
-                connection.commit()
-            finally:
-                connection.close()
-            repository = ProjectRepository(root)
-            with self.assertRaisesRegex(ValueError, "cache schema version mismatch"):
-                discover_endpoints(
-                    repository, root, [("0x700", "0x708", "extended")],
-                    utc_now=lambda: "2026-01-01T00:00:00Z",
-                    probe_worker_factory=scripted_factory([probe_result(responded=True)]),
-                )
-
     def test_discover_endpoints_requires_at_least_one_candidate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -328,11 +308,9 @@ class DiscoveryTests(unittest.TestCase):
                     repository, root, [], utc_now=lambda: "2026-01-01T00:00:00Z"
                 )
 
-    def test_discovery_facts_are_provisional_and_not_rebuilt(self) -> None:
-        # Discovery has no durable, rebuildable source (unlike captures,
-        # catalog rows, or authored documents), so a cache rebuild does not
-        # repopulate it. This is the intended, documented behavior, not a
-        # regression: re-run discovery after a rebuild to refresh facts.
+    def test_verification_facts_survive_cache_rebuild(self) -> None:
+        # Facts live beside the rebuildable cache, so rebuilding it (which an
+        # endpoint confirmation or source import triggers) keeps them.
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             make_project(root)
@@ -344,7 +322,8 @@ class DiscoveryTests(unittest.TestCase):
             )
             self.assertEqual(len(repository.discovery_candidates()), 1)
             repository.rebuild_cache([], repository.paths.captures)
-            self.assertEqual(repository.discovery_candidates(), [])
+            self.assertEqual(len(repository.discovery_candidates()), 1)
+            self.assertTrue(repository.verification_facts_path.is_file())
 
 
 class PreflightTests(unittest.TestCase):

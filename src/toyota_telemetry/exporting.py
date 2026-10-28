@@ -74,9 +74,7 @@ def export_project(
         variants_by_signal.setdefault(variant["signal_ref"], []).append(variant)
     reviews = {row["signal_ref"]: row for row in repository.review["signals"]}
     observations = repository.signal_observation_summary()
-    progress_by_signal: dict[str, list[dict[str, Any]]] = {}
-    for progress in repository.replay_progress():
-        progress_by_signal.setdefault(progress["signal_ref"], []).append(progress)
+    progress_by_signal = {row["signal_ref"]: row for row in repository.replay_progress()}
 
     rows = []
     json_rows = []
@@ -120,7 +118,7 @@ def export_project(
                 "observation": summary,
                 "review": review,
                 "resolved": {"name": name, "formula": formula, "unit": unit},
-                "objective_progress": progress_by_signal.get(signal_ref, []),
+                "target_progress": progress_by_signal.get(signal_ref),
             }
         )
 

@@ -14,30 +14,18 @@ from typing import Any
 from .identity import AcquisitionRef, SignalRef, canonical_did, stable_slug
 
 
-CLASSES = frozenset(
+REQUIREMENTS = frozenset(
     {
-        "descriptive",
-        "snapshot",
-        "switch_or_enum",
-        "fast_dynamic",
-        "slow_trend",
-        "counter_or_history",
-        "exploration",
-    }
-)
-TARGETS = frozenset(
-    {
-        "minimum_total_observations",
-        "minimum_changed_observations",
-        "minimum_distinct_raw_values",
-        "maximum_distinct_raw_values",
+        "minimum_samples",
+        "minimum_runs",
+        "minimum_span_seconds",
+        "required_states",
         "minimum_transitions",
-        "required_raw_states",
+        "minimum_changes",
         "minimum_applicable_seconds",
-        "minimum_time_span_seconds",
-        "minimum_distinct_runs",
     }
 )
+POLICY_SCHEMA_VERSION = 2
 OPERATORS = frozenset({"eq", "ne", "lt", "lte", "gt", "gte", "in"})
 SESSION_SERVICES = frozenset({0x10, 0x3E})
 BACKEND_SETTINGS = {
@@ -173,13 +161,17 @@ def _tracked_relative_path(value: Any, where: str) -> str:
 
 
 def _document_header(
-    document: Mapping[str, Any], where: str, document_type: str, fields: set[str]
+    document: Mapping[str, Any],
+    where: str,
+    document_type: str,
+    fields: set[str],
+    schema_version: int = 1,
 ) -> None:
     _keys(document, where, {"document_type", "schema_version", "profile_id", *fields})
     if document["document_type"] != document_type:
         raise ValueError(f"{where}.document_type must be {document_type!r}")
-    if document["schema_version"] != 1:
-        raise ValueError(f"{where}.schema_version must be 1")
+    if document["schema_version"] != schema_version:
+        raise ValueError(f"{where}.schema_version must be {schema_version}")
     _string(document["profile_id"], f"{where}.profile_id")
 
 
@@ -324,14 +316,14 @@ def validate_transport(document: Mapping[str, Any]) -> None:
     _unique(dynamic_keys, "transport dynamic DID identities")
 
 
-def _validate_targets(value: Any, where: str) -> None:
-    targets = _object(value, where)
-    _keys(targets, where, set(), set(TARGETS))
-    if not targets:
-        raise ValueError(f"{where} must not be empty")
-    for key, item in targets.items():
+def validate_requirements(value: Any, where: str) -> None:
+    requirements = _object(value, where)
+    _keys(requirements, where, set(), set(REQUIREMENTS))
+    if not requirements:
+        raise ValueError(f"{where} must contain at least one completion requirement")
+    for key, item in requirements.items():
         item_where = f"{where}.{key}"
-        if key == "required_raw_states":
+        if key == "required_states":
             states = _array(item, item_where, nonempty=True)
             for index, state in enumerate(states):
                 _integer(state, f"{item_where}[{index}]", 0)
@@ -342,39 +334,31 @@ def _validate_targets(value: Any, where: str) -> None:
             _integer(item, item_where, 1)
 
 
-def _validate_rule_fields(value: Mapping[str, Any], where: str, *, objective: bool) -> None:
-    common_required = {"priority", "target_interval_ms", "maximum_interval_ms", "targets"}
-    common_optional = {"deadband"}
-    required = set(common_required)
-    optional = set(common_optional)
-    if objective:
-        required |= {"signal_ref", "objective_id", "class", "included", "applicability"}
-    _keys(value, where, required, optional)
-    _integer(value["priority"], f"{where}.priority", 0, 100)
-    target = _integer(value["target_interval_ms"], f"{where}.target_interval_ms", 1)
-    maximum = _integer(value["maximum_interval_ms"], f"{where}.maximum_interval_ms", 1)
-    if target > maximum:
-        raise ValueError(f"{where}.target_interval_ms must not exceed maximum_interval_ms")
-    _validate_targets(value["targets"], f"{where}.targets")
-    if "deadband" in value:
-        _number(value["deadband"], f"{where}.deadband", 0.0)
-    if objective:
-        _signal_ref(value["signal_ref"], f"{where}.signal_ref")
-        stable_slug(_string(value["objective_id"], f"{where}.objective_id"), "objective id")
-        if value["class"] not in CLASSES:
-            raise ValueError(f"{where}.class is not supported")
-        _boolean(value["included"], f"{where}.included")
-        if value["applicability"] is not None:
-            _validate_applicability(value["applicability"], f"{where}.applicability")
+def validate_target(value: Any, where: str) -> None:
+    row = _object(value, where)
+    _keys(row, where, {"signal_ref", "included", "condition", "requirements"}, {"minimum_difference"})
+    _signal_ref(row["signal_ref"], f"{where}.signal_ref")
+    _boolean(row["included"], f"{where}.included")
+    validate_requirements(row["requirements"], f"{where}.requirements")
+    if "minimum_changes" in row["requirements"]:
+        if "minimum_difference" not in row:
+            raise ValueError(f"{where}.minimum_difference is required with minimum_changes")
+        difference = _number(row["minimum_difference"], f"{where}.minimum_difference")
+        if difference <= 0:
+            raise ValueError(f"{where}.minimum_difference must be greater than 0")
+    elif "minimum_difference" in row:
+        raise ValueError(f"{where}.minimum_difference applies only to minimum_changes")
+    if row["condition"] is not None:
+        validate_condition(row["condition"], f"{where}.condition")
 
 
-def _validate_applicability(value: Any, where: str) -> None:
+def validate_condition(value: Any, where: str) -> None:
     node = _object(value, where)
     if set(node) in ({"all"}, {"any"}):
         key = next(iter(node))
         children = _array(node[key], f"{where}.{key}", nonempty=True)
         for index, child in enumerate(children):
-            _validate_applicability(child, f"{where}.{key}[{index}]")
+            validate_condition(child, f"{where}.{key}[{index}]")
         return
     _keys(node, where, {"signal_ref", "operator", "value", "maximum_age_ms"})
     _signal_ref(node["signal_ref"], f"{where}.signal_ref")
@@ -393,7 +377,8 @@ def validate_policy(document: Mapping[str, Any]) -> None:
         document,
         "collection policy",
         "telemetry.collection-policy",
-        {"storage", "class_defaults", "acquisitions", "objectives"},
+        {"storage", "acquisitions", "targets"},
+        POLICY_SCHEMA_VERSION,
     )
     storage = _object(document["storage"], "collection policy.storage")
     _keys(
@@ -407,12 +392,6 @@ def validate_policy(document: Mapping[str, Any]) -> None:
     if segment > tree:
         raise ValueError("collection policy segment limit exceeds capture-tree limit")
     _integer(storage["disk_reserve_mib"], "collection policy.storage.disk_reserve_mib", 1)
-
-    defaults = _object(document["class_defaults"], "collection policy.class_defaults")
-    if unknown := defaults.keys() - CLASSES:
-        raise ValueError(f"collection policy has unknown classes: {', '.join(sorted(unknown))}")
-    for name, raw in defaults.items():
-        _validate_rule_fields(_object(raw, f"collection policy.class_defaults.{name}"), f"collection policy.class_defaults.{name}", objective=False)
 
     acquisition_ids: list[str] = []
     for index, raw in enumerate(_array(document["acquisitions"], "collection policy.acquisitions")):
@@ -428,13 +407,12 @@ def validate_policy(document: Mapping[str, Any]) -> None:
             raise ValueError(f"{where}.target_interval_ms must not exceed maximum_interval_ms")
     _unique(acquisition_ids, "collection policy acquisition ids")
 
-    objective_ids: list[tuple[str, str]] = []
-    for index, raw in enumerate(_array(document["objectives"], "collection policy.objectives")):
-        where = f"collection policy.objectives[{index}]"
-        row = _object(raw, where)
-        _validate_rule_fields(row, where, objective=True)
-        objective_ids.append((str(_signal_ref(row["signal_ref"], f"{where}.signal_ref")), row["objective_id"]))
-    _unique(objective_ids, "collection policy objective identities")
+    target_refs: list[str] = []
+    for index, raw in enumerate(_array(document["targets"], "collection policy.targets")):
+        where = f"collection policy.targets[{index}]"
+        validate_target(raw, where)
+        target_refs.append(raw["signal_ref"])
+    _unique(target_refs, "collection policy target signals")
 
 
 def validate_review(document: Mapping[str, Any]) -> None:

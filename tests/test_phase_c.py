@@ -8,37 +8,34 @@ import unittest
 import uuid
 
 from tests.project_fixture import make_current_project
-from toyota_telemetry.admission import compile_plan, validate_objective_shape
+from toyota_telemetry.admission import compile_plan
 from toyota_telemetry.capture_store import inspect_capture_tree
 from toyota_telemetry.capture_writer import NativeRunWriter, recover_incomplete_segment
 from toyota_telemetry.collector import load_verified_plan
 from toyota_telemetry.exporting import export_project
-from toyota_telemetry.objectives import ReplayObservation, ReplayRun, replay_objectives
+from toyota_telemetry.objectives import ReplayObservation, replay_targets
 from toyota_telemetry.repository import ProjectRepository
+from toyota_telemetry.schemas import validate_target
 
 
-def objective(**changes: object) -> dict:
+SIGNAL = "372/0x1002/0..15"
+
+
+def target(**changes: object) -> dict:
     row = {
-        "signal_ref": "372/0x1002/0..15",
-        "objective_id": "all-counters",
-        "class": "fast_dynamic",
+        "signal_ref": SIGNAL,
         "included": True,
-        "priority": 50,
-        "target_interval_ms": 1000,
-        "maximum_interval_ms": 1000,
-        "deadband": 1.0,
-        "targets": {
-            "minimum_total_observations": 4,
-            "minimum_changed_observations": 1,
-            "minimum_distinct_raw_values": 3,
-            "maximum_distinct_raw_values": 3,
+        "minimum_difference": 1.0,
+        "requirements": {
+            "minimum_samples": 4,
+            "minimum_changes": 1,
             "minimum_transitions": 1,
-            "required_raw_states": [1, 3],
+            "required_states": [1, 3],
             "minimum_applicable_seconds": 2,
-            "minimum_time_span_seconds": 10,
-            "minimum_distinct_runs": 1,
+            "minimum_span_seconds": 10,
+            "minimum_runs": 2,
         },
-        "applicability": None,
+        "condition": None,
     }
     row.update(changes)
     return row
@@ -60,7 +57,6 @@ def author_collection_policy(
     endpoint_id = repository.transport["endpoints"][0]["id"]
     policy = {
         **repository.policy,
-        "class_defaults": {},
         "acquisitions": [{
             "acquisition_id": f"{endpoint_id}/0x1002",
             "included": True,
@@ -68,15 +64,12 @@ def author_collection_policy(
             "target_interval_ms": 1000,
             "maximum_interval_ms": 2000,
         }],
-        "objectives": [objective(
-            objective_id="reviewed-target",
-            **{
-                "class": "exploration",
-                "target_interval_ms": 1000,
-                "maximum_interval_ms": 2000,
-                "targets": {"minimum_total_observations": minimum_observations},
-            },
-        )],
+        "targets": [{
+            "signal_ref": SIGNAL,
+            "included": True,
+            "requirements": {"minimum_samples": minimum_observations},
+            "condition": None,
+        }],
     }
     repository.write_authored_document("collection_policy", policy)
     repository.rebuild_cache(catalog_rows, repository.paths.captures)
@@ -90,136 +83,100 @@ def tree_hashes(root: Path) -> dict[str, str]:
     }
 
 
-class ObjectiveReplayTests(unittest.TestCase):
-    def test_every_objective_class_accepts_and_credits_its_required_shape(self) -> None:
-        cases = {
-            "descriptive": {
-                "minimum_total_observations": 2,
-                "minimum_distinct_runs": 1,
-                "maximum_distinct_raw_values": 1,
-            },
-            "snapshot": {
-                "minimum_total_observations": 2,
-                "minimum_distinct_runs": 1,
-            },
-            "switch_or_enum": {"required_raw_states": [7]},
-            "fast_dynamic": {
-                "minimum_changed_observations": 1,
-                "minimum_applicable_seconds": 1,
-            },
-            "slow_trend": {
-                "minimum_total_observations": 2,
-                "minimum_time_span_seconds": 1,
-            },
-            "counter_or_history": {
-                "minimum_total_observations": 2,
-                "minimum_distinct_runs": 1,
-            },
-            "exploration": {"minimum_total_observations": 2},
-        }
-        for class_name, targets in cases.items():
-            with self.subTest(class_name=class_name):
-                row = objective(
-                    **{
-                        "class": class_name,
-                        "targets": targets,
-                        "deadband": 1.0,
-                    }
-                )
-                validate_objective_shape(row)
-                changed = class_name == "fast_dynamic"
-                observations = [
-                    ReplayObservation(
-                        "run-a", 1, 0, None, "372/0x1002/0..15", 7, 7.0
-                    ),
-                    ReplayObservation(
-                        "run-a", 2, 1000, None, "372/0x1002/0..15",
-                        9 if changed else 7,
-                        9.0 if changed else 7.0,
-                    ),
-                ]
-                result = replay_objectives(
-                    [row], [ReplayRun("run-a", "reviewed_independent")], observations
-                )[0]
-                self.assertTrue(result["complete"])
+class TargetReplayTests(unittest.TestCase):
+    def test_target_schema_requires_requirements_and_paired_difference(self) -> None:
+        validate_target(target(), "target")
+        with self.assertRaisesRegex(ValueError, "at least one completion requirement"):
+            validate_target(target(requirements={}), "target")
+        without = target()
+        without.pop("minimum_difference")
+        with self.assertRaisesRegex(ValueError, "minimum_difference is required"):
+            validate_target(without, "target")
+        with self.assertRaisesRegex(ValueError, "applies only to minimum_changes"):
+            validate_target(target(requirements={"minimum_samples": 1}), "target")
+        with self.assertRaisesRegex(ValueError, "unknown fields: class"):
+            validate_target({**target(), "class": "exploration"}, "target")
 
-    def test_every_counter_and_segment_run_boundaries(self) -> None:
-        runs = [ReplayRun("run-a", "reviewed_independent"), ReplayRun("run-b", "unknown")]
+    def test_every_counter_and_run_boundaries(self) -> None:
         observations = [
-            ReplayObservation("run-a", 1, 0, "2026-01-01T00:00:00+00:00", "372/0x1002/0..15", 1, 1.0),
-            ReplayObservation("run-a", 2, 1000, "2026-01-01T00:00:01+00:00", "372/0x1002/0..15", 1, 1.0),
-            ReplayObservation("run-a", 3, 2000, "2026-01-01T00:00:02+00:00", "372/0x1002/0..15", 3, 3.0, 2),
-            ReplayObservation("run-b", 1, 0, "2026-01-01T00:00:10+00:00", "372/0x1002/0..15", 2, 2.0),
+            ReplayObservation("run-a", 1, 0, "2026-01-01T00:00:00+00:00", SIGNAL, 1, 1.0),
+            ReplayObservation("run-a", 2, 1000, "2026-01-01T00:00:01+00:00", SIGNAL, 1, 1.0),
+            ReplayObservation("run-a", 3, 2000, "2026-01-01T00:00:02+00:00", SIGNAL, 3, 3.0, 2),
+            ReplayObservation("run-b", 1, 0, "2026-01-01T00:00:10+00:00", SIGNAL, 2, 2.0),
         ]
-        result = replay_objectives([objective()], runs, observations)[0]
+        result = replay_targets([target()], observations)[0]
         counters = result["counters"]
-        self.assertEqual(counters["total_observations"], 4)
-        self.assertEqual(counters["changed_observations"], 1)
-        self.assertEqual(counters["distinct_raw_values"], 3)
+        self.assertEqual(counters["samples"], 4)
+        self.assertEqual(counters["changes"], 1)
         self.assertEqual(counters["transitions"], 1)
-        self.assertEqual(counters["raw_states"], [1, 2, 3])
+        self.assertEqual(counters["states"], [1, 2, 3])
         self.assertEqual(counters["applicable_seconds"], 2)
-        self.assertEqual(counters["time_span_seconds"], 10)
-        self.assertEqual(counters["distinct_reviewed_runs"], 1)
-        self.assertEqual(counters["intervals"]["within_target"], 2)
+        self.assertEqual(counters["span_seconds"], 10)
+        self.assertEqual(counters["runs"], 2)
+        self.assertTrue(all(result["requirements_met"].values()))
         self.assertTrue(result["complete"])
 
-    def test_noise_inside_deadband_does_not_earn_change_credit(self) -> None:
+    def test_noise_inside_minimum_difference_does_not_earn_change_credit(self) -> None:
         observations = [
-            ReplayObservation("run-a", 1, 0, None, "372/0x1002/0..15", 10, 10.0),
-            ReplayObservation("run-a", 2, 1000, None, "372/0x1002/0..15", 11, 10.5),
+            ReplayObservation("run-a", 1, 0, None, SIGNAL, 10, 10.0),
+            ReplayObservation("run-a", 2, 1000, None, SIGNAL, 11, 10.5),
         ]
-        result = replay_objectives(
-            [objective(targets={"minimum_changed_observations": 1, "minimum_applicable_seconds": 1})],
-            [ReplayRun("run-a", "unknown")],
-            observations,
+        result = replay_targets(
+            [target(requirements={"minimum_changes": 1})], observations
         )[0]
-        self.assertEqual(result["counters"]["changed_observations"], 0)
+        self.assertEqual(result["counters"]["transitions"], 1)
+        self.assertEqual(result["counters"]["changes"], 0)
         self.assertFalse(result["complete"])
 
-    def test_applicability_true_false_and_unknown(self) -> None:
-        gated = objective(
-            objective_id="gated",
-            **{
-                "class": "exploration",
-                "targets": {"minimum_total_observations": 1},
-                "applicability": {
-                    "all": [{
-                        "signal_ref": "372/0x1003/0..7",
-                        "operator": "eq",
-                        "value": 1,
-                        "maximum_age_ms": 100,
-                    }]
-                },
+    def test_condition_true_false_and_unknown(self) -> None:
+        gated = target(
+            requirements={"minimum_samples": 1},
+            condition={
+                "all": [{
+                    "signal_ref": "372/0x1003/0..7",
+                    "operator": "eq",
+                    "value": 1,
+                    "maximum_age_ms": 100,
+                }]
             },
         )
+        gated.pop("minimum_difference")
         observations = [
             ReplayObservation("run-a", 1, 0, None, "372/0x1003/0..7", 1, 1.0),
-            ReplayObservation("run-a", 1, 0, None, "372/0x1002/0..15", 10, 10.0),
-            ReplayObservation("run-a", 2, 200, None, "372/0x1002/0..15", 11, 11.0),
+            ReplayObservation("run-a", 1, 0, None, SIGNAL, 10, 10.0),
+            ReplayObservation("run-a", 2, 200, None, SIGNAL, 11, 11.0),
             ReplayObservation("run-a", 3, 300, None, "372/0x1003/0..7", 0, 0.0),
-            ReplayObservation("run-a", 3, 300, None, "372/0x1002/0..15", 12, 12.0),
+            ReplayObservation("run-a", 3, 300, None, SIGNAL, 12, 12.0),
         ]
-        result = replay_objectives([gated], [ReplayRun("run-a", "unknown")], observations)[0]
-        self.assertEqual(result["applicability_counts"], {"true": 1, "false": 1, "unknown": 1})
-        self.assertEqual(result["counters"]["total_observations"], 1)
+        result = replay_targets([gated], observations)[0]
+        self.assertEqual(result["condition_counts"], {"true": 1, "false": 1, "unknown": 1})
+        self.assertEqual(result["counters"]["samples"], 1)
         self.assertTrue(result["complete"])
 
-    def test_flat_slow_signal_earns_count_and_span(self) -> None:
-        slow = objective(
-            objective_id="slow",
-            **{
-                "class": "slow_trend",
-                "targets": {"minimum_total_observations": 2, "minimum_time_span_seconds": 5},
-            },
-        )
+    def test_flat_slow_signal_earns_samples_and_span(self) -> None:
+        slow = {
+            "signal_ref": SIGNAL,
+            "included": True,
+            "requirements": {"minimum_samples": 2, "minimum_span_seconds": 5},
+            "condition": None,
+        }
         observations = [
-            ReplayObservation("run-a", 1, 0, "2026-01-01T00:00:00+00:00", "372/0x1002/0..15", 7, 7.0),
-            ReplayObservation("run-a", 2, 5000, "2026-01-01T00:00:05+00:00", "372/0x1002/0..15", 7, 7.0),
+            ReplayObservation("run-a", 1, 0, "2026-01-01T00:00:00+00:00", SIGNAL, 7, 7.0),
+            ReplayObservation("run-a", 2, 5000, "2026-01-01T00:00:05+00:00", SIGNAL, 7, 7.0),
         ]
-        result = replay_objectives([slow], [ReplayRun("run-a", "unknown")], observations)[0]
-        self.assertEqual(result["counters"]["changed_observations"], 0)
+        result = replay_targets([slow], observations)[0]
+        self.assertEqual(result["counters"]["changes"], 0)
         self.assertTrue(result["complete"])
+
+    def test_excluded_target_is_never_complete(self) -> None:
+        excluded = {
+            "signal_ref": SIGNAL,
+            "included": False,
+            "requirements": {"minimum_samples": 1},
+            "condition": None,
+        }
+        observation = ReplayObservation("run-a", 1, 0, None, SIGNAL, 7, 7.0)
+        self.assertFalse(replay_targets([excluded], [observation])[0]["complete"])
 
 
 class PlanningAndExportTests(unittest.TestCase):
@@ -268,7 +225,7 @@ class PlanningAndExportTests(unittest.TestCase):
             self.assertEqual(inspection["exchanges"], 1)
             self.assertNotIn("response_hex", json.dumps(inspection))
 
-    def test_plan_rejects_missing_deadband_disk_and_cost(self) -> None:
+    def test_plan_rejects_missing_settings_disk_and_cost(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"
             root.mkdir()
@@ -276,17 +233,10 @@ class PlanningAndExportTests(unittest.TestCase):
             repository = author_collection_policy(repository, rows, minimum_observations=2)
             with self.assertRaisesRegex(ValueError, "insufficient disk"):
                 compile_plan(repository, available_disk_mib=1, created_utc="x")
-            row = repository.policy["objectives"][0]
-            row["class"] = "fast_dynamic"
-            row["targets"] = {
-                "minimum_changed_observations": 1,
-                "minimum_applicable_seconds": 1,
-            }
-            row.pop("deadband", None)
-            with self.assertRaisesRegex(ValueError, "reviewed deadband"):
+            repository.policy["acquisitions"][0]["included"] = False
+            with self.assertRaisesRegex(ValueError, "no included DID settings"):
                 compile_plan(repository, available_disk_mib=1024, created_utc="x")
-            row["class"] = "exploration"
-            row["targets"] = {"minimum_total_observations": 2}
+            repository.policy["acquisitions"][0]["included"] = True
             repository.transport["safety"]["maximum_request_rate_hz"] = 4
             with self.assertRaisesRegex(ValueError, "request-start floor"):
                 compile_plan(repository, available_disk_mib=1024, created_utc="x")
@@ -306,7 +256,7 @@ class PlanningAndExportTests(unittest.TestCase):
             root = Path(directory) / "vehicle"
             root.mkdir()
             repository, _ = current_repository(root)
-            with self.assertRaisesRegex(ValueError, "no included objectives"):
+            with self.assertRaisesRegex(ValueError, "no included targets"):
                 compile_plan(repository, available_disk_mib=1024, created_utc="x")
 
     def test_completed_policy_cannot_authorize_unnecessary_collection(self) -> None:

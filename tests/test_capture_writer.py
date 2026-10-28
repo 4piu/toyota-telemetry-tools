@@ -60,7 +60,7 @@ def exchange(*, payload_bytes: int = 2) -> dict:
         "latency_ms": 10,
         "retry_count": 0,
         "scheduler_reason": "target_due",
-        "objective_ids": ["372/0x1001/0..7#observe"],
+        "objective_ids": ["372/0x1001/0..7"],
         "observations": [{
             "signal_ref": "372/0x1001/0..7",
             "raw_hex": "12",
