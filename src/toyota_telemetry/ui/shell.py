@@ -1,238 +1,267 @@
-"""Stable application shell for the offline desktop workflow prototype."""
+"""Application shell: four task pages, a next-step banner, and live-safe closing."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QEvent, QSettings, Qt
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFileDialog,
+    QFrame,
+    QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
+    QPushButton,
     QScrollArea,
     QSplitter,
     QStackedWidget,
     QStatusBar,
+    QVBoxLayout,
+    QWidget,
 )
 
-from .pages import (
-    AnalyzeRecordingsPage,
-    BuildSignalListPage,
-    CollectionTargetsPage,
-    CollectDataPage,
-    ConnectHardwarePage,
-    OverviewPage,
-    VerifyVehiclePage,
-)
+from .collect_page import CollectPage
+from .context import PageContext
+from .recordings_page import RecordingsPage
+from .setup_page import SetupPage
+from .signals_page import SignalsPage
+
+
+PAGES = ("setup", "signals", "collect", "recordings")
+TITLES = {"setup": "Setup", "signals": "Signals", "collect": "Collect", "recordings": "Recordings"}
 
 
 class OperatorWindow(QMainWindow):
-    NAVIGATION = (
-        "Overview",
-        "Connect hardware",
-        "Build signal list",
-        "Verify with vehicle",
-        "Set collection targets",
-        "Collect data",
-        "Analyze recordings",
-    )
-
     def __init__(self, project_path: Path | None = None, *, restore_settings: bool = True) -> None:
         super().__init__()
         self.setObjectName("operator-window")
         self.setWindowTitle("Telemetry Operator")
-        self.resize(1440, 900)
+        self.resize(1360, 880)
         self.setMinimumSize(1024, 700)
-        self.setStyleSheet(
-            "QPushButton[liveAction=\"true\"] { border-width: 2px; padding: 6px 12px; }"
-        )
+        self.setStyleSheet("QPushButton[liveAction=\"true\"] { border-width: 2px; padding: 6px 12px; }")
         self._settings = QSettings("70Y074", "TelemetryOperator")
         self._restore_settings = restore_settings
-        self._project_path: Path | None = None
+        self._closing_after_job = False
+
+        self.context = PageContext(self, self.navigate)
+        self.context.message = lambda text: self.statusBar().showMessage(text, 8000)
 
         self.navigation = QListWidget()
-        self.navigation.setObjectName("workflow-navigation")
-        self.navigation.setAccessibleName("Workflow navigation")
-        self.navigation.setMinimumWidth(150)
-        self.navigation.setMaximumWidth(230)
-        for index, name in enumerate(self.NAVIGATION):
-            item = QListWidgetItem(name, self.navigation)
+        self.navigation.setAccessibleName("Pages")
+        self.navigation.setMaximumWidth(200)
+        for index, page in enumerate(PAGES):
+            item = QListWidgetItem(TITLES[page], self.navigation)
             item.setToolTip(f"Alt+{index + 1}")
-            item.setData(
-                Qt.ItemDataRole.AccessibleDescriptionRole,
-                f"Workflow destination {index + 1}; shortcut Alt+{index + 1}",
-            )
 
+        self.banner = self._build_banner()
+        self.setup_page = SetupPage(self.context)
+        self.signals_page = SignalsPage(self.context)
+        self.collect_page = CollectPage(self.context)
+        self.recordings_page = RecordingsPage(self.context)
         self.pages = QStackedWidget()
-        self.overview_page = OverviewPage()
-        self.connect_page = ConnectHardwarePage()
-        self.signal_list_page = BuildSignalListPage()
-        self.verify_page = VerifyVehiclePage()
-        self.targets_page = CollectionTargetsPage()
-        self.collect_page = CollectDataPage()
-        self.analyze_page = AnalyzeRecordingsPage()
-        for page in (
-            self.overview_page,
-            self.connect_page,
-            self.signal_list_page,
-            self.verify_page,
-            self.targets_page,
-            self.collect_page,
-            self.analyze_page,
-        ):
-            scroll = QScrollArea()
-            scroll.setWidgetResizable(True)
-            scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-            scroll.setWidget(page)
-            self.pages.addWidget(scroll)
+        for page in (self.setup_page, self.signals_page, self.collect_page, self.recordings_page):
+            if page is self.setup_page:
+                scroll = QScrollArea()
+                scroll.setWidgetResizable(True)
+                scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+                scroll.setWidget(page)
+                self.pages.addWidget(scroll)
+            else:
+                self.pages.addWidget(page)
 
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.addWidget(self.banner)
+        content_layout.addWidget(self.pages, 1)
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.setObjectName("main-splitter")
         splitter.addWidget(self.navigation)
-        splitter.addWidget(self.pages)
-        splitter.setSizes([180, 1260])
+        splitter.addWidget(content)
         splitter.setStretchFactor(1, 1)
+        splitter.setSizes([170, 1190])
         self._splitter = splitter
         self.setCentralWidget(splitter)
-
-        self.navigation.currentRowChanged.connect(self._navigate)
+        self.navigation.currentRowChanged.connect(self.pages.setCurrentIndex)
         self.navigation.setCurrentRow(0)
-        self.overview_page.choose_project.connect(self.choose_project)
-        self.overview_page.navigate_requested.connect(self.navigation.setCurrentRow)
-        self.connect_page.connector.currentTextChanged.connect(self._connector_changed)
-        self.collect_page.issue_requested.connect(self._open_readiness_issue)
-        self.verify_page.return_to_collect.connect(self._return_to_collect)
-        self.targets_page.return_to_collect.connect(self._return_to_collect)
-        self.targets_page.dirty_changed.connect(self._set_dirty)
-        self._dirty = False
-        self._build_actions()
+
+        self._build_menu()
         self._build_status_bar()
+        self.signals_page.dirty_changed.connect(self._update_title)
+        self.context.project_changed.connect(self.refresh_status)
+        self.context.data_changed.connect(self.refresh_status)
+        self.context.busy_changed.connect(self._busy_changed)
 
         if project_path is not None:
-            self.select_project(project_path)
+            self.open_project(project_path)
+        else:
+            self.refresh_status()
         if restore_settings:
             geometry = self._settings.value("window/geometry")
             if geometry is not None:
                 self.restoreGeometry(geometry)
-            state = self._settings.value("window/splitter")
-            if state is not None:
-                self._splitter.restoreState(state)
+        self.installEventFilter(self)
 
-    @property
-    def project_path(self) -> Path | None:
-        return self._project_path
+    # Construction -----------------------------------------------------------
 
-    def _build_actions(self) -> None:
+    def _build_banner(self) -> QFrame:
+        frame = QFrame()
+        frame.setFrameShape(QFrame.Shape.StyledPanel)
+        frame.setAccessibleName("Next step")
+        layout = QHBoxLayout(frame)
+        text = QVBoxLayout()
+        self.next_text = QLabel()
+        font = self.next_text.font()
+        font.setBold(True)
+        self.next_text.setFont(font)
+        self.next_command = QLabel()
+        self.next_command.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.next_command.setAccessibleName("Command-line equivalent")
+        text.addWidget(self.next_text)
+        text.addWidget(self.next_command)
+        layout.addLayout(text, 1)
+        self.next_button = QPushButton("Go")
+        self.next_button.clicked.connect(self._follow_next)
+        self.context.register("status", self.next_button)
+        layout.addWidget(self.next_button)
+        self._next_page = "setup"
+        return frame
+
+    def _build_menu(self) -> None:
         project_menu = self.menuBar().addMenu("&Project")
         open_action = QAction("Open existing project…", self)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.choose_project)
         project_menu.addAction(open_action)
+        refresh = QAction("Refresh", self)
+        refresh.setShortcut(QKeySequence.StandardKey.Refresh)
+        refresh.triggered.connect(self.context.changed)
+        project_menu.addAction(refresh)
         project_menu.addSeparator()
         close_action = QAction("Exit", self)
         close_action.setShortcut(QKeySequence.StandardKey.Quit)
         close_action.triggered.connect(self.close)
         project_menu.addAction(close_action)
-
         help_menu = self.menuBar().addMenu("&Help")
         concepts = QAction("Concepts and workflow", self)
         concepts.setShortcut(QKeySequence.StandardKey.HelpContents)
-        concepts.triggered.connect(self._show_help)
+        concepts.triggered.connect(self.show_help)
         help_menu.addAction(concepts)
-
-        for index in range(len(self.NAVIGATION)):
+        for index in range(len(PAGES)):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
             shortcut.activated.connect(lambda row=index: self.navigation.setCurrentRow(row))
 
     def _build_status_bar(self) -> None:
         status = QStatusBar()
         self.setStatusBar(status)
-        self.transport_status = QLabel("Offline")
-        self.adapter_status = QLabel("Adapter closed")
         self.project_status = QLabel("No project open")
+        self.connector_status = QLabel("No connector")
+        self.adapter_status = QLabel("Adapter closed")
         self.draft_status = QLabel("Saved")
-        for widget in (self.transport_status, self.adapter_status, self.project_status, self.draft_status):
+        for widget in (self.project_status, self.connector_status, self.adapter_status, self.draft_status):
             status.addPermanentWidget(widget)
+
+    # Project and status ----------------------------------------------------
 
     def choose_project(self) -> None:
         selected = QFileDialog.getExistingDirectory(self, "Open existing telemetry project")
         if selected:
-            self.select_project(Path(selected))
+            self.open_project(Path(selected))
 
-    def select_project(self, path: Path) -> bool:
-        resolved = path.resolve()
-        marker = resolved / "telemetry-project.toml"
-        if not marker.is_file():
-            self.statusBar().showMessage(
-                f"Not a telemetry project: {resolved} has no telemetry-project.toml", 8000
-            )
+    def open_project(self, path: Path) -> bool:
+        if self.context.live_job_running:
+            self.statusBar().showMessage("Stop the live job before opening another project.", 8000)
             return False
-        self._project_path = resolved
-        self.overview_page.set_project(resolved)
-        self.project_status.setText(resolved.name)
-        self._update_window_title()
-        self.statusBar().showMessage(
-            "Project marker found. Preview data remains synthetic; project loading is not implemented.", 6000
-        )
+        if not self.signals_page.prompt_unsaved():
+            return False
+        try:
+            self.context.open(Path(path))
+        except (OSError, ValueError) as exc:
+            self.statusBar().showMessage(f"Not a telemetry project: {exc}", 10000)
+            return False
+        self._update_title()
         return True
 
-    def _navigate(self, row: int) -> None:
-        if not 0 <= row < self.pages.count():
+    @property
+    def project_path(self) -> Path | None:
+        return self.context.service.root if self.context.service else None
+
+    def refresh_status(self) -> None:
+        service = self.context.service
+        if service is None:
+            self.next_text.setText("Open an existing project")
+            self.next_command.setText("Projects are created from the template, then opened here.")
+            self._next_page = "open"
+            self.project_status.setText("No project open")
+            self.connector_status.setText("No connector")
             return
-        self.pages.setCurrentIndex(row)
+        status = service.status()
+        self.project_status.setText(service.root.name if status.valid else f"{service.root.name}: invalid")
+        self.connector_status.setText(status.connector or "No connector")
+        action = status.next_action
+        self.next_text.setText(f"Next: {action.text}")
+        self.next_command.setText(f"Command line: {action.command}")
+        self._next_page = action.page
 
-    def _connector_changed(self, name: str) -> None:
-        self.verify_page.set_connector(name)
-        self.overview_page.cards[0].detail.setText(
-            f"{name} selected; example settings not saved or validated"
-        )
-
-    def _open_readiness_issue(self, issue_id: str) -> None:
-        if issue_id in self.verify_page.did_items:
-            self.navigation.setCurrentRow(3)
-            self.verify_page.focus_issue(issue_id)
+    def _follow_next(self) -> None:
+        if self._next_page == "open":
+            self.choose_project()
         else:
-            self.navigation.setCurrentRow(4)
-            self.targets_page.focus_issue(issue_id)
+            self.navigate(self._next_page)
 
-    def _return_to_collect(self) -> None:
-        self.navigation.setCurrentRow(5)
-        self.verify_page.return_button.setVisible(False)
-        self.verify_page.arrival_notice.setVisible(False)
-        self.targets_page.return_button.setVisible(False)
+    def navigate(self, page: str) -> None:
+        if page in PAGES:
+            self.navigation.setCurrentRow(PAGES.index(page))
 
-    def _set_dirty(self, dirty: bool) -> None:
-        self._dirty = dirty
-        self.draft_status.setText("Unsaved example changes" if dirty else "Saved")
-        self._update_window_title()
+    def _busy_changed(self, running: bool) -> None:
+        self.adapter_status.setText("LIVE - adapter open" if running else "Adapter closed")
+        self.navigation.setEnabled(True)
+        if not running and self._closing_after_job:
+            self.close()
 
-    def _update_window_title(self) -> None:
-        project = f" - {self._project_path.name}" if self._project_path else ""
-        dirty = " *" if self._dirty else ""
-        self.setWindowTitle(f"Telemetry Operator{project}{dirty}")
+    def _update_title(self, *_args) -> None:
+        dirty = self.signals_page.dirty
+        self.draft_status.setText("Unsaved changes" if dirty else "Saved")
+        project = f" - {self.project_path.name}" if self.project_path else ""
+        self.setWindowTitle(f"Telemetry Operator{project}{' *' if dirty else ''}")
 
-    def _show_help(self) -> None:
+    def show_help(self) -> None:
         QMessageBox.information(
             self,
             "Telemetry Operator concepts",
-            "Endpoint: an ECU address plus diagnostic session.\n\n"
-            "DID: one data request. A DID can supply several signals, so its polling interval is shared.\n\n"
-            "Baseline: the value returned during vehicle verification.\n\n"
-            "Estimated bus load: the admitted share of diagnostic communication bandwidth.\n\n"
-            "Maximum storage: the run's configured disk limit.\n\n"
-            "Compiled hash: the identity of the exact reviewed collection scope.\n\n"
-            "Projects are created from the project template outside this application, then opened here. "
-            "CAN bitrate comes from the reviewed vehicle transport configuration.\n\n"
-            "Keyboard: Alt+1 through Alt+7 open the workflow destinations.",
+            "Endpoint: one diagnostic route to an ECU (tester and response CAN IDs plus a reviewed session).\n\n"
+            "DID: one data request on an endpoint. A DID can carry several signals, so its interval is shared.\n\n"
+            "Signal: one interpreted value inside a DID response; it is what you review, target, and plot.\n\n"
+            "Target: the evidence still wanted for a signal, such as minimum samples or required states.\n\n"
+            "Only actions marked LIVE transmit to the vehicle, and each shows its exact scope first.\n\n"
+            "Every action here has a command-line equivalent, shown in its tooltip and in the "
+            "next-step banner; the two interfaces are interchangeable.\n\n"
+            "Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes.",
         )
 
+    # Events -----------------------------------------------------------------
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self and event.type() == QEvent.Type.WindowActivate and self.context.service is not None:
+            if not self.context.live_job_running:
+                self.signals_page.refresh_from_disk()
+        return super().eventFilter(watched, event)
+
     def closeEvent(self, event: QCloseEvent) -> None:
-        self.analyze_page.cancel()
+        if self.context.live_job_running:
+            self._closing_after_job = True
+            for page in (self.signals_page, self.collect_page):
+                if page.job is not None:
+                    page.job.request_stop()
+            self.statusBar().showMessage("Stopping the live job safely; the window closes when it finishes.")
+            event.ignore()
+            return
+        if not self.signals_page.prompt_unsaved():
+            event.ignore()
+            return
         if self._restore_settings:
             self._settings.setValue("window/geometry", self.saveGeometry())
-            self._settings.setValue("window/splitter", self._splitter.saveState())
         super().closeEvent(event)

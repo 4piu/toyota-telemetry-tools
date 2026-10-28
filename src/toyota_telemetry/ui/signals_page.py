@@ -1,0 +1,866 @@
+"""Signals: the one endpoint -> DID -> signal tree for verify, review, and targets."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPlainTextEdit,
+    QPushButton,
+    QSpinBox,
+    QSplitter,
+    QTabWidget,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
+
+from toyota_telemetry.operator.editing import REQUIREMENT_LABELS, format_condition, format_duration
+from toyota_telemetry.operator.inventory import FAILED, VERIFIED, InventoryTree
+from toyota_telemetry.operator.selection import Selection
+
+from .context import PageContext
+from .dialogs import EndpointAddDialog, EndpointConfirmDialog, LiveConfirmDialog, TargetEditDialog
+from .jobs import LiveJob
+from .widgets import button_row, mark_live, notice, page_title
+
+
+ROLE = Qt.ItemDataRole.UserRole
+STATE_FILTERS = {
+    "All": None,
+    "Verified": "verified",
+    "Not verified": "not-verified",
+    "Failed": "failed",
+    "Has a target": "targeted",
+    "No target": "untargeted",
+}
+
+
+class SignalsPage(QWidget):
+    dirty_changed = Signal(bool)
+
+    def __init__(self, context: PageContext) -> None:
+        super().__init__()
+        self.context = context
+        self.tree_data: InventoryTree | None = None
+        self.draft_review: dict[str, Any] | None = None
+        self.draft_policy: dict[str, Any] | None = None
+        self._base_bytes: dict[str, bytes] | None = None
+        self._checked: set[tuple[str, str]] = set()
+        self._building = False
+        self.job: LiveJob | None = None
+        self.confirm_live = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
+        self.run_dialog = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(page_title(
+            "Signals",
+            "Endpoints are diagnostic routes to an ECU; a DID is one request on an endpoint and can "
+            "carry several signals. Check rows, then verify them with the vehicle or set what "
+            "evidence each signal still needs.",
+        ))
+        layout.addLayout(self._filter_bar())
+        self.external_notice = notice()
+        self.external_notice.setVisible(False)
+        layout.addWidget(self.external_notice)
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.addWidget(self._tree_panel())
+        splitter.addWidget(self._detail_panel())
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        layout.addWidget(splitter, 1)
+        layout.addLayout(self._action_bar())
+        self.action_reason = QLabel()
+        self.action_reason.setWordWrap(True)
+        self.action_reason.setAccessibleName("Why some actions are unavailable")
+        layout.addWidget(self.action_reason)
+        self.job_log = QPlainTextEdit()
+        self.job_log.setReadOnly(True)
+        self.job_log.setMaximumBlockCount(500)
+        self.job_log.setMaximumHeight(120)
+        self.job_log.setVisible(False)
+        self.job_log.setAccessibleName("Verification progress")
+        layout.addWidget(self.job_log)
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(250)
+        self._search_timer.timeout.connect(self.apply_filters)
+        context.project_changed.connect(self.reload)
+        context.data_changed.connect(self.refresh_from_disk)
+        self.reload()
+
+    # Layout -----------------------------------------------------------------
+
+    def _filter_bar(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Search signal name or reference")
+        self.search.setAccessibleName("Search signals")
+        self.search.textChanged.connect(lambda _text: self._search_timer.start())
+        self.ecu_filter = QLineEdit()
+        self.ecu_filter.setPlaceholderText("ECU key")
+        self.ecu_filter.setMaximumWidth(100)
+        self.ecu_filter.textChanged.connect(lambda _text: self._search_timer.start())
+        self.state_filter = QComboBox()
+        self.state_filter.addItems(list(STATE_FILTERS))
+        self.state_filter.setAccessibleName("Filter by state")
+        self.state_filter.currentIndexChanged.connect(self.apply_filters)
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.clicked.connect(self.refresh_from_disk)
+        row.addWidget(self.search, 1)
+        row.addWidget(QLabel("ECU"))
+        row.addWidget(self.ecu_filter)
+        row.addWidget(self.state_filter)
+        row.addWidget(self.refresh_button)
+        return row
+
+    def _tree_panel(self) -> QWidget:
+        self.tree = QTreeWidget()
+        self.tree.setColumnCount(5)
+        self.tree.setHeaderLabels(["Endpoint / DID / Signal", "Verification", "Baseline", "Target", "Progress"])
+        self.tree.setAccessibleName("Endpoint, DID, and signal tree")
+        self.tree.setUniformRowHeights(True)
+        self.tree.setAlternatingRowColors(True)
+        header = self.tree.header()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for column in range(1, 5):
+            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
+        self.tree.itemChanged.connect(self._item_changed)
+        self.tree.currentItemChanged.connect(lambda *_: self.show_details())
+        self.context.register("signals.list", self.tree)
+        self.empty_label = QLabel("Open a project, then import a candidate list on the Setup page.")
+        self.empty_label.setWordWrap(True)
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.empty_label)
+        layout.addWidget(self.tree, 1)
+        return container
+
+    def _detail_panel(self) -> QWidget:
+        self.details = QTabWidget()
+        self.detail_text = QPlainTextEdit()
+        self.detail_text.setReadOnly(True)
+        self.detail_text.setAccessibleName("Selected row details")
+        self.context.register("signals.show", self.detail_text)
+        self.details.addTab(self.detail_text, "Details")
+
+        definition = QWidget()
+        form = QFormLayout(definition)
+        self.def_name = QLineEdit()
+        self.def_formula = QLineEdit()
+        self.def_formula.setPlaceholderText("e.g. raw / 10 - 40")
+        self.def_unit = QLineEdit()
+        self.def_evidence = QLineEdit()
+        self.def_notes = QLineEdit()
+        form.addRow("Display name", self.def_name)
+        form.addRow("Formula", self.def_formula)
+        form.addRow("Unit", self.def_unit)
+        form.addRow("Evidence state", self.def_evidence)
+        form.addRow("Notes", self.def_notes)
+        self.def_apply = QPushButton("Apply definition to draft")
+        self.def_apply.clicked.connect(self.apply_definition)
+        self.context.register("signal.set", self.def_apply)
+        form.addRow(self.def_apply)
+        self.def_reason = QLabel()
+        self.def_reason.setWordWrap(True)
+        form.addRow(self.def_reason)
+        self.details.addTab(definition, "Definition")
+
+        settings = QWidget()
+        settings_form = QFormLayout(settings)
+        shared = QLabel(
+            "These settings are shared by all signals read from this endpoint and DID. "
+            "Changing them affects every sibling signal."
+        )
+        shared.setWordWrap(True)
+        settings_form.addRow(shared)
+        self.did_interval = QSpinBox()
+        self.did_interval.setRange(1, 3_600_000)
+        self.did_interval.setSuffix(" ms")
+        self.did_maximum = QSpinBox()
+        self.did_maximum.setRange(1, 3_600_000)
+        self.did_maximum.setSuffix(" ms")
+        self.did_priority = QSpinBox()
+        self.did_priority.setRange(0, 100)
+        self.did_included = QCheckBox("Included in collection")
+        settings_form.addRow("Target interval", self.did_interval)
+        settings_form.addRow("Maximum interval", self.did_maximum)
+        settings_form.addRow("Priority", self.did_priority)
+        settings_form.addRow(self.did_included)
+        self.did_apply = QPushButton("Apply DID settings to draft")
+        self.did_apply.clicked.connect(self.apply_did_settings)
+        self.context.register("did.set", self.did_apply)
+        settings_form.addRow(self.did_apply)
+        self.did_reason = QLabel()
+        self.did_reason.setWordWrap(True)
+        settings_form.addRow(self.did_reason)
+        self.details.addTab(settings, "DID settings")
+        return self.details
+
+    def _action_bar(self) -> QHBoxLayout:
+        self.add_endpoint_button = QPushButton("Add endpoint…")
+        self.confirm_button = QPushButton("Confirm endpoint…")
+        self.verify_button = mark_live(QPushButton("Verify checked…"))
+        self.stop_button = QPushButton("Stop after current probe")
+        self.stop_button.setVisible(False)
+        self.target_button = QPushButton("Edit targets…")
+        self.clear_button = QPushButton("Remove targets")
+        self.save_button = QPushButton("Save")
+        self.discard_button = QPushButton("Discard")
+        for operation, button in (
+            ("endpoint.add", self.add_endpoint_button),
+            ("endpoint.confirm", self.confirm_button),
+            ("verify", self.verify_button),
+            ("target.set", self.target_button),
+            ("target.clear", self.clear_button),
+        ):
+            self.context.register(operation, button)
+        self.add_endpoint_button.clicked.connect(self.add_endpoint)
+        self.confirm_button.clicked.connect(self.confirm_endpoint)
+        self.verify_button.clicked.connect(self.verify_checked)
+        self.stop_button.clicked.connect(self.stop_job)
+        self.target_button.clicked.connect(self.edit_targets)
+        self.clear_button.clicked.connect(self.clear_targets)
+        self.save_button.clicked.connect(self.save)
+        self.discard_button.clicked.connect(self.discard)
+        row = button_row(
+            self.add_endpoint_button, self.confirm_button, self.verify_button, self.stop_button,
+            self.target_button, self.clear_button,
+        )
+        row.addWidget(self.save_button)
+        row.addWidget(self.discard_button)
+        return row
+
+    # Tree -------------------------------------------------------------------
+
+    @property
+    def dirty(self) -> bool:
+        return self.draft_review is not None or self.draft_policy is not None
+
+    def reload(self) -> None:
+        self.draft_review = None
+        self.draft_policy = None
+        self._base_bytes = None
+        self._checked.clear()
+        self.external_notice.setVisible(False)
+        self.dirty_changed.emit(False)
+        self.rebuild()
+
+    def refresh_from_disk(self) -> None:
+        if self.context.service is None:
+            return
+        if self.dirty and self._base_bytes is not None:
+            try:
+                changed = self.context.service.authority_bytes() != self._base_bytes
+            except (OSError, ValueError):
+                changed = True
+            if changed:
+                self.external_notice.setText(
+                    "Project files changed outside this window while you have unsaved edits. "
+                    "Discard reloads the files; Save is refused until you do."
+                )
+                self.external_notice.setVisible(True)
+        self.rebuild()
+
+    def rebuild(self) -> None:
+        service = self.context.service
+        self._building = True
+        self.tree.clear()
+        self.tree_data = None
+        try:
+            if service is not None:
+                self.tree_data = service.tree(review=self.draft_review, policy=self.draft_policy)
+        except (OSError, ValueError) as exc:
+            self.empty_label.setText(f"Cannot read the project: {exc}")
+        finally:
+            self._building = False
+        if self.tree_data is not None:
+            self._populate(self.tree_data)
+        has_rows = bool(self.tree_data and self.tree_data.endpoints)
+        self.empty_label.setVisible(not has_rows)
+        if service is not None and not has_rows:
+            self.empty_label.setText("No candidates yet. Import a candidate list on the Setup page.")
+        self.apply_filters()
+        self.update_actions()
+        self.show_details()
+
+    def _populate(self, data: InventoryTree) -> None:
+        self._building = True
+        try:
+            for endpoint in data.endpoints:
+                address = (
+                    f"{endpoint.tester_can_id}/{endpoint.response_can_id}" if endpoint.tester_can_id
+                    else "address unknown"
+                )
+                names = ", ".join(endpoint.ecu_names)
+                label = f"{endpoint.key}  {address}  ECU {', '.join(map(str, endpoint.ecu_keys))}"
+                parent = QTreeWidgetItem([label + (f"  {names}" if names else ""), endpoint.state, "", "", ""])
+                parent.setData(0, ROLE, ("endpoint", endpoint.key))
+                self._checkable(parent, tristate=True)
+                self.tree.addTopLevelItem(parent)
+                for did in endpoint.dids:
+                    cadence = ""
+                    if did.settings:
+                        cadence = f"every {did.settings['target_interval_ms']} ms"
+                        if not did.settings["included"]:
+                            cadence += " (excluded)"
+                    did_item = QTreeWidgetItem([
+                        f"DID {did.data_id}", did.state, did.baseline_hex or "", cadence, "",
+                    ])
+                    did_item.setData(0, ROLE, ("did", did.key))
+                    did_item.setToolTip(1, did.detail or did.state)
+                    if did.settings:
+                        did_item.setToolTip(3, "Shared by all signals read from this endpoint and DID")
+                    self._checkable(did_item, tristate=bool(did.signals))
+                    parent.addChild(did_item)
+                    for signal in did.signals:
+                        unit = f" [{signal.unit}]" if signal.unit else ""
+                        conflict = "  (variants disagree)" if signal.conflict else ""
+                        item = QTreeWidgetItem([
+                            f"{signal.name}{unit}{conflict}", "", "",
+                            _target_summary(signal.target), _progress_summary(signal.progress),
+                        ])
+                        item.setData(0, ROLE, ("signal", signal.signal_ref))
+                        item.setToolTip(0, signal.signal_ref)
+                        self._checkable(item, tristate=False)
+                        did_item.addChild(item)
+                    if not did.signals:
+                        did_item.setCheckState(
+                            0, Qt.CheckState.Checked if ("did", did.key) in self._checked else Qt.CheckState.Unchecked
+                        )
+                parent.setExpanded(len(data.endpoints) <= 3)
+        finally:
+            self._building = False
+
+    def _checkable(self, item: QTreeWidgetItem, *, tristate: bool) -> None:
+        flags = item.flags() | Qt.ItemFlag.ItemIsUserCheckable
+        if tristate:
+            flags |= Qt.ItemFlag.ItemIsAutoTristate
+        item.setFlags(flags)
+        kind, key = item.data(0, ROLE)
+        if not tristate:
+            state = Qt.CheckState.Checked if (kind, key) in self._checked else Qt.CheckState.Unchecked
+            item.setCheckState(0, state)
+
+    def _item_changed(self, item: QTreeWidgetItem, column: int) -> None:
+        if self._building or column != 0:
+            return
+        kind, key = item.data(0, ROLE)
+        if kind == "signal" or (kind == "did" and item.childCount() == 0):
+            if item.checkState(0) == Qt.CheckState.Checked:
+                self._checked.add((kind, key))
+            else:
+                self._checked.discard((kind, key))
+        self.update_actions()
+
+    def apply_filters(self) -> None:
+        if self.tree_data is None or self.context.service is None:
+            return
+        state = STATE_FILTERS[self.state_filter.currentText()]
+        try:
+            ecus = [int(self.ecu_filter.text())] if self.ecu_filter.text().strip() else []
+        except ValueError:
+            ecus = []
+        search = self.search.text().strip() or None
+        filtered = bool(state or ecus or search)
+        selection = (
+            self.context.service.select(
+                self.tree_data, ecus=ecus, states=[state] if state else [], search=search, require=False
+            )
+            if filtered else None
+        )
+        dids = set(selection.dids) if selection else set()
+        signals = set(selection.signals) if selection else set()
+        for index in range(self.tree.topLevelItemCount()):
+            endpoint_item = self.tree.topLevelItem(index)
+            visible_dids = 0
+            for did_index in range(endpoint_item.childCount()):
+                did_item = endpoint_item.child(did_index)
+                did_visible = not filtered or did_item.data(0, ROLE)[1] in dids
+                visible_signals = 0
+                for signal_index in range(did_item.childCount()):
+                    signal_item = did_item.child(signal_index)
+                    shown = did_visible and (not filtered or signal_item.data(0, ROLE)[1] in signals)
+                    signal_item.setHidden(not shown)
+                    visible_signals += shown
+                did_item.setHidden(not did_visible)
+                visible_dids += did_visible
+                if filtered and did_visible:
+                    endpoint_item.setExpanded(True)
+            endpoint_item.setHidden(filtered and not visible_dids)
+
+    # Selection --------------------------------------------------------------
+
+    def checked_selection(self) -> Selection:
+        """Checked rows, or the current row when nothing is checked."""
+
+        selection = Selection()
+        if self.tree_data is None:
+            return selection
+        for index in range(self.tree.topLevelItemCount()):
+            endpoint_item = self.tree.topLevelItem(index)
+            for did_index in range(endpoint_item.childCount()):
+                did_item = endpoint_item.child(did_index)
+                if did_item.isHidden() or did_item.checkState(0) == Qt.CheckState.Unchecked:
+                    continue
+                selection.dids.append(did_item.data(0, ROLE)[1])
+                for signal_index in range(did_item.childCount()):
+                    signal_item = did_item.child(signal_index)
+                    if not signal_item.isHidden() and signal_item.checkState(0) == Qt.CheckState.Checked:
+                        selection.signals.append(signal_item.data(0, ROLE)[1])
+        if selection.empty:
+            current = self.tree.currentItem()
+            if current is not None:
+                kind, key = current.data(0, ROLE)
+                if kind == "signal":
+                    selection.signals.append(key)
+                    selection.dids.append(current.parent().data(0, ROLE)[1])
+                elif kind == "did":
+                    selection.dids.append(key)
+                    selection.signals.extend(
+                        current.child(i).data(0, ROLE)[1] for i in range(current.childCount())
+                    )
+                else:
+                    for did_index in range(current.childCount()):
+                        child = current.child(did_index)
+                        selection.dids.append(child.data(0, ROLE)[1])
+                        selection.signals.extend(
+                            child.child(i).data(0, ROLE)[1] for i in range(child.childCount())
+                        )
+        return selection
+
+    def check(self, kind: str, key: str, checked: bool = True) -> None:
+        """Check a row by stable identity (keyboard-free automation and tests)."""
+
+        for item in self._items():
+            if item.data(0, ROLE) == (kind, key):
+                item.setCheckState(0, Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+                return
+        raise KeyError(key)
+
+    def select_row(self, kind: str, key: str) -> None:
+        for item in self._items():
+            if item.data(0, ROLE) == (kind, key):
+                self.tree.setCurrentItem(item)
+                self.tree.scrollToItem(item)
+                return
+        raise KeyError(key)
+
+    def _items(self):
+        stack = [self.tree.topLevelItem(i) for i in range(self.tree.topLevelItemCount())]
+        while stack:
+            item = stack.pop()
+            yield item
+            stack.extend(item.child(i) for i in range(item.childCount()))
+
+    def _current(self) -> tuple[str, str] | None:
+        item = self.tree.currentItem()
+        return item.data(0, ROLE) if item is not None else None
+
+    # Details ----------------------------------------------------------------
+
+    def show_details(self) -> None:
+        current = self._current()
+        data = self.tree_data
+        self.def_apply.setEnabled(False)
+        self.did_apply.setEnabled(False)
+        if current is None or data is None:
+            self.detail_text.setPlainText("Select a row to see its details.")
+            self.def_reason.setText("Select a signal on a confirmed endpoint to edit its definition.")
+            self.did_reason.setText("Select a DID on a confirmed endpoint to edit its settings.")
+            self.update_actions()
+            return
+        kind, key = current
+        lines: list[str] = []
+        if kind == "endpoint":
+            endpoint = data.endpoint(key)
+            lines = [
+                f"Endpoint {endpoint.key}: {endpoint.state}",
+                f"Tester/response CAN IDs: {endpoint.tester_can_id or '?'} / {endpoint.response_can_id or '?'}",
+                f"ECU keys: {', '.join(map(str, endpoint.ecu_keys))}  {', '.join(endpoint.ecu_names)}",
+                f"Session recipe: {endpoint.session_recipe_id or 'chosen when verified'}",
+                f"DIDs: {len(endpoint.dids)}",
+            ]
+            if endpoint.state == "responded":
+                lines.append("It responded. Use Confirm endpoint to record it in tracked transport.")
+        elif kind == "did":
+            endpoint, did = data.find_did(key)
+            lines = [
+                f"DID {did.key}: {did.state}" + (f" ({did.detail})" if did.detail else ""),
+                f"Baseline response: {did.baseline_hex or '-'}",
+                f"Latency: {did.latency_ms if did.latency_ms is not None else '-'} ms at {did.observed_utc or '-'}",
+                f"Signals: {len(did.signals)}",
+            ]
+            self._load_did_settings(endpoint, did)
+        else:
+            endpoint, did, signal = data.find_signal(key)
+            lines = [
+                f"{signal.name} ({signal.signal_ref})",
+                f"Unit: {signal.unit or '-'}   Formula: {signal.formula}",
+                f"DID {did.key}: {did.state}",
+            ]
+            if signal.conflict:
+                lines.append(f"{signal.variants} catalog variants disagree; review the definition.")
+            if signal.review:
+                lines.append(f"Review: {signal.review['evidence_state']}. {signal.review['notes']}".rstrip())
+            lines.append(f"Target: {_target_summary(signal.target) or 'none'}")
+            if signal.progress:
+                counters = signal.progress["counters"]
+                lines.append(
+                    f"Recorded: {counters['samples']} samples, {counters['runs']} runs, "
+                    f"{counters['changes']} changes, {counters['transitions']} transitions, "
+                    f"states {counters['states'][:12]}"
+                )
+                missing = [
+                    REQUIREMENT_LABELS[name] for name, met in signal.progress["requirements_met"].items() if not met
+                ]
+                lines.append("Remaining: " + (", ".join(missing) if missing else "complete"))
+            self._load_definition(endpoint, signal)
+            self._load_did_settings(endpoint, did)
+        self.detail_text.setPlainText("\n".join(lines))
+        self.update_actions()
+
+    def _load_definition(self, endpoint, signal) -> None:
+        review = signal.review or {}
+        self.def_name.setText(review.get("display_name_override") or "")
+        self.def_name.setPlaceholderText(signal.name)
+        self.def_formula.setText(review.get("formula_override") or "")
+        self.def_formula.setPlaceholderText(signal.formula)
+        self.def_unit.setText(review.get("unit_override") or "")
+        self.def_unit.setPlaceholderText(signal.unit)
+        self.def_evidence.setText(review.get("evidence_state") or "Candidate")
+        self.def_notes.setText(review.get("notes") or "")
+        self.def_apply.setEnabled(endpoint.confirmed)
+        self.def_reason.setText("" if endpoint.confirmed else "Confirm the endpoint before reviewing its signals.")
+
+    def _load_did_settings(self, endpoint, did) -> None:
+        settings = did.settings or {"target_interval_ms": 1000, "maximum_interval_ms": 5000, "priority": 50, "included": True}
+        self.did_interval.setValue(settings["target_interval_ms"])
+        self.did_maximum.setValue(settings["maximum_interval_ms"])
+        self.did_priority.setValue(settings["priority"])
+        self.did_included.setChecked(settings["included"])
+        self.did_apply.setEnabled(endpoint.confirmed)
+        self.did_reason.setText(
+            "" if endpoint.confirmed else "Confirm the endpoint before setting acquisition settings."
+        )
+
+    # Actions ----------------------------------------------------------------
+
+    def update_actions(self) -> None:
+        has_project = self.context.service is not None
+        busy = self.job is not None and self.job.running
+        selection = self.checked_selection() if has_project else Selection()
+        current = self._current()
+        responded = False
+        if current and current[0] == "endpoint" and self.tree_data is not None:
+            responded = self.tree_data.endpoint(current[1]).state == "responded"
+        self.add_endpoint_button.setEnabled(has_project and not busy)
+        self.confirm_button.setEnabled(has_project and responded and not busy)
+        self.verify_button.setEnabled(has_project and bool(selection.dids) and not busy)
+        self.target_button.setEnabled(has_project and bool(selection.signals) and not busy)
+        self.clear_button.setEnabled(has_project and bool(selection.signals) and not busy)
+        self.save_button.setEnabled(self.dirty and not busy)
+        self.discard_button.setEnabled(self.dirty and not busy)
+        reasons = []
+        if not has_project:
+            reasons.append("Open a project to work with signals.")
+        elif busy:
+            reasons.append("A live verification is running; other actions wait until it stops.")
+        else:
+            if not selection.dids:
+                reasons.append("Check DIDs or signals (or select a row) to verify or edit targets.")
+            if not responded:
+                reasons.append("Confirm endpoint needs a selected endpoint that responded during verification.")
+        self.action_reason.setText(" ".join(reasons))
+
+    def add_endpoint(self) -> None:
+        service = self.context.service
+        if service is None:
+            return
+        recipes = [row["id"] for row in service.repository().transport["session_recipes"]]
+        dialog = EndpointAddDialog(recipes, self)
+        if not self.run_dialog(dialog):
+            return
+        try:
+            service.add_endpoint(*dialog.values())
+        except (OSError, ValueError) as exc:
+            self.context.error("Endpoint not added", exc)
+            return
+        self.rebuild()
+
+    def confirm_endpoint(self) -> None:
+        current = self._current()
+        if self.context.service is None or current is None or current[0] != "endpoint":
+            return
+        endpoint = self.tree_data.endpoint(current[1])
+        dialog = EndpointConfirmDialog(endpoint.endpoint_id, endpoint.ecu_keys, self)
+        if not self.run_dialog(dialog):
+            return
+        try:
+            ecu_keys, sources = dialog.values()
+            self.context.service.confirm_endpoint(endpoint.endpoint_id, ecu_keys, sources)
+        except (OSError, ValueError) as exc:
+            self.context.error("Endpoint not confirmed", exc)
+            return
+        self.context.message(f"Confirmed {endpoint.endpoint_id} in config/transport.json.")
+        self.context.changed()
+
+    def verify_checked(self) -> None:
+        service = self.context.service
+        if service is None or self.tree_data is None:
+            return
+        selection = self.checked_selection()
+        try:
+            scope = service.verification_scope(self.tree_data, selection)
+        except ValueError as exc:
+            if "--recipe" not in str(exc):
+                self.context.error("Cannot verify", exc)
+                return
+            recipes = [row["id"] for row in service.repository().transport["session_recipes"]]
+            recipe, ok = QInputDialog.getItem(self, "Session recipe", str(exc), recipes, 0, False)
+            if not ok:
+                return
+            try:
+                scope = service.verification_scope(self.tree_data, selection, session_recipe_id=recipe)
+            except ValueError as inner:
+                self.context.error("Cannot verify", inner)
+                return
+        details = []
+        for row in scope.endpoints:
+            action = "probe endpoint first, then read" if row.probe_endpoint else "read"
+            details.append(f"{row.key} ({row.tester_can_id}/{row.response_can_id}, session {row.session_recipe_id}): {action}")
+            details.append("    " + ", ".join(row.dids))
+        details.append(f"{scope.probe_count} probe(s), at most {scope.upper_bound_seconds:.0f} s. Scope {scope.digest[:12]}.")
+        dialog = LiveConfirmDialog("Verify with vehicle", scope.summary(), details, self)
+        if not self.confirm_live(dialog):
+            return
+        self.job_log.clear()
+        self.job_log.setVisible(True)
+        self.job_log.appendPlainText(scope.summary())
+
+        def work(emit, stop):
+            return service.verify(scope, on_event=emit, stop_event=stop)
+
+        self._start_job(work)
+
+    def _start_job(self, work) -> None:
+        self.job = LiveJob(work, self)
+        self.job.event.connect(self._job_event)
+        self.job.finished.connect(self._job_finished)
+        self.job.failed.connect(self._job_failed)
+        self.context.set_live(True)
+        self.stop_button.setVisible(True)
+        self.job.start()
+        self.update_actions()
+
+    def _job_event(self, event: dict) -> None:
+        if event["event"] == "endpoint":
+            self.job_log.appendPlainText(
+                f"Endpoint {event['key']}: {'responded' if event['responded'] else 'no response'}"
+            )
+        else:
+            detail = f" {event['detail']}" if event.get("detail") else ""
+            self.job_log.appendPlainText(f"{event['key']}: {event['outcome']}{detail}")
+
+    def _job_finished(self, result) -> None:
+        summary = result.as_dict()
+        outcomes = ", ".join(f"{count} {name}" for name, count in sorted(summary["outcomes"].items()))
+        self.job_log.appendPlainText(("Stopped early: " if result.stopped else "Finished: ") + (outcomes or "no DIDs read"))
+        self._job_done()
+
+    def _job_failed(self, detail: str) -> None:
+        self.job_log.appendPlainText(f"Failed: {detail.splitlines()[0]}")
+        self._job_done()
+        self.context.error("Verification failed", detail.splitlines()[0])
+
+    def _job_done(self) -> None:
+        self.stop_button.setVisible(False)
+        self.context.set_live(False)
+        self.job = None
+        self.context.changed()
+
+    def stop_job(self) -> None:
+        if self.job is not None:
+            self.job.request_stop()
+            self.job_log.appendPlainText("Stopping after the current probe…")
+
+    def edit_targets(self) -> None:
+        service = self.context.service
+        selection = self.checked_selection()
+        if service is None or self.tree_data is None or not selection.signals:
+            return
+        current = None
+        if len(selection.signals) == 1:
+            found = self.tree_data.find_signal(selection.signals[0])
+            current = found[2].target if found else None
+
+        def preview(fields: dict[str, Any]) -> str:
+            result = service.edit_targets(self.tree_data, selection.signals, policy=self.draft_policy, **fields)
+            return _impact_text(result.impact(), len(selection.signals))
+
+        dialog = TargetEditDialog(len(selection.signals), current, preview, self)
+        if not self.run_dialog(dialog):
+            return
+        try:
+            result = service.edit_targets(
+                self.tree_data, selection.signals, policy=self.draft_policy, **dialog.fields()
+            )
+        except ValueError as exc:
+            self.context.error("Targets not changed", exc)
+            return
+        self._set_draft(policy=result.policy)
+
+    def clear_targets(self) -> None:
+        service = self.context.service
+        selection = self.checked_selection()
+        if service is None or not selection.signals:
+            return
+        result = service.clear_targets(selection.signals, policy=self.draft_policy)
+        self._set_draft(policy=result.policy)
+
+    def apply_definition(self) -> None:
+        current = self._current()
+        if self.context.service is None or current is None or current[0] != "signal":
+            return
+        try:
+            result = self.context.service.edit_signals(
+                self.tree_data, [current[1]], review=self.draft_review,
+                name=self.def_name.text(), formula=self.def_formula.text(), unit=self.def_unit.text(),
+                evidence_state=self.def_evidence.text(), notes=self.def_notes.text(),
+            )
+        except ValueError as exc:
+            self.def_reason.setText(f"Not applied: {exc}")
+            return
+        self._set_draft(review=result.review)
+
+    def apply_did_settings(self) -> None:
+        current = self._current()
+        if self.context.service is None or current is None:
+            return
+        kind, key = current
+        if kind == "signal":
+            did_key = self.tree.currentItem().parent().data(0, ROLE)[1]
+            selected = [key]
+        elif kind == "did":
+            did_key, selected = key, []
+        else:
+            return
+        try:
+            result = self.context.service.edit_dids(
+                self.tree_data, [did_key], selected_signals=selected, policy=self.draft_policy,
+                target_interval_ms=self.did_interval.value(),
+                maximum_interval_ms=self.did_maximum.value(),
+                priority=self.did_priority.value(),
+                included=self.did_included.isChecked(),
+            )
+        except ValueError as exc:
+            self.did_reason.setText(f"Not applied: {exc}")
+            return
+        siblings = result.impact()["unselected_siblings"]
+        self.did_reason.setText(
+            f"Applied to draft; also affects {len(siblings)} sibling signal(s)." if siblings else "Applied to draft."
+        )
+        self._set_draft(policy=result.policy)
+
+    def _set_draft(self, *, review=None, policy=None) -> None:
+        if self._base_bytes is None and self.context.service is not None:
+            self._base_bytes = self.context.service.authority_bytes()
+        if review is not None:
+            self.draft_review = review
+        if policy is not None:
+            self.draft_policy = policy
+        self.dirty_changed.emit(True)
+        current = self._current()
+        self.rebuild()
+        if current is not None:
+            try:
+                self.select_row(*current)
+            except KeyError:
+                pass
+
+    def save(self) -> bool:
+        service = self.context.service
+        if service is None or not self.dirty:
+            return True
+        if self._base_bytes is not None and service.authority_bytes() != self._base_bytes:
+            self.external_notice.setText(
+                "Not saved: project files changed outside this window. Discard to reload them, "
+                "then make your edits again."
+            )
+            self.external_notice.setVisible(True)
+            return False
+        try:
+            service.save(review=self.draft_review, policy=self.draft_policy)
+        except (OSError, ValueError) as exc:
+            self.context.error("Not saved", exc)
+            return False
+        self.reload()
+        self.context.message("Saved review and collection targets.")
+        self.context.changed()
+        return True
+
+    def discard(self) -> None:
+        self.reload()
+
+    def prompt_unsaved(self) -> bool:
+        """Return True when it is fine to continue (saved or discarded)."""
+
+        if not self.dirty:
+            return True
+        answer = QMessageBox.question(
+            self, "Unsaved changes", "Save changes to signal review and collection targets?",
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer == QMessageBox.StandardButton.Save:
+            return self.save()
+        if answer == QMessageBox.StandardButton.Discard:
+            self.discard()
+            return True
+        return False
+
+
+def _target_summary(target: dict[str, Any] | None) -> str:
+    if target is None:
+        return ""
+    parts = []
+    for name, value in target["requirements"].items():
+        label = REQUIREMENT_LABELS[name].lower().replace("minimum ", "")
+        if name.endswith("_seconds"):
+            value = format_duration(value)
+        elif isinstance(value, list):
+            value = ",".join(map(str, value))
+        parts.append(f"{label} {value}")
+    if target.get("condition"):
+        parts.append(f"when {format_condition(target['condition'])}")
+    text = "; ".join(parts)
+    return text if target["included"] else f"{text} (excluded)"
+
+
+def _progress_summary(progress: dict[str, Any] | None) -> str:
+    if progress is None:
+        return ""
+    if progress["complete"]:
+        return "Complete"
+    met = progress["requirements_met"]
+    return f"{sum(met.values())}/{len(met)} met, {progress['counters']['samples']} samples"
+
+
+def _impact_text(impact: dict[str, Any], selected: int) -> str:
+    text = f"{selected} signal(s) across {len(impact['dids'])} DID(s) will change."
+    if impact["created_did_settings"]:
+        text += f" New DID settings with defaults: {len(impact['created_did_settings'])}."
+    return text

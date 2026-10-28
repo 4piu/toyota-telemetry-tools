@@ -326,14 +326,26 @@ class OperatorService:
 
     # Inventory and selection ----------------------------------------------
 
-    def tree(self) -> InventoryTree:
+    def tree(
+        self,
+        *,
+        review: Mapping[str, Any] | None = None,
+        policy: Mapping[str, Any] | None = None,
+    ) -> InventoryTree:
+        """Build the tree from saved authorities, or from unsaved draft documents."""
+
         repository = self.repository()
         inventory = self.inventory(repository)
         try:
             refresh_cache(repository, inventory)
         except ValueError:
             pass
-        return build_tree(repository, inventory, progress=progress_by_signal(repository))
+        progress = progress_by_signal(repository)
+        if review is not None:
+            repository.review = dict(review)
+        if policy is not None:
+            repository.policy = dict(policy)
+        return build_tree(repository, inventory, progress=progress)
 
     @staticmethod
     def select(tree: InventoryTree, tokens: Iterable[str] = (), **filters: Any) -> Selection:
@@ -478,6 +490,11 @@ class OperatorService:
         return export_observations(
             repository, self.inventory(repository), signal_refs, stream, run_ids=run_ids
         )
+
+    def observation_summary(self) -> dict[str, dict[str, Any]]:
+        repository = self.repository()
+        refresh_cache(repository, self.inventory(repository))
+        return repository.signal_observation_summary()
 
     def series(self, signal_ref: str) -> list[dict[str, Any]]:
         repository = self.repository()

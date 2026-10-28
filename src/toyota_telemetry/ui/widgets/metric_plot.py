@@ -29,7 +29,7 @@ class MetricPlot(pg.PlotWidget):
         self.setAccessibleName("Metric evidence plot")
         self.setMinimumHeight(280)
         self.showGrid(x=True, y=True, alpha=0.18)
-        self.setLabel("bottom", "Elapsed time (h:mm:ss)")
+        self.setLabel("bottom", "Run time, runs end to end (h:mm:ss)")
         self.setLabel("left", "Value")
         self.getPlotItem().setMenuEnabled(False)
         self._curve = self.plot([], [], connect="finite")
@@ -72,8 +72,8 @@ class MetricPlot(pg.PlotWidget):
         self._source_points = series.source_points
         self._rendered_points = series.rendered_points
         self.setAccessibleDescription(
-            f"Synthetic evidence preview with {series.rendered_points} rendered "
-            f"points reduced from {series.source_points} source points."
+            f"Signal plot with {series.rendered_points} rendered "
+            f"points reduced from {series.source_points} recorded samples."
         )
 
     def set_measurement(self, name: str, unit: str) -> None:
@@ -98,7 +98,7 @@ class MetricPlot(pg.PlotWidget):
         elapsed = f"{hours:d}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes:d}:{seconds:02d}"
         suffix = f" {self._unit}" if self._unit else ""
         self.cursor_changed.emit(
-            f"Cursor: {elapsed} elapsed | {self._measurement}: {point.y():.2f}{suffix} | example data"
+            f"Cursor: {elapsed} on the run timeline | {self._measurement}: {point.y():.2f}{suffix}"
         )
 
     def resizeEvent(self, event) -> None:
