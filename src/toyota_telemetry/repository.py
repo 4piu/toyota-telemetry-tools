@@ -286,9 +286,10 @@ class ProjectRepository:
         self._validate_catalog_rows(rows)
         database = self.paths.database
         database.parent.mkdir(parents=True, exist_ok=True)
-        temporary = database.with_suffix(database.suffix + ".tmp")
-        if temporary.exists():
-            temporary.unlink()
+        handle, name = tempfile.mkstemp(prefix=database.name + ".", suffix=".tmp", dir=database.parent)
+        os.close(handle)
+        temporary = Path(name)
+        temporary.unlink()
         connection = sqlite3.connect(temporary)
         try:
             connection.execute("PRAGMA foreign_keys = ON")
@@ -600,30 +601,21 @@ class ProjectRepository:
             )
 
     def signal_observation_summary(self) -> dict[str, dict[str, Any]]:
-        grouped: dict[str, dict[str, Any]] = {}
         with closing(sqlite3.connect(self.paths.database)) as connection:
-            for signal_ref, raw_value, decoded in connection.execute(
-                "SELECT signal_ref, raw_value, decoded_value FROM signal_observation "
-                "ORDER BY signal_ref, run_id, sequence"
-            ):
-                row = grouped.setdefault(
-                    signal_ref,
-                    {"observations": 0, "raw_values": set(), "decoded_values": []},
-                )
-                row["observations"] += 1
-                row["raw_values"].add(bytes(raw_value))
-                if decoded is not None:
-                    row["decoded_values"].append(float(decoded))
-        result = {}
-        for signal_ref, row in grouped.items():
-            decoded_values = row["decoded_values"]
-            result[signal_ref] = {
-                "observations": row["observations"],
-                "distinct_raw_values": len(row["raw_values"]),
-                "decoded_minimum": min(decoded_values) if decoded_values else None,
-                "decoded_maximum": max(decoded_values) if decoded_values else None,
+            rows = connection.execute(
+                "SELECT signal_ref, COUNT(*), COUNT(DISTINCT raw_value), "
+                "MIN(decoded_value), MAX(decoded_value) "
+                "FROM signal_observation GROUP BY signal_ref"
+            ).fetchall()
+        return {
+            signal_ref: {
+                "observations": count,
+                "distinct_raw_values": distinct,
+                "decoded_minimum": float(minimum) if minimum is not None else None,
+                "decoded_maximum": float(maximum) if maximum is not None else None,
             }
-        return result
+            for signal_ref, count, distinct, minimum, maximum in rows
+        }
 
     def signal_observations(self, signal_ref: str) -> list[dict[str, Any]]:
         """Return every cached observation for one signal across all runs."""

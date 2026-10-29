@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -82,13 +83,43 @@ class CaptureRun:
     segments: tuple[CaptureSegment, ...]
 
 
+_FILE_HASHES: dict[str, tuple[int, int, str]] = {}
+
+
+def _file_sha256(entry: os.DirEntry) -> str:
+    """Content hash, reused while the file's size and modification time hold.
+
+    Capture files are written once and never edited in place, so a changed
+    file always changes its size or modification time.
+    """
+
+    stat = entry.stat()
+    cached = _FILE_HASHES.get(entry.path)
+    if cached is not None and cached[:2] == (stat.st_size, stat.st_mtime_ns):
+        return cached[2]
+    with open(entry.path, "rb") as handle:
+        digest = _sha256(handle.read())
+    _FILE_HASHES[entry.path] = (stat.st_size, stat.st_mtime_ns, digest)
+    return digest
+
+
+def _capture_files(directory: str, prefix: str) -> list[tuple[str, os.DirEntry]]:
+    files = []
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            relative = f"{prefix}{entry.name}"
+            if entry.is_dir(follow_symlinks=False):
+                files.extend(_capture_files(entry.path, relative + "/"))
+            elif entry.is_file():
+                files.append((relative, entry))
+    return files
+
+
 def capture_set_hash(captures_root: Path | None) -> str:
     entries = []
     if captures_root is not None and captures_root.is_dir():
-        for path in sorted(item for item in captures_root.rglob("*") if item.is_file()):
-            entries.append(
-                (path.relative_to(captures_root).as_posix(), _sha256(path.read_bytes()))
-            )
+        for relative, entry in sorted(_capture_files(str(captures_root), ""), key=lambda item: item[0]):
+            entries.append((relative, _file_sha256(entry)))
     encoded = json.dumps(entries, separators=(",", ":"), ensure_ascii=True).encode("ascii")
     return _sha256(encoded)
 

@@ -33,7 +33,6 @@ class MetricPlot(pg.PlotWidget):
         self.setLabel("left", "Value")
         self.getPlotItem().setMenuEnabled(False)
         self._curve = self.plot([], [], connect="finite")
-        self._quality = self.plot([], [], pen=None, symbol="s", symbolSize=5)
         self._cursor = pg.InfiniteLine(angle=90, movable=False)
         self._cursor.setVisible(False)
         self.addItem(self._cursor, ignoreBounds=True)
@@ -52,22 +51,18 @@ class MetricPlot(pg.PlotWidget):
     def source_points(self) -> int:
         return self._source_points
 
-    def set_series(self, series: BoundedSeries) -> None:
+    def set_series(self, series: BoundedSeries, *, reset_view: bool = True) -> None:
+        """Show a reduced series; ``reset_view`` fits both axes to it.
+
+        Redraws of the same signal after a resize keep the user's zoom.
+        """
+
         accent = self.palette().color(QPalette.ColorRole.Highlight)
         self._curve.setPen(pg.mkPen(accent, width=1.4))
         self._curve.setData(series.x, series.y, connect="finite")
-        error = self.palette().color(QPalette.ColorRole.BrightText)
-        if error.lightness() > 180:
-            error = pg.mkColor("#b00020")
-        step = max(1, len(series.x) // 30)
-        if len(series.x):
-            floor = float(min(series.y))
-            self._quality.setData(
-                series.x[::step],
-                [floor] * len(series.x[::step]),
-                symbolBrush=error,
-                symbolPen=error,
-            )
+        if reset_view:
+            self.getPlotItem().enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
+            self.getPlotItem().getViewBox().updateAutoRange()
         self._last_series = series
         self._source_points = series.source_points
         self._rendered_points = series.rendered_points
@@ -81,9 +76,6 @@ class MetricPlot(pg.PlotWidget):
         self._unit = "" if unit in ("state", "raw bytes", "text") else unit
         label = name if not self._unit else f"{name} ({self._unit})"
         self.setLabel("left", label)
-
-    def set_quality_visible(self, visible: bool) -> None:
-        self._quality.setVisible(visible)
 
     def _mouse_moved(self, scene_position) -> None:
         if not self.sceneBoundingRect().contains(scene_position):

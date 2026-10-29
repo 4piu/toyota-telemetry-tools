@@ -50,19 +50,28 @@ def probes():
         yield scripted
 
 
+def settle(qtbot, window: OperatorWindow) -> None:
+    """Wait until background project work has finished and been shown."""
+
+    qtbot.waitUntil(lambda: window.context.worker.idle, timeout=10_000)
+
+
 def open_window(qtbot, root: Path | None = None) -> OperatorWindow:
     window = OperatorWindow(root, restore_settings=False)
     qtbot.addWidget(window)
     window.show()
+    settle(qtbot, window)
     return window
 
 
-def import_rows(window: OperatorWindow, rows: Path) -> None:
+def import_rows(qtbot, window: OperatorWindow, rows: Path) -> None:
     setup = window.setup_page
     setup.file_path.setText(str(rows))
     setup.preview_button.click()
+    settle(qtbot, window)
     assert setup.apply_button.isEnabled(), setup.preview_result.text()
     setup.apply_button.click()
+    settle(qtbot, window)
 
 
 def wait_for_job(qtbot, page) -> None:
@@ -97,8 +106,9 @@ def test_every_operation_has_a_desktop_action(qtbot, project) -> None:
 def test_gui_shows_no_command_line_text_and_short_buttons(qtbot, project, probes) -> None:
     root, rows = project
     window = open_window(qtbot, root)
-    import_rows(window, rows)
+    import_rows(qtbot, window, rows)
     window.collect_page.check_readiness()
+    settle(qtbot, window)
     for widget in window.findChildren(QWidget):
         for text in _visible_text(widget):
             assert "telemetry " not in text and " --" not in text, (widget.objectName(), text)
@@ -111,7 +121,7 @@ def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, pro
     window = open_window(qtbot, root)
     assert window.project_path == root.resolve()
     assert window.next_text.text() == "Next: Import a candidate signal list"
-    import_rows(window, rows)
+    import_rows(qtbot, window, rows)
     assert window.setup_page.preview_result.text() == "Applied candidates.json."
     assert json.loads((root / "result/catalog-manifest.json").read_text())["catalog_row_count"] == 4
     setup = window.setup_page
@@ -129,7 +139,7 @@ def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, pro
 def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, probes) -> None:
     root, rows = project
     window = open_window(qtbot, root)
-    import_rows(window, rows)
+    import_rows(qtbot, window, rows)
     page = window.signals_page
     assert page.tree.topLevelItemCount() == 2
     page.check("did", f"{UNCONFIRMED_KEY}/0x2001")
@@ -151,6 +161,7 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
     page.confirm_live = accept
     page.verify_button.click()
     wait_for_job(qtbot, page)
+    settle(qtbot, window)
     assert probes.transmissions == 2
     assert "1 endpoint(s) (1 to probe) and 1 DID(s)" in shown[0].findChild(QLabel).text()
     assert "Finished: 1 positive" in page.job_log.toPlainText()
@@ -167,6 +178,7 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
 
     page.run_dialog = fill_confirm
     page.confirm_button.click()
+    settle(qtbot, window)
     transport = json.loads((root / "config/transport.json").read_text())
     assert CANDIDATE_ID in [row["id"] for row in transport["endpoints"]]
     assert page.tree_data.endpoint(CANDIDATE_ID).confirmed
@@ -175,7 +187,7 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
 def test_target_batch_edit_is_a_draft_until_saved(qtbot, project) -> None:
     root, rows = project
     window = open_window(qtbot, root)
-    import_rows(window, rows)
+    import_rows(qtbot, window, rows)
     page = window.signals_page
     policy_path = root / "config/collection-policy.json"
     before = policy_path.read_bytes()
@@ -191,12 +203,14 @@ def test_target_batch_edit_is_a_draft_until_saved(qtbot, project) -> None:
 
     page.run_dialog = edit
     page.target_button.click()
+    settle(qtbot, window)
     assert "2 signal(s) across 1 DID(s)" in seen["impact"]
     assert page.dirty
     assert window.draft_status.text() == "Unsaved changes"
     assert policy_path.read_bytes() == before
     assert page.tree_data.find_signal("372/0x1003/0..7")[2].target["requirements"] == {"minimum_samples": 25}
     page.save_button.click()
+    settle(qtbot, window)
     saved = json.loads(policy_path.read_text())
     assert [row["signal_ref"] for row in saved["targets"]] == ["372/0x1003/0..7", "372/0x1003/8..15"]
     assert not page.dirty
@@ -205,11 +219,12 @@ def test_target_batch_edit_is_a_draft_until_saved(qtbot, project) -> None:
 def test_external_edit_blocks_save_of_a_stale_draft(qtbot, project) -> None:
     root, rows = project
     window = open_window(qtbot, root)
-    import_rows(window, rows)
+    import_rows(qtbot, window, rows)
     page = window.signals_page
     page.check("signal", "372/0x1003/0..7")
     page.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 5), True)[1]
     page.target_button.click()
+    settle(qtbot, window)
     policy_path = root / "config/collection-policy.json"
     document = json.loads(policy_path.read_text())
     document["storage"]["segment_seconds"] = 30
@@ -224,11 +239,12 @@ def test_external_edit_blocks_save_of_a_stale_draft(qtbot, project) -> None:
 def test_closing_with_a_draft_offers_save_discard_cancel(qtbot, project) -> None:
     root, rows = project
     window = open_window(qtbot, root)
-    import_rows(window, rows)
+    import_rows(qtbot, window, rows)
     page = window.signals_page
     page.check("signal", "372/0x1003/0..7")
     page.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 5), True)[1]
     page.target_button.click()
+    settle(qtbot, window)
     with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Cancel):
         assert not window.close()
     with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Discard):
@@ -238,9 +254,10 @@ def test_closing_with_a_draft_offers_save_discard_cancel(qtbot, project) -> None
 def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project, probes) -> None:
     root, rows = project
     window = open_window(qtbot, root)
-    import_rows(window, rows)
+    import_rows(qtbot, window, rows)
     collect = window.collect_page
     window.navigate("collect")
+    settle(qtbot, window)
     assert not collect.start_button.isEnabled()
     assert "Readiness has problems." in collect.start_button.toolTip()
     assert collect.problem_area.itemAt(0).widget().findChild(QLabel).text() == "Set collection targets"
@@ -249,8 +266,11 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     signals.check("signal", "372/0x1002/0..15")
     signals.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 2), True)[1]
     signals.target_button.click()
+    settle(qtbot, window)
     signals.save_button.click()
+    settle(qtbot, window)
     collect.check_readiness()
+    settle(qtbot, window)
     assert collect.readiness.ready, collect.readiness.problems
     assert collect.start_button.isEnabled()
     collect.confirm_live = lambda dialog: True
@@ -258,6 +278,7 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
         collect.start_button.click()
         assert collect.start_button.text() == "Stop"
         wait_for_job(qtbot, collect)
+    settle(qtbot, window)
     assert "Completed" in collect.run_state.text()
     assert window.adapter_status.text() == "Adapter closed"
     assert len(window.collect_page.context.service.runs()) == 2
@@ -266,19 +287,23 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
 def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, tmp_path) -> None:
     root, rows = project
     window = open_window(qtbot, root)
-    import_rows(window, rows)
+    import_rows(qtbot, window, rows)
     page = window.recordings_page
     window.navigate("recordings")
+    settle(qtbot, window)
     assert page.runs.rowCount() == 1
     assert not page.recovery.isVisible()
     page.runs.selectRow(0)
+    settle(qtbot, window)
     assert "Segment 000001 complete: 1 reads" in page.run_detail.toPlainText()
     page.select_signal("372/0x1002/0..15")
+    settle(qtbot, window)
     assert page.plot.source_points == 1
     assert "Constant value" in page.plot_summary.text()
     target = tmp_path / "out.csv"
     page.choose_export_path = lambda: str(target)
     page.export_button.click()
+    settle(qtbot, window)
     assert target.read_text().count("\n") == 2
 
 
@@ -287,3 +312,62 @@ def test_bounded_reduction_keeps_plots_small() -> None:
     series = bounded_minmax(xs, [float(value % 97) for value in xs], 1000)
     assert series.source_points == 1_000_000
     assert series.rendered_points <= 4000
+
+
+def test_slow_project_work_does_not_block_the_window(qtbot, project) -> None:
+    import threading
+    import time
+
+    from toyota_telemetry.operator import OperatorService
+
+    root, _rows = project
+    window = open_window(qtbot, root)
+    release = threading.Event()
+    original = OperatorService.tree
+
+    def slow_tree(self, **kwargs):
+        release.wait(5)
+        return original(self, **kwargs)
+
+    with mock.patch.object(OperatorService, "tree", slow_tree):
+        started = time.monotonic()
+        window.signals_page.rebuild()
+        assert time.monotonic() - started < 0.5
+        assert not window.context.worker.idle
+        assert window.work_status.text() == "Working…"
+        window.navigate("collect")
+        qtbot.wait(50)
+        release.set()
+        settle(qtbot, window)
+    assert window.work_status.text() == ""
+    assert window.signals_page.tree.topLevelItemCount() == 1
+
+
+def test_superseded_background_results_are_dropped(qtbot) -> None:
+    from toyota_telemetry.ui.worker import ServiceWorker
+
+    worker = ServiceWorker()
+    shown = []
+    for value in range(5):
+        worker.submit("same", lambda value=value: value, shown.append)
+    qtbot.waitUntil(lambda: worker.idle, timeout=5_000)
+    assert shown == [4]
+
+
+def test_new_signal_resets_the_plot_view_but_resizes_keep_zoom(qtbot) -> None:
+    from toyota_telemetry.ui.widgets.metric_plot import MetricPlot
+
+    plot = MetricPlot()
+    qtbot.addWidget(plot)
+    plot.resize(600, 300)
+    plot.show()
+    plot.set_series(bounded_minmax([0, 1, 2], [0.0, 1.0, 2.0], 600))
+    plot.getPlotItem().getViewBox().setRange(xRange=(0.5, 1.0), yRange=(0.5, 1.0), padding=0)
+    plot.set_series(bounded_minmax([0, 1, 2], [0.0, 1.5, 2.0], 600), reset_view=False)
+    (x_low, x_high), _ = plot.getPlotItem().getViewBox().viewRange()
+    assert (round(x_low, 2), round(x_high, 2)) == (0.5, 1.0)
+    plot.set_series(bounded_minmax([0, 100, 200], [1000.0, 5000.0, 9000.0], 600), reset_view=True)
+    qtbot.wait(50)
+    (x_low, x_high), (y_low, y_high) = plot.getPlotItem().getViewBox().viewRange()
+    assert x_low <= 0 and x_high >= 200
+    assert y_low <= 1000 and y_high >= 9000

@@ -93,7 +93,7 @@ class SignalsPage(QWidget):
         self._search_timer.setSingleShot(True)
         self._search_timer.setInterval(250)
         self._search_timer.timeout.connect(self.apply_filters)
-        context.project_changed.connect(self.reload)
+        context.project_changed.connect(self._project_changed)
         context.data_changed.connect(self.refresh_from_disk)
         self.reload()
 
@@ -259,6 +259,11 @@ class SignalsPage(QWidget):
     def dirty(self) -> bool:
         return self.draft_review is not None or self.draft_policy is not None
 
+    def _project_changed(self) -> None:
+        self._restore = None
+        self._show_tree(None)
+        self.reload()
+
     def reload(self) -> None:
         self.draft_review = None
         self.draft_policy = None
@@ -283,30 +288,59 @@ class SignalsPage(QWidget):
                 )
         self.rebuild()
 
-    def rebuild(self) -> None:
+    def rebuild(self, restore: tuple[str, str] | None = None) -> None:
+        """Reload the tree in the background; the current tree stays until then."""
+
         service = self.context.service
+        self._restore = restore or self._current() or getattr(self, "_restore", None)
+        if service is None:
+            self._show_tree(None)
+            return
+        if self.tree.topLevelItemCount() == 0:
+            self.empty_label.setText("Loading…")
+            self.empty_label.setVisible(True)
+        review, policy = self.draft_review, self.draft_policy
+
+        def failed(detail: str) -> None:
+            self.empty_label.setText(f"Cannot read the project: {detail.split(chr(10) * 2, 1)[0]}")
+            self.empty_label.setVisible(True)
+
+        self.context.run(
+            "signals.tree", lambda service: service.tree(review=review, policy=policy),
+            self._show_tree, failed,
+        )
+
+    def _show_tree(self, data: InventoryTree | None) -> None:
+        expanded = {
+            self.tree.topLevelItem(index).data(0, ROLE)[1]
+            for index in range(self.tree.topLevelItemCount())
+            if self.tree.topLevelItem(index).isExpanded()
+        }
+        restore = getattr(self, "_restore", None)
         self._building = True
         self.tree.clear()
-        self.tree_data = None
-        try:
-            if service is not None:
-                self.tree_data = service.tree(review=self.draft_review, policy=self.draft_policy)
-        except (OSError, ValueError) as exc:
-            self.empty_label.setText(f"Cannot read the project: {exc}")
-        finally:
-            self._building = False
-        if self.tree_data is not None:
-            self._populate(self.tree_data)
-        has_rows = bool(self.tree_data and self.tree_data.endpoints)
+        self._building = False
+        self.tree_data = data
+        if data is not None:
+            self._populate(data, expanded if expanded else None)
+        has_rows = bool(data and data.endpoints)
         self.empty_label.setVisible(not has_rows)
-        if service is not None and not has_rows:
+        if self.context.service is None:
+            self.empty_label.setText("No project open.")
+        elif not has_rows:
             self.empty_label.setText("No candidates.")
             self.empty_label.setToolTip("Import a candidate list in Setup.")
         self.apply_filters()
+        if restore is not None:
+            try:
+                self.select_row(*restore)
+            except KeyError:
+                pass
+        self._restore = None
         self.update_actions()
         self.show_details()
 
-    def _populate(self, data: InventoryTree) -> None:
+    def _populate(self, data: InventoryTree, expanded: set[str] | None = None) -> None:
         self._building = True
         try:
             for endpoint in data.endpoints:
@@ -350,7 +384,9 @@ class SignalsPage(QWidget):
                         did_item.setCheckState(
                             0, Qt.CheckState.Checked if ("did", did.key) in self._checked else Qt.CheckState.Unchecked
                         )
-                parent.setExpanded(len(data.endpoints) <= 3)
+                parent.setExpanded(
+                    endpoint.key in expanded if expanded is not None else len(data.endpoints) <= 3
+                )
         finally:
             self._building = False
 
@@ -776,13 +812,7 @@ class SignalsPage(QWidget):
         if policy is not None:
             self.draft_policy = policy
         self.dirty_changed.emit(True)
-        current = self._current()
-        self.rebuild()
-        if current is not None:
-            try:
-                self.select_row(*current)
-            except KeyError:
-                pass
+        self.rebuild(self._current())
 
     def save(self) -> bool:
         service = self.context.service

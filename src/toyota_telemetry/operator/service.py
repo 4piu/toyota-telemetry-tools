@@ -39,9 +39,9 @@ from .inventory import (
 )
 from .live import LiveBusy, LiveLock, live_busy
 from .recordings import (
-    NEEDS_RECOVERY,
     RunSummary,
     export_observations,
+    interrupted_run_ids,
     list_runs,
     quarantine_run,
     recover_run,
@@ -194,10 +194,14 @@ class OperatorService:
             status.connector = f"{backend['kind']} {device}".strip()
         status.sources = len(inventory["sources"])
         status.candidate_rows = len(inventory["rows"])
-        runs = list_runs(repository)
-        status.runs = sum(1 for run in runs if run.state == "complete")
+        interrupted = interrupted_run_ids(repository)
+        captures = repository.paths.captures
+        status.runs = (
+            sum(1 for path in captures.iterdir() if path.is_dir()) - len(interrupted)
+            if captures.is_dir() else 0
+        )
         if not status.live_busy:
-            status.recoverable_runs = [run.run_id for run in runs if run.state == NEEDS_RECOVERY]
+            status.recoverable_runs = interrupted
         try:
             refresh_cache(repository, inventory)
             progress = progress_by_signal(repository)
@@ -383,8 +387,6 @@ class OperatorService:
         endpoint = next(row for row in document["endpoints"] if row["id"] == candidate_id)
         if not dry_run:
             repository.write_authored_document("transport", document)
-            refreshed = self.repository()
-            rebuild_cache(refreshed, self.inventory(refreshed))
         return endpoint
 
     # Verification ----------------------------------------------------------
@@ -431,13 +433,35 @@ class OperatorService:
         review: Mapping[str, Any] | None = None,
         policy: Mapping[str, Any] | None = None,
     ) -> None:
-        repository = self.repository()
-        editing.save_documents(repository, review=review, policy=policy)
-        refreshed = self.repository()
+        """Write the authorities; the cache refreshes on its next read."""
+
+        editing.save_documents(self.repository(), review=review, policy=policy)
+
+    def fingerprint(self) -> tuple:
+        """Cheap change marker for project files (stat only, no reads)."""
+
+        repository_paths = [
+            self.root / "telemetry-project.toml",
+        ]
         try:
-            refresh_cache(refreshed, self.inventory(refreshed))
-        except ValueError:
-            pass
+            paths = self.repository().paths
+        except (OSError, ValueError):
+            paths = None
+        if paths is not None:
+            repository_paths += [
+                paths.transport, paths.collection_policy, paths.signal_review,
+                paths.catalog_manifest, paths.local_settings, paths.captures,
+                paths.scratch / "inventory.json", paths.scratch / "verification-facts.json",
+            ]
+        marker = []
+        for path in repository_paths:
+            try:
+                stat = path.stat()
+            except OSError:
+                marker.append((str(path), None))
+            else:
+                marker.append((str(path), stat.st_size, stat.st_mtime_ns))
+        return tuple(marker)
 
     def authority_bytes(self) -> dict[str, bytes]:
         """Current tracked bytes, used by drafts to detect external edits."""
@@ -478,14 +502,10 @@ class OperatorService:
         return run_detail(self.repository(), run_id)
 
     def recover(self, run_id: str) -> Path:
-        path = recover_run(self.repository(), run_id)
-        self._refresh_quietly()
-        return path
+        return recover_run(self.repository(), run_id)
 
     def quarantine(self, run_id: str) -> Path:
-        path = quarantine_run(self.repository(), run_id)
-        self._refresh_quietly()
-        return path
+        return quarantine_run(self.repository(), run_id)
 
     def export(self, signal_refs: Iterable[str], stream: TextIO, *, run_ids: Iterable[str] = ()) -> int:
         repository = self.repository()
@@ -511,13 +531,6 @@ class OperatorService:
             toolkit_commit=_toolkit_commit(repository),
             generated_at_utc=utc_now(),
         )
-
-    def _refresh_quietly(self) -> None:
-        repository = self.repository()
-        try:
-            refresh_cache(repository, self.inventory(repository))
-        except ValueError:
-            pass
 
 
 def _toolkit_commit(repository: ProjectRepository) -> str:

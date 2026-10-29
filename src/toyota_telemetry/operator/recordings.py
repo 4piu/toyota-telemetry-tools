@@ -70,12 +70,44 @@ class RunSummary:
         return value
 
 
+_FINISHED: dict[str, tuple[tuple[int, int], RunSummary]] = {}
+
+
 def list_runs(repository: ProjectRepository) -> list[RunSummary]:
     root = repository.paths.captures
     if not root.is_dir():
         return []
-    runs = [_summarize(directory) for directory in sorted(path for path in root.iterdir() if path.is_dir())]
+    runs = [_cached_summary(directory) for directory in sorted(path for path in root.iterdir() if path.is_dir())]
     return sorted(runs, key=lambda run: (run.created_utc or "", run.run_id))
+
+
+def interrupted_run_ids(repository: ProjectRepository) -> list[str]:
+    """Runs without run-end metadata, found without reading their segments."""
+
+    root = repository.paths.captures
+    if not root.is_dir():
+        return []
+    return sorted(
+        directory.name for directory in root.iterdir()
+        if directory.is_dir() and not (directory / "run-end.json").is_file()
+    )
+
+
+def _cached_summary(directory: Path) -> RunSummary:
+    """Finished runs are immutable, so their summaries are reused by run-end identity."""
+
+    end = directory / "run-end.json"
+    try:
+        stat = end.stat()
+    except OSError:
+        return _summarize(directory)
+    key = (stat.st_size, stat.st_mtime_ns)
+    cached = _FINISHED.get(str(directory))
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    summary = _summarize(directory)
+    _FINISHED[str(directory)] = (key, summary)
+    return summary
 
 
 def run_detail(repository: ProjectRepository, run_id: str) -> RunSummary:

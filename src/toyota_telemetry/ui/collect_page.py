@@ -115,42 +115,57 @@ class CollectPage(QWidget):
         run_layout.addWidget(self.events)
         layout.addWidget(run_group)
         layout.addStretch(1)
-        context.project_changed.connect(self.check_readiness)
-        context.data_changed.connect(self._refresh_if_idle)
-        self.check_readiness()
+        self._stale = True
+        context.project_changed.connect(self._mark_stale)
+        context.data_changed.connect(self._mark_stale)
+        self._show_readiness(None)
 
     @property
     def running(self) -> bool:
         return self.job is not None and self.job.running
 
-    def _refresh_if_idle(self) -> None:
-        if not self.running and self.isVisible():
+    def _mark_stale(self) -> None:
+        self._stale = True
+        if self.isVisible() and not self.running:
             self.check_readiness()
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
-        if not self.running:
+        if self._stale and not self.running:
             self.check_readiness()
 
     def check_readiness(self) -> None:
+        """Recompute readiness in the background; nothing is transmitted."""
+
         if self.running:
             return
-        self._clear_problems()
-        service = self.context.service
-        if service is None:
+        self._stale = False
+        if self.context.service is None:
+            self._show_readiness(None)
+            return
+        chosen = self.endpoint.currentData()
+        self.check_button.setEnabled(False)
+        self.readiness_text.setText("Checking…")
+
+        def failed(detail: str) -> None:
+            self.check_button.setEnabled(True)
             self.readiness = None
+            self._clear_problems()
+            self.readiness_text.setText(f"Cannot check readiness: {detail.split(chr(10) * 2, 1)[0]}")
+            self._update_start()
+
+        self.context.run(
+            "collect.readiness", lambda service: service.readiness(chosen), self._show_readiness, failed
+        )
+
+    def _show_readiness(self, readiness: CollectionReadiness | None) -> None:
+        self.check_button.setEnabled(self.context.service is not None)
+        self._clear_problems()
+        self.readiness = readiness
+        if readiness is None:
             self.readiness_text.setText("No project open.")
             self._update_start()
             return
-        chosen = self.endpoint.currentData()
-        try:
-            readiness = service.readiness(chosen)
-        except (OSError, ValueError) as exc:
-            self.readiness = None
-            self.readiness_text.setText(f"Cannot check readiness: {exc}")
-            self._update_start()
-            return
-        self.readiness = readiness
         self.endpoint.blockSignals(True)
         self.endpoint.clear()
         for endpoint_id in readiness.endpoints:
@@ -304,4 +319,3 @@ class CollectPage(QWidget):
         self.job = None
         self.context.set_live(False)
         self.context.changed()
-        self.check_readiness()

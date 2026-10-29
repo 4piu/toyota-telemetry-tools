@@ -157,12 +157,19 @@ class OperatorWindow(QMainWindow):
     def _build_status_bar(self) -> None:
         status = QStatusBar()
         self.setStatusBar(status)
+        self.work_status = QLabel("")
+        self.work_status.setToolTip("Reading project data in the background")
         self.project_status = QLabel("No project open")
         self.connector_status = QLabel("No connector")
         self.adapter_status = QLabel("Adapter closed")
         self.draft_status = QLabel("Saved")
-        for widget in (self.project_status, self.connector_status, self.adapter_status, self.draft_status):
+        for widget in (
+            self.work_status, self.project_status, self.connector_status, self.adapter_status, self.draft_status,
+        ):
             status.addPermanentWidget(widget)
+        self.context.worker.busy_changed.connect(
+            lambda busy: self.work_status.setText("Working…" if busy else "")
+        )
 
     # Project and status ----------------------------------------------------
 
@@ -198,12 +205,18 @@ class OperatorWindow(QMainWindow):
             self.project_status.setText("No project open")
             self.connector_status.setText("No connector")
             return
-        status = service.status()
-        self.project_status.setText(service.root.name if status.valid else f"{service.root.name}: invalid")
+        self.project_status.setText(service.root.name)
+        if not self.next_text.text().startswith("Next:"):
+            self.next_text.setText("Loading…")
+        self.context.run("status", lambda service: service.status(), self._show_status, lambda _detail: None)
+
+    def _show_status(self, status) -> None:
+        name = Path(status.project_root).name
+        self.project_status.setText(name if status.valid else f"{name}: invalid")
         self.connector_status.setText(status.connector or "No connector")
         action = status.next_action
         self.next_text.setText(f"Next: {action.text}")
-        self.next_text.setToolTip("")
+        self.next_text.setToolTip(status.error or "")
         self._next_page = action.page
 
     def _follow_next(self) -> None:
@@ -246,8 +259,7 @@ class OperatorWindow(QMainWindow):
 
     def eventFilter(self, watched, event) -> bool:
         if watched is self and event.type() == QEvent.Type.WindowActivate and self.context.service is not None:
-            if not self.context.live_job_running:
-                self.signals_page.refresh_from_disk()
+            self.context.check_outside_changes()
         return super().eventFilter(watched, event)
 
     def closeEvent(self, event: QCloseEvent) -> None:

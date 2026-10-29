@@ -34,6 +34,7 @@ class SetupPage(QWidget):
         super().__init__()
         self.context = context
         self._preview: ImportPreview | None = None
+        self._load_connector_pending = False
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Setup",
@@ -71,41 +72,71 @@ class SetupPage(QWidget):
         return group
 
     def check_project(self) -> None:
-        service = self.context.service
-        if service is None:
-            return
-        result = service.check()
-        lines = [f"OK: {note}" for note in result.notes] + [f"Problem: {text}" for text in result.problems]
-        show_notice(self.check_result, "\n".join(lines))
+        def done(result) -> None:
+            self.check_button.setEnabled(True)
+            lines = [f"OK: {note}" for note in result.notes] + [f"Problem: {text}" for text in result.problems]
+            show_notice(self.check_result, "\n".join(lines))
+
+        self._start(self.check_button, "setup.check", lambda service: service.check(), done, "Check failed")
 
     def rebuild_cache(self) -> None:
+        def done(_result) -> None:
+            self.rebuild_button.setEnabled(True)
+            self.context.message("Cache rebuilt.")
+            self.context.changed()
+
+        self._start(
+            self.rebuild_button, "setup.rebuild", lambda service: service.rebuild_cache(), done,
+            "Cache rebuild failed",
+        )
+
+    def _start(self, button, key, work, done, title) -> None:
+        """Run a button's work in the background, disabling it until done."""
+
         if self.context.service is None:
             return
-        try:
-            self.context.service.rebuild_cache()
-        except (OSError, ValueError) as exc:
-            self.context.error("Cache rebuild failed", exc)
-            return
-        self.context.message("Cache rebuilt from tracked files, the candidate list, and recordings.")
-        self.context.changed()
+        button.setEnabled(False)
+
+        def failed(detail: str) -> None:
+            button.setEnabled(True)
+            self.context.error(title, _first(detail))
+
+        self.context.run(key, work, done, failed)
 
     def refresh_project_summary(self) -> None:
-        service = self.context.service
-        if service is None:
+        if self.context.service is None:
             self.project_summary.setText("No project open.")
             return
-        try:
+
+        def work(service):
             repository = service.repository()
             inventory = service.inventory(repository)
-        except (OSError, ValueError) as exc:
-            self.project_summary.setText(f"{service.root}\nProblem: {exc}")
-            return
-        sources = ", ".join(source["label"] for source in inventory["sources"]) or "none yet"
-        self.project_summary.setText(
-            f"{service.root}\nProject {repository.project_id}, profile {repository.profile_id}. "
-            f"{len(repository.transport['endpoints'])} confirmed endpoint(s). "
-            f"Candidate sources: {sources} ({len(inventory['rows'])} rows)."
-        )
+            return {
+                "root": str(service.root),
+                "project_id": repository.project_id,
+                "profile_id": repository.profile_id,
+                "endpoints": len(repository.transport["endpoints"]),
+                "sources": [source["label"] for source in inventory["sources"]],
+                "rows": len(inventory["rows"]),
+                "connector": repository.local_settings,
+            }
+
+        def done(summary) -> None:
+            sources = ", ".join(summary["sources"]) or "none yet"
+            self.project_summary.setText(
+                f"{summary['root']}\nProject {summary['project_id']}, profile {summary['profile_id']}. "
+                f"{summary['endpoints']} confirmed endpoint(s). Candidate sources: {sources} "
+                f"({summary['rows']} rows)."
+            )
+            if self._load_connector_pending:
+                self._load_connector_pending = False
+                self.load_connector(summary["connector"])
+
+        def failed(detail: str) -> None:
+            self.project_summary.setText(f"Problem: {_first(detail)}")
+
+        self.project_summary.setText("Loading…")
+        self.context.run("setup.summary", work, done, failed)
 
     # Connector --------------------------------------------------------------
 
@@ -166,14 +197,23 @@ class SetupPage(QWidget):
         if self.context.service is None:
             return
         try:
-            check = self.context.service.check_connector(self._connector_document())
+            document = self._connector_document()
         except ValueError as exc:
             show_notice(self.connector_result, f"Problem: {exc}")
             return
-        lines = [f"OK: {note}" for note in check.notes] + [f"Problem: {text}" for text in check.problems]
-        if check.ok:
-            lines.append("Settings are valid.")
-        show_notice(self.connector_result, "\n".join(lines))
+
+        def done(check) -> None:
+            self.connector_check_button.setEnabled(True)
+            lines = [f"OK: {note}" for note in check.notes] + [f"Problem: {text}" for text in check.problems]
+            if check.ok:
+                lines.append("Settings are valid.")
+            show_notice(self.connector_result, "\n".join(lines))
+
+        show_notice(self.connector_result, "Checking…")
+        self._start(
+            self.connector_check_button, "setup.connector.check",
+            lambda service: service.check_connector(document), done, "Connector check failed",
+        )
 
     def save_connector(self) -> None:
         if self.context.service is None:
@@ -187,14 +227,7 @@ class SetupPage(QWidget):
         show_notice(self.connector_result, "Saved.")
         self.context.changed()
 
-    def load_connector(self) -> None:
-        service = self.context.service
-        document = None
-        if service is not None:
-            try:
-                document = service.connector()
-            except (OSError, ValueError):
-                document = None
+    def load_connector(self, document) -> None:
         for editors in self.connector_fields.values():
             for editor in editors.values():
                 editor.clear()
@@ -291,40 +324,58 @@ class SetupPage(QWidget):
         self._preview = None
         set_enabled(self.apply_button, False, "Preview a source first.")
         try:
-            preview = self.context.service.preview_source(self._source().read())
-        except (OSError, RuntimeError, ValueError) as exc:
-            show_notice(self.preview_result, f"Could not read the source: {exc}")
+            source = self._source()
+        except ValueError as exc:
+            show_notice(self.preview_result, str(exc))
             return
-        counts = preview.counts
-        lines = [
-            f"{preview.label}: {counts.get('rows', 0)} rows, {counts.get('signals', 0)} signals, "
-            f"{counts.get('dids', 0)} DIDs, {counts.get('ecus', 0)} ECUs, "
-            f"{counts.get('endpoint_candidates', 0)} endpoint candidates.",
-            f"Compared with the current list: {counts.get('added', 0)} added, {counts.get('removed', 0)} "
-            f"removed, {counts.get('unchanged', 0)} unchanged; {counts.get('conflicts', 0)} conflicting "
-            f"signal(s); {counts.get('rejected', 0)} rejected.",
-        ]
-        lines += [f"Rejected {where}: {reason}" for where, reason in preview.rejections[:5]]
-        if preview.blocking_problem:
-            lines.append(f"Cannot use this list: {preview.blocking_problem}")
-            set_enabled(self.apply_button, False, preview.blocking_problem)
-        else:
-            self._preview = preview
-            set_enabled(self.apply_button, True)
-        show_notice(self.preview_result, "\n".join(lines))
+
+        def done(preview) -> None:
+            self.preview_button.setEnabled(True)
+            counts = preview.counts
+            lines = [
+                f"{preview.label}: {counts.get('rows', 0)} rows, {counts.get('signals', 0)} signals, "
+                f"{counts.get('dids', 0)} DIDs, {counts.get('ecus', 0)} ECUs, "
+                f"{counts.get('endpoint_candidates', 0)} endpoint candidates.",
+                f"Compared with the current list: {counts.get('added', 0)} added, "
+                f"{counts.get('removed', 0)} removed, {counts.get('unchanged', 0)} unchanged; "
+                f"{counts.get('conflicts', 0)} conflicting signal(s); {counts.get('rejected', 0)} rejected.",
+            ]
+            lines += [f"Rejected {where}: {reason}" for where, reason in preview.rejections[:5]]
+            if preview.blocking_problem:
+                lines.append(f"Cannot use this list: {preview.blocking_problem}")
+                set_enabled(self.apply_button, False, preview.blocking_problem)
+            else:
+                self._preview = preview
+                set_enabled(self.apply_button, True)
+            show_notice(self.preview_result, "\n".join(lines))
+
+        def failed(detail: str) -> None:
+            self.preview_button.setEnabled(True)
+            show_notice(self.preview_result, f"Could not read the source: {_first(detail)}")
+
+        show_notice(self.preview_result, "Reading the source…")
+        self.preview_button.setEnabled(False)
+        self.context.run("setup.preview", lambda service: service.preview_source(source.read()), done, failed)
 
     def apply_source(self) -> None:
-        if self.context.service is None or self._preview is None:
+        preview = self._preview
+        if self.context.service is None or preview is None:
             return
-        try:
-            self.context.service.apply_source(self._preview)
-        except (OSError, ValueError) as exc:
-            self.context.error("Candidate list not used", exc)
-            return
-        show_notice(self.preview_result, f"Applied {self._preview.label}.")
-        self._preview = None
-        set_enabled(self.apply_button, False, "Preview a source first.")
-        self.context.changed()
+
+        def done(_result) -> None:
+            show_notice(self.preview_result, f"Applied {preview.label}.")
+            self._preview = None
+            set_enabled(self.apply_button, False, "Preview a source first.")
+            self.context.changed()
+
+        def failed(detail: str) -> None:
+            set_enabled(self.apply_button, True)
+            show_notice(self.preview_result, "")
+            self.context.error("Candidate list not used", _first(detail))
+
+        show_notice(self.preview_result, f"Applying {preview.label}…")
+        set_enabled(self.apply_button, False, "Applying…")
+        self.context.run("setup.apply", lambda service: service.apply_source(preview), done, failed)
 
     # Refresh ----------------------------------------------------------------
 
@@ -338,6 +389,12 @@ class SetupPage(QWidget):
         problem = TisDatabaseSource(Path(self.tis_directory.text() or ".")).availability()
         platform_problem = problem is not None and "DB folder" not in problem
         set_enabled(self.source_tis, not platform_problem, problem or "")
-        self.load_connector()
+        self._load_connector_pending = has_project
+        if not has_project:
+            self.load_connector(None)
         self.refresh_project_summary()
         show_notice(self.check_result, "")
+
+
+def _first(detail: str) -> str:
+    return detail.split("\n\n", 1)[0]

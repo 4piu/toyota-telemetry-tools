@@ -16,6 +16,19 @@ not a pin: it moves under you.
 
 ### Changed
 
+- The desktop application no longer blocks while it reads the project.
+  Every service call runs on one background worker; stale requests are
+  skipped, pages refresh only when shown and out of date, plotted signal data
+  is cached, and window activation refreshes only when project files changed.
+  Selecting a new signal resets the plot to fit it; resizing keeps the zoom.
+  The placeholder quality markers left from the mock are removed.
+- Faster project reads for large capture trees: capture-file hashes are
+  reused while size and modification time are unchanged (the capture-set hash
+  is identical), finished-run summaries are cached, the observation summary is
+  one SQL aggregate, and status counts interrupted runs without reading
+  segments. Saving review/targets, confirming an endpoint, and recovering or
+  quarantining a run no longer rebuild the cache inline; the next read
+  refreshes it. Cache rebuilds use unique temporary files.
 - The desktop application no longer shows command-line commands or CLI help
   anywhere. Buttons use short labels; descriptions and disabled reasons moved
   into tooltips, and explanatory paragraphs were removed from the pages. Live
