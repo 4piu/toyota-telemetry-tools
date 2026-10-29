@@ -33,6 +33,12 @@ from .signals_page import SignalsPage
 
 PAGES = ("setup", "signals", "collect", "recordings")
 TITLES = {"setup": "Setup", "signals": "Signals", "collect": "Collect", "recordings": "Recordings"}
+DESCRIPTIONS = {
+    "setup": "Project check, connector, and candidate signal list. Nothing here transmits.",
+    "signals": "Verify endpoints and DIDs, review signals, and set collection targets.",
+    "collect": "Check readiness, then start and stop collection.",
+    "recordings": "Recorded runs, recovery, plots, export, and the project result.",
+}
 
 
 class OperatorWindow(QMainWindow):
@@ -55,7 +61,7 @@ class OperatorWindow(QMainWindow):
         self.navigation.setMaximumWidth(200)
         for index, page in enumerate(PAGES):
             item = QListWidgetItem(TITLES[page], self.navigation)
-            item.setToolTip(f"Alt+{index + 1}")
+            item.setToolTip(f"{DESCRIPTIONS[page]} (Alt+{index + 1})")
 
         self.banner = self._build_banner()
         self.setup_page = SetupPage(self.context)
@@ -112,20 +118,14 @@ class OperatorWindow(QMainWindow):
         frame.setFrameShape(QFrame.Shape.StyledPanel)
         frame.setAccessibleName("Next step")
         layout = QHBoxLayout(frame)
-        text = QVBoxLayout()
         self.next_text = QLabel()
         font = self.next_text.font()
         font.setBold(True)
         self.next_text.setFont(font)
-        self.next_command = QLabel()
-        self.next_command.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.next_command.setAccessibleName("Command-line equivalent")
-        text.addWidget(self.next_text)
-        text.addWidget(self.next_command)
-        layout.addLayout(text, 1)
+        layout.addWidget(self.next_text, 1)
         self.next_button = QPushButton("Go")
         self.next_button.clicked.connect(self._follow_next)
-        self.context.register("status", self.next_button)
+        self.context.register("status", self.next_button, "Open the page for the next step")
         layout.addWidget(self.next_button)
         self._next_page = "setup"
         return frame
@@ -192,8 +192,8 @@ class OperatorWindow(QMainWindow):
     def refresh_status(self) -> None:
         service = self.context.service
         if service is None:
-            self.next_text.setText("Open an existing project")
-            self.next_command.setText("Projects are created from the template, then opened here.")
+            self.next_text.setText("Open a project")
+            self.next_text.setToolTip("Projects are created from the template, then opened here.")
             self._next_page = "open"
             self.project_status.setText("No project open")
             self.connector_status.setText("No connector")
@@ -203,7 +203,7 @@ class OperatorWindow(QMainWindow):
         self.connector_status.setText(status.connector or "No connector")
         action = status.next_action
         self.next_text.setText(f"Next: {action.text}")
-        self.next_command.setText(f"Command line: {action.command}")
+        self.next_text.setToolTip("")
         self._next_page = action.page
 
     def _follow_next(self) -> None:
@@ -236,9 +236,9 @@ class OperatorWindow(QMainWindow):
             "DID: one data request on an endpoint. A DID can carry several signals, so its interval is shared.\n\n"
             "Signal: one interpreted value inside a DID response; it is what you review, target, and plot.\n\n"
             "Target: the evidence still wanted for a signal, such as minimum samples or required states.\n\n"
-            "Only actions marked LIVE transmit to the vehicle, and each shows its exact scope first.\n\n"
-            "Every action here has a command-line equivalent, shown in its tooltip and in the "
-            "next-step banner; the two interfaces are interchangeable.\n\n"
+            "Only the buttons with a warning icon (Verify and Start) transmit to the vehicle, and "
+            "each shows its exact scope first.\n\n"
+            "Hover over any control for a short explanation.\n\n"
             "Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes.",
         )
 

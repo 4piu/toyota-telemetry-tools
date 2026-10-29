@@ -25,7 +25,7 @@ from toyota_telemetry.operator.collection import CollectionReadiness
 from .context import PageContext
 from .dialogs import LiveConfirmDialog
 from .jobs import LiveJob
-from .widgets import button_row, mark_live, notice, page_title
+from .widgets import LIVE_TIP, button_row, mark_live, notice, page_title, set_enabled
 
 
 class CollectPage(QWidget):
@@ -50,20 +50,24 @@ class CollectPage(QWidget):
         self.endpoint.setAccessibleName("Endpoint to collect")
         self.endpoint.setMinimumContentsLength(28)
         self.endpoint.activated.connect(lambda _index: self.check_readiness())
-        self.check_button = QPushButton("Check readiness")
-        self.context.register("collect.readiness", self.check_button)
+        self.check_button = QPushButton("Check")
+        self.context.register(
+            "collect.readiness", self.check_button,
+            "Check readiness from targets, DID settings, and verification results. Nothing is transmitted.",
+        )
         self.check_button.clicked.connect(self.check_readiness)
         controls.addWidget(QLabel("Endpoint"))
         controls.addWidget(self.endpoint)
         controls.addWidget(self.check_button)
         controls.addStretch(1)
         readiness_layout.addLayout(controls)
-        self.readiness_text = notice("Open a project to check collection readiness.")
+        self.readiness_text = notice("No project open.")
         readiness_layout.addWidget(self.readiness_text)
         self.problem_area = QVBoxLayout()
         readiness_layout.addLayout(self.problem_area)
         self.scope_toggle = QToolButton()
-        self.scope_toggle.setText("Technical scope")
+        self.scope_toggle.setText("Scope")
+        self.scope_toggle.setToolTip("Show the exact compiled collection scope")
         self.scope_toggle.setCheckable(True)
         self.scope_text = QPlainTextEdit()
         self.scope_text.setReadOnly(True)
@@ -78,16 +82,18 @@ class CollectPage(QWidget):
         run_layout = QVBoxLayout(run_group)
         form = QFormLayout()
         self.note = QLineEdit()
-        self.note.setPlaceholderText("optional, e.g. highway drive, passenger operating")
-        form.addRow("Run note", self.note)
+        self.note.setPlaceholderText("optional")
+        self.note.setToolTip("Free-text note stored with the run, e.g. highway drive, passenger operating")
+        form.addRow("Note", self.note)
         run_layout.addLayout(form)
-        self.start_button = mark_live(QPushButton("Review and start collection…"))
-        self.context.register("collect", self.start_button)
+        self.start_button = mark_live(QPushButton("Start…"))
+        self.context.register(
+            "collect", self.start_button,
+            f"Collect the readiness-checked scope. One run collects one endpoint and stops when its "
+            f"targets are complete. {LIVE_TIP}",
+        )
         self.start_button.clicked.connect(self.start_or_stop)
         run_layout.addLayout(button_row(self.start_button))
-        self.start_reason = QLabel()
-        self.start_reason.setWordWrap(True)
-        run_layout.addWidget(self.start_reason)
         self.run_state = QLabel("Idle. Adapter closed.")
         self.progress = QProgressBar()
         self.progress.setFormat("%v of %m targets complete")
@@ -97,7 +103,8 @@ class CollectPage(QWidget):
         run_layout.addWidget(self.progress)
         run_layout.addWidget(self.run_details)
         self.events_toggle = QToolButton()
-        self.events_toggle.setText("Technical details")
+        self.events_toggle.setText("Details")
+        self.events_toggle.setToolTip("Show per-read events")
         self.events_toggle.setCheckable(True)
         self.events = QPlainTextEdit()
         self.events.setReadOnly(True)
@@ -132,7 +139,7 @@ class CollectPage(QWidget):
         service = self.context.service
         if service is None:
             self.readiness = None
-            self.readiness_text.setText("Open a project to check collection readiness.")
+            self.readiness_text.setText("No project open.")
             self._update_start()
             return
         chosen = self.endpoint.currentData()
@@ -157,14 +164,14 @@ class CollectPage(QWidget):
             summary = readiness.summary
             load = summary["estimated_bus_utilization"]
             self.readiness_text.setText(
-                f"Ready to collect on {readiness.endpoint_id}: {summary['unfinished_targets']} unfinished "
-                f"target(s) over {summary['dids']} DID(s)."
-                + (f" Estimated bus load {load * 100:.2f}%, {summary['request_rate_hz']:.1f} requests/s." if load is not None else "")
-                + f" Storage limit {summary['capture_tree_max_mib']} MiB."
+                f"Ready: {readiness.endpoint_id}, {summary['unfinished_targets']} target(s), "
+                f"{summary['dids']} DID(s)"
+                + (f", bus load {load * 100:.2f}%, {summary['request_rate_hz']:.1f} reads/s" if load is not None else "")
+                + f", storage limit {summary['capture_tree_max_mib']} MiB."
             )
             self.scope_text.setPlainText(json.dumps(readiness.scope, indent=2, sort_keys=True))
         else:
-            self.readiness_text.setText("Not ready to collect. Resolve these first:")
+            self.readiness_text.setText("Not ready:")
             self.scope_text.setPlainText("")
             for problem in readiness.problems:
                 self._add_problem(problem)
@@ -174,11 +181,13 @@ class CollectPage(QWidget):
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        label = QLabel(f"{problem.message}\nFix: {problem.fix}")
+        label = QLabel(problem.hint)
         label.setWordWrap(True)
+        label.setToolTip(problem.message)
         row_layout.addWidget(label, 1)
         if problem.page != "collect":
-            go = QPushButton(f"Open {problem.page.title()}")
+            go = QPushButton(problem.page.title())
+            go.setToolTip(f"Open the {problem.page.title()} page")
             go.clicked.connect(lambda _checked=False, page=problem.page: self.context.navigate(page))
             row_layout.addWidget(go)
         self.problem_area.addWidget(row)
@@ -191,21 +200,18 @@ class CollectPage(QWidget):
 
     def _update_start(self) -> None:
         if self.running:
-            self.start_button.setText("Stop safely")
+            self.start_button.setText("Stop")
+            self.start_button.setToolTip("Stop safely; the run is finalized")
             self.start_button.setEnabled(True)
-            self.start_reason.setText("")
             return
-        mark_live(self.start_button)
-        self.start_button.setText("LIVE - Review and start collection…")
+        self.start_button.setText("Start…")
+        self.start_button.setToolTip(self.start_button.property("baseToolTip") or "")
         ready = self.readiness is not None and self.readiness.ready
         busy = self.context.live_job_running
-        self.start_button.setEnabled(ready and not busy)
-        if busy:
-            self.start_reason.setText("Another live job is running.")
-        elif not ready:
-            self.start_reason.setText("Start is available once readiness has no problems.")
-        else:
-            self.start_reason.setText("")
+        set_enabled(
+            self.start_button, ready and not busy,
+            "Another live job is running." if busy else "Readiness has problems.",
+        )
 
     def start_or_stop(self) -> None:
         if self.running:
@@ -231,8 +237,8 @@ class CollectPage(QWidget):
             f"Run note: {self.note.text() or '-'}",
         ]
         dialog = LiveConfirmDialog(
-            "Start collection",
-            f"Start LIVE collection of {len(scope['acquisitions'])} DID(s) on {readiness.endpoint_id}?",
+            "Collect",
+            f"LIVE collection of {len(scope['acquisitions'])} DID(s) on {readiness.endpoint_id}?",
             details, self,
         )
         if not self.confirm_live(dialog):
@@ -287,13 +293,11 @@ class CollectPage(QWidget):
             "size_limit": "Stopped at the storage limit; the run was finalized.",
             "transport_lost": "Transport lost; the valid prefix was finalized.",
         }
-        self.run_state.setText(labels.get(reason, f"Finished: {reason}") + " Adapter closed. See Recordings.")
+        self.run_state.setText(labels.get(reason, f"Finished: {reason}") + " Adapter closed.")
         self._done()
 
     def _failed(self, detail: str) -> None:
-        self.run_state.setText(
-            f"Failed: {detail.splitlines()[0]} Adapter closed. Check Recordings for a run that needs recovery."
-        )
+        self.run_state.setText(f"Failed: {detail.splitlines()[0]} Adapter closed.")
         self._done()
 
     def _done(self) -> None:

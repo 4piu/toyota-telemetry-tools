@@ -80,8 +80,8 @@ Four pages: Setup (project check, connector, candidate sources), Signals (one
 endpoint → DID → signal tree for verification, review, shared DID settings,
 and batch target edits held as a draft until Save), Collect (automatic
 readiness, start/stop, live progress), and Recordings (recovery, runs, plots
-across all valid runs, CSV export, result generation). Each action's tooltip
-and the next-step banner name the equivalent command. The default install
+across all valid runs, CSV export, result generation). Buttons are short;
+descriptions and disabled reasons are in tooltips. The default install
 remains dependency-free; importing the core package does not import Qt, NumPy,
 or PyQtGraph.
 

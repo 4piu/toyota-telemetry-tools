@@ -91,7 +91,7 @@ def check_connector(
     run_self_test: bool = True,
 ) -> ConnectorCheck:
     if document is None:
-        return ConnectorCheck(False, ["no connector is configured; run `telemetry connector set`"])
+        return ConnectorCheck(False, ["no connector is configured"])
     check = ConnectorCheck(True)
     try:
         validate_local_settings(document)

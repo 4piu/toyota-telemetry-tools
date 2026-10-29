@@ -27,6 +27,7 @@ from .operator.editing import (
 from .operator.live import ConfirmationRefused, LiveBusy, record_preview, require_previewed
 from .operator.service import OperatorService
 from .operator.sources import NormalizedFileSource, TisDatabaseSource
+from .operator.verification import RecipeRequired
 from .project import find_project_root
 
 
@@ -481,7 +482,10 @@ def _endpoint_confirm(service: OperatorService, args: argparse.Namespace) -> int
 def _verify(service: OperatorService, args: argparse.Namespace) -> int:
     tree = service.tree()
     selection = service.select(tree, args.selectors, ecus=args.ecu, states=args.states, search=args.search)
-    scope = service.verification_scope(tree, selection, session_recipe_id=args.recipe)
+    try:
+        scope = service.verification_scope(tree, selection, session_recipe_id=args.recipe)
+    except RecipeRequired as exc:
+        raise ValueError(f"{exc}; pass --recipe NAME") from exc
     repository = service.repository()
     if args.dry_run:
         record_preview(repository, "verify", scope.digest)
@@ -666,7 +670,7 @@ def _print_readiness(readiness) -> None:
     print("Not ready to collect:")
     for problem in readiness.problems:
         print(f"  - {problem.message}")
-        print(f"    fix: {problem.fix}")
+        print(f"    fix: {problem.command}")
 
 
 def _recordings(service: OperatorService, args: argparse.Namespace) -> int:

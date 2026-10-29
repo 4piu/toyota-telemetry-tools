@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QAbstractButton, QLabel, QMessageBox, QWidget
 
 from tests.operator_fixture import (
     CANDIDATE_ID,
@@ -73,27 +73,46 @@ def test_starts_without_a_project_or_adapter(qtbot) -> None:
     window = open_window(qtbot)
     assert window.project_path is None
     assert [window.navigation.item(row).text() for row in range(4)] == ["Setup", "Signals", "Collect", "Recordings"]
-    assert window.next_text.text() == "Open an existing project"
+    assert window.next_text.text() == "Open a project"
     assert window.adapter_status.text() == "Adapter closed"
     assert not window.signals_page.verify_button.isEnabled()
-    assert "Open a project" in window.signals_page.action_reason.text()
+    assert "Open a project first." in window.signals_page.verify_button.toolTip()
     assert not window.collect_page.start_button.isEnabled()
 
 
-def test_every_operation_has_a_desktop_action_with_cli_hint(qtbot) -> None:
-    window = open_window(qtbot)
+def _visible_text(widget: QWidget) -> list[str]:
+    texts = [widget.toolTip(), widget.accessibleDescription()]
+    if isinstance(widget, (QLabel, QAbstractButton)):
+        texts.append(widget.text())
+    return [text for text in texts if text]
+
+
+def test_every_operation_has_a_desktop_action(qtbot, project) -> None:
+    window = open_window(qtbot, project[0])
     assert set(window.context.actions) == set(OPERATION_IDS)
     for operation_id, widget in window.context.actions.items():
-        assert "Command line: telemetry" in widget.toolTip(), operation_id
+        assert widget.toolTip(), operation_id
+
+
+def test_gui_shows_no_command_line_text_and_short_buttons(qtbot, project, probes) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(window, rows)
+    window.collect_page.check_readiness()
+    for widget in window.findChildren(QWidget):
+        for text in _visible_text(widget):
+            assert "telemetry " not in text and " --" not in text, (widget.objectName(), text)
+        if isinstance(widget, QAbstractButton) and widget.text():
+            assert len(widget.text().split()) <= 2, widget.text()
 
 
 def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, project) -> None:
     root, rows = project
     window = open_window(qtbot, root)
     assert window.project_path == root.resolve()
-    assert "source import" in window.next_command.text()
+    assert window.next_text.text() == "Next: Import a candidate signal list"
     import_rows(window, rows)
-    assert "Using candidates.json" in window.setup_page.preview_result.text()
+    assert window.setup_page.preview_result.text() == "Applied candidates.json."
     assert json.loads((root / "result/catalog-manifest.json").read_text())["catalog_row_count"] == 4
     setup = window.setup_page
     setup.connector_kind.setCurrentIndex(setup.connector_kind.findData("slcan"))
@@ -115,7 +134,8 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
     assert page.tree.topLevelItemCount() == 2
     page.check("did", f"{UNCONFIRMED_KEY}/0x2001")
     assert page.verify_button.isEnabled()
-    assert page.verify_button.text().startswith("LIVE")
+    assert page.verify_button.text() == "Verify…"
+    assert page.verify_button.property("liveAction")
 
     page.confirm_live = lambda dialog: False
     page.verify_button.click()
@@ -132,7 +152,7 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
     page.verify_button.click()
     wait_for_job(qtbot, page)
     assert probes.transmissions == 2
-    assert "1 endpoint(s) (1 to probe) and 1 DID(s)" in shown[0].findChild(type(page.action_reason)).text()
+    assert "1 endpoint(s) (1 to probe) and 1 DID(s)" in shown[0].findChild(QLabel).text()
     assert "Finished: 1 positive" in page.job_log.toPlainText()
     endpoint = page.tree_data.endpoint(UNCONFIRMED_KEY)
     assert endpoint.state == "responded"
@@ -222,7 +242,8 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     collect = window.collect_page
     window.navigate("collect")
     assert not collect.start_button.isEnabled()
-    assert "Start is available once readiness" in collect.start_reason.text()
+    assert "Readiness has problems." in collect.start_button.toolTip()
+    assert collect.problem_area.itemAt(0).widget().findChild(QLabel).text() == "Set collection targets"
     assert "no included targets" in collect.readiness.problems[0].message
     signals = window.signals_page
     signals.check("signal", "372/0x1002/0..15")
@@ -235,7 +256,7 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     collect.confirm_live = lambda dialog: True
     with mock.patch("toyota_telemetry.collection_service.JsonlWorkerClient", FakeWorker):
         collect.start_button.click()
-        assert collect.start_button.text() == "Stop safely"
+        assert collect.start_button.text() == "Stop"
         wait_for_job(qtbot, collect)
     assert "Completed" in collect.run_state.text()
     assert window.adapter_status.text() == "Adapter closed"

@@ -38,16 +38,15 @@ class PageContext(QObject):
         self.service = None
         self.project_changed.emit()
 
-    def register(self, operation_id: str, widget: QWidget) -> QWidget:
-        """Bind a widget to an operation and show its CLI equivalent."""
+    def register(self, operation_id: str, widget: QWidget, tip: str | None = None) -> QWidget:
+        """Bind a widget to an operation (for the parity test) and describe it."""
 
         operation = OPERATIONS_BY_ID[operation_id]
         self.actions[operation_id] = widget
-        hint = f"{operation.title}. Command line: {operation.cli}"
-        existing = widget.toolTip()
-        widget.setToolTip(f"{existing}\n{hint}" if existing else hint)
-        if not widget.accessibleDescription():
-            widget.setAccessibleDescription(hint)
+        description = tip or operation.title
+        widget.setToolTip(description)
+        widget.setProperty("baseToolTip", description)
+        widget.setAccessibleDescription(description)
         return widget
 
     def navigate(self, page: str) -> None:

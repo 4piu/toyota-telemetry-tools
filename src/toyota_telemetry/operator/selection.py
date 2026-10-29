@@ -121,7 +121,7 @@ def _resolve_token(
         return [(endpoint, did, [signal_ref])]
     endpoint = tree.endpoint(parts[0])
     if endpoint is None:
-        raise ValueError(f"unknown endpoint {parts[0]!r}; run `telemetry signals` to list endpoints")
+        raise ValueError(f"unknown endpoint {parts[0]!r}")
     if len(parts) == 1:
         return [(endpoint, did, None) for did in endpoint.dids]
     if len(parts) > 3:

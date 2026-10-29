@@ -25,8 +25,8 @@ Setup reads `[toolkit]` and `[paths]` from `telemetry-project.toml`, builds all
 private adapter workers into the project's ignored `scratch/bin/`, and installs
 the Python package from that same checkout.
 
-`telemetry status` (or the desktop banner) always shows the next useful step
-and the command for it.
+`telemetry status` (or the desktop banner) always shows the next useful step;
+the CLI also prints the command for it.
 
 ## Project files
 

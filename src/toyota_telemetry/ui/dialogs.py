@@ -30,7 +30,7 @@ from toyota_telemetry.operator.editing import (
     parse_duration,
 )
 
-from .widgets import mark_live
+from .widgets import LIVE_TIP, mark_live
 
 
 class LiveConfirmDialog(QDialog):
@@ -51,15 +51,12 @@ class LiveConfirmDialog(QDialog):
         text.setReadOnly(True)
         text.setAccessibleName("Exact live scope")
         layout.addWidget(text, 1)
-        warning = QLabel(
-            "This transmits diagnostic requests to the vehicle. Use read-only scope only, "
-            "and never operate the computer while driving."
-        )
-        warning.setWordWrap(True)
-        layout.addWidget(warning)
         buttons = QDialogButtonBox()
         self.cancel_button = buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
         self.start_button = mark_live(QPushButton("Start"))
+        self.start_button.setToolTip(
+            f"{LIVE_TIP} Read-only diagnostic requests only. Never operate the computer while driving."
+        )
         buttons.addButton(self.start_button, QDialogButtonBox.ButtonRole.AcceptRole)
         self.cancel_button.setDefault(True)
         self.cancel_button.setFocus()
@@ -85,12 +82,11 @@ class EndpointAddDialog(QDialog):
         form.addRow("Response CAN ID", self.response)
         form.addRow("Session recipe", self.recipe)
         form.addRow("ECU keys", self.ecus)
-        explanation = QLabel(
-            "Adds a candidate only. Nothing is transmitted until you verify it, and it is not "
+        self.setToolTip(
+            "Adds a candidate only. Nothing is transmitted until you verify it, and nothing is "
             "written to tracked transport until you confirm it."
         )
-        explanation.setWordWrap(True)
-        form.addRow(explanation)
+        self.recipe.setToolTip("Reviewed session recipe from config/transport.json")
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -103,14 +99,15 @@ class EndpointAddDialog(QDialog):
 class EndpointConfirmDialog(QDialog):
     def __init__(self, endpoint_id: str, ecu_keys: list[int], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Confirm endpoint")
+        self.setWindowTitle(f"Confirm endpoint {endpoint_id}")
+        self.setToolTip(f"Writes {endpoint_id} into config/transport.json as a confirmed endpoint.")
         form = QFormLayout(self)
-        form.addRow(QLabel(f"Write {endpoint_id} into config/transport.json as a confirmed endpoint."))
         self.ecus = QLineEdit(", ".join(str(key) for key in ecu_keys))
         self.source = QLineEdit()
         self.source.setPlaceholderText("docs/evidence/endpoint-probe.md")
         form.addRow("ECU keys served", self.ecus)
-        form.addRow("Tracked evidence document", self.source)
+        self.source.setToolTip("Tracked document that records the probe evidence, relative to the project")
+        form.addRow("Evidence document", self.source)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -139,11 +136,11 @@ class TargetEditDialog(QDialog):
         self.setMinimumWidth(620)
         self._preview = preview
         layout = QVBoxLayout(self)
-        intro = QLabel(
-            f"{signal_count} signal(s) selected. Only checked fields change; other values stay as they are. "
+        intro = QLabel(f"{signal_count} signal(s)")
+        intro.setToolTip(
+            "Only checked fields change; other values stay as they are. "
             "A count of 0 or an empty duration removes that requirement."
         )
-        intro.setWordWrap(True)
         layout.addWidget(intro)
         grid = QGridLayout()
         self.enabled: dict[str, QCheckBox] = {}
@@ -179,19 +176,22 @@ class TargetEditDialog(QDialog):
         included.setChecked(bool((current or {}).get("included", True)))
         self._add_row(grid, row, "included", "Inclusion", included)
         layout.addLayout(grid)
-        help_text = QLabel(
-            "A change counts when consecutive decoded values differ by at least the minimum "
-            "difference, in the signal's unit. Collect when limits which observations count."
+        difference.setToolTip(
+            "A change counts when consecutive decoded values differ by at least this much, "
+            "in the signal's unit."
         )
-        help_text.setWordWrap(True)
-        layout.addWidget(help_text)
+        condition.setToolTip(
+            "Only observations taken while this holds count, e.g. 372/0x1002/0..15 > 10. "
+            "Combine clauses with 'and' or 'or'. Empty means always."
+        )
         self.impact = QLabel()
         self.impact.setWordWrap(True)
         self.impact.setAccessibleName("Batch impact preview")
         layout.addWidget(self.impact)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        self.ok_button.setText("Apply to draft")
+        self.ok_button.setText("Apply")
+        self.ok_button.setToolTip("Apply to the unsaved draft; Save on the Signals page writes it.")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -200,6 +200,7 @@ class TargetEditDialog(QDialog):
     def _add_row(self, grid: QGridLayout, row: int, name: str, label: str, editor: QWidget) -> None:
         change = QCheckBox(label)
         change.setAccessibleName(f"Change {label}")
+        change.setToolTip(f"Check to change {label.lower()} for every selected signal.")
         editor.setEnabled(False)
         change.toggled.connect(editor.setEnabled)
         change.toggled.connect(lambda _checked: self.refresh_preview())

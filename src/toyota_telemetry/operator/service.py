@@ -94,6 +94,8 @@ OPERATION_IDS = frozenset(operation.id for operation in OPERATIONS)
 
 @dataclass
 class NextAction:
+    """The next step: neutral text for any interface, plus a CLI command."""
+
     text: str
     command: str
     page: str
@@ -256,7 +258,7 @@ class OperatorService:
             )
         if status.collection is not None and status.collection["problems"]:
             problem = status.collection["problems"][0]
-            return NextAction(problem["message"], problem["fix"], problem["page"])
+            return NextAction(problem["hint"], problem["command"], problem["page"])
         if status.collection is not None and status.collection["ready"]:
             return NextAction("Collect data", "telemetry collect --dry-run", "collect")
         return NextAction("Analyze recordings", "telemetry recordings", "recordings")

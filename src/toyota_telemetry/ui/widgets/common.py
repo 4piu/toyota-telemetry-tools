@@ -1,4 +1,8 @@
-"""Small native-Qt building blocks shared by the operator pages."""
+"""Small native-Qt building blocks shared by the operator pages.
+
+Visible text stays short: labels and buttons name things and actions.
+Explanations live in tooltips.
+"""
 
 from __future__ import annotations
 
@@ -16,36 +20,45 @@ from PySide6.QtWidgets import (
 )
 
 
-def page_title(title: str, subtitle: str) -> QWidget:
+LIVE_TIP = "Transmits to the vehicle. You confirm the exact scope first."
+
+
+def page_title(title: str, description: str) -> QWidget:
     container = QWidget()
     layout = QVBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 4)
-    layout.setSpacing(4)
     label = QLabel(title)
     font = label.font()
     font.setPointSize(font.pointSize() + 6)
     font.setBold(True)
     label.setFont(font)
-    detail = QLabel(subtitle)
-    detail.setWordWrap(True)
+    label.setToolTip(description)
+    label.setAccessibleDescription(description)
     layout.addWidget(label)
-    layout.addWidget(detail)
     return container
 
 
 def mark_live(button: QPushButton) -> QPushButton:
-    """Give a vehicle-transmitting action its warning icon, weight, and LIVE text."""
+    """Give a vehicle-transmitting action its warning icon and weight."""
 
     font = button.font()
     font.setBold(True)
     button.setFont(font)
-    if not button.text().startswith("LIVE"):
-        button.setText(f"LIVE - {button.text()}")
     button.setIcon(button.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning))
     button.setProperty("liveAction", True)
     button.setAutoDefault(False)
     button.setDefault(False)
     return button
+
+
+def set_enabled(widget: QWidget, enabled: bool, reason: str = "") -> None:
+    """Enable a control; when disabled, its tooltip says why."""
+
+    widget.setEnabled(enabled)
+    base = widget.property("baseToolTip") or widget.toolTip()
+    if widget.property("baseToolTip") is None:
+        widget.setProperty("baseToolTip", base)
+    widget.setToolTip(base if enabled or not reason else f"{base}\n\nUnavailable: {reason}")
 
 
 def notice(text: str = "") -> QLabel:
@@ -54,7 +67,13 @@ def notice(text: str = "") -> QLabel:
     label.setFrameShape(QFrame.Shape.StyledPanel)
     label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
     label.setContentsMargins(8, 6, 8, 6)
+    label.setVisible(bool(text))
     return label
+
+
+def show_notice(label: QLabel, text: str) -> None:
+    label.setText(text)
+    label.setVisible(bool(text))
 
 
 def path_field(field: QLineEdit, caption: str, *, directory: bool = False) -> QWidget:
@@ -63,6 +82,7 @@ def path_field(field: QLineEdit, caption: str, *, directory: bool = False) -> QW
     layout.setContentsMargins(0, 0, 0, 0)
     layout.addWidget(field, 1)
     browse = QPushButton("Browse…")
+    browse.setToolTip(caption)
     browse.setAccessibleName(f"Browse for {caption}")
 
     def choose() -> None:

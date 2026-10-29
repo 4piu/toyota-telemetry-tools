@@ -21,12 +21,15 @@ PLAN_FILE = "admitted-plan.json"
 
 @dataclass
 class Problem:
+    """A readiness problem with an interface-neutral hint and a CLI command."""
+
     message: str
-    fix: str
+    hint: str
+    command: str
     page: str
 
     def as_dict(self) -> dict[str, str]:
-        return {"message": self.message, "fix": self.fix, "page": self.page}
+        return {"message": self.message, "hint": self.hint, "command": self.command, "page": self.page}
 
 
 @dataclass
@@ -63,7 +66,8 @@ def collection_readiness(
     readiness = CollectionReadiness(False)
     if repository.local_settings is None:
         readiness.problems.append(Problem(
-            "no connector is configured", "telemetry connector set KIND ...", "setup",
+            "no connector is configured", "Configure the connector",
+            "telemetry connector set KIND ...", "setup",
         ))
     refresh_cache(repository, inventory)
     if available_disk_mib is None:
@@ -86,12 +90,13 @@ def collection_readiness(
     if endpoint_id is None:
         readiness.problems.append(Problem(
             f"targets span {len(readiness.endpoints)} endpoints; one run collects one endpoint",
-            "telemetry collect --endpoint ENDPOINT", "collect",
+            "Choose the endpoint to collect", "telemetry collect --endpoint ENDPOINT", "collect",
         ))
     elif endpoint_id not in readiness.endpoints:
         readiness.problems.append(Problem(
             f"{endpoint_id} has no unfinished targets ready to collect",
-            "choose one of: " + ", ".join(readiness.endpoints), "collect",
+            "Choose one of: " + ", ".join(readiness.endpoints),
+            "telemetry collect --endpoint " + readiness.endpoints[0], "collect",
         ))
         endpoint_id = None
     readiness.endpoint_id = endpoint_id
@@ -162,20 +167,26 @@ def start_collection(
 
 
 _FIXES = (
-    (re.compile(r"verify (\S+) first"), "telemetry verify {0}", "signals"),
-    (re.compile(r"needs (\S+/0x[0-9A-F]{4})"), "telemetry did set {0} --include", "signals"),
-    (re.compile(r"no included targets"), "telemetry target set SELECTOR --min-samples N", "signals"),
-    (re.compile(r"already complete"), "raise requirements with `telemetry target set`, or analyze recordings", "recordings"),
-    (re.compile(r"insufficient disk"), "free disk space under scratch/", "setup"),
-    (re.compile(r"endpoint (\S+) .*exceeds tracked limit"), "lengthen intervals with `telemetry did set {0} --interval MS`", "signals"),
-    (re.compile(r"request-start floor"), "lengthen intervals with `telemetry did set ... --interval MS`", "signals"),
-    (re.compile(r"(?:formula is ambiguous|does not resolve catalog signal): (\S+)"), "telemetry signal set {0} --formula EXPR", "signals"),
+    (re.compile(r"verify (\S+) first"), "Verify {0}", "telemetry verify {0}", "signals"),
+    (re.compile(r"needs (\S+/0x[0-9A-F]{4})"), "Include the DID settings for {0}",
+     "telemetry did set {0} --include", "signals"),
+    (re.compile(r"no included targets"), "Set collection targets",
+     "telemetry target set SELECTOR --min-samples N", "signals"),
+    (re.compile(r"already complete"), "Raise target requirements, or analyze recordings",
+     "telemetry target set SELECTOR ...", "recordings"),
+    (re.compile(r"insufficient disk"), "Free disk space", "telemetry status", "setup"),
+    (re.compile(r"endpoint (\S+) .*exceeds tracked limit"), "Lengthen DID intervals on {0}",
+     "telemetry did set {0} --interval MS", "signals"),
+    (re.compile(r"request-start floor"), "Lengthen DID intervals",
+     "telemetry did set SELECTOR --interval MS", "signals"),
+    (re.compile(r"(?:formula is ambiguous|does not resolve catalog signal): (\S+)"),
+     "Choose a formula for {0}", "telemetry signal set {0} --formula EXPR", "signals"),
 )
 
 
 def _problem_for(message: str) -> Problem:
-    for pattern, fix, page in _FIXES:
+    for pattern, hint, command, page in _FIXES:
         match = pattern.search(message)
         if match:
-            return Problem(message, fix.format(*match.groups()), page)
-    return Problem(message, "telemetry check", "setup")
+            return Problem(message, hint.format(*match.groups()), command.format(*match.groups()), page)
+    return Problem(message, "Check the project files", "telemetry check", "setup")

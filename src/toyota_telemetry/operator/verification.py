@@ -20,6 +20,15 @@ from .live import scope_hash
 from .selection import Selection
 
 
+class RecipeRequired(ValueError):
+    """An unverified endpoint needs the operator to choose a session recipe."""
+
+    def __init__(self, endpoint_key: str, recipes: list[str]) -> None:
+        super().__init__(f"{endpoint_key} needs a session recipe; choose one of {', '.join(recipes)}")
+        self.endpoint_key = endpoint_key
+        self.recipes = recipes
+
+
 @dataclass
 class EndpointProbe:
     key: str
@@ -87,7 +96,7 @@ def build_verification_scope(
     session_recipe_id: str | None = None,
 ) -> VerificationScope:
     if repository.local_settings is None:
-        raise ValueError("no connector is configured; run `telemetry connector set` first")
+        raise ValueError("no connector is configured")
     if not selection.dids:
         raise ValueError("verification needs at least one selected DID")
     recipes = {row["id"]: row for row in repository.transport["session_recipes"]}
@@ -138,8 +147,8 @@ def build_verification_scope(
 def _endpoint_probe(endpoint, recipes, session_recipe_id: str | None) -> EndpointProbe:
     if endpoint.tester_can_id is None or endpoint.response_can_id is None:
         raise ValueError(
-            f"{endpoint.key} has no known CAN IDs; add them with "
-            "`telemetry endpoint add TESTER:RESPONSE:RECIPE --ecu KEY`"
+            f"{endpoint.key} has no known CAN IDs; add a manual endpoint with its tester and "
+            "response CAN IDs"
         )
     if endpoint.confirmed:
         return EndpointProbe(
@@ -154,10 +163,7 @@ def _endpoint_probe(endpoint, recipes, session_recipe_id: str | None) -> Endpoin
     recipe = session_recipe_id or endpoint.session_recipe_id
     if recipe is None:
         if len(recipes) != 1:
-            raise ValueError(
-                f"{endpoint.key} needs a session recipe; choose one of "
-                f"{', '.join(sorted(recipes))} with --recipe"
-            )
+            raise RecipeRequired(endpoint.key, sorted(recipes))
         recipe = next(iter(recipes))
     target = _candidate_id(endpoint.tester_can_id, endpoint.response_can_id, recipe)
     return EndpointProbe(

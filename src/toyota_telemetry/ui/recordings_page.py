@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 from toyota_telemetry.operator import bounded_minmax
 
 from .context import PageContext
-from .widgets import button_row, notice, page_title
+from .widgets import button_row, notice, page_title, set_enabled, show_notice
 from .widgets.metric_plot import MetricPlot
 
 
@@ -52,10 +52,16 @@ class RecordingsPage(QWidget):
         recovery_layout = QVBoxLayout(self.recovery)
         self.recovery_text = QLabel()
         self.recovery_text.setWordWrap(True)
-        self.recover_button = QPushButton("Recover valid prefix")
+        self.recover_button = QPushButton("Recover")
         self.quarantine_button = QPushButton("Quarantine")
-        self.context.register("recordings.recover", self.recover_button)
-        self.context.register("recordings.quarantine", self.quarantine_button)
+        self.context.register(
+            "recordings.recover", self.recover_button,
+            "Keep the run's valid prefix as a closed run. The connector is not opened.",
+        )
+        self.context.register(
+            "recordings.quarantine", self.quarantine_button,
+            "Move the run out of the capture tree without deleting it.",
+        )
         self.recover_button.clicked.connect(self.recover)
         self.quarantine_button.clicked.connect(self.quarantine)
         recovery_layout.addWidget(self.recovery_text)
@@ -74,13 +80,13 @@ class RecordingsPage(QWidget):
         self.runs.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.runs.horizontalHeader().setStretchLastSection(True)
         self.runs.setAccessibleName("Recorded runs")
-        self.context.register("recordings.list", self.runs)
+        self.context.register("recordings.list", self.runs, "Recorded runs; select one for details")
         self.runs.itemSelectionChanged.connect(self.show_run)
         self.run_detail = QPlainTextEdit()
         self.run_detail.setReadOnly(True)
         self.run_detail.setMaximumHeight(130)
         self.run_detail.setAccessibleName("Selected run details")
-        self.context.register("recordings.show", self.run_detail)
+        self.context.register("recordings.show", self.run_detail, "Details of the selected run")
         runs_layout.addWidget(self.runs, 1)
         runs_layout.addWidget(self.run_detail)
         splitter.addWidget(runs_panel)
@@ -90,7 +96,8 @@ class RecordingsPage(QWidget):
         analysis_layout.setContentsMargins(0, 0, 0, 0)
         left = QVBoxLayout()
         self.signal_search = QLineEdit()
-        self.signal_search.setPlaceholderText("Search recorded signals")
+        self.signal_search.setPlaceholderText("Search")
+        self.signal_search.setToolTip("Filter recorded signals by name or reference")
         self.signal_search.textChanged.connect(self._filter_signals)
         self.signals = QListWidget()
         self.signals.setAccessibleName("Recorded signals")
@@ -101,7 +108,8 @@ class RecordingsPage(QWidget):
         right = QVBoxLayout()
         self.plot = MetricPlot()
         self.plot.viewport_width_changed.connect(lambda _width: self.plot_current())
-        self.cursor = QLabel("Choose a signal to plot it across every valid run.")
+        self.signals.setToolTip("Signals with recorded samples; select one to plot it across every valid run")
+        self.cursor = QLabel()
         self.cursor.setWordWrap(True)
         self.plot.cursor_changed.connect(self.cursor.setText)
         self.plot_summary = QLabel()
@@ -113,16 +121,20 @@ class RecordingsPage(QWidget):
         splitter.addWidget(analysis)
         layout.addWidget(splitter, 1)
 
-        self.export_button = QPushButton("Export signal data as CSV…")
-        self.result_button = QPushButton("Generate project result")
-        self.context.register("recordings.export", self.export_button)
-        self.context.register("result.generate", self.result_button)
+        self.export_button = QPushButton("Export CSV…")
+        self.result_button = QPushButton("Generate result")
+        self.context.register(
+            "recordings.export", self.export_button,
+            "Export the selected signal's samples (or all signals when none is selected) as CSV.",
+        )
+        self.context.register(
+            "result.generate", self.result_button,
+            "Write the tracked, privacy-minimized project result under result/.",
+        )
         self.export_button.clicked.connect(self.export)
         self.result_button.clicked.connect(self.generate_result)
         layout.addLayout(button_row(self.export_button, self.result_button))
-        self.result_text = notice(
-            "The project result is a privacy-minimized, tracked summary of reviewed signals and recordings."
-        )
+        self.result_text = notice()
         layout.addWidget(self.result_text)
         context.project_changed.connect(self.refresh)
         context.data_changed.connect(self.refresh)
@@ -164,11 +176,7 @@ class RecordingsPage(QWidget):
         live = self.context.live_job_running
         self.recovery.setVisible(bool(self._interrupted) and not live)
         if self._interrupted:
-            self.recovery_text.setText(
-                f"{len(self._interrupted)} run(s) stopped without finalizing, starting with "
-                f"{self._interrupted[0]}. Recover keeps the valid prefix as a closed run; quarantine "
-                "moves the run out of the capture tree without deleting it."
-            )
+            self.recovery_text.setText(f"{len(self._interrupted)} interrupted run(s), next: {self._interrupted[0]}")
         names = {signal.signal_ref: signal for _, _, signal in tree.signals()}
         for signal_ref in sorted(summary):
             signal = names.get(signal_ref)
@@ -182,10 +190,11 @@ class RecordingsPage(QWidget):
     def _update_buttons(self) -> None:
         has = self.context.service is not None
         live = self.context.live_job_running
-        self.recover_button.setEnabled(has and bool(self._interrupted) and not live)
-        self.quarantine_button.setEnabled(has and bool(self._interrupted) and not live)
-        self.export_button.setEnabled(has and self.signals.count() > 0)
-        self.result_button.setEnabled(has and not live)
+        blocked = "Open a project first." if not has else "Wait for the live job to finish." if live else ""
+        set_enabled(self.recover_button, has and bool(self._interrupted) and not live, blocked or "No interrupted run.")
+        set_enabled(self.quarantine_button, has and bool(self._interrupted) and not live, blocked or "No interrupted run.")
+        set_enabled(self.export_button, has and self.signals.count() > 0, blocked or "No recorded signals.")
+        set_enabled(self.result_button, has and not live, blocked)
 
     def _filter_signals(self, text: str) -> None:
         needle = text.lower()
@@ -256,12 +265,13 @@ class RecordingsPage(QWidget):
         if finite:
             constant = min(finite) == max(finite)
             self.plot_summary.setText(
-                f"{len(rows)} samples from {runs} run(s); runs are drawn end to end with gaps, never joined. "
+                f"{len(rows)} samples, {runs} run(s). "
                 + (f"Constant value {finite[-1]:g}." if constant else
-                   f"Minimum {min(finite):g}, maximum {max(finite):g}, last {finite[-1]:g}.")
+                   f"Min {min(finite):g}, max {max(finite):g}, last {finite[-1]:g}.")
             )
+            self.plot_summary.setToolTip("Runs are drawn end to end with gaps; they are never joined.")
         else:
-            self.plot_summary.setText(f"{len(rows)} samples from {runs} run(s); no decoded values.")
+            self.plot_summary.setText(f"{len(rows)} samples, {runs} run(s); no decoded values.")
 
     def export(self) -> None:
         service = self.context.service
@@ -276,7 +286,7 @@ class RecordingsPage(QWidget):
             return
         with Path(path).open("w", encoding="utf-8", newline="") as stream:
             count = service.export(refs, stream)
-        self.result_text.setText(f"Exported {count} observation(s) to {path}.")
+        show_notice(self.result_text, f"Exported {count} sample(s) to {path}.")
 
     def recover(self) -> None:
         if self.context.service is None or not self._interrupted:
@@ -284,7 +294,7 @@ class RecordingsPage(QWidget):
         try:
             path = self.context.service.recover(self._interrupted[0])
         except (OSError, ValueError) as exc:
-            self.context.error("Run not recovered", f"{exc}\nQuarantine it if no valid prefix exists.")
+            self.context.error("Run not recovered", exc)
             return
         self.context.message(f"Recovered valid prefix into {Path(path).name}.")
         self.context.changed()
@@ -308,7 +318,7 @@ class RecordingsPage(QWidget):
         except (OSError, ValueError) as exc:
             self.context.error("Result not generated", exc)
             return
-        self.result_text.setText(
-            f"Generated result {manifest['generation_id']} with {manifest['row_counts']['signals']} signals "
-            "under result/. Review and commit it with the project."
+        show_notice(
+            self.result_text,
+            f"Generated result {manifest['generation_id']} ({manifest['row_counts']['signals']} signals).",
         )

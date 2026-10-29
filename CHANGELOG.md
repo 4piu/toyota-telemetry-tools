@@ -12,6 +12,19 @@ Pin a tag rather than a branch — `revision = "v0.3.0"` — and
 `setup-platform-project.ps1` resolves it to the commit it names. A branch is
 not a pin: it moves under you.
 
+## Unreleased
+
+### Changed
+
+- The desktop application no longer shows command-line commands or CLI help
+  anywhere. Buttons use short labels; descriptions and disabled reasons moved
+  into tooltips, and explanatory paragraphs were removed from the pages. Live
+  buttons keep the warning icon; their tooltip and confirmation dialog state
+  that they transmit.
+- Readiness problems carry a neutral `hint` and a separate CLI `command`
+  (replacing `fix`); service error messages are interface-neutral, and
+  verification raises `RecipeRequired` when a session recipe must be chosen.
+
 ## 0.5.0
 
 ### Breaking

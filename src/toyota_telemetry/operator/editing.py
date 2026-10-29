@@ -173,7 +173,7 @@ def _confirmed_signal(tree: InventoryTree, signal_ref: str, action: str):
     if not endpoint.confirmed:
         raise ValueError(
             f"{action} needs a confirmed endpoint; {endpoint.key} is {endpoint.state}. "
-            "Verify it, then confirm it with `telemetry endpoint confirm`."
+            "Verify it, then confirm the endpoint."
         )
     return endpoint, did, signal
 
@@ -338,7 +338,7 @@ def edit_targets(
         if "minimum_changes" not in target["requirements"]:
             target.pop("minimum_difference", None)
         elif "minimum_difference" not in target:
-            raise ValueError(f"{signal_ref}: minimum changes needs a minimum difference (--min-difference)")
+            raise ValueError(f"{signal_ref}: minimum changes needs a minimum difference")
         if condition is not UNSET:
             target["condition"] = condition
             result.changes.append(f"{signal_ref}: condition = {format_condition(condition) or 'always'}")
