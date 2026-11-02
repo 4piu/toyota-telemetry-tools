@@ -105,7 +105,7 @@ def collection_readiness(
     ]
     loads = {row["endpoint_id"]: row for row in plan["stress"]["endpoint_loads"]}
     readiness.summary = {
-        "unfinished_targets": len(plan["objectives"]),
+        "unfinished_targets": len({ref for row in acquisitions for ref in row["objective_ids"]}),
         "dids": len(acquisitions),
         "endpoint_count": len(readiness.endpoints),
         "estimated_bus_utilization": (

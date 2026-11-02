@@ -332,6 +332,37 @@ class RecordingsTests(ServiceTestCase):
         self.assertTrue(destination.is_dir())
         self.assertNotIn(run_id, [run.run_id for run in self.service.runs()])
 
+    def test_series_and_export_follow_run_start_time(self) -> None:
+        self.import_rows()
+        tree = self.service.tree()
+        result = self.service.edit_targets(tree, ["372/0x1002/0..15"], requirements={"minimum_samples": 9})
+        self.service.save(policy=result.policy)
+        self.service.readiness()
+        plan_path = self.root / "scratch/plans/admitted-plan.json"
+        plan = json.loads(plan_path.read_text())
+        acquisition = plan["acquisitions"][0]
+        run_ids = []
+        for created in ("2026-02-01T00:00:00Z", "2026-01-01T00:00:00Z"):
+            run_id = str(uuid.uuid4())
+            run_ids.append(run_id)
+            writer = NativeRunWriter(
+                self.root / "scratch/captures", plan, plan_path.read_bytes(), run_id=run_id,
+                created_utc=created, backend_kind="synthetic", disk_free_bytes=lambda _: 10**12,
+            )
+            writer.append_exchange({
+                "acquisition_id": acquisition["acquisition_id"], "endpoint_id": acquisition["endpoint_id"],
+                "data_id": acquisition["data_id"], "response_utc": created, "request_elapsed_ms": 0,
+                "response_elapsed_ms": 5, "request_hex": acquisition["request_hex"],
+                "response_hex": "62 10 02 00 01", "outcome": "positive", "negative_response_code": None,
+                "pending_count": 0, "pending_duration_ms": 0, "latency_ms": 5, "retry_count": 0,
+                "scheduler_reason": "target_due", "objective_ids": acquisition["objective_ids"],
+                "observations": [{"signal_ref": "372/0x1002/0..15", "raw_hex": "00 01",
+                                  "decoded_value": 0.001, "applicability": "true"}],
+            })
+            writer.finish("operator_stop")
+        order = [row["run_id"] for row in self.service.series("372/0x1002/0..15")]
+        self.assertEqual(order[:2], [run_ids[1], run_ids[0]])
+
     def test_export_writes_every_observation_as_csv(self) -> None:
         self.import_rows()
         stream = io.StringIO()

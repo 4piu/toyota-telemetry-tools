@@ -128,12 +128,19 @@ class LiveTargetLedger:
             raise ValueError("live condition state is invalid")
         self.states[signal_ref].condition = condition
 
-    def all_complete(self) -> bool:
-        return bool(self.states) and all(state.achieved() for state in self.states.values())
+    def all_complete(self, keys: Iterable[str] | None = None) -> bool:
+        states = self._select(keys)
+        return bool(states) and all(state.achieved() for state in states)
 
-    def summary(self) -> dict[str, int]:
-        complete = sum(1 for state in self.states.values() if state.achieved())
-        return {"targets": len(self.states), "complete": complete}
+    def summary(self, keys: Iterable[str] | None = None) -> dict[str, int]:
+        states = self._select(keys)
+        complete = sum(1 for state in states if state.achieved())
+        return {"targets": len(states), "complete": complete}
+
+    def _select(self, keys: Iterable[str] | None) -> list[_TargetState]:
+        if keys is None:
+            return list(self.states.values())
+        return [self.states[key] for key in keys]
 
     def acquisition_progress(self, acquisition: Mapping[str, Any]) -> AcquisitionProgress:
         direct = [self.states[key] for key in acquisition["objective_ids"]]

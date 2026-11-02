@@ -210,7 +210,18 @@ class CollectionRunner:
             start_ms=0,
             request_start_floor_ms=self.session["request_start_floor_ms"],
         )
-        self.ledger = LiveTargetLedger(self.plan["objectives"])
+        # A run collects one endpoint: it completes when that endpoint's own
+        # targets are complete. Targets elsewhere whose condition reads one of
+        # this endpoint's DIDs are tracked only to keep that DID polled.
+        self.own_targets = sorted({
+            key for row in self.acquisitions.values() for key in row["objective_ids"]
+        })
+        tracked = set(self.own_targets) | {
+            key for row in self.acquisitions.values() for key in row.get("dependency_for", [])
+        }
+        self.ledger = LiveTargetLedger(
+            target for target in self.plan["objectives"] if target["signal_ref"] in tracked
+        )
         self._apply_progress()
         self._state_lock = threading.Lock()
         self._state = "disconnected"
@@ -220,7 +231,7 @@ class CollectionRunner:
         self._worker_sequence = 0
         self._exchanges = 0
         self._failed_exchanges = 0
-        self._target_summary = self.ledger.summary()
+        self._target_summary = self.ledger.summary(self.own_targets)
         self._context: dict[str, ReplayObservation] = {}
 
     def run(self) -> str:
@@ -238,12 +249,14 @@ class CollectionRunner:
             reason = self._loop()
             self.worker.close()
             self._set_state("disconnected")
+            self._emit_progress()
             self._emit("finished", reason=reason)
             return reason
         except CaptureLimitReached:
             self.worker.request_stop()
             self.worker.close()
             self._set_state("disconnected")
+            self._emit_progress()
             self._emit("finished", reason="size_limit")
             return "size_limit"
         except KeyboardInterrupt:
@@ -252,6 +265,7 @@ class CollectionRunner:
             self.writer.finish("operator_stop")
             self.worker.close()
             self._set_state("disconnected")
+            self._emit_progress()
             self._emit("finished", reason="operator_stop")
             return "operator_stop"
         except Exception as exc:
@@ -308,7 +322,7 @@ class CollectionRunner:
             })
             self.scheduler.complete(decision.acquisition_id, completed, outcome)
             self._apply_progress()
-            summary = self.ledger.summary()
+            summary = self.ledger.summary(self.own_targets)
             with self._state_lock:
                 self._current_acquisition = None
                 self._target_summary = summary
@@ -317,7 +331,7 @@ class CollectionRunner:
                     self._failed_exchanges += 1
             self._set_state("connected")
             self._emit("exchange", acquisition_id=decision.acquisition_id, outcome=outcome)
-            if self.ledger.all_complete():
+            if self.ledger.all_complete(self.own_targets):
                 self.writer.finish("plan_complete")
                 return "plan_complete"
             if outcome == "transport_error":
@@ -389,6 +403,8 @@ class CollectionRunner:
         condition_by_signal = {}
         for target in self.plan["objectives"]:
             signal_ref = target["signal_ref"]
+            if signal_ref not in self.ledger.states:
+                continue
             condition_by_signal[signal_ref] = (
                 "true" if target["condition"] is None else evaluate_condition(
                     target["condition"], self._context, self.writer.run_id, elapsed_ms
@@ -432,18 +448,22 @@ class CollectionRunner:
             with self._state_lock:
                 state = self._state
                 current = self._current_acquisition
-                exchanges = self._exchanges
-                failed = self._failed_exchanges
-                summary = dict(self._target_summary)
             self._emit("heartbeat", state=state, current_acquisition_id=current)
-            self._emit(
-                "progress",
-                elapsed_ms=max(0, self.monotonic_ms() - self._started_ms),
-                exchanges=exchanges,
-                failed_exchanges=failed,
-                targets=summary["targets"],
-                targets_complete=summary["complete"],
-            )
+            self._emit_progress()
+
+    def _emit_progress(self) -> None:
+        with self._state_lock:
+            exchanges = self._exchanges
+            failed = self._failed_exchanges
+            summary = dict(self._target_summary)
+        self._emit(
+            "progress",
+            elapsed_ms=max(0, self.monotonic_ms() - self._started_ms),
+            exchanges=exchanges,
+            failed_exchanges=failed,
+            targets=summary["targets"],
+            targets_complete=summary["complete"],
+        )
 
     def _set_state(self, state: str) -> None:
         with self._state_lock:

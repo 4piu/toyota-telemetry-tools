@@ -618,7 +618,11 @@ class ProjectRepository:
         }
 
     def signal_observations(self, signal_ref: str) -> list[dict[str, Any]]:
-        """Return every cached observation for one signal across all runs."""
+        """Return every cached observation for one signal across all runs.
+
+        Runs are ordered by their recorded start time (runs without one last),
+        so a plot or export reads left to right in drive order.
+        """
 
         canonical = str(SignalRef.parse(signal_ref))
         with closing(sqlite3.connect(self.paths.database)) as connection:
@@ -627,7 +631,10 @@ class ProjectRepository:
                 "o.applicability, e.document_json "
                 "FROM signal_observation o JOIN acquisition_exchange e "
                 "ON e.run_id = o.run_id AND e.sequence = o.sequence "
-                "WHERE o.signal_ref = ? ORDER BY o.run_id, o.sequence",
+                "JOIN run r ON r.run_id = o.run_id "
+                "WHERE o.signal_ref = ? "
+                "ORDER BY json_extract(r.document_json, '$.created_utc') IS NULL, "
+                "json_extract(r.document_json, '$.created_utc'), o.run_id, o.sequence",
                 (canonical,),
             )
             result = []

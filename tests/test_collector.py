@@ -259,6 +259,41 @@ class CollectorTests(unittest.TestCase):
             run = load_capture_tree(Path(directory) / "captures", Path(directory))[0]
             self.assertEqual(run.segments[0].end["reason"], "plan_complete")
 
+    def test_run_completes_on_its_own_endpoints_targets_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            plan, _ = admitted_plan(minimum_observations=1)
+            plan["endpoint_sessions"].append({
+                **plan["endpoint_sessions"][0], "endpoint_id": "710-718-session",
+                "tester_can_id": "0x710", "response_can_id": "0x718",
+            })
+            plan["acquisitions"].append({
+                **plan["acquisitions"][0], "acquisition_id": "710-718-session/0x2001",
+                "endpoint_id": "710-718-session", "data_id": "0x2001", "request_hex": "22 20 01",
+                "objective_ids": ["373/0x2001/0..15"],
+            })
+            plan["objectives"].append({
+                **plan["objectives"][0], "signal_ref": "373/0x2001/0..15",
+                "acquisition_id": "710-718-session/0x2001",
+            })
+            plan.pop("content_sha256")
+            plan["content_sha256"] = hashlib.sha256(canonical_document_bytes(plan)).hexdigest()
+            encoded = canonical_document_bytes(plan)
+            writer = NativeRunWriter(
+                Path(directory) / "captures", plan, encoded, run_id=str(uuid.uuid4()),
+                created_utc="2026-01-01T00:00:00Z", backend_kind="synthetic",
+                endpoint_id="700-708-session", disk_free_bytes=lambda _: 100_000_000,
+            )
+            clock = FakeClock()
+            events: list[dict] = []
+            runner = CollectionRunner(
+                plan, writer, ScriptedWorker([result()], clock=clock), event_sink=events.append,
+                stop_event=threading.Event(), monotonic_ms=clock.monotonic_ms, wait_ms=clock.wait_ms,
+                utc_now=lambda: "2026-01-01T00:00:01Z",
+            )
+            self.assertEqual(runner.run(), "plan_complete")
+            progress = [event for event in events if event["event"] == "progress"][-1]
+            self.assertEqual((progress["targets"], progress["targets_complete"], progress["exchanges"]), (1, 1, 1))
+
     def test_worker_crash_leaves_incomplete_segment(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             stop = threading.Event()
