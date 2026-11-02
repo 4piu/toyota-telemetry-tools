@@ -24,6 +24,13 @@ from .live import LiveBusy, LiveLock
 COMPLETE = "complete"
 NEEDS_RECOVERY = "needs recovery"
 UNREADABLE = "unreadable"
+END_REASONS = {
+    "plan_complete": "targets complete",
+    "operator_stop": "stopped",
+    "transport_lost": "connection lost",
+    "size_limit": "storage limit reached",
+    "recovered_prefix": "recovered after interruption",
+}
 CSV_COLUMNS = (
     "signal_ref", "run_id", "sequence", "response_utc", "elapsed_ms",
     "raw_hex", "decoded_value", "condition",
@@ -47,6 +54,10 @@ class RunSummary:
     duration_seconds: float | None = None
     detail: str = ""
     segment_rows: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def end_label(self) -> str | None:
+        return END_REASONS.get(self.end_reason, self.end_reason) if self.end_reason else None
 
     def as_dict(self, *, segments: bool = False) -> dict[str, Any]:
         value = {
@@ -211,7 +222,17 @@ def _summarize(directory: Path) -> RunSummary:
     summary.note = start.get("run_note")
     first_ms: int | None = None
     last_ms: int | None = None
+    # One file per segment: a recovered complete copy supersedes the
+    # interrupted source it was made from, which stays on disk untouched.
+    rank = {"complete": 0, "incomplete": 1, "partial": 2}
+    chosen: dict[str, Path] = {}
     for path in sorted(directory.glob("*.segment.*.jsonl")):
+        index, state = path.name.split(".")[0], path.name.split(".")[2]
+        current = chosen.get(index)
+        if current is None or rank.get(state, 3) < rank.get(current.name.split(".")[2], 3):
+            chosen[index] = path
+    for index in sorted(chosen):
+        path = chosen[index]
         state = path.name.split(".")[2]
         counts = {"exchanges": 0, "positive": 0, "failed": 0, "observations": 0}
         try:
@@ -235,11 +256,10 @@ def _summarize(directory: Path) -> RunSummary:
             if isinstance(elapsed, int):
                 first_ms = elapsed if first_ms is None else min(first_ms, elapsed)
                 last_ms = elapsed if last_ms is None else max(last_ms, elapsed)
-        summary.segment_rows.append({"segment": path.name.split(".")[0], "state": state, **counts})
-        if state == "complete":
-            summary.segments += 1
-            for name in ("exchanges", "positive", "failed", "observations"):
-                setattr(summary, name, getattr(summary, name) + counts[name])
+        summary.segment_rows.append({"segment": index, "state": state, **counts})
+        summary.segments += 1
+        for name in ("exchanges", "positive", "failed", "observations"):
+            setattr(summary, name, getattr(summary, name) + counts[name])
     if first_ms is not None and last_ms is not None:
         summary.duration_seconds = (last_ms - first_ms) / 1000
     end_path = directory / "run-end.json"
@@ -251,5 +271,5 @@ def _summarize(directory: Path) -> RunSummary:
             summary.detail = f"run-end is unreadable: {exc}"
     else:
         summary.state = NEEDS_RECOVERY
-        summary.detail = "interrupted; recover its valid prefix or quarantine it"
+        summary.detail = "interrupted: recover it to keep the reads saved before the interruption, or quarantine it"
     return summary

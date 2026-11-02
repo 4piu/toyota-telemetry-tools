@@ -33,6 +33,8 @@ class MetricPlot(pg.PlotWidget):
         self.setLabel("left", "Value")
         self.getPlotItem().setMenuEnabled(False)
         self._curve = self.plot([], [], connect="finite")
+        # A sensible empty view, so the axes read 0:00 to 1:00 instead of repeated labels.
+        self.getPlotItem().getViewBox().setRange(xRange=(0, 60), yRange=(0, 1), padding=0)
         self._cursor = pg.InfiniteLine(angle=90, movable=False)
         self._cursor.setVisible(False)
         self.addItem(self._cursor, ignoreBounds=True)

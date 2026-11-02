@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+import sqlite3
 import subprocess
 import threading
 from typing import Any, Callable, Iterable, Mapping, TextIO
@@ -94,14 +95,22 @@ OPERATION_IDS = frozenset(operation.id for operation in OPERATIONS)
 
 @dataclass
 class NextAction:
-    """The next step: neutral text for any interface, plus a CLI command."""
+    """The next step: neutral text for any interface, plus a CLI command.
+
+    ``target`` names the item the step is about, such as ("run", RUN_ID) or
+    ("endpoint", KEY), so an interface can take the user straight to it.
+    """
 
     text: str
     command: str
     page: str
+    target: tuple[str, str] | None = None
 
-    def as_dict(self) -> dict[str, str]:
-        return {"text": self.text, "command": self.command, "page": self.page}
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "text": self.text, "command": self.command, "page": self.page,
+            "target": list(self.target) if self.target else None,
+        }
 
 
 @dataclass
@@ -230,7 +239,7 @@ class OperatorService:
             run_id = status.recoverable_runs[0]
             return NextAction(
                 f"Recover interrupted run {run_id[:8]}", f"telemetry recordings recover {run_id}",
-                "recordings",
+                "recordings", ("run", run_id),
             )
         if status.connector is None:
             return NextAction("Configure the connector", "telemetry connector set KIND ...", "setup")
@@ -245,7 +254,7 @@ class OperatorService:
             return NextAction(
                 f"Confirm responding endpoint {row.endpoint_id}",
                 f"telemetry endpoint confirm {row.endpoint_id} {ecus} --source docs/PATH.md",
-                "signals",
+                "signals", ("endpoint", row.key),
             )
         if not status.counts.get("verified_dids"):
             pending = next(
@@ -255,6 +264,7 @@ class OperatorService:
             return NextAction(
                 "Verify endpoints and DIDs with the vehicle",
                 f"telemetry verify {selector} --dry-run", "signals",
+                ("endpoint", pending.key) if pending else None,
             )
         if not status.counts.get("targets"):
             return NextAction(
@@ -347,11 +357,32 @@ class OperatorService:
         except ValueError:
             pass
         progress = progress_by_signal(repository)
+        try:
+            observed = {
+                ref: row["observations"] for ref, row in repository.signal_observation_summary().items()
+            }
+        except sqlite3.Error:
+            observed = {}
         if review is not None:
             repository.review = dict(review)
         if policy is not None:
             repository.policy = dict(policy)
-        return build_tree(repository, inventory, progress=progress)
+        return build_tree(repository, inventory, progress=progress, observations=observed)
+
+    def signal_names(self, signal_refs: Iterable[str]) -> dict[str, str]:
+        """Display names for signals, cheaply (no tree, no cache)."""
+
+        repository = self.repository()
+        wanted = set(signal_refs)
+        names: dict[str, str] = {}
+        for entry in self.inventory(repository)["rows"]:
+            ref = entry["row"]["signal_ref"]
+            if ref in wanted and ref not in names and entry["row"].get("name"):
+                names[ref] = str(entry["row"]["name"])
+        for row in repository.review["signals"]:
+            if row["signal_ref"] in wanted and row.get("display_name_override"):
+                names[row["signal_ref"]] = row["display_name_override"]
+        return {ref: names.get(ref, ref) for ref in wanted}
 
     @staticmethod
     def select(tree: InventoryTree, tokens: Iterable[str] = (), **filters: Any) -> Selection:

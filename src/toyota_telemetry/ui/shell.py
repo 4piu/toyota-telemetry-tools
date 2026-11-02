@@ -218,12 +218,19 @@ class OperatorWindow(QMainWindow):
         self.next_text.setText(f"Next: {action.text}")
         self.next_text.setToolTip(status.error or "")
         self._next_page = action.page
+        self._next_target = action.target
 
     def _follow_next(self) -> None:
         if self._next_page == "open":
             self.choose_project()
-        else:
-            self.navigate(self._next_page)
+            return
+        self.navigate(self._next_page)
+        target = getattr(self, "_next_target", None)
+        if target is None:
+            return
+        page = {"signals": self.signals_page, "recordings": self.recordings_page}.get(self._next_page)
+        if page is not None:
+            page.focus(*target)
 
     def navigate(self, page: str) -> None:
         if page in PAGES:
@@ -245,10 +252,21 @@ class OperatorWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Telemetry Operator concepts",
-            "Endpoint: one diagnostic route to an ECU (tester and response CAN IDs plus a reviewed session).\n\n"
+            "Endpoint: one diagnostic route to an ECU (tester and response CAN IDs plus a reviewed session). "
+            "Confirmed endpoints are recorded in the project; others are candidates until they respond.\n\n"
             "DID: one data request on an endpoint. A DID can carry several signals, so its interval is shared.\n\n"
             "Signal: one interpreted value inside a DID response; it is what you review, target, and plot.\n\n"
-            "Target: the evidence still wanted for a signal, such as minimum samples or required states.\n\n"
+            "Target: the evidence still wanted for a signal, such as minimum samples or required states. "
+            "A transition is any change of raw value; a change counts only when the decoded value moves by at "
+            "least the minimum difference.\n\n"
+            "Signal status: Not checked, then Responds (its DID answered), Recorded (samples saved), and "
+            "Reviewed (its meaning confirmed). Refused means the ECU rejected the request.\n\n"
+            "Session: the diagnostic session opened before reading, from the project's reviewed transport "
+            "settings.\n\n"
+            "Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) "
+            "or 0x22 (conditions not correct); the app names common ones.\n\n"
+            "Interrupted drive: a recording that stopped without finishing. Recover keeps everything saved "
+            "up to the interruption; Quarantine moves the drive aside without deleting it.\n\n"
             "Only the buttons with a warning icon (Verify and Start) transmit to the vehicle, and "
             "each shows its exact scope first.\n\n"
             "Hover over any control for a short explanation.\n\n"

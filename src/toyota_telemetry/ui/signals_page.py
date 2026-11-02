@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from toyota_telemetry.operator.editing import REQUIREMENT_LABELS, format_condition, format_duration
-from toyota_telemetry.operator.inventory import FAILED, VERIFIED, InventoryTree
+from toyota_telemetry.operator.inventory import EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree
 from toyota_telemetry.operator.selection import Selection
 from toyota_telemetry.operator.verification import RecipeRequired
 
@@ -127,7 +127,17 @@ class SignalsPage(QWidget):
     def _tree_panel(self) -> QWidget:
         self.tree = QTreeWidget()
         self.tree.setColumnCount(5)
-        self.tree.setHeaderLabels(["Endpoint / DID / Signal", "Verification", "Baseline", "Target", "Progress"])
+        self.tree.setHeaderLabels(["Endpoint / DID / Signal", "Status", "Interval", "Target", "Progress"])
+        header_item = self.tree.headerItem()
+        header_item.setToolTip(1, (
+            "Endpoint: Confirmed, Responded, Silent, Not verified, or Address unknown.\n"
+            "DID: Verified, Not verified, Failed, or Endpoint not verified.\n"
+            "Signal: Not checked \u2192 Responds (its DID answered) \u2192 Recorded (samples saved) "
+            "\u2192 Reviewed (meaning confirmed by review); Refused if its DID was refused."
+        ))
+        header_item.setToolTip(2, "How often each DID is read during collection; shared by its signals")
+        header_item.setToolTip(3, "What each signal still needs to be complete")
+        header_item.setToolTip(4, "How much of its target each signal has reached")
         self.tree.setAccessibleName("Endpoint, DID, and signal tree")
         self.tree.setUniformRowHeights(True)
         self.tree.setAlternatingRowColors(True)
@@ -165,7 +175,13 @@ class SignalsPage(QWidget):
         self.def_formula = QLineEdit()
         self.def_formula.setPlaceholderText("e.g. raw / 10 - 40")
         self.def_unit = QLineEdit()
-        self.def_evidence = QLineEdit()
+        self.def_evidence = QComboBox()
+        self.def_evidence.addItems(EVIDENCE_STATES)
+        self.def_evidence.setToolTip(
+            "How well this signal's meaning is established. Candidate: from the database only. "
+            "Observed: seen in a capture. Correlated: matches a reference. Validated: checked across its range. "
+            "\"and replayed\": read again independently with this toolkit."
+        )
         self.def_notes = QLineEdit()
         form.addRow("Display name", self.def_name)
         form.addRow("Formula", self.def_formula)
@@ -311,11 +327,7 @@ class SignalsPage(QWidget):
         )
 
     def _show_tree(self, data: InventoryTree | None) -> None:
-        expanded = {
-            self.tree.topLevelItem(index).data(0, ROLE)[1]
-            for index in range(self.tree.topLevelItemCount())
-            if self.tree.topLevelItem(index).isExpanded()
-        }
+        expanded = {item.data(0, ROLE) for item in self._items() if item.isExpanded()}
         restore = getattr(self, "_restore", None)
         self._building = True
         self.tree.clear()
@@ -340,19 +352,20 @@ class SignalsPage(QWidget):
         self.update_actions()
         self.show_details()
 
-    def _populate(self, data: InventoryTree, expanded: set[str] | None = None) -> None:
+    def _populate(self, data: InventoryTree, expanded: set[tuple[str, str]] | None = None) -> None:
         self._building = True
         try:
             for endpoint in data.endpoints:
-                address = (
-                    f"{endpoint.tester_can_id}/{endpoint.response_can_id}" if endpoint.tester_can_id
-                    else "address unknown"
-                )
+                reachable = endpoint.tester_can_id is not None
+                address = f"{endpoint.tester_can_id}/{endpoint.response_can_id}" if reachable else "address unknown"
                 names = ", ".join(endpoint.ecu_names)
                 label = f"{endpoint.key}  {address}  ECU {', '.join(map(str, endpoint.ecu_keys))}"
-                parent = QTreeWidgetItem([label + (f"  {names}" if names else ""), endpoint.state, "", "", ""])
+                parent = QTreeWidgetItem([label + (f"  {names}" if names else ""), endpoint.state.capitalize(), "", "", ""])
                 parent.setData(0, ROLE, ("endpoint", endpoint.key))
-                self._checkable(parent, tristate=True)
+                unreachable_tip = "No CAN address is known for this ECU. Add an endpoint for it to verify it."
+                if not reachable:
+                    parent.setToolTip(0, unreachable_tip)
+                self._checkable(parent, tristate=True, enabled=reachable)
                 self.tree.addTopLevelItem(parent)
                 for did in endpoint.dids:
                     cadence = ""
@@ -360,37 +373,43 @@ class SignalsPage(QWidget):
                         cadence = f"every {did.settings['target_interval_ms']} ms"
                         if not did.settings["included"]:
                             cadence += " (excluded)"
-                    did_item = QTreeWidgetItem([
-                        f"DID {did.data_id}", did.state, did.baseline_hex or "", cadence, "",
-                    ])
+                    did_item = QTreeWidgetItem([f"DID {did.data_id}", did.state, cadence, "", ""])
                     did_item.setData(0, ROLE, ("did", did.key))
                     did_item.setToolTip(1, did.detail or did.state)
                     if did.settings:
-                        did_item.setToolTip(3, "Shared by all signals read from this endpoint and DID")
-                    self._checkable(did_item, tristate=bool(did.signals))
+                        did_item.setToolTip(2, "Shared by all signals read from this endpoint and DID")
+                    if not reachable:
+                        did_item.setToolTip(0, unreachable_tip)
+                    self._checkable(did_item, tristate=bool(did.signals), enabled=reachable)
                     parent.addChild(did_item)
                     for signal in did.signals:
                         unit = f" [{signal.unit}]" if signal.unit else ""
-                        conflict = "  (variants disagree)" if signal.conflict else ""
+                        conflict = "  (definitions disagree)" if signal.conflict else ""
                         item = QTreeWidgetItem([
-                            f"{signal.name}{unit}{conflict}", "", "",
+                            f"{signal.name}{unit}{conflict}", signal.status, "",
                             _target_summary(signal.target), _progress_summary(signal.progress),
                         ])
                         item.setData(0, ROLE, ("signal", signal.signal_ref))
                         item.setToolTip(0, signal.signal_ref)
-                        self._checkable(item, tristate=False)
+                        item.setToolTip(1, _status_tip(signal, did))
+                        self._checkable(item, tristate=False, enabled=reachable)
                         did_item.addChild(item)
-                    if not did.signals:
+                    if not did.signals and reachable:
                         did_item.setCheckState(
                             0, Qt.CheckState.Checked if ("did", did.key) in self._checked else Qt.CheckState.Unchecked
                         )
+                    if expanded is not None and ("did", did.key) in expanded:
+                        did_item.setExpanded(True)
                 parent.setExpanded(
-                    endpoint.key in expanded if expanded is not None else len(data.endpoints) <= 3
+                    ("endpoint", endpoint.key) in expanded if expanded is not None else len(data.endpoints) <= 3
                 )
         finally:
             self._building = False
 
-    def _checkable(self, item: QTreeWidgetItem, *, tristate: bool) -> None:
+    def _checkable(self, item: QTreeWidgetItem, *, tristate: bool, enabled: bool = True) -> None:
+        if not enabled:
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
+            return
         flags = item.flags() | Qt.ItemFlag.ItemIsUserCheckable
         if tristate:
             flags |= Qt.ItemFlag.ItemIsAutoTristate
@@ -429,23 +448,41 @@ class SignalsPage(QWidget):
         )
         dids = set(selection.dids) if selection else set()
         signals = set(selection.signals) if selection else set()
-        for index in range(self.tree.topLevelItemCount()):
-            endpoint_item = self.tree.topLevelItem(index)
-            visible_dids = 0
-            for did_index in range(endpoint_item.childCount()):
-                did_item = endpoint_item.child(did_index)
-                did_visible = not filtered or did_item.data(0, ROLE)[1] in dids
-                visible_signals = 0
-                for signal_index in range(did_item.childCount()):
-                    signal_item = did_item.child(signal_index)
-                    shown = did_visible and (not filtered or signal_item.data(0, ROLE)[1] in signals)
-                    signal_item.setHidden(not shown)
-                    visible_signals += shown
-                did_item.setHidden(not did_visible)
-                visible_dids += did_visible
-                if filtered and did_visible:
-                    endpoint_item.setExpanded(True)
-            endpoint_item.setHidden(filtered and not visible_dids)
+        self._building = True
+        try:
+            for index in range(self.tree.topLevelItemCount()):
+                endpoint_item = self.tree.topLevelItem(index)
+                visible_dids = 0
+                for did_index in range(endpoint_item.childCount()):
+                    did_item = endpoint_item.child(did_index)
+                    did_visible = not filtered or did_item.data(0, ROLE)[1] in dids
+                    visible_signals = 0
+                    for signal_index in range(did_item.childCount()):
+                        signal_item = did_item.child(signal_index)
+                        shown = did_visible and (not filtered or signal_item.data(0, ROLE)[1] in signals)
+                        signal_item.setHidden(not shown)
+                        if not shown:
+                            self._untick(signal_item)
+                        visible_signals += shown
+                    did_item.setHidden(not did_visible)
+                    if not did_visible and did_item.childCount() == 0:
+                        self._untick(did_item)
+                    visible_dids += did_visible
+                    if filtered and did_visible:
+                        endpoint_item.setExpanded(True)
+                        if search and visible_signals:
+                            did_item.setExpanded(True)
+                endpoint_item.setHidden(filtered and not visible_dids)
+        finally:
+            self._building = False
+        self.update_actions()
+
+    def _untick(self, item: QTreeWidgetItem) -> None:
+        """Rows hidden by a filter never stay ticked, so actions match what is shown."""
+
+        if item.flags() & Qt.ItemFlag.ItemIsUserCheckable and item.checkState(0) != Qt.CheckState.Unchecked:
+            item.setCheckState(0, Qt.CheckState.Unchecked)
+            self._checked.discard(item.data(0, ROLE))
 
     # Selection --------------------------------------------------------------
 
@@ -487,6 +524,14 @@ class SignalsPage(QWidget):
                         )
         return selection
 
+    def focus(self, kind: str, key: str) -> None:
+        """Select and reveal a row, now or as soon as the tree has loaded."""
+
+        try:
+            self.select_row(kind, key)
+        except KeyError:
+            self._restore = (kind, key)
+
     def check(self, kind: str, key: str, checked: bool = True) -> None:
         """Check a row by stable identity (keyboard-free automation and tests)."""
 
@@ -499,6 +544,10 @@ class SignalsPage(QWidget):
     def select_row(self, kind: str, key: str) -> None:
         for item in self._items():
             if item.data(0, ROLE) == (kind, key):
+                parent = item.parent()
+                while parent is not None:
+                    parent.setExpanded(True)
+                    parent = parent.parent()
                 self.tree.setCurrentItem(item)
                 self.tree.scrollToItem(item)
                 return
@@ -582,7 +631,10 @@ class SignalsPage(QWidget):
         self.def_formula.setPlaceholderText(signal.formula)
         self.def_unit.setText(review.get("unit_override") or "")
         self.def_unit.setPlaceholderText(signal.unit)
-        self.def_evidence.setText(review.get("evidence_state") or "Candidate")
+        state = review.get("evidence_state") or "Candidate"
+        if self.def_evidence.findText(state) < 0:
+            self.def_evidence.addItem(state)
+        self.def_evidence.setCurrentText(state)
         self.def_notes.setText(review.get("notes") or "")
         set_enabled(self.def_apply, endpoint.confirmed, "Confirm the endpoint first.")
 
@@ -635,7 +687,7 @@ class SignalsPage(QWidget):
         if self.context.service is None or current is None or current[0] != "endpoint":
             return
         endpoint = self.tree_data.endpoint(current[1])
-        dialog = EndpointConfirmDialog(endpoint.endpoint_id, endpoint.ecu_keys, self)
+        dialog = EndpointConfirmDialog(endpoint.endpoint_id, endpoint.ecu_keys, self.context.service.root, self)
         if not self.run_dialog(dialog):
             return
         try:
@@ -656,7 +708,10 @@ class SignalsPage(QWidget):
             scope = service.verification_scope(self.tree_data, selection)
         except RecipeRequired as exc:
             recipe, ok = QInputDialog.getItem(
-                self, "Session recipe", f"Session for {exc.endpoint_key}:", exc.recipes, 0, False
+                self, "Diagnostic session",
+                f"{exc.endpoint_key} has not been verified yet. Choose which reviewed diagnostic "
+                "session to open when probing it (from the project's transport settings):",
+                exc.recipes, 0, False,
             )
             if not ok:
                 return
@@ -769,7 +824,7 @@ class SignalsPage(QWidget):
             result = self.context.service.edit_signals(
                 self.tree_data, [current[1]], review=self.draft_review,
                 name=self.def_name.text(), formula=self.def_formula.text(), unit=self.def_unit.text(),
-                evidence_state=self.def_evidence.text(), notes=self.def_notes.text(),
+                evidence_state=self.def_evidence.currentText(), notes=self.def_notes.text(),
             )
         except ValueError as exc:
             self.context.error("Definition not applied", exc)
@@ -880,7 +935,19 @@ def _progress_summary(progress: dict[str, Any] | None) -> str:
 
 
 def _impact_text(impact: dict[str, Any], selected: int) -> str:
-    text = f"{selected} signal(s) across {len(impact['dids'])} DID(s) will change."
-    if impact["created_did_settings"]:
-        text += f" New DID settings with defaults: {len(impact['created_did_settings'])}."
+    text = f"{selected} signal(s) on {len(impact['dids'])} DID(s) will change."
+    created = len(impact["created_did_settings"])
+    if created:
+        text += f" {created} DID(s) will start being read every 1 s (change this under DID settings)."
     return text
+
+def _status_tip(signal, did) -> str:
+    if signal.status == "Reviewed":
+        return f"Reviewed: {signal.review['evidence_state']}"
+    if signal.status == "Recorded":
+        return f"Recorded: {signal.observations} samples saved across drives"
+    if signal.status == "Responds":
+        return "Its DID answered during verification; nothing recorded yet"
+    if signal.status == "Refused":
+        return f"Its DID was refused: {did.detail}"
+    return "Its DID has not been checked against the vehicle yet"

@@ -204,7 +204,7 @@ def test_target_batch_edit_is_a_draft_until_saved(qtbot, project) -> None:
     page.run_dialog = edit
     page.target_button.click()
     settle(qtbot, window)
-    assert "2 signal(s) across 1 DID(s)" in seen["impact"]
+    assert "2 signal(s) on 1 DID(s) will change" in seen["impact"]
     assert page.dirty
     assert window.draft_status.text() == "Unsaved changes"
     assert policy_path.read_bytes() == before
@@ -295,7 +295,8 @@ def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, 
     assert not page.recovery.isVisible()
     page.runs.selectRow(0)
     settle(qtbot, window)
-    assert "Segment 000001 complete: 1 reads" in page.run_detail.toPlainText()
+    assert "1 reads (0 failed)" in page.run_detail.toPlainText()
+    assert page.runs.item(0, 1).text() == "Targets complete"
     page.select_signal("372/0x1002/0..15")
     settle(qtbot, window)
     assert page.plot.source_points == 1
@@ -371,3 +372,109 @@ def test_new_signal_resets_the_plot_view_but_resizes_keep_zoom(qtbot) -> None:
     (x_low, x_high), (y_low, y_high) = plot.getPlotItem().getViewBox().viewRange()
     assert x_low <= 0 and x_high >= 200
     assert y_low <= 1000 and y_high >= 9000
+
+
+def test_signal_rows_show_one_status_ladder(qtbot, project) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    data = window.signals_page.tree_data
+    assert data.find_signal("372/0x1002/0..15")[2].status == "Reviewed"
+    assert data.find_signal("372/0x1003/0..7")[2].status == "Not checked"
+    assert data.find_signal("405/0x2001/0..7")[2].status == "Not checked"
+    headers = [window.signals_page.tree.headerItem().text(c) for c in range(5)]
+    assert headers == ["Endpoint / DID / Signal", "Status", "Interval", "Target", "Progress"]
+
+
+def test_filter_unticks_rows_it_hides(qtbot, project) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    page = window.signals_page
+    page.check("signal", "372/0x1002/0..15")
+    page.check("signal", "372/0x1003/0..7")
+    page.state_filter.setCurrentText("Not verified")
+    settle(qtbot, window)
+    selection = page.checked_selection()
+    assert selection.signals == ["372/0x1003/0..7"]
+    page.state_filter.setCurrentText("All")
+    settle(qtbot, window)
+    assert page.checked_selection().signals == ["372/0x1003/0..7"]
+
+
+def test_go_selects_the_item_the_next_step_is_about(qtbot, project, probes) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    page = window.signals_page
+    page.check("did", f"{UNCONFIRMED_KEY}/0x2001")
+    page.confirm_live = lambda dialog: True
+    page.verify_button.click()
+    wait_for_job(qtbot, page)
+    settle(qtbot, window)
+    assert window.next_text.text().startswith("Next: Confirm responding endpoint")
+    page.tree.setCurrentItem(None)
+    window.navigate("setup")
+    window.next_button.click()
+    settle(qtbot, window)
+    assert window.pages.currentWidget() is page
+    assert page._current() == ("endpoint", UNCONFIRMED_KEY)
+    assert page.confirm_button.isEnabled()
+
+
+def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot, tmp_path) -> None:
+    from toyota_telemetry.ui.dialogs import EndpointAddDialog, EndpointConfirmDialog
+
+    add = EndpointAddDialog(["extended"])
+    qtbot.addWidget(add)
+    add.tester.setText("0x7D0")
+    add.response.setText("0x7D8")
+    add.accept()
+    assert add.result() != add.DialogCode.Accepted
+    assert add.error.text() == "Enter at least one ECU key."
+    assert add.tester.text() == "0x7D0"
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/probe.md").write_text("evidence\n")
+    confirm = EndpointConfirmDialog("7a1-7a9-extended", [405], tmp_path)
+    qtbot.addWidget(confirm)
+    confirm.accept()
+    assert confirm.error.text() == "Choose the evidence document for this endpoint."
+    confirm.source.setText("docs/missing.md")
+    confirm.accept()
+    assert "does not exist" in confirm.error.text()
+    confirm.source.setText("docs/probe.md")
+    confirm.accept()
+    assert confirm.result() == confirm.DialogCode.Accepted
+
+
+def test_quarantine_asks_first_and_runs_list_interrupted_first(qtbot, project) -> None:
+    from toyota_telemetry.capture_writer import NativeRunWriter
+
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    signals = window.signals_page
+    signals.check("signal", "372/0x1002/0..15")
+    signals.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 9), True)[1]
+    signals.target_button.click()
+    settle(qtbot, window)
+    signals.save_button.click()
+    window.collect_page.check_readiness()
+    settle(qtbot, window)
+    plan_path = root / "scratch/plans/admitted-plan.json"
+    plan = json.loads(plan_path.read_text())
+    NativeRunWriter(
+        root / "scratch/captures", plan, plan_path.read_bytes(), run_id="0" * 8 + "-0000-4000-8000-" + "0" * 12,
+        created_utc="2026-10-01T10:00:00.123456Z", backend_kind="synthetic", disk_free_bytes=lambda _: 10**12,
+    ).crash()
+    window.context.changed()
+    window.navigate("recordings")
+    settle(qtbot, window)
+    page = window.recordings_page
+    assert page.runs.item(0, 1).text() == "Interrupted"
+    assert page.runs.item(0, 0).text() == "2026-10-01 10:00 UTC"
+    with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Cancel) as asked:
+        page.quarantine_button.click()
+        settle(qtbot, window)
+    assert asked.called
+    assert page.runs.item(0, 1).text() == "Interrupted"

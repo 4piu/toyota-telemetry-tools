@@ -35,6 +35,50 @@ NOT_VERIFIED = "Not verified"
 FAILED = "Failed"
 ENDPOINT_NOT_VERIFIED = "Endpoint not verified"
 
+# One status ladder per signal, from least to most established.
+SIGNAL_NOT_CHECKED = "Not checked"
+SIGNAL_FAILED = "Refused"
+SIGNAL_RESPONDS = "Responds"
+SIGNAL_RECORDED = "Recorded"
+SIGNAL_REVIEWED = "Reviewed"
+SIGNAL_STATUSES = (SIGNAL_NOT_CHECKED, SIGNAL_FAILED, SIGNAL_RESPONDS, SIGNAL_RECORDED, SIGNAL_REVIEWED)
+
+# Review evidence states from the project method; a review in any state other
+# than Candidate counts as Reviewed.
+EVIDENCE_STATES = (
+    "Candidate", "Observed", "Correlated", "Validated",
+    "Observed and replayed", "Correlated and replayed", "Validated and replayed",
+)
+
+OUTCOME_TEXT = {
+    "negative": "refused",
+    "timeout": "no answer",
+    "transport_error": "connection error",
+    "session_unavailable": "session could not be opened",
+}
+# Common UDS negative response codes in plain words.
+NRC_TEXT = {
+    "0x10": "general reject",
+    "0x11": "service not supported",
+    "0x12": "sub-function not supported",
+    "0x13": "wrong message length",
+    "0x14": "response too long",
+    "0x22": "conditions not correct",
+    "0x31": "request out of range",
+    "0x33": "security access required",
+    "0x72": "general programming failure",
+    "0x7E": "not supported in this session",
+    "0x7F": "service not supported in this session",
+}
+
+
+def outcome_text(outcome: str, nrc: str | None = None) -> str:
+    text = OUTCOME_TEXT.get(outcome, outcome)
+    if nrc:
+        meaning = NRC_TEXT.get(nrc.upper().replace("0X", "0x"))
+        text += f": {meaning} (code {nrc})" if meaning else f" (code {nrc})"
+    return text
+
 
 def inventory_path(repository: ProjectRepository):
     return repository.paths.scratch / INVENTORY_FILE
@@ -339,6 +383,8 @@ class SignalItem:
     target: dict[str, Any] | None = None
     progress: dict[str, Any] | None = None
     in_inventory: bool = True
+    observations: int = 0
+    status: str = SIGNAL_NOT_CHECKED
 
     @property
     def ecu_key(self) -> int:
@@ -356,6 +402,8 @@ class SignalItem:
             "target": self.target,
             "progress": self.progress,
             "in_inventory": self.in_inventory,
+            "observations": self.observations,
+            "status": self.status,
         }
 
 
@@ -486,6 +534,7 @@ def build_tree(
     inventory: Mapping[str, Any],
     *,
     progress: Mapping[str, Mapping[str, Any]] | None = None,
+    observations: Mapping[str, int] | None = None,
 ) -> InventoryTree:
     """Group every known signal under its endpoint and DID with current state."""
 
@@ -586,11 +635,30 @@ def build_tree(
         ))
 
     _apply_verification(repository, endpoints, settings)
+    observations = observations or {}
+    for endpoint in endpoints.values():
+        for did in endpoint.dids:
+            for signal in did.signals:
+                signal.observations = int(observations.get(signal.signal_ref, 0))
+                signal.status = _signal_status(signal, did)
     ordered = sorted(endpoints.values(), key=lambda row: (not row.confirmed, row.key))
     for endpoint in ordered:
         endpoint.ecu_keys.sort()
         endpoint.dids.sort(key=lambda row: row.data_id)
     return InventoryTree(ordered)
+
+
+def _signal_status(signal: SignalItem, did: DidItem) -> str:
+    review = signal.review or {}
+    if review.get("evidence_state") and review["evidence_state"] != "Candidate":
+        return SIGNAL_REVIEWED
+    if signal.observations:
+        return SIGNAL_RECORDED
+    if did.state == VERIFIED:
+        return SIGNAL_RESPONDS
+    if did.state == FAILED:
+        return SIGNAL_FAILED
+    return SIGNAL_NOT_CHECKED
 
 
 def _chosen_row(rows: list[dict[str, Any]], review: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -651,8 +719,7 @@ def _apply_verification(
                     did.detail = "responded during verification"
                 else:
                     did.state = FAILED
-                    nrc = read.get("nrc")
-                    did.detail = fact["outcome"] + (f" (NRC {nrc})" if nrc else "")
+                    did.detail = outcome_text(fact["outcome"], read.get("nrc"))
                 continue
             if endpoint.confirmed and recorded.get((endpoint.endpoint_id, did.data_id)) == "supported":
                 did.state = VERIFIED

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSplitter,
@@ -84,7 +85,8 @@ class RecordingsPage(QWidget):
         self.runs.itemSelectionChanged.connect(self.show_run)
         self.run_detail = QPlainTextEdit()
         self.run_detail.setReadOnly(True)
-        self.run_detail.setMaximumHeight(130)
+        self.run_detail.setMaximumHeight(110)
+        self.run_detail.setVisible(False)
         self.run_detail.setAccessibleName("Selected run details")
         self.context.register("recordings.show", self.run_detail, "Details of the selected run")
         runs_layout.addWidget(self.runs, 1)
@@ -112,13 +114,16 @@ class RecordingsPage(QWidget):
         self.cursor = QLabel()
         self.cursor.setWordWrap(True)
         self.plot.cursor_changed.connect(self.cursor.setText)
-        self.plot_summary = QLabel()
+        self.plot_summary = QLabel("Select a signal to plot it across every recorded drive.")
         self.plot_summary.setWordWrap(True)
         right.addWidget(self.plot, 1)
         right.addWidget(self.cursor)
         right.addWidget(self.plot_summary)
         analysis_layout.addLayout(right, 3)
         splitter.addWidget(analysis)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
+        splitter.setSizes([320, 420])
         layout.addWidget(splitter, 1)
 
         self.export_button = QPushButton("Export CSV…")
@@ -197,12 +202,14 @@ class RecordingsPage(QWidget):
             self._shown = None
             self._update_buttons()
             return
-        for run in listing["runs"]:
+        runs = sorted(listing["runs"], key=lambda run: run.state != "needs recovery")
+        for run in runs:
             row = self.runs.rowCount()
             self.runs.insertRow(row)
             duration = f"{run.duration_seconds:.0f} s" if run.duration_seconds is not None else "-"
+            state = "Interrupted" if run.state == "needs recovery" else (run.end_label or run.state).capitalize()
             values = (
-                run.created_utc or "unknown", run.state, duration, str(run.exchanges), str(run.failed),
+                _when(run.created_utc), state, duration, str(run.exchanges), str(run.failed),
                 run.endpoint_id or "", run.note or "", run.run_id,
             )
             for column, value in enumerate(values):
@@ -213,10 +220,13 @@ class RecordingsPage(QWidget):
                 self._interrupted.append(run.run_id)
         if self.run_detail.toPlainText() == "Loading…":
             self.run_detail.setPlainText("")
+            self.run_detail.setVisible(False)
         live = self.context.live_job_running
         self.recovery.setVisible(bool(self._interrupted) and not live)
         if self._interrupted:
-            self.recovery_text.setText(f"{len(self._interrupted)} interrupted run(s), next: {self._interrupted[0]}")
+            self.recovery_text.setText(
+                f"{len(self._interrupted)} drive(s) stopped without finishing. Next: {self._interrupted[0][:8]}"
+            )
         self._names = listing["names"]
         summary = listing["summary"]
         for signal_ref in sorted(summary):
@@ -226,6 +236,9 @@ class RecordingsPage(QWidget):
             item.setToolTip(signal_ref)
             self.signals.addItem(item)
         self._filter_signals(self.signal_search.text())
+        pending = getattr(self, "_pending_run", None)
+        if pending is not None:
+            selected_run, self._pending_run = pending, None
         if selected_run is not None:
             for row in range(self.runs.rowCount()):
                 if self.runs.item(row, 0).data(Qt.ItemDataRole.UserRole) == selected_run:
@@ -265,19 +278,18 @@ class RecordingsPage(QWidget):
         def done(run) -> None:
             if self._selected_run() != run.run_id:
                 return
+            state = "Interrupted" if run.state == "needs recovery" else (run.end_label or run.state)
             lines = [
-                f"Run {run.run_id}: {run.state}" + (f" ({run.end_reason})" if run.end_reason else ""),
-                f"Started {run.created_utc or 'unknown'} on {run.endpoint_id or 'unknown endpoint'}; "
+                f"Run {run.run_id}: {state}",
+                f"Started {_when(run.created_utc)} on {run.endpoint_id or 'unknown endpoint'}; "
                 f"note {run.note or '-'}",
-            ]
-            lines += [
-                f"Segment {row['segment']} {row['state']}: {row['exchanges']} reads, {row['failed']} failed, "
-                f"{row['observations']} observations"
-                for row in run.segment_rows
+                f"{run.exchanges} reads ({run.failed} failed), {run.observations} samples in "
+                f"{len(run.segment_rows)} file(s)",
             ]
             if run.detail:
                 lines.append(run.detail)
             self.run_detail.setPlainText("\n".join(lines))
+            self.run_detail.setVisible(True)
 
         self.context.run("recordings.run", lambda service: service.run(run_id), done)
 
@@ -361,19 +373,48 @@ class RecordingsPage(QWidget):
         show_notice(self.result_text, "Exporting…")
         self.context.run("recordings.export", work, done, failed)
 
+    def focus(self, kind: str, key: str) -> None:
+        """Select a run now, or once the list has loaded."""
+
+        if kind != "run":
+            return
+        for row in range(self.runs.rowCount()):
+            if self.runs.item(row, 0).data(Qt.ItemDataRole.UserRole) == key:
+                self.runs.selectRow(row)
+                self.runs.scrollToItem(self.runs.item(row, 0))
+                return
+        self._pending_run = key
+
     def recover(self) -> None:
-        self._run_interrupted("recover", "Run not recovered", lambda path: f"Recovered into {Path(path).name}.")
+        self._run_interrupted(
+            "recover", "Run not recovered",
+            lambda run_id: f"Recovered drive {run_id[:8]}: its saved reads are kept and the run is closed.",
+        )
 
     def quarantine(self) -> None:
-        self._run_interrupted("quarantine", "Run not quarantined", lambda path: f"Moved the run to {path}.")
+        if not self._interrupted:
+            return
+        answer = QMessageBox.question(
+            self, "Quarantine run",
+            f"Move drive {self._interrupted[0][:8]} out of the recordings? It is kept in the project's "
+            "scratch/quarantine folder and no longer shown or used.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self._run_interrupted(
+            "quarantine", "Run not quarantined",
+            lambda run_id: f"Quarantined drive {run_id[:8]}; it is no longer listed.",
+        )
 
     def _run_interrupted(self, action: str, title: str, message) -> None:
         if self.context.service is None or not self._interrupted:
             return
         run_id = self._interrupted[0]
 
-        def done(path) -> None:
-            self.context.message(message(path))
+        def done(_path) -> None:
+            self.context.message(message(run_id))
             self.context.changed()
 
         def failed(detail: str) -> None:
@@ -438,3 +479,11 @@ def _series_data(rows: list[dict]) -> dict:
         "runs": runs,
         "finite": (min(finite), max(finite), finite[-1]) if finite else None,
     }
+
+
+def _when(created_utc: str | None) -> str:
+    """'2026-09-01 08:15 UTC' from an ISO timestamp of any precision."""
+
+    if not created_utc:
+        return "unknown"
+    return created_utc[:16].replace("T", " ") + " UTC"

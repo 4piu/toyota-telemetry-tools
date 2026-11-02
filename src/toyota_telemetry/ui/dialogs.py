@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtWidgets import (
@@ -11,13 +12,16 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -30,13 +34,23 @@ from toyota_telemetry.operator.editing import (
     parse_duration,
 )
 
+from toyota_telemetry.operator.sources import canonical_can_id
+
 from .widgets import LIVE_TIP, mark_live
 
 
 class LiveConfirmDialog(QDialog):
     """Lists the exact scope; Start is never the default button."""
 
-    def __init__(self, title: str, summary: str, details: Iterable[str], parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        title: str,
+        summary: str,
+        details: Iterable[str],
+        parent: QWidget | None = None,
+        *,
+        technical: Iterable[str] = (),
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumWidth(560)
@@ -51,6 +65,19 @@ class LiveConfirmDialog(QDialog):
         text.setReadOnly(True)
         text.setAccessibleName("Exact live scope")
         layout.addWidget(text, 1)
+        technical = list(technical)
+        if technical:
+            toggle = QToolButton()
+            toggle.setText("Details")
+            toggle.setCheckable(True)
+            toggle.setToolTip("Exact request bytes, session steps, and the scope fingerprint")
+            raw = QPlainTextEdit("\n".join(technical))
+            raw.setReadOnly(True)
+            raw.setVisible(False)
+            raw.setAccessibleName("Technical scope details")
+            toggle.toggled.connect(raw.setVisible)
+            layout.addWidget(toggle)
+            layout.addWidget(raw)
         buttons = QDialogButtonBox()
         self.cancel_button = buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
         self.start_button = mark_live(QPushButton("Start"))
@@ -65,56 +92,131 @@ class LiveConfirmDialog(QDialog):
         layout.addWidget(buttons)
 
 
-class EndpointAddDialog(QDialog):
+class _ValidatedDialog(QDialog):
+    """A dialog that checks its fields before closing and keeps them on error."""
+
+    def _error_label(self) -> QLabel:
+        self.error = QLabel()
+        self.error.setWordWrap(True)
+        self.error.setStyleSheet("color: palette(bright-text); font-weight: bold;")
+        self.error.setVisible(False)
+        return self.error
+
+    def problem(self) -> str | None:
+        return None
+
+    def accept(self) -> None:
+        try:
+            problem = self.problem()
+        except ValueError as exc:
+            problem = str(exc)
+        if problem:
+            self.error.setText(problem)
+            self.error.setVisible(True)
+            return
+        super().accept()
+
+
+class EndpointAddDialog(_ValidatedDialog):
     def __init__(self, recipes: list[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Add endpoint candidate")
         form = QFormLayout(self)
         self.tester = QLineEdit()
-        self.tester.setPlaceholderText("0x7E0")
+        self.tester.setPlaceholderText("e.g. 0x7E0")
         self.response = QLineEdit()
-        self.response.setPlaceholderText("0x7E8")
+        self.response.setPlaceholderText("e.g. 0x7E8")
         self.recipe = QComboBox()
         self.recipe.addItems(recipes)
         self.ecus = QLineEdit()
-        self.ecus.setPlaceholderText("ECU keys, e.g. 372, 374")
+        self.ecus.setPlaceholderText("required, e.g. 372, 374")
         form.addRow("Tester CAN ID", self.tester)
         form.addRow("Response CAN ID", self.response)
-        form.addRow("Session recipe", self.recipe)
+        form.addRow("Session", self.recipe)
         form.addRow("ECU keys", self.ecus)
         self.setToolTip(
             "Adds a candidate only. Nothing is transmitted until you verify it, and nothing is "
             "written to tracked transport until you confirm it."
         )
-        self.recipe.setToolTip("Reviewed session recipe from config/transport.json")
+        self.recipe.setToolTip("Diagnostic session to open, from the project's reviewed transport settings")
+        self.ecus.setToolTip("Which ECUs answer at this address (their keys in the candidate list)")
+        form.addRow(self._error_label())
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
+
+    def problem(self) -> str | None:
+        tester = canonical_can_id(self.tester.text())
+        response = canonical_can_id(self.response.text())
+        if tester is None or response is None:
+            return "Enter both CAN IDs as hexadecimal, e.g. 0x7E0 and 0x7E8."
+        if tester == response:
+            return "The tester and response CAN IDs must differ."
+        if not parse_keys(self.ecus.text()):
+            return "Enter at least one ECU key."
+        return None
 
     def values(self) -> tuple[str, str, str, list[int]]:
         return self.tester.text(), self.response.text(), self.recipe.currentText(), parse_keys(self.ecus.text())
 
 
-class EndpointConfirmDialog(QDialog):
-    def __init__(self, endpoint_id: str, ecu_keys: list[int], parent: QWidget | None = None) -> None:
+class EndpointConfirmDialog(_ValidatedDialog):
+    def __init__(self, endpoint_id: str, ecu_keys: list[int], project_root: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.project_root = Path(project_root)
         self.setWindowTitle(f"Confirm endpoint {endpoint_id}")
         self.setToolTip(f"Writes {endpoint_id} into config/transport.json as a confirmed endpoint.")
         form = QFormLayout(self)
         self.ecus = QLineEdit(", ".join(str(key) for key in ecu_keys))
+        self.ecus.setToolTip("Which ECUs answer at this endpoint")
         self.source = QLineEdit()
-        self.source.setPlaceholderText("docs/evidence/endpoint-probe.md")
-        form.addRow("ECU keys served", self.ecus)
-        self.source.setToolTip("Tracked document that records the probe evidence, relative to the project")
-        form.addRow("Evidence document", self.source)
+        self.source.setPlaceholderText("required")
+        self.source.setToolTip(
+            "A document in this project that records how the endpoint was found and that it "
+            "answered, e.g. docs/evidence/endpoints.md"
+        )
+        browse = QPushButton("Browse…")
+        browse.setToolTip("Choose an evidence document inside the project")
+        browse.clicked.connect(self._browse)
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addWidget(self.source, 1)
+        row_layout.addWidget(browse)
+        form.addRow("ECU keys", self.ecus)
+        form.addRow("Evidence document", row)
+        form.addRow(self._error_label())
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
+    def _browse(self) -> None:
+        selected, _ = QFileDialog.getOpenFileName(self, "Evidence document", str(self.project_root / "docs"))
+        if selected:
+            try:
+                self.source.setText(Path(selected).resolve().relative_to(self.project_root.resolve()).as_posix())
+            except ValueError:
+                self.error.setText("Choose a document inside the project folder.")
+                self.error.setVisible(True)
+
+    def problem(self) -> str | None:
+        if not parse_keys(self.ecus.text()):
+            return "Enter at least one ECU key."
+        sources = self.values()[1]
+        if not sources:
+            return "Choose the evidence document for this endpoint."
+        for source in sources:
+            path = Path(source)
+            if path.is_absolute() or ".." in path.parts or path.parts[:1] == ("scratch",):
+                return f"{source}: use a tracked document inside the project, not scratch/ or an outside path."
+            if not (self.project_root / path).is_file():
+                return f"{source} does not exist in the project."
+        return None
+
     def values(self) -> tuple[list[int], list[str]]:
-        sources = [value.strip() for value in self.source.text().split(",") if value.strip()]
+        sources = [value.strip().replace("\\", "/") for value in self.source.text().split(",") if value.strip()]
         return parse_keys(self.ecus.text()), sources
 
 
@@ -151,7 +253,7 @@ class TargetEditDialog(QDialog):
             if name in self.INTEGER_FIELDS:
                 editor = QSpinBox()
                 editor.setRange(0, 10_000_000)
-                editor.setSpecialValueText("remove")
+                editor.setSpecialValueText("none")
                 editor.setValue(int(requirements.get(name, 0)))
             elif name in self.DURATION_FIELDS:
                 editor = QLineEdit(format_duration(requirements[name]) if name in requirements else "")
@@ -164,7 +266,7 @@ class TargetEditDialog(QDialog):
         difference = QDoubleSpinBox()
         difference.setDecimals(4)
         difference.setRange(0, 1e9)
-        difference.setSpecialValueText("remove")
+        difference.setSpecialValueText("none")
         difference.setValue(float((current or {}).get("minimum_difference") or 0))
         self._add_row(grid, row, "minimum_difference", "Minimum difference", difference)
         row += 1
@@ -172,9 +274,10 @@ class TargetEditDialog(QDialog):
         condition.setPlaceholderText("372/0x1002/0..15 > 10 and ...; empty means always")
         self._add_row(grid, row, "condition", "Collect when", condition)
         row += 1
-        included = QCheckBox("Included in collection")
+        included = QCheckBox("Yes")
+        included.setToolTip("Unchecked keeps the target but leaves the signal out of collection")
         included.setChecked(bool((current or {}).get("included", True)))
-        self._add_row(grid, row, "included", "Inclusion", included)
+        self._add_row(grid, row, "included", "Collect this signal", included)
         layout.addLayout(grid)
         difference.setToolTip(
             "A change counts when consecutive decoded values differ by at least this much, "

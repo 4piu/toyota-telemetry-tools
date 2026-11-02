@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -154,9 +155,12 @@ class CollectPage(QWidget):
             self.readiness_text.setText(f"Cannot check readiness: {detail.split(chr(10) * 2, 1)[0]}")
             self._update_start()
 
-        self.context.run(
-            "collect.readiness", lambda service: service.readiness(chosen), self._show_readiness, failed
-        )
+        def work(service):
+            readiness = service.readiness(chosen)
+            self._names = service.signal_names(readiness.scope.get("targets", []))
+            return readiness
+
+        self.context.run("collect.readiness", work, self._show_readiness, failed)
 
     def _show_readiness(self, readiness: CollectionReadiness | None) -> None:
         self.check_button.setEnabled(self.context.service is not None)
@@ -216,9 +220,11 @@ class CollectPage(QWidget):
     def _update_start(self) -> None:
         if self.running:
             self.start_button.setText("Stop")
+            self.start_button.setIcon(QIcon())
             self.start_button.setToolTip("Stop safely; the run is finalized")
             self.start_button.setEnabled(True)
             return
+        mark_live(self.start_button)
         self.start_button.setText("Start…")
         self.start_button.setToolTip(self.start_button.property("baseToolTip") or "")
         ready = self.readiness is not None and self.readiness.ready
@@ -238,23 +244,29 @@ class CollectPage(QWidget):
             return
         scope = readiness.scope
         session = scope["endpoint"]
+        connector = scope["connector"]
+        device = ", ".join(f"{value}" for value in connector["settings"].values())
+        names = getattr(self, "_names", {})
         details = [
-            f"Scope hash: {readiness.digest}",
-            f"Connector: {scope['connector']['kind']} {scope['connector']['settings']}",
-            f"Endpoint: {readiness.endpoint_id} ({session['tester_can_id']}/{session['response_can_id']}, "
-            f"session {session['session_recipe_id']})",
-            "Session setup: " + "; ".join(step["request_hex"] for step in session["session_setup"]),
-            f"DIDs ({len(scope['acquisitions'])}): " + ", ".join(
-                row["acquisition_id"].rsplit("/", 1)[1] for row in scope["acquisitions"]
-            ),
-            f"Storage: segments of {scope['storage']['segment_max_mib']} MiB, tree limit "
-            f"{scope['storage']['capture_tree_max_mib']} MiB",
-            f"Run note: {self.note.text() or '-'}",
+            f"Endpoint: {readiness.endpoint_id} ({session['tester_can_id']}/{session['response_can_id']})",
+            f"Adapter: {connector['kind']} {device}".rstrip(),
+            f"Signals ({len(scope['targets'])}):",
+            *[f"    {names.get(ref, ref)}" for ref in scope["targets"]],
+            f"Reads {len(scope['acquisitions'])} DID(s); stops when these targets are complete or you stop it.",
+            f"Storage limit: {scope['storage']['capture_tree_max_mib']} MiB",
+            f"Note: {self.note.text() or '-'}",
+        ]
+        technical = [
+            f"Scope fingerprint: {readiness.digest}",
+            f"Session {session['session_recipe_id']}: "
+            + "; ".join(step["request_hex"] for step in session["session_setup"]),
+            *[f"{row['acquisition_id']}: request {row['request_hex']}, every {row['target_interval_ms']} ms"
+              for row in scope["acquisitions"]],
         ]
         dialog = LiveConfirmDialog(
             "Collect",
-            f"LIVE collection of {len(scope['acquisitions'])} DID(s) on {readiness.endpoint_id}?",
-            details, self,
+            f"LIVE collection of {len(scope['targets'])} signal(s) on {readiness.endpoint_id}?",
+            details, self, technical=technical,
         )
         if not self.confirm_live(dialog):
             return
@@ -309,6 +321,7 @@ class CollectPage(QWidget):
             "transport_lost": "Transport lost; the valid prefix was finalized.",
         }
         self.run_state.setText(labels.get(reason, f"Finished: {reason}") + " Adapter closed.")
+        self.note.clear()
         self._done()
 
     def _failed(self, detail: str) -> None:

@@ -14,8 +14,35 @@ not a pin: it moves under you.
 
 ## Unreleased
 
+### Fixed
+
+- A collection run now completes on its own endpoint's targets. Previously
+  its live ledger held every target in the plan, so with targets on two
+  endpoints a run never stopped by itself, and readiness and the progress
+  bar counted the other endpoint's targets.
+- Signal series, plots, and CSV export order runs by recorded start time
+  instead of run ID.
+- Run summaries count a recovered segment once (the interrupted source it
+  was made from no longer appears beside it), and interrupted runs report
+  the reads they hold.
+
 ### Changed
 
+- Desktop usability fixes from a fresh-user review: each signal row has its
+  own status (Not checked, Responds, Recorded, Reviewed, or Refused) with the
+  review evidence state chosen from a fixed list; refusals are explained in
+  words; filters untick the rows they hide; endpoints without a known CAN
+  address cannot be ticked for verification; search expands to its matches
+  and edits keep the tree expanded; DID intervals have their own column; the
+  endpoint dialogs check their fields before closing and the confirmation
+  checks that the evidence document exists; the next-step Go button selects
+  the item it refers to; Recordings lists interrupted drives first, gives the
+  runs table more room, shows readable times and plain end reasons, asks
+  before Quarantine, and words outcomes as drives; the Start dialog names
+  the signals to be recorded with raw details collapsed; Stop no longer
+  carries the transmit icon; the run note clears after a run; and Help
+  explains statuses, sessions, refusal codes, transitions vs changes, and
+  interrupted drives.
 - The desktop application no longer blocks while it reads the project.
   Every service call runs on one background worker; stale requests are
   skipped, pages refresh only when shown and out of date, plotted signal data
