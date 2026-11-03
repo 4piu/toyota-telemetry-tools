@@ -108,21 +108,36 @@ def _atomic_write(path: Path, data: bytes) -> None:
 
 @dataclass(frozen=True)
 class ProjectPaths:
+    """The fixed workspace layout; every path is inside the workspace."""
+
     transport: Path
     collection_policy: Path
     signal_review: Path
     catalog_manifest: Path
-    result: Path
-    scratch: Path
+    captures: Path
+    state: Path
     local_settings: Path
     database: Path
-    captures: Path
     plans: Path
-    toolkit: Path
+
+    @classmethod
+    def for_root(cls, root: Path) -> "ProjectPaths":
+        state = root / "state"
+        return cls(
+            transport=root / "config" / "transport.json",
+            collection_policy=root / "config" / "collection-policy.json",
+            signal_review=root / "review" / "signals.json",
+            catalog_manifest=root / "config" / "catalog-manifest.json",
+            captures=root / "captures",
+            state=state,
+            local_settings=state / "local-settings.json",
+            database=state / "project.sqlite",
+            plans=state / "plans",
+        )
 
 
 class ProjectRepository:
-    """Validated schema-v2 project accessed through one repository boundary."""
+    """Validated workspace accessed through one repository boundary."""
 
     def __init__(self, root: Path):
         self.root = root.resolve()
@@ -135,7 +150,7 @@ class ProjectRepository:
         validate_project_marker(marker)
         self.marker = marker
         self.project_id = str(marker["project_id"])
-        self.paths = self._resolve_paths(marker["paths"])
+        self.paths = ProjectPaths.for_root(self.root)
 
         self.transport, self._transport_bytes = _exact_json(self.paths.transport)
         self.policy, self._policy_bytes = _exact_json(self.paths.collection_policy)
@@ -166,18 +181,6 @@ class ProjectRepository:
             raise FileNotFoundError(self.paths.catalog_manifest)
         self._catalog_manifest_bytes = self.paths.catalog_manifest.read_bytes()
         self._validate_references()
-
-    def _resolve_paths(self, values: Mapping[str, str]) -> ProjectPaths:
-        resolved: dict[str, Path] = {}
-        for name, value in values.items():
-            raw = Path(value)
-            path = raw.resolve() if raw.is_absolute() else (self.root / raw).resolve()
-            if name != "toolkit" and not path.is_relative_to(self.root):
-                raise ValueError(
-                    f"telemetry-project.toml paths.{name} escapes the project root"
-                )
-            resolved[name] = path
-        return ProjectPaths(**resolved)
 
     def _validate_references(self) -> None:
         endpoint_ids = {row["id"] for row in self.transport["endpoints"]}
@@ -277,6 +280,17 @@ class ProjectRepository:
         }
         return hashes
 
+    def curated_documents(self) -> dict[str, bytes]:
+        """The exact bytes of the curated inputs, keyed by workspace-relative path."""
+
+        documents = {
+            self.paths.transport: self._transport_bytes,
+            self.paths.collection_policy: self._policy_bytes,
+            self.paths.signal_review: self._review_bytes,
+            self.paths.catalog_manifest: self._catalog_manifest_bytes,
+        }
+        return {path.relative_to(self.root).as_posix(): data for path, data in documents.items()}
+
     def rebuild_cache(
         self,
         catalog_rows: Iterable[Mapping[str, Any]] = (),
@@ -360,7 +374,7 @@ class ProjectRepository:
 
     @property
     def verification_facts_path(self) -> Path:
-        return self.paths.scratch / VERIFICATION_FACTS_FILE
+        return self.paths.state / VERIFICATION_FACTS_FILE
 
     def _verification_facts(self) -> dict[str, Any]:
         path = self.verification_facts_path

@@ -64,7 +64,7 @@ class ServiceTestCase(unittest.TestCase):
 
 class SourceImportTests(ServiceTestCase):
     def test_preview_reports_counts_and_rejections_without_writing(self) -> None:
-        manifest_before = (self.root / "result/catalog-manifest.json").read_bytes()
+        manifest_before = (self.root / "config/catalog-manifest.json").read_bytes()
         preview = self.service.preview_source(NormalizedFileSource(self.rows).read())
         self.assertEqual(preview.counts["signals"], 4)
         self.assertEqual(preview.counts["endpoint_candidates"], 1)
@@ -73,8 +73,8 @@ class SourceImportTests(ServiceTestCase):
         self.assertIn("outside the transport safety range", reasons["405/0xF100/0..7"])
         self.assertIn("needs signal_ref", reasons["row 5"])
         self.assertIsNone(preview.blocking_problem)
-        self.assertFalse((self.root / "scratch/inventory.json").exists())
-        self.assertEqual((self.root / "result/catalog-manifest.json").read_bytes(), manifest_before)
+        self.assertFalse((self.root / "state/inventory.json").exists())
+        self.assertEqual((self.root / "config/catalog-manifest.json").read_bytes(), manifest_before)
 
     def test_apply_keeps_unconfirmed_rows_out_of_the_cache_and_paths_out_of_provenance(self) -> None:
         self.import_rows()
@@ -83,7 +83,7 @@ class SourceImportTests(ServiceTestCase):
         variants = self.service.repository().catalog_variants()
         self.assertEqual({row["signal_ref"] for row in variants},
                          {"372/0x1002/0..15", "372/0x1003/0..7", "372/0x1003/8..15"})
-        manifest = json.loads((self.root / "result/catalog-manifest.json").read_text())
+        manifest = json.loads((self.root / "config/catalog-manifest.json").read_text())
         self.assertEqual(manifest["catalog_row_count"], 4)
         self.assertEqual(manifest["sources"], [{"kind": "file", "label": "candidates.json", "row_count": 4}])
         self.assertNotIn(str(self.root), json.dumps(manifest))
@@ -92,7 +92,7 @@ class SourceImportTests(ServiceTestCase):
 
     def test_reimport_that_drops_a_reviewed_signal_is_blocked(self) -> None:
         self.import_rows()
-        reduced = self.root / "scratch/candidates.json"
+        reduced = self.root / "state/candidates.json"
         rows = json.loads(reduced.read_text())
         reduced.write_text(json.dumps([row for row in rows if row.get("name") != "Battery voltage"]))
         preview = self.service.preview_source(NormalizedFileSource(reduced).read())
@@ -338,7 +338,7 @@ class RecordingsTests(ServiceTestCase):
         result = self.service.edit_targets(tree, ["372/0x1002/0..15"], requirements={"minimum_samples": 9})
         self.service.save(policy=result.policy)
         self.service.readiness()
-        plan_path = self.root / "scratch/plans/admitted-plan.json"
+        plan_path = self.root / "state/plans/admitted-plan.json"
         plan = json.loads(plan_path.read_text())
         acquisition = plan["acquisitions"][0]
         run_ids = []
@@ -346,7 +346,7 @@ class RecordingsTests(ServiceTestCase):
             run_id = str(uuid.uuid4())
             run_ids.append(run_id)
             writer = NativeRunWriter(
-                self.root / "scratch/captures", plan, plan_path.read_bytes(), run_id=run_id,
+                self.root / "captures", plan, plan_path.read_bytes(), run_id=run_id,
                 created_utc=created, backend_kind="synthetic", disk_free_bytes=lambda _: 10**12,
             )
             writer.append_exchange({
@@ -377,11 +377,11 @@ class RecordingsTests(ServiceTestCase):
         result = self.service.edit_targets(tree, ["372/0x1002/0..15"], requirements={"minimum_samples": 9})
         self.service.save(policy=result.policy)
         readiness = self.service.readiness()
-        plan_path = self.root / "scratch/plans/admitted-plan.json"
+        plan_path = self.root / "state/plans/admitted-plan.json"
         plan = json.loads(plan_path.read_text())
         run_id = str(uuid.uuid4())
         writer = NativeRunWriter(
-            self.root / "scratch/captures", plan, plan_path.read_bytes(), run_id=run_id,
+            self.root / "captures", plan, plan_path.read_bytes(), run_id=run_id,
             created_utc="2026-01-01T00:00:00Z", backend_kind="synthetic",
             disk_free_bytes=lambda _: 10**12,
         )

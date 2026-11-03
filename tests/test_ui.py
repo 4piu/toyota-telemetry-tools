@@ -126,15 +126,15 @@ def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, pro
     assert window.next_text.text() == "Next: Import a candidate signal list"
     import_rows(qtbot, window, rows)
     assert window.setup_page.preview_result.text() == "Applied candidates.json."
-    assert json.loads((root / "result/catalog-manifest.json").read_text())["catalog_row_count"] == 4
+    assert json.loads((root / "config/catalog-manifest.json").read_text())["catalog_row_count"] == 4
     setup = window.setup_page
     setup.connector_kind.setCurrentIndex(setup.connector_kind.findData("slcan"))
     setup.connector_fields["slcan"]["port"].setText("COM7")
     setup.executable.setText("")
     setup.connector_save_button.click()
-    saved = json.loads((root / "scratch/local-settings.json").read_text())
+    saved = json.loads((root / "state/local-settings.json").read_text())
     assert saved["backend"] == {
-        "kind": "slcan", "executable": "scratch/bin/telemetry-slcan.exe", "settings": {"port": "COM7"},
+        "kind": "slcan", "executable": None, "settings": {"port": "COM7"},
     }
     assert window.adapter_status.text() == "Adapter closed"
 
@@ -425,7 +425,7 @@ def test_go_selects_the_item_the_next_step_is_about(qtbot, project, probes) -> N
     assert page.confirm_button.isEnabled()
 
 
-def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot, tmp_path) -> None:
+def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot) -> None:
     from toyota_telemetry.ui.dialogs import EndpointAddDialog, EndpointConfirmDialog
 
     add = EndpointAddDialog(["extended"])
@@ -436,16 +436,18 @@ def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot, tmp_path) -> No
     assert add.result() != add.DialogCode.Accepted
     assert add.error.text() == "Enter at least one ECU key."
     assert add.tester.text() == "0x7D0"
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs/probe.md").write_text("evidence\n")
-    confirm = EndpointConfirmDialog("7a1-7a9-extended", [405], tmp_path)
+    confirm = EndpointConfirmDialog("7a1-7a9-extended", [405])
     qtbot.addWidget(confirm)
     confirm.accept()
-    assert confirm.error.text() == "Choose the evidence document for this endpoint."
-    confirm.source.setText("docs/missing.md")
+    assert confirm.error.text() == "Enter where the evidence for this endpoint is written up."
+    confirm.source.setText("C:/notes/probe.md")
     confirm.accept()
-    assert "does not exist" in confirm.error.text()
-    confirm.source.setText("docs/probe.md")
+    assert "relative path in the deliverable repository" in confirm.error.text()
+    confirm.source.setText("captures/run")
+    confirm.accept()
+    assert confirm.result() != confirm.DialogCode.Accepted
+    # Evidence lives in the deliverable repository, so it is not looked up here.
+    confirm.source.setText("docs/evidence/probe.md")
     confirm.accept()
     assert confirm.result() == confirm.DialogCode.Accepted
 
@@ -464,10 +466,10 @@ def test_quarantine_asks_first_and_runs_list_interrupted_first(qtbot, project) -
     signals.save_button.click()
     window.collect_page.check_readiness()
     settle(qtbot, window)
-    plan_path = root / "scratch/plans/admitted-plan.json"
+    plan_path = root / "state/plans/admitted-plan.json"
     plan = json.loads(plan_path.read_text())
     NativeRunWriter(
-        root / "scratch/captures", plan, plan_path.read_bytes(), run_id="0" * 8 + "-0000-4000-8000-" + "0" * 12,
+        root / "captures", plan, plan_path.read_bytes(), run_id="0" * 8 + "-0000-4000-8000-" + "0" * 12,
         created_utc="2026-10-01T10:00:00.123456Z", backend_kind="synthetic", disk_free_bytes=lambda _: 10**12,
     ).crash()
     window.context.changed()
@@ -481,3 +483,26 @@ def test_quarantine_asks_first_and_runs_list_interrupted_first(qtbot, project) -
         settle(qtbot, window)
     assert asked.called
     assert page.runs.item(0, 1).text() == "Interrupted"
+
+
+def test_new_project_and_export_result(qtbot, tmp_path) -> None:
+    window = open_window(qtbot)
+    workspace = tmp_path / "new-car"
+    window.choose_new_folder = lambda: str(workspace)
+    window.context.actions["init"].trigger()
+    settle(qtbot, window)
+    assert window.project_path == workspace.resolve()
+    assert window.next_text.text() == "Next: Configure the connector"
+    deliverable = tmp_path / "deliverable"
+    page = window.recordings_page
+    starts = []
+    page.choose_result_folder = lambda start: (starts.append(start), str(deliverable))[1]
+    window.navigation.setCurrentRow(3)
+    page.result_button.click()
+    settle(qtbot, window)
+    assert page.result_text.text().startswith("Exported result")
+    assert (deliverable / "result/current.json").is_file()
+    assert (deliverable / "config/transport.json").read_bytes() == (workspace / "config/transport.json").read_bytes()
+    page.result_button.click()
+    settle(qtbot, window)
+    assert starts == [str(tmp_path), deliverable.as_posix()]

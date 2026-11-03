@@ -24,26 +24,8 @@ def _write_json(path: Path, value: object) -> bytes:
 def make_current_project(root: Path, *, include_capture: bool = True) -> list[dict]:
     root.joinpath("telemetry-project.toml").write_text(
         "\n".join([
-            "schema_version = 2",
-            'project_kind = "vehicle"',
+            "schema_version = 3",
             'project_id = "test-project"',
-            "",
-            "[toolkit]",
-            'repository = "https://example.invalid/tools.git"',
-            'revision = "main"',
-            "",
-            "[paths]",
-            'transport = "config/transport.json"',
-            'collection_policy = "config/collection-policy.json"',
-            'signal_review = "review/signals.json"',
-            'catalog_manifest = "result/catalog-manifest.json"',
-            'result = "result"',
-            'scratch = "scratch"',
-            'local_settings = "scratch/local-settings.json"',
-            'database = "scratch/project.sqlite"',
-            'captures = "scratch/captures"',
-            'plans = "scratch/plans"',
-            'toolkit = "../telemetry-tools"',
             "",
         ]),
         encoding="utf-8",
@@ -112,20 +94,20 @@ def make_current_project(root: Path, *, include_capture: bool = True) -> list[di
             "evidence_refs": [],
         }],
     })
-    _write_json(root / "result/catalog-manifest.json", {
+    _write_json(root / "config/catalog-manifest.json", {
         "document_type": "telemetry.catalog-manifest",
         "schema_version": 1,
         "profile_id": "test-profile",
         "catalog_row_count": 1,
         "legacy_manifest_sha256": "d9b547f5d5355a93fd222072eda0e4d037461e0c155a7605e4fe1603eec6c9d0",
     })
-    _write_json(root / "scratch/local-settings.json", {
+    _write_json(root / "state/local-settings.json", {
         "document_type": "telemetry.local-settings",
         "schema_version": 1,
         "project_id": "test-project",
         "backend": {
             "kind": "pcan",
-            "executable": "scratch/bin/telemetry-pcan.exe",
+            "executable": "state/bin/telemetry-pcan.exe",
             "settings": {"channel": "PCAN_USBBUS1"},
         },
     })
@@ -137,7 +119,7 @@ def make_current_project(root: Path, *, include_capture: bool = True) -> list[di
         "unit": "V",
     }]
     if include_capture:
-        _write_imported_capture(root / "scratch/captures")
+        _write_imported_capture(root / "captures")
     return rows
 
 

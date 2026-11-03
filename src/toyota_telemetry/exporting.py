@@ -1,4 +1,8 @@
-"""Deterministic, generation-atomic CSV and JSON project export."""
+"""Deterministic, generation-atomic export into a deliverable directory.
+
+The workspace stays private. An export writes the reviewed result and exact
+copies of the curated inputs that produced it; nothing else leaves.
+"""
 
 from __future__ import annotations
 
@@ -60,14 +64,42 @@ def _stable_write(path: Path, data: bytes) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def check_destination(repository: ProjectRepository, destination: Path) -> Path:
+    """Resolve an export destination and refuse ones that would mix projects."""
+
+    target = destination.resolve()
+    if target == repository.root or target.is_relative_to(repository.root):
+        raise ValueError("export to a folder outside the workspace")
+    if repository.root.is_relative_to(target):
+        raise ValueError("export to a folder that does not contain the workspace")
+    if target.exists() and not target.is_dir():
+        raise ValueError(f"{target.name} is not a folder")
+    pointer_path = target / "result" / "current.json"
+    if pointer_path.is_file():
+        try:
+            pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+            manifest_path = target / "result" / "generations" / pointer["generation_id"] / "manifest.json"
+            project_id = json.loads(manifest_path.read_text(encoding="utf-8"))["project_id"]
+        except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"the existing result in {target.name} is unreadable") from exc
+        if project_id != repository.project_id:
+            raise ValueError(
+                f"{target.name} holds results of project {project_id}, not {repository.project_id}"
+            )
+    return target
+
+
 def export_project(
     repository: ProjectRepository,
+    destination: Path,
     *,
     toolkit_version: str,
-    toolkit_commit: str,
+    toolkit_commit: str | None,
     generated_at_utc: str,
 ) -> dict[str, Any]:
-    """Publish one immutable generation and atomically advance its pointer."""
+    """Write one immutable generation and the curated inputs, then advance the pointer."""
+
+    target = check_destination(repository, destination)
 
     variants_by_signal: dict[str, list[dict[str, Any]]] = {}
     for variant in repository.catalog_variants():
@@ -157,9 +189,11 @@ def export_project(
         "privacy": "No raw response payloads, trip metadata, adapter serials, or local paths are exported.",
     }
     payloads["manifest.json"] = _json_bytes(manifest)
-    generation = repository.paths.result / "generations" / generation_id
+    generation = target / "result" / "generations" / generation_id
     for name, data in payloads.items():
         _stable_write(generation / name, data)
+    for relative, data in repository.curated_documents().items():
+        _atomic_replace(target / relative, data)
     pointer = _json_bytes(
         {
             "document_type": "telemetry.result-pointer",
@@ -168,7 +202,7 @@ def export_project(
             "manifest_sha256": _sha256(payloads["manifest.json"]),
         }
     )
-    _atomic_replace(repository.paths.result / "current.json", pointer)
+    _atomic_replace(target / "result" / "current.json", pointer)
     return manifest
 
 

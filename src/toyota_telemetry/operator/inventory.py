@@ -1,6 +1,6 @@
 """Candidate inventory: imported rows, manual endpoints, and the signal tree.
 
-The inventory is ignored machine-local state (``scratch/inventory.json``). It
+The inventory is ignored machine-local state (``state/inventory.json``). It
 holds every imported candidate row, including ECUs whose endpoint is not yet
 confirmed. Only rows for confirmed ECUs enter the rebuildable cache, so the
 tracked authorities never depend on unverified addresses.
@@ -81,7 +81,7 @@ def outcome_text(outcome: str, nrc: str | None = None) -> str:
 
 
 def inventory_path(repository: ProjectRepository):
-    return repository.paths.scratch / INVENTORY_FILE
+    return repository.paths.state / INVENTORY_FILE
 
 
 def empty_inventory(project_id: str) -> dict[str, Any]:

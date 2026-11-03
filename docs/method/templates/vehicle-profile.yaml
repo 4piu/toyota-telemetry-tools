@@ -1,0 +1,21 @@
+schema_version: 1
+profile_id: example-platform-region-drivetrain
+vehicle_instance_id: vehicle-a
+vehicle:
+  model_year: null
+  market: null
+  platform: null
+  drivetrain: null
+  production_period: null
+diagnostic_software:
+  product: Techstream
+  version: null
+  database_region: null
+ecus:
+  - key: null
+    name: null
+    database_file: null
+    profile_evidence: session-observed
+    endpoint_evidence: candidate
+    calibration_alias: null
+privacy_note: VIN and owner identifiers are intentionally omitted.

@@ -125,30 +125,12 @@ def review() -> dict:
     }
 
 
-def make_project(root: Path, *, escaped_result: bool = False) -> None:
+def make_project(root: Path) -> None:
     root.joinpath("telemetry-project.toml").write_text(
         "\n".join(
             [
-                "schema_version = 2",
-                'project_kind = "vehicle"',
+                "schema_version = 3",
                 'project_id = "test-project"',
-                "",
-                "[toolkit]",
-                'repository = "https://example.invalid/tools.git"',
-                'revision = "main"',
-                "",
-                "[paths]",
-                'transport = "config/transport.json"',
-                'collection_policy = "config/collection-policy.json"',
-                'signal_review = "review/signals.json"',
-                'catalog_manifest = "result/catalog-manifest.json"',
-                f'result = "{"../outside" if escaped_result else "result"}"',
-                'scratch = "scratch"',
-                'local_settings = "scratch/local-settings.json"',
-                'database = "scratch/project.sqlite"',
-                'captures = "scratch/captures"',
-                'plans = "scratch/plans"',
-                'toolkit = "../telemetry-tools"',
                 "",
             ]
         ),
@@ -157,7 +139,7 @@ def make_project(root: Path, *, escaped_result: bool = False) -> None:
     write_json(root / "config/transport.json", transport())
     write_json(root / "config/collection-policy.json", policy())
     write_json(root / "review/signals.json", review())
-    write_json(root / "result/catalog-manifest.json", {"schema_version": 1})
+    write_json(root / "config/catalog-manifest.json", {"schema_version": 1})
 
 
 class IdentityTests(unittest.TestCase):
@@ -212,7 +194,7 @@ class SchemaTests(unittest.TestCase):
             "project_id": "test-project",
             "backend": {
                 "kind": "pcan",
-                "executable": "scratch/bin/telemetry-pcan.exe",
+                "executable": "state/bin/telemetry-pcan.exe",
                 "settings": {"channel": "PCAN_USBBUS1"},
             },
         }
@@ -223,13 +205,6 @@ class SchemaTests(unittest.TestCase):
 
 
 class RepositoryTests(unittest.TestCase):
-    def test_project_paths_cannot_escape_root(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            make_project(root, escaped_result=True)
-            with self.assertRaisesRegex(ValueError, "escapes the project root"):
-                ProjectRepository(root)
-
     def test_cache_rebuild_is_deterministic_and_refresh_is_idempotent(self) -> None:
         catalog = [
             {
@@ -320,7 +295,7 @@ class RepositoryTests(unittest.TestCase):
             write_json(root / "config/collection-policy.json", document)
             with self.assertRaisesRegex(ValueError, "unresolved signal_ref ECU"):
                 ProjectRepository(root)
-            self.assertFalse((root / "scratch/project.sqlite").exists())
+            self.assertFalse((root / "state/project.sqlite").exists())
 
     def test_profile_ids_must_match(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -338,9 +313,9 @@ class RepositoryTests(unittest.TestCase):
             make_project(root)
             marker = root / "telemetry-project.toml"
             marker.write_text(marker.read_text(encoding="utf-8").replace(
-                "schema_version = 2", "schema_version = 1"
+                "schema_version = 3", "schema_version = 2"
             ), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "schema_version must be 2"):
+            with self.assertRaisesRegex(ValueError, "schema_version must be 3"):
                 ProjectRepository(root)
 
 

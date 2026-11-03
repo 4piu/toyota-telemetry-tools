@@ -356,24 +356,27 @@ class PlanningAndExportTests(unittest.TestCase):
             root = Path(directory) / "vehicle"
             root.mkdir()
             repository, _ = current_repository(root)
+            deliverable = Path(directory) / "deliverable"
             first = export_project(
                 repository,
+                deliverable,
                 toolkit_version="0.4.0-dev",
                 toolkit_commit="deadbeef",
                 generated_at_utc="2026-01-01T00:00:00+00:00",
             )
-            before = tree_hashes(repository.paths.result)
+            before = tree_hashes(deliverable)
             second = export_project(
                 repository,
+                deliverable,
                 toolkit_version="0.4.0-dev",
                 toolkit_commit="deadbeef",
                 generated_at_utc="2026-01-01T00:00:00+00:00",
             )
             self.assertEqual(first, second)
-            self.assertEqual(before, tree_hashes(repository.paths.result))
+            self.assertEqual(before, tree_hashes(deliverable))
             self.assertEqual(first["row_counts"]["signals"], 1)
             self.assertIn("No raw response payloads", first["privacy"])
-            generation = repository.paths.result / "generations" / first["generation_id"]
+            generation = deliverable / "result" / "generations" / first["generation_id"]
             self.assertTrue((generation / "signals.csv").is_file())
             self.assertTrue((generation / "signals.json").is_file())
 

@@ -1,18 +1,44 @@
 # Changelog
 
-A platform repository decides when to move: `toolkit.revision` in its
-`telemetry-project.toml` is the only pin, and nothing here reaches downstream
-until its owner changes it. This file exists so that decision can be made
-without reading the diff.
+The toolkit is installed on its own; a workspace moves when its owner updates
+the installed toolkit. This file exists so that decision can be made without
+reading the diff.
 
-**Breaking** entries require a change in the platform repository before its
-commands will run. Everything else is safe to take.
-
-Pin a tag rather than a branch — `revision = "v0.3.0"` — and
-`setup-platform-project.ps1` resolves it to the commit it names. A branch is
-not a pin: it moves under you.
+**Breaking** entries require a change in the workspace before its commands
+will run. Everything else is safe to take.
 
 ## Unreleased
+
+### Breaking
+
+- The toolkit is standalone. `telemetry-project.toml` is schema 3 with only
+  `schema_version` and `project_id`; the `[toolkit]` pin and `[paths]` table
+  are gone, and the workspace layout is fixed: `config/transport.json`,
+  `config/collection-policy.json`, `config/catalog-manifest.json` (moved from
+  `result/`), `review/signals.json`, `captures/` (was `scratch/captures/`), and
+  `state/` for the rest of the former `scratch/` (local settings, database,
+  plans, inventory, verification facts, previews, quarantine).
+- `telemetry result generate` and Recordings > Generate result are replaced by
+  `telemetry export FOLDER` and Recordings > Export result. The export writes
+  the result generation and `result/current.json` plus exact copies of the
+  curated inputs into a deliverable folder outside the workspace, and refuses
+  a folder holding another project's results. The manifest's
+  `toolkit_commit` is the source checkout's commit (`-dirty` when modified)
+  or null for an installed package.
+- `tools/setup-platform-project.ps1` and `docs/updating-the-pin.md` are
+  removed. Install with `uv tool install`; `backends/build.ps1` now builds the
+  workers into `src/toyota_telemetry/workers/`, which wheels bundle, and a
+  connector's `executable` may be null to use them.
+- Endpoint and dynamic-DID provenance and review evidence references name
+  documents in the deliverable repository; they are no longer resolved in the
+  workspace and may not point into `captures/` or `state/`.
+
+### Added
+
+- `telemetry init FOLDER` and Project > New project create an empty
+  workspace. A transport may now have no endpoints or session recipes yet.
+- The vehicle-independent method moved here from the retired template
+  repository, under `docs/method/`.
 
 ### Fixed
 

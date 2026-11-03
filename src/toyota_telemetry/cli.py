@@ -44,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     try:
+        if args.command == "init":
+            return _init(args)
         service = OperatorService(args.project_root.resolve() if args.project_root else find_project_root())
         return args.handler(service, args)
     except (Refused, ConfirmationRefused, LiveBusy) as exc:
@@ -54,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--project-root", type=Path, help="project folder (default: search upward)")
+    common.add_argument("--project-root", type=Path, help="workspace folder (default: search upward)")
     common.add_argument("--json", action="store_true", dest="as_json", help="print one JSON document")
     selector = argparse.ArgumentParser(add_help=False)
     selector.add_argument("selectors", nargs="*", metavar="SELECTOR",
@@ -68,7 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(
         prog="telemetry",
-        description="Verify, target, collect, and analyze diagnostic telemetry for one vehicle project.",
+        description="Verify, target, collect, and analyze diagnostic telemetry in one project workspace.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
@@ -79,6 +81,10 @@ def build_parser() -> argparse.ArgumentParser:
         sub.set_defaults(handler=handler, operations=operations)
         return sub
 
+    init = command("init", "init", _init, "create an empty project workspace")
+    init.add_argument("folder", type=Path, help="new or empty folder, outside any repository")
+    init.add_argument("--project-id", help="stable project id (default: from the folder name)")
+    init.add_argument("--profile-id", help="vehicle profile id (default: the project id)")
     command("status", "status", _status, "show readiness and the next action")
     command("check", "check", _check, "validate project files and the candidate list")
 
@@ -95,7 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
     connector_set.add_argument("--product-id", help="gs_usb product ID (4 hex digits)")
     connector_set.add_argument("--serial", help="gs_usb serial number")
     connector_set.add_argument("--port", help="slcan serial port")
-    connector_set.add_argument("--executable", help="worker executable (default scratch/bin/telemetry-KIND.exe)")
+    connector_set.add_argument("--executable", help="worker executable (default: the bundled worker)")
     connector_check = command(
         "check", "connector.check", _connector_check,
         "validate settings and run the worker self-test without opening the device",
@@ -205,10 +211,9 @@ def build_parser() -> argparse.ArgumentParser:
     recordings.add_argument("--run", action="append", default=[], dest="runs", help="export: only this run")
     recordings.add_argument("--output", type=Path, help="export: CSV file (default: standard output)")
 
-    result = commands.add_parser("result", help="tracked project result")
-    result_commands = result.add_subparsers(dest="result_command", required=True)
-    command("generate", "result.generate", _result_generate,
-            "generate the privacy-minimized tracked result", parent=result_commands)
+    export = command("export", "export", _export,
+                     "write the reviewed result and curated inputs into a deliverable folder")
+    export.add_argument("destination", type=Path, help="deliverable folder outside the workspace")
     return parser
 
 
@@ -281,7 +286,7 @@ def _connector_show(service: OperatorService, args: argparse.Namespace) -> int:
         print("No connector configured. Use: telemetry connector set KIND ...")
         return EXIT_OK
     backend = document["backend"]
-    print(f"{backend['kind']}  executable={backend['executable']}")
+    print(f"{backend['kind']}  executable={backend['executable'] or 'bundled'}")
     for name, value in sorted(backend["settings"].items()):
         print(f"  {name} = {value}")
     return EXIT_OK
@@ -300,7 +305,7 @@ def _connector_set(service: OperatorService, args: argparse.Namespace) -> int:
         service.save_connector(document)
     if args.as_json:
         return _emit({"connector": document, "saved": not args.dry_run, "check": check.as_dict()})
-    print(("Would save" if args.dry_run else "Saved") + f" {args.kind} connector settings (ignored local state).")
+    print(("Would save" if args.dry_run else "Saved") + f" {args.kind} connector settings (machine-local, never exported).")
     for problem in check.problems:
         print(f"warning: {problem}")
     return EXIT_OK
@@ -723,11 +728,24 @@ def _recordings(service: OperatorService, args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _result_generate(service: OperatorService, args: argparse.Namespace) -> int:
-    manifest = service.generate_result()
+def _init(args: argparse.Namespace) -> int:
+    service = OperatorService.create(args.folder, args.project_id, args.profile_id)
+    repository = service.repository()
     if args.as_json:
-        return _emit({"generation_id": manifest["generation_id"], "row_counts": manifest["row_counts"]})
-    print(f"Generated result {manifest['generation_id']} with {manifest['row_counts']['signals']} signals.")
+        return _emit({"project_root": str(service.root), "project_id": repository.project_id,
+                      "profile_id": repository.profile_id})
+    print(f"Created workspace {repository.project_id} in {service.root}")
+    print(f"Next: cd {service.root} and run telemetry status")
+    return EXIT_OK
+
+
+def _export(service: OperatorService, args: argparse.Namespace) -> int:
+    manifest = service.export_result(args.destination)
+    if args.as_json:
+        return _emit({"generation_id": manifest["generation_id"], "row_counts": manifest["row_counts"],
+                      "destination": str(args.destination.resolve())})
+    print(f"Exported result {manifest['generation_id']} with {manifest['row_counts']['signals']} signals "
+          f"to {args.destination.resolve()}")
     return EXIT_OK
 
 

@@ -23,6 +23,7 @@ import tempfile
 from typing import Any, Callable, Mapping, Protocol
 
 from .identity import canonical_did, stable_slug
+from .project import worker_executable
 from .repository import ProjectRepository
 from .worker_protocol import build_probe_config, parse_probe_result, write_probe_config
 
@@ -90,9 +91,7 @@ def default_probe_worker_factory(
     repository: ProjectRepository, root: Path
 ) -> ProbeWorkerFactory:
     backend = _local_backend(repository)
-    executable = Path(backend["executable"])
-    if not executable.is_absolute():
-        executable = (root / executable).resolve()
+    executable = worker_executable(root, backend)
     if not executable.is_file():
         raise FileNotFoundError(executable)
 

@@ -50,7 +50,7 @@ class WorkerProtocolTests(unittest.TestCase):
     def test_config_contains_only_endpoint_and_local_adapter_scope(self) -> None:
         config = build_worker_config(plan(), "700-708-session", {
             "kind": "pcan",
-            "executable": "scratch/bin/telemetry-pcan.exe",
+            "executable": "state/bin/telemetry-pcan.exe",
             "settings": {"channel": "PCAN_USBBUS1"},
         })
         self.assertEqual(config["document_type"], "telemetry.adapter-worker")

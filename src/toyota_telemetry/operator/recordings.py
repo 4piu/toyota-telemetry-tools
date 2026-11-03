@@ -150,7 +150,7 @@ def quarantine_run(repository: ProjectRepository, run_id: str) -> Path:
     directory = _run_directory(repository, run_id)
     if (directory / "run-end.json").is_file():
         raise ValueError(f"run {run_id} is complete; only interrupted runs are quarantined")
-    destination = repository.paths.scratch / "quarantine" / directory.name
+    destination = repository.paths.state / "quarantine" / directory.name
     if destination.exists():
         raise ValueError(f"quarantine already holds {directory.name}")
     destination.parent.mkdir(parents=True, exist_ok=True)

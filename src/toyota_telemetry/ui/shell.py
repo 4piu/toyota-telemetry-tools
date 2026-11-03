@@ -24,6 +24,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from toyota_telemetry.operator import OperatorService
+
 from .collect_page import CollectPage
 from .context import PageContext
 from .recordings_page import RecordingsPage
@@ -53,6 +55,7 @@ class OperatorWindow(QMainWindow):
         self._closing_after_job = False
 
         self.context = PageContext(self, self.navigate)
+        self.context.settings = self._settings if restore_settings else None
         self.context.message = lambda text: self.statusBar().showMessage(text, 8000)
 
         self.navigation = QListWidget()
@@ -131,6 +134,14 @@ class OperatorWindow(QMainWindow):
 
     def _build_menu(self) -> None:
         project_menu = self.menuBar().addMenu("&Project")
+        new_action = QAction("New project", self)
+        new_action.setShortcut(QKeySequence.StandardKey.New)
+        new_action.triggered.connect(self.new_project)
+        self.context.register(
+            "init", new_action,
+            "Create an empty workspace in a new or empty folder, outside any repository.",
+        )
+        project_menu.addAction(new_action)
         open_action = QAction("Open project", self)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.choose_project)
@@ -173,9 +184,23 @@ class OperatorWindow(QMainWindow):
     # Project and status ----------------------------------------------------
 
     def choose_project(self) -> None:
-        selected = QFileDialog.getExistingDirectory(self, "Open existing telemetry project")
+        selected = QFileDialog.getExistingDirectory(self, "Open project workspace")
         if selected:
             self.open_project(Path(selected))
+
+    def new_project(self) -> None:
+        selected = self.choose_new_folder()
+        if not selected:
+            return
+        try:
+            OperatorService.create(Path(selected))
+        except (OSError, ValueError) as exc:
+            self.context.error("Project not created", str(exc))
+            return
+        self.open_project(Path(selected))
+
+    def choose_new_folder(self) -> str:
+        return QFileDialog.getExistingDirectory(self, "Empty folder for the new project")
 
     def open_project(self, path: Path) -> bool:
         if self.context.live_job_running:

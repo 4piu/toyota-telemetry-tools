@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any
 
 from PySide6.QtWidgets import (
@@ -12,10 +12,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
-    QFileDialog,
     QFormLayout,
     QGridLayout,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
@@ -136,7 +134,7 @@ class EndpointAddDialog(_ValidatedDialog):
         form.addRow("ECU keys", self.ecus)
         self.setToolTip(
             "Adds a candidate only. Nothing is transmitted until you verify it, and nothing is "
-            "written to tracked transport until you confirm it."
+            "written to the transport settings until you confirm it."
         )
         self.recipe.setToolTip("Diagnostic session to open, from the project's reviewed transport settings")
         self.ecus.setToolTip("Which ECUs answer at this address (their keys in the candidate list)")
@@ -162,57 +160,37 @@ class EndpointAddDialog(_ValidatedDialog):
 
 
 class EndpointConfirmDialog(_ValidatedDialog):
-    def __init__(self, endpoint_id: str, ecu_keys: list[int], project_root: Path, parent: QWidget | None = None) -> None:
+    def __init__(self, endpoint_id: str, ecu_keys: list[int], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.project_root = Path(project_root)
         self.setWindowTitle(f"Confirm endpoint {endpoint_id}")
-        self.setToolTip(f"Writes {endpoint_id} into config/transport.json as a confirmed endpoint.")
+        self.setToolTip(f"Records {endpoint_id} as a confirmed endpoint in the workspace settings.")
         form = QFormLayout(self)
         self.ecus = QLineEdit(", ".join(str(key) for key in ecu_keys))
         self.ecus.setToolTip("Which ECUs answer at this endpoint")
         self.source = QLineEdit()
         self.source.setPlaceholderText("required")
         self.source.setToolTip(
-            "A document in this project that records how the endpoint was found and that it "
-            "answered, e.g. docs/evidence/endpoints.md"
+            "Where the evidence is written up, as a path in the deliverable repository, "
+            "e.g. docs/evidence/endpoints.md. Separate several with commas."
         )
-        browse = QPushButton("Browse")
-        browse.setToolTip("Choose an evidence document inside the project")
-        browse.clicked.connect(self._browse)
-        row = QWidget()
-        row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.addWidget(self.source, 1)
-        row_layout.addWidget(browse)
         form.addRow("ECU keys", self.ecus)
-        form.addRow("Evidence document", row)
+        form.addRow("Evidence", self.source)
         form.addRow(self._error_label())
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
-    def _browse(self) -> None:
-        selected, _ = QFileDialog.getOpenFileName(self, "Evidence document", str(self.project_root / "docs"))
-        if selected:
-            try:
-                self.source.setText(Path(selected).resolve().relative_to(self.project_root.resolve()).as_posix())
-            except ValueError:
-                self.error.setText("Choose a document inside the project folder.")
-                self.error.setVisible(True)
-
     def problem(self) -> str | None:
         if not parse_keys(self.ecus.text()):
             return "Enter at least one ECU key."
         sources = self.values()[1]
         if not sources:
-            return "Choose the evidence document for this endpoint."
+            return "Enter where the evidence for this endpoint is written up."
         for source in sources:
-            path = Path(source)
-            if path.is_absolute() or ".." in path.parts or path.parts[:1] == ("scratch",):
-                return f"{source}: use a tracked document inside the project, not scratch/ or an outside path."
-            if not (self.project_root / path).is_file():
-                return f"{source} does not exist in the project."
+            path = PurePosixPath(source)
+            if path.is_absolute() or ":" in source or ".." in path.parts or path.parts[:1] in (("captures",), ("state",)):
+                return f"{source}: use a relative path in the deliverable repository."
         return None
 
     def values(self) -> tuple[list[int], list[str]]:

@@ -105,7 +105,7 @@ def local_settings() -> dict:
         "project_id": "test-project",
         "backend": {
             "kind": "pcan",
-            "executable": "scratch/bin/telemetry-pcan.exe",
+            "executable": "state/bin/telemetry-pcan.exe",
             "settings": {"channel": "PCAN_USBBUS1"},
         },
     }
@@ -115,26 +115,8 @@ def make_project(root: Path) -> None:
     root.joinpath("telemetry-project.toml").write_text(
         "\n".join(
             [
-                "schema_version = 2",
-                'project_kind = "vehicle"',
+                "schema_version = 3",
                 'project_id = "test-project"',
-                "",
-                "[toolkit]",
-                'repository = "https://example.invalid/tools.git"',
-                'revision = "main"',
-                "",
-                "[paths]",
-                'transport = "config/transport.json"',
-                'collection_policy = "config/collection-policy.json"',
-                'signal_review = "review/signals.json"',
-                'catalog_manifest = "result/catalog-manifest.json"',
-                'result = "result"',
-                'scratch = "scratch"',
-                'local_settings = "scratch/local-settings.json"',
-                'database = "scratch/project.sqlite"',
-                'captures = "scratch/captures"',
-                'plans = "scratch/plans"',
-                'toolkit = "../telemetry-tools"',
                 "",
             ]
         ),
@@ -143,8 +125,8 @@ def make_project(root: Path) -> None:
     write_json(root / "config/transport.json", transport())
     write_json(root / "config/collection-policy.json", policy())
     write_json(root / "review/signals.json", review())
-    write_json(root / "result/catalog-manifest.json", {"schema_version": 1})
-    write_json(root / "scratch/local-settings.json", local_settings())
+    write_json(root / "config/catalog-manifest.json", {"schema_version": 1})
+    write_json(root / "state/local-settings.json", local_settings())
 
 
 def make_repository(root: Path) -> ProjectRepository:

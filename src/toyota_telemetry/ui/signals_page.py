@@ -687,7 +687,7 @@ class SignalsPage(QWidget):
         if self.context.service is None or current is None or current[0] != "endpoint":
             return
         endpoint = self.tree_data.endpoint(current[1])
-        dialog = EndpointConfirmDialog(endpoint.endpoint_id, endpoint.ecu_keys, self.context.service.root, self)
+        dialog = EndpointConfirmDialog(endpoint.endpoint_id, endpoint.ecu_keys, self)
         if not self.run_dialog(dialog):
             return
         try:

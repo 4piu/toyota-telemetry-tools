@@ -1,0 +1,38 @@
+schema_version: 1
+experiment_id: YYYYMMDD-short-description
+vehicle_profile: example-platform-region-drivetrain
+vehicle_instance_id: vehicle-a
+state:
+  ignition: IG-ON
+  ready: false
+  gear: P
+  stationary: true
+operator:
+  driver_interaction: none
+  observer: null
+target_signals: []
+stimulus:
+  baseline_seconds: 20
+  steps: []
+transport:
+  adapter: null
+  firmware_or_driver: null
+  channel: null
+  bitrate: 500000
+  tester_id: null
+  response_id: null
+safety:
+  # The built-in read-only guard and the workspace's config/transport.json bound
+  # every transmission. Record any narrower, byte-exact allowlist used here.
+  transmit_allowlist: null
+  stop_conditions:
+    - unexpected response
+    - timeout or transport error
+    - vehicle warning or behavior outside plan
+evidence:
+  # Private paths are relative to the project workspace; published write-ups
+  # are relative to the deliverable repository.
+  private_capture: null
+  sanitized_fixture: null
+  synchronized_reference: null
+notes: null

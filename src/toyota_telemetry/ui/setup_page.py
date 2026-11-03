@@ -59,7 +59,7 @@ class SetupPage(QWidget):
         layout.addWidget(self.project_summary)
         self.check_button = QPushButton("Check")
         self.rebuild_button = QPushButton("Rebuild cache")
-        self.context.register("check", self.check_button, "Validate the tracked project files and the candidate list.")
+        self.context.register("check", self.check_button, "Validate the workspace files and the candidate list.")
         self.context.register(
             "cache.rebuild", self.rebuild_button,
             "Rebuild the disposable cache from project files, candidates, and recordings.",
@@ -143,8 +143,8 @@ class SetupPage(QWidget):
     def _connector_group(self) -> QGroupBox:
         group = QGroupBox("Connector")
         group.setToolTip(
-            "The CAN adapter and driver on this computer. Settings are machine-local and not "
-            "tracked. CAN bitrate comes from the reviewed transport configuration."
+            "The CAN adapter and driver on this computer. Settings are machine-local and never "
+            "exported. CAN bitrate comes from the reviewed transport configuration."
         )
         layout = QVBoxLayout(group)
         form = QFormLayout()
@@ -169,7 +169,7 @@ class SetupPage(QWidget):
         form.addRow(self.connector_stack)
         self.executable = QLineEdit()
         self.executable.setPlaceholderText("default")
-        self.executable.setToolTip("Worker program; empty uses scratch/bin/telemetry-KIND.exe.")
+        self.executable.setToolTip("Worker program; empty uses the worker installed with this tool.")
         form.addRow("Worker executable", self.executable)
         layout.addLayout(form)
         self.context.register("connector.show", self.connector_kind, "Adapter type")
@@ -238,7 +238,7 @@ class SetupPage(QWidget):
         self.connector_kind.setCurrentIndex(self.connector_kind.findData(backend["kind"]))
         for name, value in backend["settings"].items():
             self.connector_fields[backend["kind"]][name].setText(value)
-        self.executable.setText(backend["executable"])
+        self.executable.setText(backend["executable"] or "")
 
     # Sources ----------------------------------------------------------------
 

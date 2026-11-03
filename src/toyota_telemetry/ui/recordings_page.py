@@ -43,6 +43,9 @@ class RecordingsPage(QWidget):
         self.choose_export_path = lambda: QFileDialog.getSaveFileName(
             self, "Export signal data", "signal-data.csv", "CSV files (*.csv)"
         )[0]
+        self.choose_result_folder = lambda start: QFileDialog.getExistingDirectory(
+            self, "Deliverable folder", start
+        )
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Recordings",
@@ -127,17 +130,18 @@ class RecordingsPage(QWidget):
         layout.addWidget(splitter, 1)
 
         self.export_button = QPushButton("Export CSV")
-        self.result_button = QPushButton("Generate result")
+        self.result_button = QPushButton("Export result")
         self.context.register(
             "recordings.export", self.export_button,
             "Export the selected signal's samples (or all signals when none is selected) as CSV.",
         )
         self.context.register(
-            "result.generate", self.result_button,
-            "Write the tracked, privacy-minimized project result under result/.",
+            "export", self.result_button,
+            "Write the reviewed result and copies of the curated settings into a deliverable "
+            "folder, such as the vehicle's repository. Recordings stay in the workspace.",
         )
         self.export_button.clicked.connect(self.export)
-        self.result_button.clicked.connect(self.generate_result)
+        self.result_button.clicked.connect(self.export_result)
         layout.addLayout(button_row(self.export_button, self.result_button))
         self.result_text = notice()
         layout.addWidget(self.result_text)
@@ -396,8 +400,8 @@ class RecordingsPage(QWidget):
             return
         answer = QMessageBox.question(
             self, "Quarantine run",
-            f"Move drive {self._interrupted[0][:8]} out of the recordings? It is kept in the project's "
-            "scratch/quarantine folder and no longer shown or used.",
+            f"Move drive {self._interrupted[0][:8]} out of the recordings? It is kept in the workspace's "
+            "quarantine folder and no longer shown or used.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
@@ -427,25 +431,33 @@ class RecordingsPage(QWidget):
             f"recordings.{action}", lambda service: getattr(service, action)(run_id), done, failed
         )
 
-    def generate_result(self) -> None:
-        if self.context.service is None:
+    def export_result(self) -> None:
+        service = self.context.service
+        if service is None:
             return
+        key = f"export/{service.root.as_posix()}"
+        folder = self.choose_result_folder(self.context.recall(key) or str(service.root.parent))
+        if not folder:
+            return
+        destination = Path(folder)
 
         def done(manifest) -> None:
+            self.context.remember(key, destination.as_posix())
             self.result_button.setEnabled(True)
             show_notice(
                 self.result_text,
-                f"Generated result {manifest['generation_id']} ({manifest['row_counts']['signals']} signals).",
+                f"Exported result {manifest['generation_id']} "
+                f"({manifest['row_counts']['signals']} signals) to {destination.name}.",
             )
 
         def failed(detail: str) -> None:
             self.result_button.setEnabled(True)
             show_notice(self.result_text, "")
-            self.context.error("Result not generated", detail.split("\n\n", 1)[0])
+            self.context.error("Result not exported", detail.split("\n\n", 1)[0])
 
         self.result_button.setEnabled(False)
-        show_notice(self.result_text, "Generating…")
-        self.context.run("recordings.result", lambda service: service.generate_result(), done, failed)
+        show_notice(self.result_text, "Exporting…")
+        self.context.run("recordings.result", lambda service: service.export_result(destination), done, failed)
 
 
 def _series_data(rows: list[dict]) -> dict:

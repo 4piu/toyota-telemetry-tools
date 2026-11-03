@@ -1,36 +1,50 @@
 # Toyota diagnostic telemetry tools
 
-The programs behind [`70Y074-telemetry`](https://github.com/4piu/70Y074-telemetry),
-the template a vehicle repository is created from: a dependency-free Python
-package, four vehicle-facing adapter workers, and extraction utilities that turn an
-OEM database into candidate telemetry.
+A standalone toolkit for finding, verifying, and collecting diagnostic
+telemetry from one vehicle: a dependency-free Python package with a command
+line and a desktop application, four vehicle-facing adapter workers, and
+extraction utilities that turn an OEM database into candidate telemetry.
 
 Nothing here is specific to a vehicle. Endpoints, session setup, DID selection,
-and collection targets come from a platform repository's configuration; this
-repository supplies the machinery that reads it.
+and collection targets live in a project workspace; this repository supplies
+the machinery that reads it and the [method](docs/method/README.md) behind it.
 
-## Install into a platform project
-
-A project created from the [template](https://github.com/4piu/70Y074-telemetry)
-carries a `bootstrap.ps1` that does this for you — see its README. Manually,
-from a platform repository that already has a `telemetry-project.toml`:
+## Install
 
 ```powershell
-git clone https://github.com/4piu/70Y074-telemetry-tools.git ..\telemetry-tools
-..\telemetry-tools\tools\setup-platform-project.ps1
-.\.venv\Scripts\Activate.ps1
+git clone https://github.com/4piu/70Y074-telemetry-tools.git
+.\70Y074-telemetry-tools\backends\build.ps1        # Windows adapter workers
+uv tool install --editable ".\70Y074-telemetry-tools[gui]"
 ```
 
-The setup script reads the marker, checks this repository out at the pinned
-revision, builds the backends into the project's ignored `scratch/bin/`, and
-installs the package into the project's `.venv`. It needs the network only when
-the pin moves; `-Offline` makes that a rule.
+This puts `telemetry` and `telemetry-ui` on the path. The workers are built
+into the package (`src/toyota_telemetry/workers/`), so every project uses the
+installed ones; a wheel built from the checkout bundles them. Omit `[gui]` for
+the command line only.
 
-`telemetry-project.toml` pins one revision of this repository — the same
-checkout the backends are built from, so the Python tools, the backends, and
-the Techstream scripts are always the revision reviewed. Start a platform
-repository from the template rather than from here; this repository has no
-project structure of its own to copy.
+## Workspace and deliverables
+
+A project is one **workspace** folder, created by the tool and kept outside
+any repository:
+
+```powershell
+telemetry init C:\work\my-car-workspace --profile-id my-car-profile
+```
+
+It holds everything the tool works on, including private data: the
+transport, collection policy, signal review, candidate list, recordings, and
+the local cache. Results leave it only by export:
+
+```powershell
+telemetry export C:\work\my-car-deliverables
+```
+
+writes the reviewed result (a new immutable generation plus
+`result/current.json`) and exact copies of the curated inputs (`config/`,
+`review/`) into a **deliverable** folder, typically the vehicle's Git
+repository, which also holds the written findings and evidence. Recordings,
+connector settings, and the cache never leave the workspace. In the desktop
+application these are Project > New project and Recordings > Export result.
 
 ## Two interfaces
 
@@ -56,7 +70,8 @@ walks the workflow with the command and desktop page for each step.
 | Review and targets | `telemetry signal set`, `telemetry did set`, `telemetry target set\|clear` | Signals |
 | Collect (LIVE) | `telemetry collect [--dry-run] [--yes]` | Collect |
 | Recordings | `telemetry recordings [show\|recover\|quarantine\|export]` | Recordings |
-| Tracked result | `telemetry result generate` | Recordings |
+| Workspace | `telemetry init FOLDER` | Project > New project |
+| Deliverables | `telemetry export FOLDER` | Recordings |
 
 Only `verify` and `collect` transmit. Both show the exact scope first; the CLI
 asks for `yes` in a terminal, and a scripted `--yes` is accepted only for a
@@ -80,7 +95,7 @@ Four pages: Setup (project check, connector, candidate sources), Signals (one
 endpoint → DID → signal tree for verification, review, shared DID settings,
 and batch target edits held as a draft until Save), Collect (automatic
 readiness, start/stop, live progress), and Recordings (recovery, runs, plots
-across all valid runs, CSV export, result generation). Buttons are short;
+across all valid runs, CSV export, result export). Buttons are short;
 descriptions and disabled reasons are in tooltips. The default install
 remains dependency-free; importing the core package does not import Qt, NumPy,
 or PyQtGraph.
@@ -129,9 +144,9 @@ covered by synthetic offline tests; it has not yet been exercised on a vehicle.
 - [Adding an adapter](docs/adding-an-adapter.md) — implementing the backend
   contract for a device that is not PCAN, J2534, or gs_usb.
 
-Method — what to record, how transport is reconstructed, how a formula is
-decoded, what each evidence state claims — lives in the
-[template](https://github.com/4piu/70Y074-telemetry), not here.
+- [Method](docs/method/README.md) — what to record, how transport is
+  reconstructed, how a formula is decoded, what each evidence state claims,
+  and what belongs in a deliverable repository.
 
 ## Backends
 
@@ -142,15 +157,15 @@ implement the collector's transaction contract. They build with the C# compiler
 shipped with Windows and need no SDK.
 
 You should not have to write C# to use one on a new vehicle—endpoint, session,
-and safety facts come from tracked transport authority, while local device
-binding comes from ignored settings.
+and safety facts come from the workspace's transport settings, while local device
+binding comes from machine-local settings in the workspace.
 Adding a different adapter means implementing one seven-member interface.
 
 ## Releases
 
 Each release is tagged, and the [changelog](CHANGELOG.md) records what a bump
-costs a platform repository: entries marked **Breaking** need a change there
-before its commands will run again. Pin a tag; a branch is not a pin.
+costs a workspace: entries marked **Breaking** need a change there before its
+commands will run again.
 
 ## Repository contract
 
@@ -158,6 +173,6 @@ before its commands will run again. Pin a tag; a branch is not a pin.
   the optional `gui` extra adds the desktop application.
 - `backends/` contains the vehicle-facing clients and their shared transport core.
 - `tools/` contains configurable extraction and analysis utilities.
-- `examples/` demonstrates the method with sanitized vehicle evidence.
+- `docs/method/` is the vehicle-independent method.
 - No vehicle conclusions live here. A DID, an endpoint, or a formula that is
-  true of one car belongs in that car's platform repository.
+  true of one car belongs in that car's workspace and deliverable repository.

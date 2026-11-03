@@ -71,8 +71,8 @@ def collection_readiness(
         ))
     refresh_cache(repository, inventory)
     if available_disk_mib is None:
-        repository.paths.scratch.mkdir(parents=True, exist_ok=True)
-        available_disk_mib = shutil.disk_usage(repository.paths.scratch).free // (1024 * 1024)
+        repository.paths.state.mkdir(parents=True, exist_ok=True)
+        available_disk_mib = shutil.disk_usage(repository.paths.state).free // (1024 * 1024)
     try:
         plan, plan_sha256 = compile_plan(
             repository,

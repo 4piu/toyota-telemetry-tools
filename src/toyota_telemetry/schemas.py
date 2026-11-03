@@ -26,6 +26,9 @@ REQUIREMENTS = frozenset(
     }
 )
 POLICY_SCHEMA_VERSION = 2
+PROJECT_SCHEMA_VERSION = 3
+# Workspace folders that hold private working data; references never point there.
+PRIVATE_WORKSPACE_DIRS = frozenset({"captures", "state"})
 OPERATORS = frozenset({"eq", "ne", "lt", "lte", "gt", "gte", "in"})
 SESSION_SERVICES = frozenset({0x10, 0x3E})
 BACKEND_SETTINGS = {
@@ -154,9 +157,9 @@ def _tracked_relative_path(value: Any, where: str) -> str:
         or ":" in text
         or path.is_absolute()
         or any(part in {"", ".", ".."} for part in path.parts)
-        or path.parts[0] == "scratch"
+        or path.parts[0] in PRIVATE_WORKSPACE_DIRS
     ):
-        raise ValueError(f"{where} must be a tracked project-relative path")
+        raise ValueError(f"{where} must be a portable relative reference to a deliverable document")
     return text
 
 
@@ -177,29 +180,12 @@ def _document_header(
 
 def validate_project_marker(marker: Mapping[str, Any]) -> None:
     marker = _object(marker, "telemetry-project.toml")
-    _keys(
-        marker,
-        "telemetry-project.toml",
-        {"schema_version", "project_kind", "project_id", "toolkit", "paths"},
-    )
-    if marker["schema_version"] != 2:
-        raise ValueError("telemetry-project.toml.schema_version must be 2")
-    if marker["project_kind"] != "vehicle":
-        raise ValueError("telemetry-project.toml.project_kind must be 'vehicle'")
+    _keys(marker, "telemetry-project.toml", {"schema_version", "project_id"})
+    if marker["schema_version"] != PROJECT_SCHEMA_VERSION:
+        raise ValueError(
+            f"telemetry-project.toml.schema_version must be {PROJECT_SCHEMA_VERSION}"
+        )
     stable_slug(_string(marker["project_id"], "telemetry-project.toml.project_id"), "project_id")
-    toolkit = _object(marker["toolkit"], "telemetry-project.toml.toolkit")
-    _keys(toolkit, "telemetry-project.toml.toolkit", {"repository", "revision"})
-    _string(toolkit["repository"], "telemetry-project.toml.toolkit.repository")
-    _string(toolkit["revision"], "telemetry-project.toml.toolkit.revision")
-    paths = _object(marker["paths"], "telemetry-project.toml.paths")
-    required_paths = {
-        "transport", "collection_policy", "signal_review", "catalog_manifest",
-        "result", "scratch", "local_settings", "database", "captures", "plans",
-        "toolkit",
-    }
-    _keys(paths, "telemetry-project.toml.paths", required_paths)
-    for key in required_paths:
-        _string(paths[key], f"telemetry-project.toml.paths.{key}")
 
 
 def validate_transport(document: Mapping[str, Any]) -> None:
@@ -242,7 +228,7 @@ def validate_transport(document: Mapping[str, Any]) -> None:
     _integer(safety["transport_retries"], "transport.safety.transport_retries", 0, 5)
 
     recipe_ids: list[str] = []
-    for index, raw in enumerate(_array(document["session_recipes"], "transport.session_recipes", nonempty=True)):
+    for index, raw in enumerate(_array(document["session_recipes"], "transport.session_recipes")):
         where = f"transport.session_recipes[{index}]"
         recipe = _object(raw, where)
         _keys(recipe, where, {"id", "steps"})
@@ -265,7 +251,7 @@ def validate_transport(document: Mapping[str, Any]) -> None:
 
     endpoint_ids: list[str] = []
     ecu_keys: list[int] = []
-    for index, raw in enumerate(_array(document["endpoints"], "transport.endpoints", nonempty=True)):
+    for index, raw in enumerate(_array(document["endpoints"], "transport.endpoints")):
         where = f"transport.endpoints[{index}]"
         endpoint = _object(raw, where)
         _keys(
@@ -458,7 +444,8 @@ def validate_local_settings(document: Mapping[str, Any]) -> None:
     kind = stable_slug(_string(backend["kind"], "local settings.backend.kind"), "backend kind")
     if kind not in BACKEND_SETTINGS:
         raise ValueError(f"local settings.backend.kind is not supported: {kind}")
-    _string(backend["executable"], "local settings.backend.executable")
+    if backend["executable"] is not None:
+        _string(backend["executable"], "local settings.backend.executable")
     settings = _object(backend["settings"], "local settings.backend.settings")
     required, optional = BACKEND_SETTINGS[kind]
     _keys(settings, "local settings.backend.settings", required, optional)

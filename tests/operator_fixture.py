@@ -54,9 +54,9 @@ def candidate_rows() -> list[dict]:
 
 def make_operator_project(root: Path, *, include_capture: bool = True) -> Path:
     make_current_project(root, include_capture=include_capture)
-    rows = root / "scratch" / "candidates.json"
+    rows = root / "state" / "candidates.json"
     rows.write_text(json.dumps(candidate_rows(), indent=2) + "\n", encoding="utf-8")
-    worker = root / "scratch" / "bin" / "telemetry-pcan.exe"
+    worker = root / "state" / "bin" / "telemetry-pcan.exe"
     worker.parent.mkdir(parents=True, exist_ok=True)
     worker.write_bytes(b"")
     return rows

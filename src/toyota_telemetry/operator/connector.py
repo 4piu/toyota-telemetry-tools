@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 from typing import Any, Mapping
 
+from ..project import worker_executable
 from ..repository import ProjectRepository
 from ..schemas import validate_local_settings
 
@@ -44,9 +45,6 @@ class ConnectorCheck:
         return {"ok": self.ok, "problems": list(self.problems), "notes": list(self.notes)}
 
 
-def default_executable(repository: ProjectRepository, kind: str) -> str:
-    scratch = repository.paths.scratch.relative_to(repository.root).as_posix()
-    return f"{scratch}/bin/telemetry-{kind}.exe"
 
 
 def connector_document(
@@ -71,7 +69,7 @@ def connector_document(
         "project_id": repository.project_id,
         "backend": {
             "kind": kind,
-            "executable": executable or default_executable(repository, kind),
+            "executable": executable or None,
             "settings": clean,
         },
     }
@@ -80,8 +78,7 @@ def connector_document(
 
 
 def resolve_executable(repository: ProjectRepository, document: Mapping[str, Any]) -> Path:
-    path = Path(document["backend"]["executable"])
-    return path if path.is_absolute() else (repository.root / path).resolve()
+    return worker_executable(repository.root, document["backend"])
 
 
 def check_connector(
@@ -101,7 +98,7 @@ def check_connector(
     executable = resolve_executable(repository, document)
     if not executable.is_file():
         check.problems.append(
-            f"worker {executable.name} is missing; run the project setup script to build it"
+            f"worker {executable.name} is missing from this installation"
         )
     if backend["kind"] == "j2534":
         dll = Path(backend["settings"]["dll"])

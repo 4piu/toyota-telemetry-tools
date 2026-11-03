@@ -1,7 +1,9 @@
 # Toolkit quickstart
 
-The toolkit runs inside a schema-2 vehicle project. A project owns vehicle
-facts and evidence; this repository owns reusable programs.
+The toolkit is installed once and works on a project **workspace**: one
+folder, outside any repository, that holds every working file. Results reach
+a **deliverable** folder (usually the vehicle's Git repository) only by
+export.
 
 There are two complete, interchangeable interfaces over the same library:
 
@@ -9,57 +11,72 @@ There are two complete, interchangeable interfaces over the same library:
 - `telemetry-ui`, the desktop application (install the `gui` extra).
 
 Every step below names the command and the desktop page that does the same
-thing. Use either, or both; they read and write the same project files.
+thing. Use either, or both; they read and write the same workspace.
 
 ## Install
 
-From the vehicle project root:
-
 ```powershell
-..\telemetry-tools\tools\setup-platform-project.ps1
-.\.venv\Scripts\Activate.ps1
+git clone https://github.com/4piu/70Y074-telemetry-tools.git
+.\70Y074-telemetry-tools\backends\build.ps1
+uv tool install --editable ".\70Y074-telemetry-tools[gui]"
 telemetry --version
 ```
 
-Setup reads `[toolkit]` and `[paths]` from `telemetry-project.toml`, builds all
-private adapter workers into the project's ignored `scratch/bin/`, and installs
-the Python package from that same checkout.
+`build.ps1` compiles the adapter workers into the package, where every
+workspace finds them. After pulling a new toolkit revision, rebuild the
+workers if `backends/` changed; the editable install picks up Python changes
+directly.
+
+## 0. Create a workspace (Project > New project)
+
+```powershell
+telemetry init C:\work\my-car-workspace --profile-id my-car-profile
+cd C:\work\my-car-workspace
+telemetry status
+```
 
 `telemetry status` (or the desktop banner) always shows the next useful step;
-the CLI also prints the command for it.
+the CLI also prints the command for it. Inside the workspace, commands find it
+by searching upward; elsewhere pass `--project-root`.
 
-## Project files
+## Workspace files
 
-Tracked authorities:
+Curated inputs, exported as copies:
 
 - `config/transport.json`: confirmed endpoints, session recipes, dynamic-DID
   definitions, and measured safety limits;
 - `config/collection-policy.json`: shared endpoint+DID settings and signal
   collection targets;
 - `review/signals.json`: reviewed signal definitions and evidence states;
-- `result/catalog-manifest.json`: privacy-minimized provenance of the
+- `config/catalog-manifest.json`: privacy-minimized provenance of the
   candidate list.
 
-Ignored machine-local state under `scratch/`: connector settings, the candidate
-inventory, verification results, captures, the compiled collection scope, and
-the disposable SQLite cache. The tracked JSON files may also be edited by hand;
-`telemetry check` validates them, and the desktop application notices outside
-edits.
+Private working data, never exported: `captures/` (recordings) and `state/`
+(connector settings, the candidate inventory, verification results, the
+compiled collection scope, and the disposable SQLite cache). The JSON files
+may also be edited by hand; `telemetry check` validates them, and the desktop
+application notices outside edits.
+
+A new workspace has no endpoints or session recipes. Add the reviewed session
+recipe to `config/transport.json` by hand (only diagnostic session control and
+tester present are accepted), then add or import endpoints. To continue an
+existing vehicle, copy its exported `config/` and `review/` from the
+deliverable repository into the new workspace.
 
 ## 1. Set up (Setup page)
 
 ```powershell
 telemetry connector set pcan --channel PCAN_USBBUS1
 telemetry connector check
-telemetry source import file scratch/catalog-rows.json            # preview
-telemetry source import file scratch/catalog-rows.json --apply
+telemetry source import file C:\private\catalog-rows.json            # preview
+telemetry source import file C:\private\catalog-rows.json --apply
 telemetry source import tis --database "C:\...\Techstream\NA" --phase 5 --apply
 ```
 
 `connector check` validates settings and runs the worker self-test without
 opening the device. `source import` previews first: counts, conflicts,
 rejected rows, and what changes compared with the current list; `--apply`
-replaces that source's rows, updates the tracked catalog manifest, and
+replaces that source's rows, updates the catalog manifest, and
 rebuilds the cache. The TIS source needs Windows and installed Techstream
 databases. Candidate rows never become reviewed authority by being imported.
 
@@ -77,8 +94,9 @@ a signal reference `ECU/0xNNNN/FIRST..LAST`, narrowed by `--ecu`, `--state`,
 and `--search`. They choose only from the candidate list; there are no ranges
 or sweeps. An endpoint that is not verified yet is probed first and its DIDs
 are read only if it responds. Results (baseline bytes, latency, outcome) are
-kept in ignored `scratch/verification-facts.json`. `endpoint confirm` writes a
-responding endpoint into tracked transport. `endpoint add
+kept in `state/verification-facts.json`. `endpoint confirm` writes a
+responding endpoint into the transport settings; `--source` names where the
+evidence is written up in the deliverable repository. `endpoint add
 TESTER:RESPONSE:RECIPE --ecu KEY` adds an address the source did not provide.
 
 ### Live confirmation
@@ -133,13 +151,17 @@ telemetry recordings show RUN
 telemetry recordings recover RUN          # interrupted run: keep its valid prefix
 telemetry recordings quarantine RUN       # move an unrecoverable run aside
 telemetry recordings export --signal 372/0x1002/0..15 --output battery.csv
-telemetry result generate
+telemetry export C:\work\my-car-deliverables
 ```
 
 All valid runs are included. Export writes UTC, run, elapsed time, raw bytes,
 decoded value, and condition state for external plotting; the desktop
-application plots the same data with run boundaries kept apart. `result
-generate` writes the tracked, privacy-minimized result generation.
+application plots the same data with run boundaries kept apart. `export`
+writes the privacy-minimized result generation and copies of the curated
+inputs into the deliverable folder (Recordings > Export result). It refuses a
+folder inside the workspace and one that holds another project's results.
+The manifest records the toolkit version, and its commit when it runs from a
+Git checkout.
 
 Every command accepts `--json` for one machine-readable document (JSON Lines
 for live commands). Exit codes: 0 success, 1 failure, 2 usage error, 3

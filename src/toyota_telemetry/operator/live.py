@@ -6,7 +6,7 @@ crashed process instead of leaving a stale marker.
 
 A scripted (non-interactive) live run must match the scope most recently
 printed by ``--dry-run`` for the same command. The preview hash is recorded
-automatically under ``scratch/`` so nobody types it.
+automatically under ``state/`` so nobody types it.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ def scope_hash(scope: Mapping[str, Any]) -> str:
 
 class LiveLock:
     def __init__(self, repository: ProjectRepository) -> None:
-        self.path = repository.paths.scratch / LOCK_FILE
+        self.path = repository.paths.state / LOCK_FILE
         self._handle = None
 
     def __enter__(self) -> "LiveLock":
@@ -71,14 +71,14 @@ def live_busy(repository: ProjectRepository) -> bool:
 
 
 def record_preview(repository: ProjectRepository, command: str, digest: str) -> None:
-    path = repository.paths.scratch / PREVIEW_FILE
+    path = repository.paths.state / PREVIEW_FILE
     previews = _read_previews(path)
     previews[command] = digest
     _atomic_write(path, _encoded_json(previews))
 
 
 def require_previewed(repository: ProjectRepository, command: str, digest: str) -> None:
-    recorded = _read_previews(repository.paths.scratch / PREVIEW_FILE).get(command)
+    recorded = _read_previews(repository.paths.state / PREVIEW_FILE).get(command)
     if recorded is None:
         raise ConfirmationRefused(
             f"no previewed {command} scope: run `telemetry {command} ... --dry-run`, review it, "

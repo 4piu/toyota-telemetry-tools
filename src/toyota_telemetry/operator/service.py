@@ -18,9 +18,9 @@ from typing import Any, Callable, Iterable, Mapping, TextIO
 
 from .. import __version__
 from ..discovery import ProbeWorkerFactory, promote_confirmed_endpoint
-from ..exporting import export_project
+from ..exporting import check_destination, export_project
 from ..project import PROJECT_MARKER
-from ..repository import ProjectRepository
+from ..repository import ProjectPaths, ProjectRepository
 from . import editing
 from .collection import CollectionReadiness, collection_readiness, start_collection
 from .connector import ConnectorCheck, check_connector, connector_document
@@ -52,6 +52,7 @@ from .recordings import (
 from .selection import Selection, resolve_selection
 from .sources import SourceRows
 from .verification import VerificationResult, VerificationScope, build_verification_scope, run_verification
+from .workspace import create_workspace
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,7 @@ class Operation:
 
 
 OPERATIONS: tuple[Operation, ...] = (
+    Operation("init", "Create a project workspace", "telemetry init", "project.new"),
     Operation("status", "Show readiness and the next action", "telemetry status", "banner.next"),
     Operation("check", "Validate project files", "telemetry check", "setup.check"),
     Operation("connector.show", "Show connector settings", "telemetry connector show", "setup.connector.form"),
@@ -88,7 +90,7 @@ OPERATIONS: tuple[Operation, ...] = (
     Operation("recordings.recover", "Recover an interrupted run", "telemetry recordings recover", "recordings.recover"),
     Operation("recordings.quarantine", "Quarantine an interrupted run", "telemetry recordings quarantine", "recordings.quarantine"),
     Operation("recordings.export", "Export signal data as CSV", "telemetry recordings export", "recordings.export"),
-    Operation("result.generate", "Generate the project result", "telemetry result generate", "recordings.result"),
+    Operation("export", "Export results to a deliverable folder", "telemetry export", "recordings.result"),
 )
 OPERATION_IDS = frozenset(operation.id for operation in OPERATIONS)
 
@@ -175,6 +177,15 @@ class OperatorService:
         self.root = Path(root).resolve()
         if not (self.root / PROJECT_MARKER).is_file():
             raise FileNotFoundError(f"{self.root} has no {PROJECT_MARKER}")
+
+    @classmethod
+    def create(
+        cls, root: Path, project_id: str | None = None, profile_id: str | None = None
+    ) -> "OperatorService":
+        """Create an empty workspace and return the service for it."""
+
+        create_workspace(root, project_id, profile_id)
+        return cls(root)
 
     def repository(self) -> ProjectRepository:
         return ProjectRepository(self.root)
@@ -285,7 +296,7 @@ class OperatorService:
             result.problems.append(str(exc))
             return result
         result.notes.append(
-            f"project {repository.project_id} profile {repository.profile_id}: tracked files are valid"
+            f"project {repository.project_id} profile {repository.profile_id}: workspace files are valid"
         )
         try:
             inventory = self.inventory(repository)
@@ -471,19 +482,13 @@ class OperatorService:
     def fingerprint(self) -> tuple:
         """Cheap change marker for project files (stat only, no reads)."""
 
+        paths = ProjectPaths.for_root(self.root)
         repository_paths = [
-            self.root / "telemetry-project.toml",
+            self.root / PROJECT_MARKER,
+            paths.transport, paths.collection_policy, paths.signal_review,
+            paths.catalog_manifest, paths.local_settings, paths.captures,
+            paths.state / "inventory.json", paths.state / "verification-facts.json",
         ]
-        try:
-            paths = self.repository().paths
-        except (OSError, ValueError):
-            paths = None
-        if paths is not None:
-            repository_paths += [
-                paths.transport, paths.collection_policy, paths.signal_review,
-                paths.catalog_manifest, paths.local_settings, paths.captures,
-                paths.scratch / "inventory.json", paths.scratch / "verification-facts.json",
-            ]
         marker = []
         for path in repository_paths:
             try:
@@ -553,29 +558,41 @@ class OperatorService:
         repository = self.repository()
         return signal_series(repository, self.inventory(repository), signal_ref)
 
-    def generate_result(self) -> dict[str, Any]:
+    def export_result(self, destination: Path) -> dict[str, Any]:
+        """Write the reviewed result and curated inputs into a deliverable folder."""
+
         repository = self.repository()
+        check_destination(repository, Path(destination))
         refresh_cache(repository, self.inventory(repository))
         return export_project(
             repository,
+            Path(destination),
             toolkit_version=__version__,
-            toolkit_commit=_toolkit_commit(repository),
+            toolkit_commit=toolkit_commit(),
             generated_at_utc=utc_now(),
         )
 
 
-def _toolkit_commit(repository: ProjectRepository) -> str:
+def toolkit_commit() -> str | None:
+    """The toolkit commit when running from its source checkout, else None.
+
+    An installed package carries its version only. A modified checkout is
+    reported with a ``-dirty`` suffix so a result never overstates its origin.
+    """
+
+    package = Path(__file__).resolve().parents[1]
+    checkout = package.parents[1]
+    if package.parent.name != "src" or not (checkout / "pyproject.toml").is_file():
+        return None
     try:
         completed = subprocess.run(
-            ["git", "-C", str(repository.paths.toolkit), "rev-parse", "HEAD"],
+            ["git", "-C", str(checkout), "describe", "--always", "--dirty", "--abbrev=40",
+             "--match", "no-tag-is-named-this"],
             check=True, capture_output=True, text=True,
         )
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise ValueError(
-            f"cannot read the toolkit commit at {repository.paths.toolkit}; "
-            "the result records which toolkit produced it"
-        ) from exc
-    return completed.stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return completed.stdout.strip() or None
 
 
 __all__ = [

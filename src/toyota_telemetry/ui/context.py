@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QSettings, Signal
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from toyota_telemetry.operator import OPERATIONS, OperatorService
@@ -34,6 +34,19 @@ class PageContext(QObject):
         self.live_job_running = False
         self.message: Callable[[str], None] = lambda text: None
         self._fingerprint: tuple | None = None
+        # Persistent preferences; None keeps them in memory (tests, fresh sessions).
+        self.settings: QSettings | None = None
+        self._memory: dict[str, str] = {}
+
+    def recall(self, key: str) -> str:
+        value = self.settings.value(key, "") if self.settings is not None else self._memory.get(key, "")
+        return str(value or "")
+
+    def remember(self, key: str, value: str) -> None:
+        if self.settings is not None:
+            self.settings.setValue(key, value)
+        else:
+            self._memory[key] = value
 
     def open(self, root: Path) -> None:
         self.service = OperatorService(root)
@@ -76,7 +89,8 @@ class PageContext(QObject):
         description = tip or operation.title
         widget.setToolTip(description)
         widget.setProperty("baseToolTip", description)
-        widget.setAccessibleDescription(description)
+        if hasattr(widget, "setAccessibleDescription"):  # menu actions have none
+            widget.setAccessibleDescription(description)
         return widget
 
     def navigate(self, page: str) -> None:

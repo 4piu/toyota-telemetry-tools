@@ -122,6 +122,10 @@ class CliTests(unittest.TestCase):
         self.assertIn("fix: telemetry target set", out)
 
     def test_connector_set_and_check_never_open_a_device(self) -> None:
+        # The bundled workers may be built in a development checkout; use none here.
+        patcher = mock.patch("toyota_telemetry.project.WORKERS", self.root / "no-workers")
+        patcher.start()
+        self.addCleanup(patcher.stop)
         code, out, _ = self.run_cli("connector", "set", "gsusb", "--vendor-id", "1D50", "--product-id", "606f")
         self.assertEqual(code, 0)
         self.assertIn("warning: worker telemetry-gsusb.exe is missing", out)

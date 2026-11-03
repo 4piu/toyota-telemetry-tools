@@ -1,7 +1,7 @@
 """Project-root and configuration helpers.
 
-No helper derives a path from the checkout directory's name or parent layout.
-All relative paths are anchored at the directory containing
+No helper derives a path from the workspace directory's name or parent
+layout. All relative paths are anchored at the directory containing
 ``telemetry-project.toml``.
 """
 
@@ -9,10 +9,21 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 
 PROJECT_MARKER = "telemetry-project.toml"
+# Workers ship inside the package; ``backends/build.ps1`` builds them here.
+WORKERS = Path(__file__).resolve().parent / "workers"
+
+
+def worker_executable(root: Path, backend: Mapping[str, Any]) -> Path:
+    """The worker for a connector: bundled unless the settings name another."""
+
+    if backend["executable"] is None:
+        return WORKERS / f"telemetry-{backend['kind']}.exe"
+    path = Path(backend["executable"])
+    return path if path.is_absolute() else (root / path).resolve()
 
 
 def find_project_root(start: Path | None = None) -> Path:

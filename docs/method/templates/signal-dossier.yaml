@@ -1,0 +1,47 @@
+schema_version: 1
+signal_id: example_signal
+display_name: Example Signal
+vehicle_profile: example-platform-region-drivetrain
+meaning: null
+confidence:
+  acquisition: candidate
+  endpoint: candidate
+  formula: candidate
+  semantics: candidate
+  transport: not-replayed
+ecu:
+  key: null
+  name: null
+transport:
+  network: can
+  bitrate: 500000
+  addressing: normal
+  tester_id: null
+  response_id: null
+acquisition:
+  service: 0x22
+  source_did: null
+  composite_did: null
+  source_position: null
+  source_size: null
+field:
+  first_bit: null
+  last_bit: null
+  bit_numbering: msb-first
+  byte_order: big
+  raw_type: unsigned
+conversion:
+  coefficients: {a: null, b: null, c: null, decimal_places: null}
+  expression: null
+  unit: null
+enumeration: null
+invalid_values: []
+validation:
+  experiments: []
+  reference: null
+  points: []
+timing:
+  sample_count: null
+  period_ms: null
+  latency_ms: {min: null, median: null, p95: null, max: null}
+limitations: []

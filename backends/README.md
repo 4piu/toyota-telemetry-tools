@@ -34,11 +34,13 @@ bounded attempt per invocation.
 | `telemetry-gsusb.exe` | candleLight/gs_usb over WinUSB or libusb |
 | `telemetry-slcan.exe` | LAWICEL/slcan over a serial port |
 
-Adapter paths, channels, and serial-device names belong in the vehicle
-project's ignored `scratch/local-settings.json`. Portable endpoints, session
-steps, timing bounds, and dynamic-DID definitions belong in its tracked
-`config/transport.json`. Python composes those authorities with the admitted
-plan into a temporary exact worker config under ignored scratch.
+`build.ps1` writes the workers into the Python package
+(`src/toyota_telemetry/workers/`), where the tool finds them; a connector may
+name another executable instead. Adapter paths, channels, and serial-device
+names belong in the workspace's machine-local `state/local-settings.json`.
+Portable endpoints, session steps, timing bounds, and dynamic-DID definitions
+belong in its `config/transport.json`. Python composes those authorities with
+the admitted plan into a temporary exact worker config.
 
 ## Build and offline verification
 

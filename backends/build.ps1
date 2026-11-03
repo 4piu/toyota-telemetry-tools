@@ -16,9 +16,13 @@
     Telemetry.Backend.Gsusb\runtime\. slcan builds AnyCPU: it only talks to a
     CDC-ACM virtual COM port through System.IO.Ports, no native dependency.
 
+    By default the workers go into the Python package
+    (src\toyota_telemetry\workers), where the tool finds them and from which
+    a wheel bundles them.
+
 .EXAMPLE
     .\build.ps1
-    .\build.ps1 -Backend pcan -OutputDirectory ..\..\my-project\scratch\bin
+    .\build.ps1 -Backend pcan -OutputDirectory C:\temp\workers
 #>
 param(
     [ValidateSet('all', 'pcan', 'j2534', 'gsusb', 'slcan')]
@@ -45,7 +49,7 @@ if ($coreSources.Count -eq 0) {
 }
 
 if (-not $OutputDirectory) {
-    $OutputDirectory = Join-Path $PSScriptRoot "bin\$Configuration"
+    $OutputDirectory = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\src\toyota_telemetry\workers'))
 }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 

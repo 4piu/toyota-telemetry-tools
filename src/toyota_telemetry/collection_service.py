@@ -12,6 +12,7 @@ import uuid
 
 from .capture_writer import NativeRunWriter
 from .collector import CollectionRunner, JsonlWorkerClient, load_verified_plan
+from .project import worker_executable
 from .repository import ProjectRepository
 from .worker_protocol import build_worker_config, write_worker_config
 
@@ -51,9 +52,7 @@ def run_collection(
         raise ValueError(f"endpoint is absent from admitted plan: {endpoint_id}")
 
     backend = repository.local_settings["backend"]
-    executable = Path(backend["executable"])
-    if not executable.is_absolute():
-        executable = (root / executable).resolve()
+    executable = worker_executable(root, backend)
     if not executable.is_file():
         raise FileNotFoundError(executable)
 

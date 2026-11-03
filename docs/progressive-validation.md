@@ -6,10 +6,11 @@ is available from `telemetry` and from the desktop application.
 
 ## Sources and derived state
 
-Tracked transport, policy, signal review, and catalog provenance are the
-portable authorities. Raw captures, the candidate inventory, verification
-results, compiled scopes, adapter settings, and the SQLite query cache remain
-private under the project's ignored `scratch/` tree. The cache can be deleted
+Transport, policy, signal review, and catalog provenance are the portable
+authorities; an export copies them into the deliverable repository. Raw
+captures, the candidate inventory, verification results, compiled scopes,
+adapter settings, and the SQLite query cache stay private in the workspace
+(`captures/` and `state/`). The cache can be deleted
 and rebuilt without losing a human decision or a verification result.
 
 ```powershell
@@ -52,7 +53,7 @@ telemetry collect --dry-run
 Readiness resolves each unfinished target to its endpoint+DID settings,
 replays prior evidence, uses p95 latency and response size from verification
 or earlier runs, checks storage and transport limits, and writes the compiled
-scope under `scratch/plans/`. It refuses empty work, complete work, unresolved
+scope under `state/plans/`. It refuses empty work, complete work, unresolved
 identities, stale sources, and missing safety or cost facts, naming the command
 that fixes each.
 
@@ -83,14 +84,14 @@ distinct. A progress event reports elapsed time, reads, failures, and target
 completion. Ctrl+C, `stop` on standard input, and the desktop Stop button all
 make the same idempotent stop request.
 
-## Review evidence and generate the result
+## Review evidence and export the result
 
 ```powershell
 telemetry recordings export --signal 372/0x1002/0..15 --output signal.csv
-telemetry result generate
+telemetry export PATH-TO-DELIVERABLES
 ```
 
 Evidence review reads all valid observations across all runs. Filters change
-presentation only. Saving review or policy is explicit and atomic. Result
-generation creates a new immutable, privacy-minimized generation and never
+presentation only. Saving review or policy is explicit and atomic. Export
+creates a new immutable, privacy-minimized generation and never
 reads a previously generated CSV as input.
