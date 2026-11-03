@@ -126,7 +126,7 @@ class RecordingsPage(QWidget):
         splitter.setSizes([320, 420])
         layout.addWidget(splitter, 1)
 
-        self.export_button = QPushButton("Export CSV…")
+        self.export_button = QPushButton("Export CSV")
         self.result_button = QPushButton("Generate result")
         self.context.register(
             "recordings.export", self.export_button,

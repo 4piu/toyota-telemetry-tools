@@ -48,7 +48,6 @@ class OperatorWindow(QMainWindow):
         self.setWindowTitle("Telemetry Operator")
         self.resize(1360, 880)
         self.setMinimumSize(1024, 700)
-        self.setStyleSheet("QPushButton[liveAction=\"true\"] { border-width: 2px; padding: 6px 12px; }")
         self._settings = QSettings("70Y074", "TelemetryOperator")
         self._restore_settings = restore_settings
         self._closing_after_job = False
@@ -132,7 +131,7 @@ class OperatorWindow(QMainWindow):
 
     def _build_menu(self) -> None:
         project_menu = self.menuBar().addMenu("&Project")
-        open_action = QAction("Open existing project…", self)
+        open_action = QAction("Open project", self)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.choose_project)
         project_menu.addAction(open_action)

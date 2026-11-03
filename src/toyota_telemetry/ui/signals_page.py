@@ -230,13 +230,13 @@ class SignalsPage(QWidget):
         return self.details
 
     def _action_bar(self) -> QHBoxLayout:
-        self.add_endpoint_button = QPushButton("Add endpoint…")
-        self.confirm_button = QPushButton("Confirm endpoint…")
-        self.verify_button = mark_live(QPushButton("Verify…"))
+        self.add_endpoint_button = QPushButton("Add endpoint")
+        self.confirm_button = QPushButton("Confirm endpoint")
+        self.verify_button = mark_live(QPushButton("Verify"))
         self.stop_button = QPushButton("Stop")
         self.stop_button.setToolTip("Stop after the current probe")
         self.stop_button.setVisible(False)
-        self.target_button = QPushButton("Edit targets…")
+        self.target_button = QPushButton("Edit targets")
         self.clear_button = QPushButton("Remove targets")
         self.save_button = QPushButton("Save")
         self.save_button.setToolTip("Write the draft to the review and policy files")

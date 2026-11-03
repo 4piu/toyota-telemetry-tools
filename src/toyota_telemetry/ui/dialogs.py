@@ -176,7 +176,7 @@ class EndpointConfirmDialog(_ValidatedDialog):
             "A document in this project that records how the endpoint was found and that it "
             "answered, e.g. docs/evidence/endpoints.md"
         )
-        browse = QPushButton("Browse…")
+        browse = QPushButton("Browse")
         browse.setToolTip("Choose an evidence document inside the project")
         browse.clicked.connect(self._browse)
         row = QWidget()

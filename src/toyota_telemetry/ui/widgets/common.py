@@ -6,7 +6,7 @@ Explanations live in tooltips.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSize, Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -45,6 +45,9 @@ def mark_live(button: QPushButton) -> QPushButton:
     font.setBold(True)
     button.setFont(font)
     button.setIcon(button.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning))
+    # Text-sized, so the button keeps the height of its unmarked neighbours.
+    side = button.fontMetrics().height()
+    button.setIconSize(QSize(side, side))
     button.setProperty("liveAction", True)
     button.setAutoDefault(False)
     button.setDefault(False)
@@ -81,7 +84,7 @@ def path_field(field: QLineEdit, caption: str, *, directory: bool = False) -> QW
     layout = QHBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.addWidget(field, 1)
-    browse = QPushButton("Browse…")
+    browse = QPushButton("Browse")
     browse.setToolTip(caption)
     browse.setAccessibleName(f"Browse for {caption}")
 

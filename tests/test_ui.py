@@ -114,6 +114,9 @@ def test_gui_shows_no_command_line_text_and_short_buttons(qtbot, project, probes
             assert "telemetry " not in text and " --" not in text, (widget.objectName(), text)
         if isinstance(widget, QAbstractButton) and widget.text():
             assert len(widget.text().split()) <= 2, widget.text()
+            assert not widget.text().endswith(("…", "...")), widget.text()
+    page = window.signals_page
+    assert page.verify_button.sizeHint().height() == page.add_endpoint_button.sizeHint().height()
 
 
 def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, project) -> None:
@@ -144,7 +147,7 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
     assert page.tree.topLevelItemCount() == 2
     page.check("did", f"{UNCONFIRMED_KEY}/0x2001")
     assert page.verify_button.isEnabled()
-    assert page.verify_button.text() == "Verify…"
+    assert page.verify_button.text() == "Verify"
     assert page.verify_button.property("liveAction")
 
     page.confirm_live = lambda dialog: False

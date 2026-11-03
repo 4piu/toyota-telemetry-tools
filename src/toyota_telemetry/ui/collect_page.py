@@ -87,7 +87,7 @@ class CollectPage(QWidget):
         self.note.setToolTip("Free-text note stored with the run, e.g. highway drive, passenger operating")
         form.addRow("Note", self.note)
         run_layout.addLayout(form)
-        self.start_button = mark_live(QPushButton("Start…"))
+        self.start_button = mark_live(QPushButton("Start"))
         self.context.register(
             "collect", self.start_button,
             f"Collect the readiness-checked scope. One run collects one endpoint and stops when its "
@@ -225,7 +225,7 @@ class CollectPage(QWidget):
             self.start_button.setEnabled(True)
             return
         mark_live(self.start_button)
-        self.start_button.setText("Start…")
+        self.start_button.setText("Start")
         self.start_button.setToolTip(self.start_button.property("baseToolTip") or "")
         ready = self.readiness is not None and self.readiness.ready
         busy = self.context.live_job_running
