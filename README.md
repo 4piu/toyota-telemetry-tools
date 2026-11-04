@@ -93,11 +93,13 @@ uv run --extra gui telemetry-ui [PROJECT]
 
 A step bar across the top is both the navigation and the progress view: each
 page shows what is done, what is next, and what needs attention. Four pages:
-Setup (project check, connector, candidate sources), Signals (one endpoint →
-DID → signal table with standard row selection; a side panel edits the
-collection settings, targets, and definition of everything selected, showing
-"mixed" where rows differ, as a draft until Save), Collect (automatic
-readiness, start/stop, live progress), and Recordings (recovery, runs, a
+Setup (project check, connector, candidate sources), Signals (the collection
+plan: an ECU → DID → signal table showing what is readable, what is
+collected and how often, and each signal's target; a Filter menu and search;
+a side panel edits the settings, targets, and definition of everything
+selected, showing "mixed" where rows differ, as a draft until Save), Collect
+(automatic readiness, start/stop, live progress, and every target's
+progress), and Recordings (recovery, runs, a
 time-series plot across all valid runs, CSV export, result export). The plot
 follows dashboard conventions: hover reads the nearest sample, click pins it,
 drag zooms into a time range, double-click shows everything, sideways scroll

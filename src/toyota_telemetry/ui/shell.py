@@ -56,7 +56,7 @@ def step_states(status, dirty: bool) -> list[tuple[str, list[Part]]]:
     ]
     verified, dids, targets = counts.get("verified_dids", 0), counts.get("dids", 0), counts.get("targets", 0)
     signals = [
-        Part("Verified", DONE if verified else PENDING, f"{verified}/{dids} DIDs" if dids else ""),
+        Part("Readable", DONE if verified else PENDING, f"{verified}/{dids} DIDs" if dids else ""),
         Part("Targets", DONE if targets else PENDING, f"{targets} set" if targets else ""),
     ]
     if dirty:
@@ -73,7 +73,7 @@ def step_states(status, dirty: bool) -> list[tuple[str, list[Part]]]:
         collect = [Part("Not ready", ATTENTION, f"{problems} problem" + ("s" if problems != 1 else ""))]
     if targets:
         complete = status.targets_complete
-        collect.append(Part("Complete", DONE if complete == targets else PENDING, f"{complete}/{targets}"))
+        collect.append(Part("Targets met", DONE if complete == targets else PENDING, f"{complete}/{targets}"))
     recordings = [Part("Runs", DONE if status.runs else PENDING, f"{status.runs}")]
     if status.recoverable_runs:
         recordings.append(Part("Interrupted", ATTENTION, f"{len(status.recoverable_runs)}"))
@@ -299,17 +299,14 @@ class OperatorWindow(QMainWindow):
         if self._next_page == "open":
             self.choose_project()
             return
-        self.navigate(self._next_page)
-        target = getattr(self, "_next_target", None)
-        if target is None:
-            return
-        page = {"signals": self.signals_page, "recordings": self.recordings_page}.get(self._next_page)
-        if page is not None:
-            page.focus(*target)
+        self.navigate(self._next_page, getattr(self, "_next_target", None))
 
-    def navigate(self, page: str) -> None:
+    def navigate(self, page: str, target: tuple[str, str] | None = None) -> None:
         if page in PAGES:
             self.navigation.setCurrentRow(PAGES.index(page))
+        owner = {"signals": self.signals_page, "recordings": self.recordings_page}.get(page)
+        if target is not None and owner is not None:
+            owner.focus(*target)
 
     def _busy_changed(self, running: bool) -> None:
         self.adapter_status.setText("LIVE - adapter open" if running else "Adapter closed")

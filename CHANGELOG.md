@@ -41,9 +41,20 @@ will run. Everything else is safe to take.
   checkboxes; DID collection settings are table columns; a side panel edits
   collection settings, targets, and a signal's definition for the whole
   selection, showing "mixed" where rows differ and applying only changed
-  fields. Quick filters (Not verified, Collected, Has targets, Incomplete)
-  replace the state menu. Selecting or filtering thousands of rows no longer
-  stalls (it was quadratic in the row count).
+  fields. Selecting or filtering thousands of rows no longer stalls (it was
+  quadratic in the row count).
+- Desktop Signals page is a collection plan: endpoints are named by ECU and
+  address (the endpoint ID, session, and hash move to details); one
+  "Readable" column (Readable, Not checked, Refused) replaces the mixed
+  status column; columns Every, Late after, Priority, Target; settings of
+  DIDs that are not collected are dimmed. A Filter dropdown (Readable,
+  Collect, Target, ECU groups; any within a group, all across groups)
+  replaces the toggle buttons and the ECU key field. Target progress moved
+  off this page: a met target shows only a tick.
+- Desktop Collect page: a Targets table shows every target's recorded
+  samples and runs and what it still needs; double-click opens the signal on
+  Signals. Endpoints are named by ECU and address; the ID stays in the
+  confirmation's technical details.
 - Desktop plot: dashboard interaction (hover reads the nearest sample with
   its run, click pins it, drag zooms into a time range, double-click shows
   all, sideways or Shift+scroll pans, pinch or Ctrl+scroll zooms time); the

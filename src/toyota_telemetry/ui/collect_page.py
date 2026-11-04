@@ -1,31 +1,38 @@
-"""Collect: automatic readiness, exact-scope confirmation, live progress, safe stop."""
+"""Collect: automatic readiness, exact-scope confirmation, target progress, safe stop."""
 
 from __future__ import annotations
 
 import json
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
     QDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QToolButton,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from toyota_telemetry.operator.collection import CollectionReadiness
+from toyota_telemetry.operator.inventory import InventoryTree
 
 from .context import PageContext
 from .dialogs import LiveConfirmDialog
 from .jobs import LiveJob
+from .names import count, endpoint_label, requirement_names, target_summary
 from .widgets import LIVE_TIP, button_row, mark_live, notice, page_title, set_enabled
 
 
@@ -34,6 +41,7 @@ class CollectPage(QWidget):
         super().__init__()
         self.context = context
         self.readiness: CollectionReadiness | None = None
+        self.labels: dict[str, str] = {}
         self.job: LiveJob | None = None
         self.confirm_live = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
         layout = QVBoxLayout(self)
@@ -115,7 +123,33 @@ class CollectPage(QWidget):
         run_layout.addWidget(self.events_toggle)
         run_layout.addWidget(self.events)
         layout.addWidget(run_group)
-        layout.addStretch(1)
+
+        self.targets_group = QGroupBox("Targets")
+        self.targets_group.setToolTip(
+            "What each signal with a target has collected so far, across all runs. Double-click a row "
+            "to change its target on Signals."
+        )
+        targets_layout = QVBoxLayout(self.targets_group)
+        self.targets = QTreeWidget()
+        self.targets.setRootIsDecorated(False)
+        self.targets.setAlternatingRowColors(True)
+        self.targets.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.targets.setAccessibleName("Target progress")
+        self.targets.setStyleSheet("QTreeView::item { padding: 3px 6px; }")
+        self.targets.setHeaderLabels(["Signal", "ECU", "Target", "Recorded", "Still needs"])
+        for column, tip in enumerate((
+            "Signal with a target", "Where it is read", "What it must collect",
+            "Collected so far across valid runs", "Requirements not met yet",
+        )):
+            self.targets.headerItem().setToolTip(column, tip)
+        header = self.targets.header()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        for column, width in enumerate((220, 180, 220, 170)):
+            header.resizeSection(column, width)
+        header.setStretchLastSection(True)
+        self.targets.itemDoubleClicked.connect(self._open_target)
+        targets_layout.addWidget(self.targets)
+        layout.addWidget(self.targets_group, 1)
         self._stale = True
         context.project_changed.connect(self._mark_stale)
         context.data_changed.connect(self._mark_stale)
@@ -158,6 +192,7 @@ class CollectPage(QWidget):
         def work(service):
             readiness = service.readiness(chosen)
             self._names = service.signal_names(readiness.scope.get("targets", []))
+            self._tree = service.tree()
             return readiness
 
         self.context.run("collect.readiness", work, self._show_readiness, failed)
@@ -168,12 +203,15 @@ class CollectPage(QWidget):
         self.readiness = readiness
         if readiness is None:
             self.readiness_text.setText("No project open.")
+            self._show_targets(None)
             self._update_start()
             return
+        self._show_targets(getattr(self, "_tree", None))
         self.endpoint.blockSignals(True)
         self.endpoint.clear()
         for endpoint_id in readiness.endpoints:
-            self.endpoint.addItem(endpoint_id, endpoint_id)
+            self.endpoint.addItem(self._label(endpoint_id), endpoint_id)
+            self.endpoint.setItemData(self.endpoint.count() - 1, endpoint_id, Qt.ItemDataRole.ToolTipRole)
         if readiness.endpoint_id:
             self.endpoint.setCurrentIndex(self.endpoint.findData(readiness.endpoint_id))
         elif readiness.endpoints:
@@ -183,7 +221,7 @@ class CollectPage(QWidget):
             summary = readiness.summary
             load = summary["estimated_bus_utilization"]
             self.readiness_text.setText(
-                f"Ready: {readiness.endpoint_id}, {summary['unfinished_targets']} target(s), "
+                f"Ready: {self._label(readiness.endpoint_id)}, {summary['unfinished_targets']} target(s), "
                 f"{summary['dids']} DID(s)"
                 + (f", bus load {load * 100:.2f}%, {summary['request_rate_hz']:.1f} reads/s" if load is not None else "")
                 + f", storage limit {summary['capture_tree_max_mib']} MiB."
@@ -195,6 +233,48 @@ class CollectPage(QWidget):
             for problem in readiness.problems:
                 self._add_problem(problem)
         self._update_start()
+
+    def _label(self, endpoint_id: str | None) -> str:
+        return self.labels.get(endpoint_id or "", endpoint_id or "")
+
+    def _show_targets(self, tree: InventoryTree | None) -> None:
+        """Fill the target table: unmet targets first, then met ones."""
+
+        self.labels = {
+            endpoint.endpoint_id: endpoint_label(endpoint)
+            for endpoint in (tree.endpoints if tree else []) if endpoint.endpoint_id
+        }
+        self.targets.clear()
+        rows = [(endpoint, signal) for endpoint, _did, signal in (tree.signals() if tree else []) if signal.target]
+        rows.sort(key=lambda row: (bool((row[1].progress or {}).get("complete")), row[1].name.lower()))
+        met = 0
+        for endpoint, signal in rows:
+            progress = signal.progress or {}
+            counters = progress.get("counters") or {}
+            complete = bool(progress.get("complete"))
+            met += complete
+            missing = [name for name, ok in (progress.get("requirements_met") or {}).items() if not ok]
+            recorded = (
+                f"{count(counters['samples'], 'sample')}, {count(counters['runs'], 'run')}"
+                if counters.get("samples") else "Nothing yet"
+            )
+            item = QTreeWidgetItem([
+                signal.name, endpoint_label(endpoint), target_summary(signal.target), recorded,
+                "✓ Met" if complete else requirement_names(missing) or "Everything",
+            ])
+            item.setData(0, Qt.ItemDataRole.UserRole, signal.signal_ref)
+            item.setToolTip(0, signal.signal_ref)
+            self.targets.addTopLevelItem(item)
+        self.targets_group.setTitle(f"Targets: {met} of {len(rows)} met" if rows else "Targets")
+        if not rows:
+            empty = QTreeWidgetItem(["No targets yet. Set them on Signals."])
+            self.targets.addTopLevelItem(empty)
+            empty.setFirstColumnSpanned(True)
+
+    def _open_target(self, item: QTreeWidgetItem, _column: int) -> None:
+        signal_ref = item.data(0, Qt.ItemDataRole.UserRole)
+        if signal_ref:
+            self.context.navigate("signals", ("signal", signal_ref))
 
     def _add_problem(self, problem) -> None:
         row = QWidget()
@@ -248,7 +328,7 @@ class CollectPage(QWidget):
         device = ", ".join(f"{value}" for value in connector["settings"].values())
         names = getattr(self, "_names", {})
         details = [
-            f"Endpoint: {readiness.endpoint_id} ({session['tester_can_id']}/{session['response_can_id']})",
+            f"Endpoint: {self._label(readiness.endpoint_id)}",
             f"Adapter: {connector['kind']} {device}".rstrip(),
             f"Signals ({len(scope['targets'])}):",
             *[f"    {names.get(ref, ref)}" for ref in scope["targets"]],
@@ -257,6 +337,7 @@ class CollectPage(QWidget):
             f"Note: {self.note.text() or '-'}",
         ]
         technical = [
+            f"Endpoint ID: {readiness.endpoint_id} ({session['tester_can_id']}/{session['response_can_id']})",
             f"Scope fingerprint: {readiness.digest}",
             f"Session {session['session_recipe_id']}: "
             + "; ".join(step["request_hex"] for step in session["session_setup"]),
@@ -265,7 +346,7 @@ class CollectPage(QWidget):
         ]
         dialog = LiveConfirmDialog(
             "Collect",
-            f"LIVE collection of {len(scope['targets'])} signal(s) on {readiness.endpoint_id}?",
+            f"LIVE collection of {len(scope['targets'])} signal(s) on {self._label(readiness.endpoint_id)}?",
             details, self, technical=technical,
         )
         if not self.confirm_live(dialog):
@@ -332,3 +413,4 @@ class CollectPage(QWidget):
         self.job = None
         self.context.set_live(False)
         self.context.changed()
+

@@ -10,9 +10,14 @@ from .common import (
     set_enabled,
     show_notice,
 )
+from .filter_menu import FilterButton
+from .icons import filter_icon, search_icon
 
 __all__ = [
+    "FilterButton",
     "LIVE_TIP",
+    "filter_icon",
+    "search_icon",
     "button_row",
     "mark_live",
     "notice",

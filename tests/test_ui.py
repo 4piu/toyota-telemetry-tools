@@ -20,6 +20,7 @@ from tests.operator_fixture import (
 from tests.test_operator_service import FakeWorker
 from toyota_telemetry.operator import OPERATION_IDS, bounded_minmax
 from toyota_telemetry.ui.shell import OperatorWindow
+from toyota_telemetry.ui.signals_page import ROLE
 
 
 @pytest.fixture(autouse=True)
@@ -276,6 +277,17 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     collect.check_readiness()
     settle(qtbot, window)
     assert collect.readiness.ready, collect.readiness.problems
+    # Progress lives here: one row per target, and the endpoint is named, not identified.
+    assert collect.targets.topLevelItemCount() == 1
+    item = collect.targets.topLevelItem(0)
+    assert item.data(0, Qt.ItemDataRole.UserRole) == "372/0x1002/0..15"
+    assert item.text(3) == "1 sample, 1 run"
+    assert collect.targets_group.title() == "Targets: 0 of 1 met"
+    assert collect.readiness.endpoint_id not in collect.endpoint.currentText()
+    collect._open_target(item, 0)
+    assert window.pages.currentWidget() is signals
+    assert signals._current() == ("signal", "372/0x1002/0..15")
+    window.navigate("collect")
     assert collect.start_button.isEnabled()
     collect.confirm_live = lambda dialog: True
     with mock.patch("toyota_telemetry.collection_service.JsonlWorkerClient", FakeWorker):
@@ -489,9 +501,52 @@ def test_signal_rows_show_one_status_ladder(qtbot, project) -> None:
     assert data.find_signal("405/0x2001/0..7")[2].status == "Not checked"
     model = window.signals_page.model
     headers = [model.headerData(column, Qt.Orientation.Horizontal) for column in range(model.columnCount())]
-    assert headers == [
-        "Endpoint / DID / Signal", "Status", "Collect", "Interval", "Max interval", "Priority", "Targets", "Progress",
-    ]
+    assert headers == ["Name", "Readable", "Collect", "Every", "Late after", "Priority", "Target"]
+
+
+def test_plan_table_names_ecus_and_uses_one_readable_vocabulary(qtbot, project) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    page = window.signals_page
+    model = page.model
+    readable = set()
+    for row in range(model.rowCount()):
+        endpoint = page.tree_data.endpoint(model.item(row, 0).data(ROLE)[1])
+        label = model.item(row, 0).text()
+        # The ECU name or key leads; the ID (session, hash) stays in the tooltip.
+        assert endpoint.key not in label
+        assert endpoint.key in model.item(row, 0).toolTip()
+        for child in range(model.item(row, 0).rowCount()):
+            readable.add(model.item(row, 0).child(child, 1).text())
+    assert readable <= {"✓ Readable", "? Not checked", "✕ Refused"}
+    assert "Progress" not in [model.headerData(c, Qt.Orientation.Horizontal) for c in range(model.columnCount())]
+
+
+def test_filter_menu_groups_combine(qtbot, project) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    page = window.signals_page
+    button = page.filter_button
+    assert set(button.groups) == {"Readable", "Collect", "Target", "ECU"}
+    assert button.text() == "Filter" and not page.clear_filters_button.isEnabled()
+    button.actions_["targeted"].setChecked(True)
+    button.actions_["untargeted"].setChecked(True)
+    settle(qtbot, window)
+    # Options in one group widen the result: with and without a target is everything.
+    assert button.text() == "Filter (2)"
+    assert len(list(page._proxy_rows())) == page.model.rowCount() + sum(
+        1 + len(did.signals) for endpoint in page.tree_data.endpoints for did in endpoint.dids
+    )
+    ecu = next(key for key in button.actions_ if key.startswith("ecu:"))
+    button.actions_[ecu].setChecked(True)
+    settle(qtbot, window)
+    shown = {key for (kind, key), _index in page._proxy_rows() if kind == "endpoint"}
+    assert shown == {ecu[4:]}
+    page.clear_filters_button.click()
+    settle(qtbot, window)
+    assert button.count() == 0 and button.text() == "Filter"
 
 
 def test_filter_unticks_rows_it_hides(qtbot, project) -> None:
@@ -501,10 +556,10 @@ def test_filter_unticks_rows_it_hides(qtbot, project) -> None:
     page = window.signals_page
     page.select("signal", "372/0x1002/0..15", add=True)
     page.select("signal", "372/0x1003/0..7", add=True)
-    page.filters["not-verified"].setChecked(True)
+    page.filter_button.actions_["unchecked"].setChecked(True)
     settle(qtbot, window)
     assert page.selection().signals == ["372/0x1003/0..7"]
-    page.filters["not-verified"].setChecked(False)
+    page.filter_button.actions_["unchecked"].setChecked(False)
     settle(qtbot, window)
     assert page.selection().signals == ["372/0x1003/0..7"]
 

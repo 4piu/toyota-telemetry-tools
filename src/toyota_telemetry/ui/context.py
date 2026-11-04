@@ -24,7 +24,7 @@ class PageContext(QObject):
     data_changed = Signal()
     busy_changed = Signal(bool)
 
-    def __init__(self, parent: QWidget, navigate: Callable[[str], None]) -> None:
+    def __init__(self, parent: QWidget, navigate: Callable[[str, tuple[str, str] | None], None]) -> None:
         super().__init__(parent)
         self._parent = parent
         self._navigate = navigate
@@ -93,8 +93,10 @@ class PageContext(QObject):
             widget.setAccessibleDescription(description)
         return widget
 
-    def navigate(self, page: str) -> None:
-        self._navigate(page)
+    def navigate(self, page: str, target: tuple[str, str] | None = None) -> None:
+        """Open a page; ``target`` (kind, key) also reveals that row."""
+
+        self._navigate(page, target)
 
     def changed(self) -> None:
         if self.service is not None:

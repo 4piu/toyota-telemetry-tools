@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt, QTimer, Signal
-from PySide6.QtGui import QStandardItem, QStandardItemModel
+from PySide6.QtGui import QPalette, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -34,39 +34,67 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from toyota_telemetry.operator.editing import REQUIREMENT_LABELS, UNSET, format_condition, format_duration
-from toyota_telemetry.operator.inventory import EVIDENCE_STATES, VERIFIED, InventoryTree
+from toyota_telemetry.operator.editing import UNSET
+from toyota_telemetry.operator.inventory import EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree
 from toyota_telemetry.operator.selection import Selection
 from toyota_telemetry.operator.verification import RecipeRequired
 
 from .context import PageContext
 from .dialogs import EndpointAddDialog, EndpointConfirmDialog, LiveConfirmDialog, TargetEditDialog
 from .jobs import LiveJob
-from .widgets import LIVE_TIP, button_row, mark_live, notice, page_title, set_enabled, show_notice
+from .names import (
+    ENDPOINT_READABLE,
+    count,
+    did_readable,
+    endpoint_address,
+    endpoint_label,
+    endpoint_name,
+    target_summary,
+)
+from .widgets import (
+    LIVE_TIP,
+    FilterButton,
+    button_row,
+    mark_live,
+    notice,
+    page_title,
+    search_icon,
+    set_enabled,
+    show_notice,
+)
 
 
 ROLE = Qt.ItemDataRole.UserRole
 SORT_ROLE = Qt.ItemDataRole.UserRole + 1
-COLUMNS = ("Endpoint / DID / Signal", "Status", "Collect", "Interval", "Max interval", "Priority", "Targets", "Progress")
+COLUMNS = ("Name", "Readable", "Collect", "Every", "Late after", "Priority", "Target")
 COLUMN_TIPS = (
-    "Endpoints are diagnostic routes to an ECU; a DID is one request and can carry several signals",
-    "Endpoint: Confirmed, Responded, Silent, Not verified, or Address unknown.\n"
-    "DID: Verified, Not verified, Failed, or Endpoint not verified.\n"
-    "Signal: Not checked → Responds (its DID answered) → Recorded (samples saved) "
-    "→ Reviewed (meaning confirmed by review); Refused if its DID was refused.",
+    "ECU (endpoint) → DID (one request) → signal. An endpoint is the diagnostic route to an ECU; "
+    "a DID can carry several signals.",
+    "Whether the vehicle answers. DID: Readable, Not checked, or Refused; a signal is readable when "
+    "its DID is. Endpoint: how many DIDs are readable once confirmed; otherwise Needs confirming, "
+    "No answer, Not checked, or No address.",
     "Whether the DID is read during collection",
     "How often the DID is read; shared by all its signals",
-    "A read is overdue after this long",
+    "A read counts as late after this long",
     "0-100; higher wins when reads compete",
-    "Signals with a target: what evidence each still needs",
-    "How much of their targets the signals have reached",
+    "What each signal must collect; ✓ when already met. A DID shows how many of its signals have one.",
 )
 NUMERIC = {3, 4, 5}
-QUICK_FILTERS = {
-    "not-verified": ("Not verified", "Only DIDs not verified yet"),
-    "collected": ("Collected", "Only DIDs read during collection"),
-    "targeted": ("Has targets", "Only signals with a target"),
-    "incomplete": ("Incomplete", "Only signals whose target is not met yet"),
+FILTER_GROUPS = {
+    "Readable": [
+        ("readable", "Readable", "DIDs that answered when verified"),
+        ("unchecked", "Not checked", "DIDs not read from the vehicle yet"),
+        ("refused", "Refused", "DIDs the ECU refused"),
+    ],
+    "Collect": [
+        ("collected", "Collected", "DIDs read during collection"),
+        ("not-collected", "Not collected", "DIDs not read during collection"),
+    ],
+    "Target": [
+        ("targeted", "Has target", "Signals with a target"),
+        ("untargeted", "No target", "Signals without a target"),
+        ("unmet", "Not met", "Signals whose target is not met yet"),
+    ],
 }
 DEFAULTS = {"target_interval_ms": 1000, "maximum_interval_ms": 5000, "priority": 50, "included": False}
 
@@ -161,9 +189,9 @@ class SignalsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Signals",
-            "Review and set how each DID is collected, verify DIDs with the vehicle, and set what "
-            "evidence each signal still needs. Select rows (Shift or Ctrl for several); the panel "
-            "on the right edits all of them at once.",
+            "Plan collection: choose which DIDs are read and how often, and what each signal must "
+            "collect. Verify first to see what the vehicle answers. Select rows (Shift or Ctrl for "
+            "several); the panel on the right edits all of them at once. Progress is on Collect.",
         ))
         layout.addLayout(self._filter_bar())
         self.external_notice = notice()
@@ -201,26 +229,27 @@ class SignalsPage(QWidget):
     def _filter_bar(self) -> QHBoxLayout:
         row = QHBoxLayout()
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Search")
-        self.search.setToolTip("Filter by signal name, signal reference, or DID")
+        self.search.setPlaceholderText("Search signal or DID")
+        self.search.setToolTip("Show signals whose name or reference contains this text, or DIDs with this ID")
         self.search.setAccessibleName("Search signals")
         self.search.setClearButtonEnabled(True)
+        self.search.addAction(search_icon(), QLineEdit.ActionPosition.LeadingPosition)
         self.search.textChanged.connect(lambda _text: self._search_timer.start())
-        self.ecu_filter = QLineEdit()
-        self.ecu_filter.setPlaceholderText("ECU key")
-        self.ecu_filter.setToolTip("Only endpoints serving this ECU key")
-        self.ecu_filter.setMaximumWidth(100)
-        self.ecu_filter.textChanged.connect(lambda _text: self._search_timer.start())
         row.addWidget(self.search, 1)
-        row.addWidget(self.ecu_filter)
-        self.filters: dict[str, QPushButton] = {}
-        for key, (label, tip) in QUICK_FILTERS.items():
-            button = QPushButton(label)
-            button.setCheckable(True)
-            button.setToolTip(tip + ". Filters combine.")
-            button.toggled.connect(lambda _checked: self.apply_filters())
-            self.filters[key] = button
-            row.addWidget(button)
+        self.filter_button = FilterButton()
+        for title, options in FILTER_GROUPS.items():
+            self.filter_button.set_group(title, options)
+        self.filter_button.changed.connect(self._filters_changed)
+        row.addWidget(self.filter_button)
+        self.clear_filters_button = QPushButton("Clear")
+        self.clear_filters_button.setToolTip("Clear the search and every filter")
+        self.clear_filters_button.clicked.connect(self.clear_filters)
+        row.addWidget(self.clear_filters_button)
+        row.addSpacing(12)
+        self.expand_button = QPushButton("Expand all")
+        self.expand_button.setToolTip("Expand every ECU and DID; Collapse shows ECUs only")
+        self.expand_button.clicked.connect(self.toggle_expanded)
+        row.addWidget(self.expand_button)
         self.refresh_button = QPushButton("Refresh")
         self.refresh_button.setToolTip("Reread project files and verification results")
         self.refresh_button.clicked.connect(self.refresh_from_disk)
@@ -249,13 +278,13 @@ class SignalsPage(QWidget):
         # Names get the room; the table scrolls sideways rather than squeezing them.
         header.setStretchLastSection(True)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        for column, width in enumerate((340, 100, 65, 75, 90, 65, 150, 120)):
+        for column, width in enumerate((340, 130, 70, 75, 80, 65, 200)):
             header.resizeSection(column, width)
         self.view.selectionModel().selectionChanged.connect(lambda *_: self._selection_timer.start())
         self.context.register(
             "signals.list", self.view,
-            "Endpoints are diagnostic routes to an ECU. A DID is one request on an endpoint and can "
-            "carry several signals. Select rows to verify them or change their settings.",
+            "Each ECU (endpoint) lists its DIDs; a DID is one request and can carry several signals. "
+            "Select rows to verify them or change their collection plan.",
         )
         self.empty_label = QLabel("No project open.")
         self.empty_label.setWordWrap(True)
@@ -295,14 +324,14 @@ class SignalsPage(QWidget):
         self.did_interval = MixedSpinBox(1, 3_600_000, " ms")
         self.did_interval.setToolTip("Aim to read each DID this often")
         self.did_maximum = MixedSpinBox(1, 3_600_000, " ms")
-        self.did_maximum.setToolTip("A read is overdue after this long")
+        self.did_maximum.setToolTip("A read counts as late after this long")
         self.did_priority = MixedSpinBox(0, 100)
         self.did_priority.setToolTip("0-100; higher wins when reads compete")
         for spin in (self.did_interval, self.did_maximum, self.did_priority):
             spin.valueChanged.connect(lambda _value: self._update_apply())
         form.addRow(self.did_included)
-        form.addRow("Interval", self.did_interval)
-        form.addRow("Max interval", self.did_maximum)
+        form.addRow("Every", self.did_interval)
+        form.addRow("Late after", self.did_maximum)
         form.addRow("Priority", self.did_priority)
         self.did_apply = QPushButton("Apply")
         self.did_apply.clicked.connect(self.apply_did_settings)
@@ -472,6 +501,7 @@ class SignalsPage(QWidget):
         self._signals = {
             signal.signal_ref: (endpoint, did, signal) for endpoint, did in self._dids.values() for signal in did.signals
         }
+        self._update_ecu_filter(data)
         self.view.setUpdatesEnabled(False)
         try:
             self.model.removeRows(0, self.model.rowCount())
@@ -498,53 +528,58 @@ class SignalsPage(QWidget):
 
     def _populate(self, data: InventoryTree) -> None:
         root = self.model.invisibleRootItem()
+        dim = self.palette().color(QPalette.ColorRole.PlaceholderText)
         for endpoint in data.endpoints:
-            reachable = endpoint.tester_can_id is not None
-            address = f"{endpoint.tester_can_id}/{endpoint.response_can_id}" if reachable else "address unknown"
-            names = ", ".join(endpoint.ecu_names)
-            label = f"{endpoint.key}  {address}  ECU {', '.join(map(str, endpoint.ecu_keys))}"
             collected = sum(1 for did in endpoint.dids if did.settings and did.settings["included"])
-            targeted = [signal for did in endpoint.dids for signal in did.signals if signal.target]
-            complete = sum(1 for signal in targeted if signal.progress and signal.progress["complete"])
+            targeted = sum(1 for did in endpoint.dids for signal in did.signals if signal.target)
+            readable = sum(1 for did in endpoint.dids if did.state == VERIFIED)
+            if endpoint.confirmed:
+                status, status_tip = f"{readable} of {len(endpoint.dids)}", "DIDs that answered when verified"
+            else:
+                status, status_tip = ENDPOINT_READABLE.get(endpoint.state, (endpoint.state.capitalize(), ""))
             row = self._row(("endpoint", endpoint.key), [
-                label + (f"  {names}" if names else ""), endpoint.state.capitalize(),
-                f"{collected}/{len(endpoint.dids)}" if endpoint.dids else "", "", "", "",
-                f"{len(targeted)} signals" if targeted else "",
-                f"{complete}/{len(targeted)} complete" if targeted else "",
-            ], sort=[None, None, collected, None, None, None, len(targeted), complete])
-            if not reachable:
-                row[0].setToolTip("No CAN address is known for this ECU. Add an endpoint for it to verify it.")
+                endpoint_label(endpoint), status,
+                count(collected, "DID") if collected else "", "", "", "",
+                count(targeted, "signal") if targeted else "",
+            ], sort=[endpoint_name(endpoint).lower(), readable if endpoint.confirmed else -1,
+                     collected, None, None, None, targeted])
+            row[0].setToolTip(_endpoint_tip(endpoint))
+            row[1].setToolTip(status_tip)
             root.appendRow(row)
             for did in endpoint.dids:
                 settings = did.settings or {}
                 included = bool(settings.get("included"))
-                did_targets = [signal for signal in did.signals if signal.target]
-                did_complete = sum(1 for signal in did_targets if signal.progress and signal.progress["complete"])
+                did_targets = sum(1 for signal in did.signals if signal.target)
                 did_row = self._row(("did", did.key), [
-                    f"DID {did.data_id}" + (f"  ({len(did.signals)} signals)" if len(did.signals) > 1 else ""),
-                    did.state, "Yes" if included else "No",
+                    f"DID {did.data_id}" + (f" · {len(did.signals)} signals" if len(did.signals) > 1 else ""),
+                    did_readable(did.state), "Yes" if included else "No",
                     duration_text(settings.get("target_interval_ms")),
                     duration_text(settings.get("maximum_interval_ms")),
                     str(settings["priority"]) if settings else "",
-                    f"{len(did_targets)}/{len(did.signals)}" if did_targets else "",
-                    f"{did_complete}/{len(did_targets)} complete" if did_targets else "",
-                ], sort=[did.data_id, None, int(included), settings.get("target_interval_ms", -1),
-                         settings.get("maximum_interval_ms", -1), settings.get("priority", -1),
-                         len(did_targets), did_complete])
+                    f"{did_targets} of {len(did.signals)}" if did_targets else "",
+                ], sort=[did.data_id, {VERIFIED: 2, FAILED: 0}.get(did.state, 1), int(included),
+                         settings.get("target_interval_ms", -1), settings.get("maximum_interval_ms", -1),
+                         settings.get("priority", -1), did_targets])
                 did_row[1].setToolTip(did.detail or did.state)
-                if settings and not included:
-                    did_row[2].setToolTip("Has collection settings but is excluded")
+                if not included:
+                    # Settings of DIDs that are not read stay visible but recede.
+                    for item in did_row[2:6]:
+                        item.setForeground(dim)
+                    if settings:
+                        did_row[2].setToolTip("Has collection settings but is not read")
                 row[0].appendRow(did_row)
                 for signal in did.signals:
-                    unit = f" [{signal.unit}]" if signal.unit else ""
+                    unit = f"  {signal.unit}" if signal.unit else ""
                     conflict = "  (definitions disagree)" if signal.conflict else ""
+                    met = bool(signal.progress and signal.progress["complete"])
+                    target = target_summary(signal.target)
                     signal_row = self._row(("signal", signal.signal_ref), [
-                        f"{signal.name}{unit}{conflict}", signal.status, "", "", "", "",
-                        _target_summary(signal.target), _progress_summary(signal.progress),
+                        f"{signal.name}{unit}{conflict}", "", "", "", "", "",
+                        f"{target}  ✓" if target and met else target,
                     ])
                     signal_row[0].setToolTip(signal.signal_ref)
-                    signal_row[1].setToolTip(_status_tip(signal, did))
-                    signal_row[6].setToolTip(_target_summary(signal.target))
+                    if target:
+                        signal_row[6].setToolTip(target + (". Already met." if met else ""))
                     did_row[0].appendRow(signal_row)
 
     @staticmethod
@@ -568,33 +603,33 @@ class SignalsPage(QWidget):
             self.proxy.refilter(None)
             return
         search = self.search.text().strip().lower()
-        try:
-            ecu = int(self.ecu_filter.text()) if self.ecu_filter.text().strip() else None
-        except ValueError:
-            ecu = None
-        active = {key for key, button in self.filters.items() if button.isChecked()}
-        signal_level = bool(search) or bool(active & {"targeted", "incomplete"})
-        if not (search or ecu is not None or active):
+        button = self.filter_button
+        ecus, readable, collect, targets = (
+            button.active("ECU"), button.active("Readable"), button.active("Collect"), button.active("Target"),
+        )
+        self.clear_filters_button.setEnabled(bool(search or button.count()))
+        signal_level = bool(search) or bool(targets)
+        if not (search or button.count()):
             self.proxy.refilter(None)
             self._selection_timer.start()
             return
         visible: set[tuple[str, str]] = set()
         for endpoint in data.endpoints:
-            if ecu is not None and ecu not in endpoint.ecu_keys:
+            if ecus and f"ecu:{endpoint.key}" not in ecus:
                 continue
             for did in endpoint.dids:
-                if "not-verified" in active and did.state == VERIFIED:
+                if readable and {VERIFIED: "readable", FAILED: "refused"}.get(did.state, "unchecked") not in readable:
                     continue
-                if "collected" in active and not (did.settings and did.settings["included"]):
+                included = bool(did.settings and did.settings["included"])
+                if collect and ("collected" if included else "not-collected") not in collect:
                     continue
                 did_match = bool(search) and search in did.data_id.lower()
                 signals = [
                     signal for signal in did.signals
-                    if ("targeted" not in active or signal.target)
-                    and ("incomplete" not in active or (signal.target and not (signal.progress or {}).get("complete")))
+                    if (not targets or _target_state(signal) & targets)
                     and (not search or did_match or search in signal.name.lower() or search in signal.signal_ref.lower())
                 ]
-                if signal_level and not signals and not (did_match and not active & {"targeted", "incomplete"}):
+                if signal_level and not signals and not (did_match and not targets):
                     continue
                 visible.add(("endpoint", endpoint.key))
                 visible.add(("did", did.key))
@@ -605,6 +640,29 @@ class SignalsPage(QWidget):
                 if key[0] == "endpoint" or (key[0] == "did" and search):
                     self.view.setExpanded(index, True)
         self._selection_timer.start()
+
+    def _filters_changed(self) -> None:
+        self.apply_filters()
+
+    def clear_filters(self) -> None:
+        self.search.blockSignals(True)
+        self.search.clear()
+        self.search.blockSignals(False)
+        self.filter_button.clear()
+
+    def toggle_expanded(self) -> None:
+        if self.expand_button.text() == "Expand all":
+            self.view.expandAll()
+            self.expand_button.setText("Collapse")
+        else:
+            self.view.collapseAll()
+            self.expand_button.setText("Expand all")
+
+    def _update_ecu_filter(self, data: InventoryTree | None) -> None:
+        endpoints = sorted(data.endpoints if data else [], key=lambda row: endpoint_name(row).lower())
+        self.filter_button.set_group("ECU", [
+            (f"ecu:{endpoint.key}", endpoint_label(endpoint), _endpoint_tip(endpoint)) for endpoint in endpoints
+        ])
 
     # Selection --------------------------------------------------------------
 
@@ -716,7 +774,13 @@ class SignalsPage(QWidget):
             self.detail_text.setPlainText("Select rows to see and change their settings.")
         elif len(keys) == 1:
             kind, key = keys[0]
-            self.selection_title.setText({"endpoint": "Endpoint", "did": "DID", "signal": "Signal"}[kind])
+            if kind == "endpoint":
+                title = endpoint_name(data.endpoint(key))
+            elif kind == "did":
+                title = f"DID {self._dids[key][1].data_id}"
+            else:
+                title = self._signals[key][2].name
+            self.selection_title.setText(title)
             self.detail_text.setPlainText("\n".join(self._detail_lines(kind, key)))
         else:
             parts = [f"{kinds.count(kind)} {name}" for kind, name in
@@ -738,31 +802,35 @@ class SignalsPage(QWidget):
         data = self.tree_data
         if kind == "endpoint":
             endpoint = data.endpoint(key)
+            state = "Confirmed" if endpoint.confirmed else ENDPOINT_READABLE.get(endpoint.state, (endpoint.state,))[0]
             return [
-                f"Endpoint {endpoint.key}: {endpoint.state}",
-                f"Tester/response CAN IDs: {endpoint.tester_can_id or '?'} / {endpoint.response_can_id or '?'}",
-                f"ECU keys: {', '.join(map(str, endpoint.ecu_keys))}  {', '.join(endpoint.ecu_names)}",
-                f"Session recipe: {endpoint.session_recipe_id or 'chosen when verified'}",
+                f"{endpoint_name(endpoint)}: {state}",
+                f"Address: {endpoint_address(endpoint) or 'unknown'}",
+                f"ECU keys: {', '.join(map(str, endpoint.ecu_keys)) or '-'}",
+                f"Diagnostic session: {endpoint.session_recipe_id or 'chosen when verified'}",
+                f"Endpoint ID: {endpoint.endpoint_id or endpoint.key}",
                 f"DIDs: {len(endpoint.dids)}",
             ]
         if kind == "did":
-            _endpoint, did = self._dids[key]
+            endpoint, did = self._dids[key]
             return [
-                f"DID {did.key}: {did.state}" + (f" ({did.detail})" if did.detail else ""),
-                f"Baseline response: {did.baseline_hex or '-'}",
+                f"{did_readable(did.state)[2:]}" + (f": {did.detail}" if did.detail else ""),
+                f"On: {endpoint_label(endpoint)}",
+                f"Last answer: {did.baseline_hex or '-'}",
                 f"Latency: {did.latency_ms if did.latency_ms is not None else '-'} ms at {did.observed_utc or '-'}",
                 f"Signals: {len(did.signals)}",
             ]
-        _endpoint, did, signal = self._signals[key]
+        endpoint, did, signal = self._signals[key]
         lines = [
-            f"{signal.name} ({signal.signal_ref})",
+            f"Reference: {signal.signal_ref}",
             f"Unit: {signal.unit or '-'}   Formula: {signal.formula}",
-            f"DID {did.key}: {did.state}",
+            f"DID {did.data_id} on {endpoint_name(endpoint)}: {did_readable(did.state)[2:]}",
+            f"Evidence: {_status_tip(signal, did)}",
         ]
         if signal.conflict:
             lines.append(f"{signal.variants} catalog variants disagree; review the definition.")
-        if signal.review:
-            lines.append(f"Review: {signal.review['evidence_state']}. {signal.review['notes']}".rstrip())
+        if signal.review and signal.review.get("notes"):
+            lines.append(f"Notes: {signal.review['notes']}")
         return lines
 
     def _selected_dids(self, selection: Selection):
@@ -804,28 +872,19 @@ class SignalsPage(QWidget):
                     self.did_interval.toolTip() if not enabled else "Change a field first.")
 
     def _load_targets(self, selection: Selection) -> None:
-        found =[self._signals[ref][2] for ref in selection.signals]
+        found = [self._signals[ref][2] for ref in selection.signals]
         targeted = [signal for signal in found if signal.target]
-        complete = sum(1 for signal in targeted if signal.progress and signal.progress["complete"])
+        met = sum(1 for signal in targeted if signal.progress and signal.progress["complete"])
         if not found:
             text = "Select signals, DIDs, or endpoints."
         elif len(found) == 1:
             signal = found[0]
-            lines = [f"Target: {_target_summary(signal.target) or 'none'}"]
-            if signal.progress:
-                counters = signal.progress["counters"]
-                lines.append(
-                    f"Recorded: {counters['samples']} samples, {counters['runs']} runs, "
-                    f"{counters['changes']} changes, {counters['transitions']} transitions"
-                )
-                missing = [
-                    REQUIREMENT_LABELS[name] for name, met in signal.progress["requirements_met"].items() if not met
-                ]
-                lines.append("Remaining: " + (", ".join(missing) if missing else "complete"))
-            text = "\n".join(lines)
+            text = f"Target: {target_summary(signal.target) or 'none'}"
+            if signal.target and met:
+                text += "\nAlready met."
         else:
-            summaries = {_target_summary(signal.target) for signal in targeted}
-            text = f"{len(found)} signals: {len(targeted)} with targets, {complete} complete."
+            summaries = {target_summary(signal.target) for signal in targeted}
+            text = f"{len(found)} signals: {len(targeted)} with targets" + (f", {met} already met." if met else ".")
             if len(summaries) == 1 and len(targeted) == len(found):
                 text += f"\nAll: {next(iter(summaries))}"
             elif targeted:
@@ -898,7 +957,7 @@ class SignalsPage(QWidget):
         except (OSError, ValueError) as exc:
             self.context.error("Endpoint not confirmed", exc)
             return
-        self.context.message(f"Confirmed {endpoint.endpoint_id}.")
+        self.context.message(f"Confirmed {endpoint_label(endpoint)}.")
         self.context.changed()
 
     def verify_checked(self) -> None:
@@ -1105,30 +1164,21 @@ class SignalsPage(QWidget):
         return False
 
 
-def _target_summary(target: dict[str, Any] | None) -> str:
-    if target is None:
-        return ""
-    parts = []
-    for name, value in target["requirements"].items():
-        label = REQUIREMENT_LABELS[name].lower().replace("minimum ", "")
-        if name.endswith("_seconds"):
-            value = format_duration(value)
-        elif isinstance(value, list):
-            value = ",".join(map(str, value))
-        parts.append(f"{label} {value}")
-    if target.get("condition"):
-        parts.append(f"when {format_condition(target['condition'])}")
-    text = "; ".join(parts)
-    return text if target["included"] else f"{text} (excluded)"
+def _target_state(signal) -> set[str]:
+    """The Target filter options a signal matches."""
+
+    if not signal.target:
+        return {"untargeted"}
+    return {"targeted"} if signal.progress and signal.progress["complete"] else {"targeted", "unmet"}
 
 
-def _progress_summary(progress: dict[str, Any] | None) -> str:
-    if progress is None:
-        return ""
-    if progress["complete"]:
-        return "Complete"
-    met = progress["requirements_met"]
-    return f"{sum(met.values())}/{len(met)} met, {progress['counters']['samples']} samples"
+def _endpoint_tip(endpoint) -> str:
+    lines = [endpoint_label(endpoint), f"Endpoint ID: {endpoint.endpoint_id or endpoint.key}"]
+    if endpoint.session_recipe_id:
+        lines.append(f"Diagnostic session: {endpoint.session_recipe_id}")
+    if endpoint.tester_can_id is None:
+        lines.append("No CAN address is known for this ECU. Add an endpoint for it to verify it.")
+    return "\n".join(lines)
 
 
 def _impact_text(impact: dict[str, Any], selected: int) -> str:
@@ -1141,11 +1191,9 @@ def _impact_text(impact: dict[str, Any], selected: int) -> str:
 
 def _status_tip(signal, did) -> str:
     if signal.status == "Reviewed":
-        return f"Reviewed: {signal.review['evidence_state']}"
+        return f"reviewed as {signal.review['evidence_state']}"
     if signal.status == "Recorded":
-        return f"Recorded: {signal.observations} samples saved across drives"
-    if signal.status == "Responds":
-        return "Its DID answered during verification; nothing recorded yet"
+        return f"{signal.observations} samples recorded across drives; meaning not reviewed yet"
     if signal.status == "Refused":
-        return f"Its DID was refused: {did.detail}"
-    return "Its DID has not been checked against the vehicle yet"
+        return "none; its DID was refused"
+    return "nothing recorded yet"
