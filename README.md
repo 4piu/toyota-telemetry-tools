@@ -69,7 +69,7 @@ walks the workflow with the command and desktop page for each step.
 | Verify (LIVE) | `telemetry verify SELECTOR... [--dry-run] [--yes]` | Signals |
 | Review and targets | `telemetry signal set`, `telemetry did set`, `telemetry target set\|clear` | Signals |
 | Collect (LIVE) | `telemetry collect [--dry-run] [--yes]` | Collect |
-| Recordings | `telemetry recordings [show\|recover\|trash\|restore\|empty-trash\|export]` | Recordings |
+| Recordings | `telemetry recordings [show\|recover\|trash\|export]` | Recordings |
 | Workspace | `telemetry init FOLDER` | Project > New project |
 | Deliverables | `telemetry export FOLDER` | Project > Export result |
 
@@ -101,7 +101,7 @@ selected, showing "mixed" where rows differ, as a draft until Save), Collect
 (automatic readiness, start/stop, live progress, and every target's
 progress), and Recordings (drives: recordings grouped wherever recording
 paused for over a minute; selecting drives lists and plots their signals;
-recovery, a restorable trash, and an Export dialog for samples). Export
+recovery, Delete to the system trash, and an Export dialog for samples). Export
 result is in the Project menu. The plot
 follows dashboard conventions: hover reads the nearest sample, click pins it,
 drag zooms into a time range, double-click shows everything, sideways scroll

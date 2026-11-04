@@ -1,4 +1,4 @@
-"""Recordings: drives, their plots, recovery, trash, and sample export.
+"""Recordings: drives, their plots, recovery, deletion, and sample export.
 
 People work with drives (runs grouped wherever recording paused), named by
 their local start time. Run and endpoint IDs stay out of sight; the CLI uses
@@ -11,7 +11,8 @@ import math
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -22,7 +23,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QPushButton,
     QSplitter,
     QTableWidget,
@@ -36,7 +36,7 @@ from toyota_telemetry.operator.recordings import Drive
 from .context import PageContext
 from .dialogs import ExportDialog
 from .names import count, endpoint_label
-from .widgets import Disclosure, button_row, page_title, search_icon, set_enabled
+from .widgets import LoadingOverlay, button_row, page_title, search_icon, set_enabled
 from .widgets.metric_plot import MetricPlot, RunSpan
 
 
@@ -61,10 +61,6 @@ class RecordingsPage(QWidget):
             self, "Export samples", "samples.csv", "CSV files (*.csv)"
         )[0]
         self.run_dialog = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
-        self.confirm = lambda title, text: QMessageBox.question(
-            self, title, text, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Cancel,
-        ) == QMessageBox.StandardButton.Yes
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Recordings",
@@ -85,7 +81,6 @@ class RecordingsPage(QWidget):
         layout.addLayout(button_row(self.export_button))
 
         self._drives: list[Drive] = []
-        self._trash: list[Drive] = []
         self._labels: dict[str, str] = {}
         self._names: dict[str, tuple[str, str]] = {}
         self._series: dict[str, list[dict]] = {}
@@ -106,39 +101,37 @@ class RecordingsPage(QWidget):
         self.drives = self._table(DRIVE_COLUMNS, "Recorded drives")
         self.drives.setMinimumHeight(180)
         self.drives.itemSelectionChanged.connect(self._selection_changed)
-        self.context.register("recordings.list", self.drives, "Recorded drives")
+        # Clicking below the last row, or Esc, goes back to all drives.
+        self.drives.viewport().installEventFilter(self)
+        self.context.register("recordings.list", self.drives, "Select drives to narrow the signals")
+        self.drives_loading = LoadingOverlay(self.drives)
         layout.addWidget(self.drives, 1)
         self.drive_detail = QLabel()
         self.drive_detail.setWordWrap(True)
         self.context.register("recordings.show", self.drive_detail, "The selected drives")
+        self.all_button = QPushButton("Show all")
+        self.all_button.setToolTip("Clear the selection (Esc)")
+        self.all_button.clicked.connect(self.drives.clearSelection)
+        QShortcut(QKeySequence(Qt.Key.Key_Escape), self.drives, self.drives.clearSelection)
         self.recover_button = QPushButton("Recover")
         self.trash_button = QPushButton("Delete")
         self.context.register("recordings.recover", self.recover_button, "Keeps what was saved")
-        self.context.register("recordings.trash", self.trash_button, "Moves to the trash")
+        self.context.register("recordings.trash", self.trash_button, "Moves its files to the system trash")
         self.recover_button.clicked.connect(self.recover)
         self.trash_button.clicked.connect(self.trash)
-        actions = button_row(self.recover_button, self.trash_button)
+        actions = button_row(self.all_button, self.recover_button, self.trash_button)
         actions.insertWidget(0, self.drive_detail, 1)
         layout.addLayout(actions)
-
-        trash = QWidget()
-        trash_layout = QVBoxLayout(trash)
-        trash_layout.setContentsMargins(16, 0, 0, 0)
-        self.trash_table = self._table(("Started", "Length", "ECUs", "Samples"), "Drives in the trash")
-        self.trash_table.setMaximumHeight(150)
-        self.trash_table.itemSelectionChanged.connect(self._update_buttons)
-        self.restore_button = QPushButton("Restore")
-        self.empty_button = QPushButton("Empty trash")
-        self.context.register("recordings.restore", self.restore_button, "Back to the recordings")
-        self.context.register("recordings.empty-trash", self.empty_button, "Delete permanently")
-        self.restore_button.clicked.connect(self.restore)
-        self.empty_button.clicked.connect(self.empty_trash)
-        trash_layout.addWidget(self.trash_table)
-        trash_layout.addLayout(button_row(self.restore_button, self.empty_button))
-        self.trash_toggle = Disclosure("Trash", trash)
-        layout.addWidget(self.trash_toggle)
-        layout.addWidget(trash)
         return panel
+
+    def eventFilter(self, watched, event) -> bool:  # noqa: N802 - Qt API
+        if (
+            watched is self.drives.viewport()
+            and event.type() == QEvent.Type.MouseButtonPress
+            and not self.drives.indexAt(event.position().toPoint()).isValid()
+        ):
+            self.drives.clearSelection()
+        return super().eventFilter(watched, event)
 
     def _plot_panel(self) -> QWidget:
         panel = QWidget()
@@ -154,11 +147,13 @@ class RecordingsPage(QWidget):
         self.signals.setAccessibleName("Recorded signals")
         self.signals.setToolTip("Select one to plot it")
         self.signals.currentItemChanged.connect(lambda *_: self.plot_current())
+        self.signals_loading = LoadingOverlay(self.signals)
         left.addWidget(self.signal_search)
         left.addWidget(self.signals, 1)
         layout.addLayout(left, 1)
         right = QVBoxLayout()
         self.plot = MetricPlot()
+        self.plot_loading = LoadingOverlay(self.plot)
         self.cursor = QLabel()
         self.pinned = QLabel()
         self.plot.cursor_changed.connect(self.cursor.setText)
@@ -211,7 +206,7 @@ class RecordingsPage(QWidget):
             self.refresh()
 
     def refresh(self) -> None:
-        """Load drives, the trash, and recorded signals in the background."""
+        """Load drives and recorded signals in the background."""
 
         self._stale = False
         if self.context.service is None:
@@ -222,7 +217,6 @@ class RecordingsPage(QWidget):
             tree = service.tree()
             return {
                 "drives": service.drives(),
-                "trash": service.trashed(),
                 "summary": service.observation_summary(),
                 "names": {signal.signal_ref: (signal.name, signal.unit) for _, _, signal in tree.signals()},
                 "labels": {
@@ -232,23 +226,23 @@ class RecordingsPage(QWidget):
             }
 
         def failed(detail: str) -> None:
+            self.drives_loading.stop()
+            self.signals_loading.stop()
             self.drive_detail.setText(f"Cannot read recordings: {detail.split(chr(10) * 2, 1)[0]}")
 
-        if not self._drives:
-            self.drive_detail.setText("Loading…")
+        self.drives_loading.start("Loading drives…")
+        self.signals_loading.start("Loading signals…")
         self.context.run("recordings.list", work, self._show_listing, failed)
 
     def _show_listing(self, listing: dict | None) -> None:
+        self.drives_loading.stop()
         selected = set(self._selected_keys(self.drives))
         current = self.signals.currentItem()
         current_signal = current.data(KEY) if current is not None else None
         self._drives = listing["drives"] if listing else []
-        self._trash = listing["trash"] if listing else []
         self._labels = listing["labels"] if listing else {}
         self._names = listing["names"] if listing else {}
-        self._fill(self.drives, self._drives, full=True)
-        self._fill(self.trash_table, self._trash, full=False)
-        self.trash_toggle.setText(f"Trash ({len(self._trash)})" if self._trash else "Trash")
+        self._fill(self.drives, self._drives)
         self.drives.blockSignals(True)
         self.select_drives(list(selected))
         self.drives.blockSignals(False)
@@ -270,11 +264,13 @@ class RecordingsPage(QWidget):
             if [drive.key for drive in self.selected_drives()] == keys:
                 self._show_signals(summary, keep)
 
+        self.signals_loading.start("Loading signals…")
         self.context.run(
             "recordings.signals", lambda service: service.observation_summary(run_ids), done,
         )
 
     def _show_signals(self, summary: dict, keep: str | None) -> None:
+        self.signals_loading.stop()
         self.signals.blockSignals(True)
         self.signals.clear()
         for signal_ref in sorted(summary, key=lambda ref: self._names.get(ref, (ref, ""))[0].lower()):
@@ -291,7 +287,7 @@ class RecordingsPage(QWidget):
                 pass
         self._update_buttons()
 
-    def _fill(self, table: QTableWidget, drives: list[Drive], *, full: bool) -> None:
+    def _fill(self, table: QTableWidget, drives: list[Drive]) -> None:
         table.setSortingEnabled(False)
         table.setRowCount(0)
         for drive in drives:
@@ -303,12 +299,9 @@ class RecordingsPage(QWidget):
                 (_length(drive.duration_seconds), drive.duration_seconds or 0.0),
                 (ecus or "-", None),
                 (f"{drive.total('observations'):,}", drive.total("observations")),
+                ("! Interrupted" if drive.interrupted else "", int(bool(drive.interrupted))),
+                ("; ".join(drive.notes), None),
             ]
-            if full:
-                values += [
-                    ("! Interrupted" if drive.interrupted else "", int(bool(drive.interrupted))),
-                    ("; ".join(drive.notes), None),
-                ]
             for column, (text, sort) in enumerate(values):
                 item = SortItem(text)
                 item.setData(KEY, drive.key)
@@ -316,7 +309,7 @@ class RecordingsPage(QWidget):
                 if column == 3:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 table.setItem(row, column, item)
-            if full and drive.interrupted:
+            if drive.interrupted:
                 table.item(row, 4).setToolTip("Stopped without finishing")
         table.setSortingEnabled(True)
         table.sortItems(0, Qt.SortOrder.DescendingOrder)
@@ -352,7 +345,7 @@ class RecordingsPage(QWidget):
             self.drive_detail.setText("No recordings." if self.context.service else "")
         elif not drives:
             total = sum(drive.total("observations") for drive in self._drives)
-            self.drive_detail.setText(f"{count(len(self._drives), 'drive')}, {total:,} samples. Plot and export use all.")
+            self.drive_detail.setText(f"All {count(len(self._drives), 'drive')}, {total:,} samples.")
         else:
             seconds = sum(drive.duration_seconds or 0 for drive in drives)
             samples = sum(drive.total("observations") for drive in drives)
@@ -371,9 +364,7 @@ class RecordingsPage(QWidget):
         set_enabled(self.recover_button, has and not live and any(drive.interrupted for drive in drives),
                     blocked or "Select an interrupted drive.")
         set_enabled(self.trash_button, has and not live and bool(drives), blocked or "Select drives first.")
-        set_enabled(self.restore_button, has and not live and bool(self._selected_keys(self.trash_table)),
-                    blocked or "Select drives in the trash.")
-        set_enabled(self.empty_button, has and not live and bool(self._trash), blocked or "The trash is empty.")
+        self.all_button.setVisible(bool(drives))
         set_enabled(self.export_button, has and self.signals.count() > 0, blocked or "Nothing recorded yet.")
 
     def _filter_signals(self, text: str) -> None:
@@ -403,16 +394,21 @@ class RecordingsPage(QWidget):
             self._shown = signal_ref
             self._redraw(reset_view=True)
             return
-        self.plot_summary.setText("Loading…")
+        self.plot_loading.start(f"Loading {item.text().rsplit('  (', 1)[0]}…")
 
         def done(rows: list[dict]) -> None:
+            self.plot_loading.stop()
             self._series[signal_ref] = rows
             current = self.signals.currentItem()
             if current is not None and current.data(KEY) == signal_ref:
                 self._shown = signal_ref
                 self._redraw(reset_view=True)
 
-        self.context.run("recordings.series", lambda service: service.series(signal_ref), done)
+        def failed(detail: str) -> None:
+            self.plot_loading.stop()
+            self.context.error("Cannot plot", detail.split("\n\n", 1)[0])
+
+        self.context.run("recordings.series", lambda service: service.series(signal_ref), done, failed)
 
     def _redraw(self, *, reset_view: bool) -> None:
         rows = self._series.get(self._shown) if self._shown else None
@@ -444,19 +440,7 @@ class RecordingsPage(QWidget):
 
     def trash(self) -> None:
         keys = [drive.key for drive in self.selected_drives()]
-        self._each(keys, "trash", "Not moved to the trash",
-                   lambda n: f"Moved {count(n, 'drive')} to the trash. Restore brings them back.")
-
-    def restore(self) -> None:
-        keys = self._selected_keys(self.trash_table)
-        self._each(keys, "restore", "Not restored", lambda n: f"Restored {count(n, 'drive')}.")
-
-    def empty_trash(self) -> None:
-        if not self._trash or not self.confirm(
-            "Empty trash", f"Permanently delete {count(len(self._trash), 'drive')}? This cannot be undone.",
-        ):
-            return
-        self._each([None], "empty_trash", "Trash not emptied", lambda _n: "Emptied the trash.")
+        self._each(keys, "trash", "Not deleted", lambda n: f"Moved {count(n, 'drive')} to the system trash.")
 
     def _each(self, keys: list, method: str, title: str, message) -> None:
         if self.context.service is None or not keys:
@@ -464,20 +448,23 @@ class RecordingsPage(QWidget):
 
         def work(service):
             for key in keys:
-                getattr(service, method)(*([] if key is None else [key]))
+                getattr(service, method)(key)
             return len(keys)
 
         def done(number: int) -> None:
+            self.drives_loading.stop()
             self.context.message(message(number))
             self.context.changed()
 
         def failed(detail: str) -> None:
+            self.drives_loading.stop()
             self._update_buttons()
             self.context.error(title, detail.split("\n\n", 1)[0])
             self.context.changed()
 
-        for button in (self.recover_button, self.trash_button, self.restore_button, self.empty_button):
+        for button in (self.recover_button, self.trash_button):
             button.setEnabled(False)
+        self.drives_loading.start("Recovering…" if method == "recover_drive" else "Deleting…")
         self.context.run(f"recordings.{method}", work, done, failed)
 
     def export(self) -> None:

@@ -25,6 +25,7 @@ from .context import PageContext
 from .recordings_page import RecordingsPage
 from .setup_page import SetupPage
 from .signals_page import SignalsPage
+from .widgets import BusyIndicator
 from .widgets.step_bar import ATTENTION, DONE, NEXT, PENDING, Part, StepBar
 
 
@@ -195,7 +196,7 @@ class OperatorWindow(QMainWindow):
     def _build_status_bar(self) -> None:
         status = QStatusBar()
         self.setStatusBar(status)
-        self.work_status = QLabel("")
+        self.work_status = BusyIndicator("Loading…")
         self.work_status.setToolTip("Reading project data")
         self.project_status = QLabel("No project open")
         self.connector_status = QLabel("No connector")
@@ -206,7 +207,7 @@ class OperatorWindow(QMainWindow):
         ):
             status.addPermanentWidget(widget)
         self.context.worker.busy_changed.connect(
-            lambda busy: self.work_status.setText("Working…" if busy else "")
+            self.work_status.set_busy
         )
 
     # Project and status ----------------------------------------------------
@@ -329,12 +330,16 @@ class OperatorWindow(QMainWindow):
             "least the minimum difference.\n\n"
             "Signal status: Not checked, then Responds (its DID answered), Recorded (samples saved), and "
             "Reviewed (its meaning confirmed). Refused means the ECU rejected the request.\n\n"
-            "Session: the diagnostic session opened before reading, from the project's reviewed transport "
-            "settings.\n\n"
+            "Diagnostic session: the mode an ECU is switched to before it is read. Most ECUs answer more "
+            "requests in the extended session (request 10 03) than in the default one. The choices are the "
+            "session steps reviewed in the project's transport settings.\n\n"
+            "Verify vs Confirm endpoint: Verify transmits read requests to see which DIDs answer. Confirm "
+            "endpoint transmits nothing; it records your review that an endpoint which answered is the ECU "
+            "you think it is, with where the evidence is written up. Collection needs both.\n\n"
             "Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) "
             "or 0x22 (conditions not correct); the app names common ones.\n\n"
-            "Drive: recordings without a pause longer than a minute. Delete moves a drive to the trash; "
-            "Restore brings it back, and Empty trash deletes it for good.\n\n"
+            "Drive: recordings without a pause longer than a minute. Delete moves a drive's folders to "
+            "the system trash; restore them from there to bring the drive back.\n\n"
             "Interrupted drive: a recording that stopped without finishing. Recover keeps everything saved "
             "up to the interruption.\n\n"
             "Only the buttons with a warning icon (Verify and Start) transmit to the vehicle, and "

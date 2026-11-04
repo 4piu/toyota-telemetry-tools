@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QAbstractButton, QLabel, QMessageBox, QWidget
 
 from tests.operator_fixture import (
@@ -19,6 +19,7 @@ from tests.operator_fixture import (
 from tests.test_operator_service import FakeWorker
 from toyota_telemetry.operator import OPERATION_IDS, bounded_minmax
 from toyota_telemetry.ui.shell import OperatorWindow
+from toyota_telemetry.ui.widgets.metric_plot import MetricPlot, RunSpan
 from toyota_telemetry.ui.signals_page import ROLE
 
 
@@ -207,6 +208,9 @@ def test_target_batch_edit_is_a_draft_until_saved(qtbot, project) -> None:
     seen = {}
 
     def edit(dialog):
+        # Each field explains itself with an example, not by repeating its label.
+        assert dialog.enabled["minimum_samples"].toolTip().startswith("e.g. 500")
+        assert dialog.editors["included"].currentText() == "Active"
         dialog.set_field("minimum_samples", 25)
         seen["impact"] = dialog.impact.text()
         return True
@@ -301,7 +305,22 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     assert len(window.collect_page.context.service.runs()) == 2
 
 
-def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, tmp_path) -> None:
+@pytest.fixture(autouse=True)
+def system_trash(tmp_path):
+    """Tests never touch the real Recycle Bin; deleted folders land here."""
+
+    bin_ = tmp_path / "system-trash"
+    bin_.mkdir()
+
+    def move(paths):
+        for path in paths:
+            path.rename(bin_ / path.name)
+
+    with mock.patch("toyota_telemetry.system_trash.send_to_trash", move):
+        yield bin_
+
+
+def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, tmp_path, system_trash) -> None:
     root, rows = project
     window = open_window(qtbot, root)
     import_rows(qtbot, window, rows)
@@ -309,10 +328,22 @@ def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, 
     window.navigate("recordings")
     settle(qtbot, window)
     assert page.drives.rowCount() == 1
-    assert page.drive_detail.text().startswith("1 drive, ")
+    assert page.drive_detail.text().startswith("All 1 drive, ")
+    assert page.all_button.isHidden()
+    assert not page.drives_loading.active and not page.signals_loading.active
     page.select_drives([page._drives[0].key])
     settle(qtbot, window)
     assert page.drive_detail.text().startswith("1 drive selected")
+    # A selection can always be undone: Show all, Esc, or a click below the rows.
+    assert not page.all_button.isHidden()
+    page.all_button.click()
+    assert page.selected_drives() == [] and page.drive_detail.text().startswith("All ")
+    page.select_drives([page._drives[0].key])
+    qtbot.mouseClick(page.drives.viewport(), Qt.MouseButton.LeftButton, pos=page.drives.viewport().rect().bottomLeft()
+                     - QPoint(-5, 5))
+    assert page.selected_drives() == []
+    page.select_drives([page._drives[0].key])
+    settle(qtbot, window)
     assert page.drives.item(0, 4).text() == ""
     assert not page.recover_button.isEnabled()
     page.select_signal("372/0x1002/0..15")
@@ -328,15 +359,48 @@ def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, 
     settle(qtbot, window)
     assert chosen == {"signals": "selected", "drives": "selected", "format": "csv"}
     assert target.read_text().count("\n") == 2
-    # Delete moves the drive to the trash; Restore brings it back.
+    # Delete moves the drive's folders to the system trash; restoring them there brings it back.
     page.trash_button.click()
     settle(qtbot, window)
-    assert page.drives.rowCount() == 0 and page.trash_table.rowCount() == 1
-    assert page.trash_toggle.text() == "Trash (1)"
-    page.trash_table.selectRow(0)
-    page.restore_button.click()
+    assert page.drives.rowCount() == 0
+    assert len(list(system_trash.iterdir())) == 1
+    folder = next(system_trash.iterdir())
+    folder.rename(root / "captures" / folder.name)
+    window.context.changed()
     settle(qtbot, window)
-    assert page.drives.rowCount() == 1 and page.trash_table.rowCount() == 0
+    assert page.drives.rowCount() == 1
+
+
+def test_a_single_sample_plot_settles(qtbot) -> None:
+    plot = MetricPlot()
+    qtbot.addWidget(plot)
+    plot.resize(500, 300)
+    plot.show()
+    changes = []
+    plot._view.sigRangeChanged.connect(lambda *_: changes.append(1))
+    plot.set_data([5.0], [3.0], [RunSpan("a", 5.0, 5.0)])
+    qtbot.wait(400)
+    assert len(changes) < 10
+    (low, high), _ = plot._view.viewRange()
+    assert low < 5.0 < high and high - low >= 1.9
+
+
+def test_loading_overlay_waits_then_covers_its_area(qtbot) -> None:
+    from PySide6.QtWidgets import QListWidget
+
+    from toyota_telemetry.ui.widgets import LoadingOverlay
+
+    area = QListWidget()
+    qtbot.addWidget(area)
+    area.resize(300, 200)
+    area.show()
+    overlay = LoadingOverlay(area)
+    overlay.start("Loading signals…")
+    assert overlay.active and not overlay.isVisible()
+    qtbot.waitUntil(overlay.isVisible, timeout=1000)
+    assert overlay.geometry() == area.rect() and overlay.label.text() == "Loading signals…"
+    overlay.stop()
+    assert not overlay.active and not overlay.isVisible()
 
 
 def test_bounded_reduction_keeps_plots_small() -> None:
@@ -366,12 +430,15 @@ def test_slow_project_work_does_not_block_the_window(qtbot, project) -> None:
         window.signals_page.rebuild()
         assert time.monotonic() - started < 0.5
         assert not window.context.worker.idle
-        assert window.work_status.text() == "Working…"
+        assert window.work_status.busy
+        qtbot.waitUntil(window.work_status.isVisible, timeout=2000)
+        assert window.signals_page.loading.active
         window.navigate("collect")
         qtbot.wait(50)
         release.set()
         settle(qtbot, window)
-    assert window.work_status.text() == ""
+    assert not window.work_status.busy and not window.work_status.isVisible()
+    assert not window.signals_page.loading.active
     assert window.signals_page.model.rowCount() == 1
 
 
@@ -545,7 +612,7 @@ def test_filter_menu_groups_combine(qtbot, project) -> None:
     page = window.signals_page
     button = page.filter_button
     assert set(button.groups) == {"Readable", "Collect", "Target", "ECU"}
-    assert button.text() == "Filter" and not page.clear_filters_button.isEnabled()
+    assert button.text() == "Filter"
     button.actions_["targeted"].setChecked(True)
     button.actions_["untargeted"].setChecked(True)
     settle(qtbot, window)
@@ -559,7 +626,7 @@ def test_filter_menu_groups_combine(qtbot, project) -> None:
     settle(qtbot, window)
     shown = {key for (kind, key), _index in page._proxy_rows() if kind == "endpoint"}
     assert shown == {ecu[4:]}
-    page.clear_filters_button.click()
+    button.menu_.actions()[-1].trigger()  # Clear filters
     settle(qtbot, window)
     assert button.count() == 0 and button.text() == "Filter"
 
@@ -599,15 +666,18 @@ def test_the_next_step_shows_on_its_step(qtbot, project, probes) -> None:
 def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot) -> None:
     from toyota_telemetry.ui.dialogs import EndpointAddDialog, EndpointConfirmDialog
 
-    add = EndpointAddDialog(["extended"])
+    add = EndpointAddDialog([{"id": "session-a1", "steps": [{"label": "extended", "request_hex": "10 03"}]}])
     qtbot.addWidget(add)
+    # Sessions are named by what they do; the ID stays out of sight.
+    assert add.recipe.currentText() == "Extended (10 03)" and add.recipe.currentData() == "session-a1"
     add.tester.setText("0x7D0")
     add.response.setText("0x7D8")
     add.accept()
     assert add.result() != add.DialogCode.Accepted
     assert add.error.text() == "Enter at least one ECU key."
     assert add.tester.text() == "0x7D0"
-    confirm = EndpointConfirmDialog("7a1-7a9-extended", [405])
+    confirm = EndpointConfirmDialog("Engine  7A1→7A9", [405])
+    assert confirm.windowTitle() == "Confirm Engine  7A1→7A9"
     qtbot.addWidget(confirm)
     confirm.accept()
     assert confirm.error.text() == "Enter where the evidence for this endpoint is written up."

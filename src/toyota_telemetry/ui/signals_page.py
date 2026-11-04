@@ -49,11 +49,13 @@ from .names import (
     endpoint_address,
     endpoint_label,
     endpoint_name,
+    session_label,
     target_summary,
 )
 from .widgets import (
     LIVE_TIP,
     FilterButton,
+    LoadingOverlay,
     button_row,
     mark_live,
     notice,
@@ -175,6 +177,7 @@ class SignalsPage(QWidget):
         # Lookups by identity, rebuilt with each load so a large selection stays linear.
         self._dids: dict[str, tuple[Any, Any]] = {}
         self._signals: dict[str, tuple[Any, Any, Any]] = {}
+        self._sessions: dict[str, str] = {}
         self.draft_review: dict[str, Any] | None = None
         self.draft_policy: dict[str, Any] | None = None
         self._base_bytes: dict[str, bytes] | None = None
@@ -236,10 +239,6 @@ class SignalsPage(QWidget):
             self.filter_button.set_group(title, options)
         self.filter_button.changed.connect(self._filters_changed)
         row.addWidget(self.filter_button)
-        self.clear_filters_button = QPushButton("Clear")
-        self.clear_filters_button.setToolTip("Clear search and filters")
-        self.clear_filters_button.clicked.connect(self.clear_filters)
-        row.addWidget(self.clear_filters_button)
         row.addSpacing(12)
         self.expand_button = QPushButton("Expand all")
         self.expand_button.setToolTip("Show every row")
@@ -280,6 +279,7 @@ class SignalsPage(QWidget):
             "signals.list", self.view,
             "Select rows to change their plan",
         )
+        self.loading = LoadingOverlay(self.view)
         self.empty_label = QLabel("No project open.")
         self.empty_label.setWordWrap(True)
         container = QWidget()
@@ -396,9 +396,9 @@ class SignalsPage(QWidget):
             ("endpoint.add", self.add_endpoint_button,
              "Add a candidate by its CAN IDs"),
             ("endpoint.confirm", self.confirm_button,
-             "Save it as a project endpoint"),
+             "Record that an answering endpoint is this ECU\nNothing is sent; needed before planning"),
             ("verify", self.verify_button,
-             f"Reads the selected DIDs\n{LIVE_TIP}"),
+             f"Read the selected DIDs once to see which answer\n{LIVE_TIP}"),
         ):
             self.context.register(operation, button, tip)
         self.add_endpoint_button.clicked.connect(self.add_endpoint)
@@ -456,19 +456,23 @@ class SignalsPage(QWidget):
         if service is None:
             self._show_tree(None)
             return
-        if self.model.rowCount() == 0:
-            self.empty_label.setText("Loading…")
-            self.empty_label.setVisible(True)
+        self.loading.start("Loading signals…")
         review, policy = self.draft_review, self.draft_policy
 
         def failed(detail: str) -> None:
+            self.loading.stop()
             self.empty_label.setText(f"Cannot read the project: {detail.split(chr(10) * 2, 1)[0]}")
             self.empty_label.setVisible(True)
 
-        self.context.run(
-            "signals.tree", lambda service: service.tree(review=review, policy=policy),
-            self._show_tree, failed,
-        )
+        def work(service):
+            sessions = service.repository().transport["session_recipes"]
+            return service.tree(review=review, policy=policy), {row["id"]: session_label(row) for row in sessions}
+
+        def done(result) -> None:
+            self._sessions = result[1]
+            self._show_tree(result[0])
+
+        self.context.run("signals.tree", work, done, failed)
 
     def _view_state(self) -> dict[str, Any]:
         return {
@@ -478,6 +482,7 @@ class SignalsPage(QWidget):
         }
 
     def _show_tree(self, data: InventoryTree | None) -> None:
+        self.loading.stop()
         state = self._restore or {"expanded": set(), "selected": [], "current": None}
         self._restore = None
         self.tree_data = data
@@ -527,7 +532,7 @@ class SignalsPage(QWidget):
                 count(targeted, "signal") if targeted else "",
             ], sort=[endpoint_name(endpoint).lower(), readable if endpoint.confirmed else -1,
                      collected, None, None, None, targeted])
-            row[0].setToolTip(_endpoint_tip(endpoint))
+            row[0].setToolTip(_endpoint_tip(endpoint, self._sessions))
             row[1].setToolTip(status_tip)
             root.appendRow(row)
             for did in endpoint.dids:
@@ -590,7 +595,6 @@ class SignalsPage(QWidget):
         ecus, readable, collect, targets = (
             button.active("ECU"), button.active("Readable"), button.active("Collect"), button.active("Target"),
         )
-        self.clear_filters_button.setEnabled(bool(search or button.count()))
         signal_level = bool(search) or bool(targets)
         if not (search or button.count()):
             self.proxy.refilter(None)
@@ -627,12 +631,6 @@ class SignalsPage(QWidget):
     def _filters_changed(self) -> None:
         self.apply_filters()
 
-    def clear_filters(self) -> None:
-        self.search.blockSignals(True)
-        self.search.clear()
-        self.search.blockSignals(False)
-        self.filter_button.clear()
-
     def toggle_expanded(self) -> None:
         if self.expand_button.text() == "Expand all":
             self.view.expandAll()
@@ -644,7 +642,8 @@ class SignalsPage(QWidget):
     def _update_ecu_filter(self, data: InventoryTree | None) -> None:
         endpoints = sorted(data.endpoints if data else [], key=lambda row: endpoint_name(row).lower())
         self.filter_button.set_group("ECU", [
-            (f"ecu:{endpoint.key}", endpoint_label(endpoint), _endpoint_tip(endpoint)) for endpoint in endpoints
+            (f"ecu:{endpoint.key}", endpoint_label(endpoint), _endpoint_tip(endpoint, self._sessions))
+            for endpoint in endpoints
         ])
 
     # Selection --------------------------------------------------------------
@@ -790,7 +789,10 @@ class SignalsPage(QWidget):
                 f"{endpoint_name(endpoint)}: {state}",
                 f"Address: {endpoint_address(endpoint) or 'unknown'}",
                 f"ECU keys: {', '.join(map(str, endpoint.ecu_keys)) or '-'}",
-                f"Diagnostic session: {endpoint.session_recipe_id or 'chosen when verified'}",
+                "Diagnostic session: " + (
+                    self._sessions.get(endpoint.session_recipe_id, endpoint.session_recipe_id)
+                    if endpoint.session_recipe_id else "chosen when verified"
+                ),
                 f"DIDs: {len(endpoint.dids)}",
             ]
         if kind == "did":
@@ -833,7 +835,7 @@ class SignalsPage(QWidget):
             spin.load({row[name] for row in settings} or {DEFAULTS[name]})
         unconfirmed = next((endpoint for endpoint, _did in found if not endpoint.confirmed), None)
         enabled = bool(found) and unconfirmed is None
-        reason = "Select DIDs first." if not found else f"Confirm endpoint {unconfirmed.key} first." if unconfirmed else ""
+        reason = "Select DIDs first." if not found else f"Confirm {endpoint_name(unconfirmed)} first." if unconfirmed else ""
         for widget in (self.did_included, self.did_interval, self.did_maximum, self.did_priority):
             set_enabled(widget, enabled, reason)
         title = "Collection" if len(found) <= 1 else f"Collection: {len(found)} DIDs"
@@ -914,8 +916,7 @@ class SignalsPage(QWidget):
         service = self.context.service
         if service is None:
             return
-        recipes = [row["id"] for row in service.repository().transport["session_recipes"]]
-        dialog = EndpointAddDialog(recipes, self)
+        dialog = EndpointAddDialog(service.repository().transport["session_recipes"], self)
         if not self.run_dialog(dialog):
             return
         try:
@@ -930,7 +931,7 @@ class SignalsPage(QWidget):
         if self.context.service is None or current is None or current[0] != "endpoint":
             return
         endpoint = self.tree_data.endpoint(current[1])
-        dialog = EndpointConfirmDialog(endpoint.endpoint_id, endpoint.ecu_keys, self)
+        dialog = EndpointConfirmDialog(endpoint_label(endpoint), endpoint.ecu_keys, self)
         if not self.run_dialog(dialog):
             return
         try:
@@ -950,16 +951,19 @@ class SignalsPage(QWidget):
         try:
             scope = service.verification_scope(self.tree_data, selection)
         except RecipeRequired as exc:
-            recipe, ok = QInputDialog.getItem(
+            rows = {row["id"]: row for row in service.repository().transport["session_recipes"]}
+            labels = {session_label(rows[recipe]) if recipe in rows else recipe: recipe for recipe in exc.recipes}
+            endpoint = self.tree_data.endpoint(exc.endpoint_key)
+            name = endpoint_label(endpoint) if endpoint else "This endpoint"
+            label, ok = QInputDialog.getItem(
                 self, "Diagnostic session",
-                f"{exc.endpoint_key} has not been verified yet. Choose which reviewed diagnostic "
-                "session to open when probing it (from the project's transport settings):",
-                exc.recipes, 0, False,
+                f"{name} has not answered yet.\nWhich session should it be switched to before reading?",
+                list(labels), 0, False,
             )
             if not ok:
                 return
             try:
-                scope = service.verification_scope(self.tree_data, selection, session_recipe_id=recipe)
+                scope = service.verification_scope(self.tree_data, selection, session_recipe_id=labels[label])
             except ValueError as inner:
                 self.context.error("Cannot verify", inner)
                 return
@@ -1159,10 +1163,11 @@ def _target_state(signal) -> set[str]:
     return {"targeted"} if signal.progress and signal.progress["complete"] else {"targeted", "unmet"}
 
 
-def _endpoint_tip(endpoint) -> str:
+def _endpoint_tip(endpoint, sessions: dict[str, str]) -> str:
     if endpoint.tester_can_id is None:
         return "Address unknown; Add endpoint"
-    return f"Session: {endpoint.session_recipe_id}" if endpoint.session_recipe_id else ""
+    recipe = endpoint.session_recipe_id
+    return f"Session: {sessions.get(recipe, recipe)}" if recipe else ""
 
 
 def _impact_text(impact: dict[str, Any], selected: int) -> str:

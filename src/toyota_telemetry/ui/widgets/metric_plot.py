@@ -19,6 +19,9 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QGraphicsRectItem
 
 
+MIN_TIME_SPAN = 2.0  # seconds shown at most zoom, and around a lone sample
+
+
 @dataclass(frozen=True)
 class RunSpan:
     """Where one recording (a drive or a run) lies on the end-to-end timeline."""
@@ -26,7 +29,6 @@ class RunSpan:
     run_id: str
     start: float
     end: float
-    label: str = ""
     label: str = ""
 
 
@@ -187,16 +189,23 @@ class MetricPlot(pg.PlotWidget):
         self._clear_pin()
         self._region.setVisible(False)
         if len(self._x):
-            span = max(float(self._x[-1] - self._x[0]), 1.0)
-            self._view.setLimits(xMin=float(self._x[0]) - span * 0.05, xMax=float(self._x[-1]) + span * 0.05,
-                                 minXRange=0.5)
+            # The limits must stay wider than the smallest zoom, or the view keeps
+            # re-fitting itself (one sample, or all samples at the same time).
+            margin = max(float(self._x[-1] - self._x[0]) * 0.05, MIN_TIME_SPAN)
+            self._view.setLimits(xMin=float(self._x[0]) - margin, xMax=float(self._x[-1]) + margin,
+                                 minXRange=MIN_TIME_SPAN / 2)
         if reset_view:
             self.show_all()
         self.setAccessibleDescription(f"Signal plot of {len(self._x)} recorded samples across {len(self._runs)} run(s).")
 
     def show_all(self) -> None:
         if len(self._x):
-            self._view.setXRange(float(self._x[0]), float(self._x[-1]), padding=0.02)
+            low, high = float(self._x[0]), float(self._x[-1])
+            if high - low < MIN_TIME_SPAN:
+                middle = (low + high) / 2
+                self._view.setXRange(middle - MIN_TIME_SPAN / 2, middle + MIN_TIME_SPAN / 2, padding=0)
+            else:
+                self._view.setXRange(low, high, padding=0.02)
         self._view.enableAutoRange(axis=pg.ViewBox.YAxis, enable=True)
 
     def highlight_run(self, run_id: str | None) -> bool:

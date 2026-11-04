@@ -201,15 +201,13 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--note", help="free-text run note")
     collect.add_argument("--yes", action="store_true", help="start without a prompt (needs a matching --dry-run)")
 
-    actions = ("list", "show", "recover", "trash", "restore", "empty-trash", "export")
+    actions = ("list", "show", "recover", "trash", "export")
     recordings = command("recordings", tuple(f"recordings.{name}" for name in actions), _recordings,
-                         "list drives; `recordings show|recover|trash|restore DRIVE`; `empty-trash`; `export`")
+                         "list drives; `recordings show|recover|trash DRIVE`; `export`; trash = system trash")
     recordings.add_argument("action", nargs="?", choices=list(actions), default="list")
     recordings.add_argument("drive", nargs="?",
                             help="drive start such as 2026-09-01T08:15 (or any run ID in it)")
-    recordings.add_argument("--trash", action="store_true", help="list: the drives in the trash")
     recordings.add_argument("--runs", action="store_true", dest="list_runs", help="list: individual runs")
-    recordings.add_argument("--yes", action="store_true", help="empty-trash: delete without a prompt")
     recordings.add_argument("--signal", action="append", default=[], dest="signals",
                             help="export: selector or signal reference (repeatable)")
     recordings.add_argument("--drive", action="append", default=[], dest="drives",
@@ -699,30 +697,13 @@ def _recordings(service: OperatorService, args: argparse.Namespace) -> int:
                     f"{run.exchanges} reads ({run.failed} failed)  {run.endpoint_id or ''}  {run.note or ''}".rstrip()
                 )
             return EXIT_OK
-        drives = service.trashed() if args.trash else service.drives()
+        drives = service.drives()
         if args.as_json:
-            return _emit({"trash" if args.trash else "drives": [drive.as_dict() for drive in drives]})
+            return _emit({"drives": [drive.as_dict() for drive in drives]})
         if not drives:
-            print("The trash is empty." if args.trash else "No recordings.")
+            print("No recordings.")
         for drive in drives:
             print(_drive_line(drive))
-        return EXIT_OK
-    if args.action == "empty-trash":
-        drives = service.trashed()
-        if not drives:
-            print("The trash is empty.")
-            return EXIT_OK
-        if not args.yes:
-            if args.as_json:
-                raise ValueError("empty-trash with --json needs --yes")
-            answer = input(f"Permanently delete {len(drives)} drive(s) in the trash? [y/N] ")
-            if answer.strip().lower() not in {"y", "yes"}:
-                print("Kept the trash.")
-                return EXIT_OK
-        removed = service.empty_trash()
-        if args.as_json:
-            return _emit({"deleted_drives": removed})
-        print(f"Deleted {removed} drive(s) permanently.")
         return EXIT_OK
     if args.action == "export":
         tree = service.tree()
@@ -762,10 +743,10 @@ def _recordings(service: OperatorService, args: argparse.Namespace) -> int:
             return _emit({"recover": args.drive, "paths": [str(path) for path in paths]})
         print(f"Recovered {len(paths)} interrupted run(s); their saved reads are kept.")
         return EXIT_OK
-    drive = service.trash(args.drive) if args.action == "trash" else service.restore(args.drive)
+    drive = service.trash(args.drive)
     if args.as_json:
-        return _emit({args.action: drive.key, "runs": len(drive.runs)})
-    print(("Moved drive {} to the trash." if args.action == "trash" else "Restored drive {}.").format(drive.key))
+        return _emit({"trash": drive.key, "runs": len(drive.runs)})
+    print(f"Moved drive {drive.key} ({len(drive.runs)} run folder(s)) to the system trash; restore it from there.")
     return EXIT_OK
 
 

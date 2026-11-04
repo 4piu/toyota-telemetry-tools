@@ -150,15 +150,12 @@ class CliTests(unittest.TestCase):
         code, _, err = self.run_cli("recordings", "show")
         self.assertEqual(code, 1)
         self.assertIn("usage: telemetry recordings show DRIVE", err)
-        # Trash is restorable; emptying it is permanent.
-        self.assertEqual(self.json_cli("recordings", "trash", drives[0]["drive"])["runs"], 1)
-        self.assertEqual(self.json_cli("recordings")["drives"], [])
-        self.assertEqual(len(self.json_cli("recordings", "--trash")["trash"]), 1)
-        self.json_cli("recordings", "restore", drives[0]["drive"])
-        self.assertEqual(len(self.json_cli("recordings")["drives"]), 1)
-        self.json_cli("recordings", "trash", drives[0]["drive"])
-        self.assertEqual(self.json_cli("recordings", "empty-trash", "--yes")["deleted_drives"], 1)
-        self.assertEqual(self.json_cli("recordings", "--trash")["trash"], [])
+        # Deleting moves the run folders to the system trash (a stand-in here).
+        trashed = []
+        with mock.patch("toyota_telemetry.system_trash.send_to_trash", trashed.extend):
+            self.assertEqual(self.json_cli("recordings", "trash", drives[0]["drive"])["runs"], 1)
+        self.assertEqual(len(trashed), 1)
+        self.assertEqual(trashed[0].parent.name, "captures")
 
 
 if __name__ == "__main__":

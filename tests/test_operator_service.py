@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest import mock
 import uuid
 
 from tests.operator_fixture import (
@@ -323,21 +325,51 @@ class RecordingsTests(ServiceTestCase):
         self.service.recover(interrupted[0].run_id)
         self.assertEqual(self.service.run(interrupted[0].run_id).end_reason, "recovered_prefix")
 
-    def test_trash_moves_an_unrecoverable_run_aside_and_restores_it(self) -> None:
+    def test_trash_moves_an_unrecoverable_run_to_the_system_trash(self) -> None:
+        from toyota_telemetry import system_trash
+
         self.import_rows()
         run_id = self.target_and_crash(exchanges=0)
         with self.assertRaisesRegex(ValueError, "no recoverable exchange"):
             self.service.recover(run_id)
-        drive = self.service.trash(run_id)
+        bin_ = Path(self._directory.name) / "fake-bin"
+        bin_.mkdir()
+
+        def fake(paths):
+            for path in paths:
+                path.rename(bin_ / path.name)
+
+        with mock.patch.object(system_trash, "send_to_trash", fake):
+            drive = self.service.trash(run_id)
         self.assertIn(run_id, drive.run_ids)
         self.assertNotIn(run_id, [run.run_id for run in self.service.runs()])
-        self.assertEqual([d.key for d in self.service.trashed()], [drive.key])
         self.assertEqual(self.service.observation_summary(drive.run_ids), {})
-        self.service.restore(drive.key)
+        # Restoring from the system trash puts the folder back; the drive returns.
+        (bin_ / run_id).rename(self.service.repository().paths.captures / run_id)
         self.assertIn(run_id, [run.run_id for run in self.service.runs()])
-        self.service.trash(drive.key)
-        self.assertEqual(self.service.empty_trash(), 1)
-        self.assertEqual(self.service.trashed(), [])
+
+        def refuse(_paths):
+            raise system_trash.TrashError("no Recycle Bin")
+
+        with mock.patch.object(system_trash, "send_to_trash", refuse):
+            with self.assertRaisesRegex(ValueError, "not moved to the trash: no Recycle Bin"):
+                self.service.trash(run_id)
+
+    def test_freedesktop_trash_records_where_a_folder_came_from(self) -> None:
+        from toyota_telemetry import system_trash
+
+        base = Path(self._directory.name)
+        folder = base / "some run"
+        folder.mkdir()
+        (folder / "data.txt").write_text("x", encoding="utf-8")
+        with mock.patch.dict(os.environ, {"XDG_DATA_HOME": str(base / "data")}):
+            system_trash._freedesktop([folder.resolve()])
+        trash = base / "data" / "Trash"
+        self.assertFalse(folder.exists())
+        self.assertTrue((trash / "files" / "some run" / "data.txt").exists())
+        info = (trash / "info" / "some run.trashinfo").read_text(encoding="utf-8")
+        self.assertIn("Path=", info)
+        self.assertIn("some%20run", info)
 
     def test_runs_group_into_drives_by_pause(self) -> None:
         from toyota_telemetry.operator.recordings import RunSummary, group_drives

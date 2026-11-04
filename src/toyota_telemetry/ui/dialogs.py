@@ -34,10 +34,25 @@ from toyota_telemetry.operator.editing import (
 
 from toyota_telemetry.operator.sources import canonical_can_id
 
+from .names import count, session_label
 from .widgets import Disclosure, mark_live
 
 
 EXPORT_FORMATS = {"csv": "CSV (spreadsheet)"}
+SESSION_TIP = "Mode the ECU is switched to before reading\ne.g. Extended (10 03) answers the most requests"
+# A short example per target field; the label already says what it is.
+TARGET_EXAMPLES = {
+    "minimum_samples": "e.g. 500: at least 500 readings",
+    "minimum_runs": "e.g. 3: seen in at least 3 recordings",
+    "minimum_span_seconds": "e.g. 30m: first and last reading 30 min apart",
+    "required_states": "e.g. 0,1,2: each of these raw values seen",
+    "minimum_transitions": "e.g. 10: the raw value changed 10 times",
+    "minimum_changes": "e.g. 20: moved by the minimum difference 20 times",
+    "minimum_applicable_seconds": "e.g. 10m: 10 min recorded while Collect when holds",
+    "minimum_difference": "e.g. 0.5: smaller steps don't count as changes",
+    "condition": "e.g. 372/0x1002/0..15 > 10; empty means always",
+    "included": "Paused keeps the target but leaves it out of plans",
+}
 
 
 class ExportDialog(QDialog):
@@ -172,7 +187,7 @@ class _ValidatedDialog(QDialog):
 
 
 class EndpointAddDialog(_ValidatedDialog):
-    def __init__(self, recipes: list[str], parent: QWidget | None = None) -> None:
+    def __init__(self, recipes: list[dict[str, Any]], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Add endpoint candidate")
         form = QFormLayout(self)
@@ -181,15 +196,16 @@ class EndpointAddDialog(_ValidatedDialog):
         self.response = QLineEdit()
         self.response.setPlaceholderText("e.g. 0x7E8")
         self.recipe = QComboBox()
-        self.recipe.addItems(recipes)
+        for recipe in recipes:
+            self.recipe.addItem(session_label(recipe), recipe["id"])
         self.ecus = QLineEdit()
         self.ecus.setPlaceholderText("required, e.g. 372, 374")
         form.addRow("Tester CAN ID", self.tester)
         form.addRow("Response CAN ID", self.response)
-        form.addRow("Session", self.recipe)
+        form.addRow("Diagnostic session", self.recipe)
         form.addRow("ECU keys", self.ecus)
         self.setToolTip("Adds a candidate; nothing is transmitted")
-        self.recipe.setToolTip("Diagnostic session to open")
+        self.recipe.setToolTip(SESSION_TIP)
         self.ecus.setToolTip("ECU keys that answer here")
         form.addRow(self._error_label())
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -204,20 +220,23 @@ class EndpointAddDialog(_ValidatedDialog):
             return "Enter both CAN IDs as hexadecimal, e.g. 0x7E0 and 0x7E8."
         if tester == response:
             return "The tester and response CAN IDs must differ."
+        if self.recipe.count() == 0:
+            return "The project has no diagnostic session set up yet (transport settings)."
         if not parse_keys(self.ecus.text()):
             return "Enter at least one ECU key."
         return None
 
     def values(self) -> tuple[str, str, str, list[int]]:
-        return self.tester.text(), self.response.text(), self.recipe.currentText(), parse_keys(self.ecus.text())
+        return self.tester.text(), self.response.text(), self.recipe.currentData(), parse_keys(self.ecus.text())
 
 
 class EndpointConfirmDialog(_ValidatedDialog):
-    def __init__(self, endpoint_id: str, ecu_keys: list[int], parent: QWidget | None = None) -> None:
+    def __init__(self, name: str, ecu_keys: list[int], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(f"Confirm endpoint {endpoint_id}")
-        
+        self.setWindowTitle(f"Confirm {name}")
         form = QFormLayout(self)
+        form.addRow(QLabel("Nothing is sent. This records that the endpoint which\n"
+                           "answered is this ECU, and where that is written up."))
         self.ecus = QLineEdit(", ".join(str(key) for key in ecu_keys))
         self.ecus.setToolTip("Which ECUs answer at this endpoint")
         self.source = QLineEdit()
@@ -268,7 +287,7 @@ class TargetEditDialog(QDialog):
         self.setMinimumWidth(620)
         self._preview = preview
         layout = QVBoxLayout(self)
-        intro = QLabel(f"{signal_count} signal(s)")
+        intro = QLabel(count(signal_count, "signal"))
         intro.setToolTip("0 or empty removes a requirement")
         layout.addWidget(intro)
         grid = QGridLayout()
@@ -301,13 +320,12 @@ class TargetEditDialog(QDialog):
         condition.setPlaceholderText("372/0x1002/0..15 > 10 and ...; empty means always")
         self._add_row(grid, row, "condition", "Collect when", condition)
         row += 1
-        included = QCheckBox("Yes")
-        included.setToolTip("Unchecked keeps it but skips collection")
-        included.setChecked(bool((current or {}).get("included", True)))
-        self._add_row(grid, row, "included", "Collect this signal", included)
+        status = QComboBox()
+        status.addItem("Active", True)
+        status.addItem("Paused", False)
+        status.setCurrentIndex(0 if (current or {}).get("included", True) else 1)
+        self._add_row(grid, row, "included", "Status", status)
         layout.addLayout(grid)
-        difference.setToolTip("Smallest step that counts as a change")
-        condition.setToolTip("Count samples only while this holds; empty means always")
         self.impact = QLabel()
         self.impact.setWordWrap(True)
         self.impact.setAccessibleName("Batch impact preview")
@@ -324,11 +342,12 @@ class TargetEditDialog(QDialog):
     def _add_row(self, grid: QGridLayout, row: int, name: str, label: str, editor: QWidget) -> None:
         change = QCheckBox(label)
         change.setAccessibleName(f"Change {label}")
-        change.setToolTip(f"Change {label.lower()}")
+        change.setToolTip(TARGET_EXAMPLES[name])
+        editor.setToolTip(TARGET_EXAMPLES[name])
         editor.setEnabled(False)
         change.toggled.connect(editor.setEnabled)
         change.toggled.connect(lambda _checked: self.refresh_preview())
-        for signal_name in ("valueChanged", "textChanged", "toggled"):
+        for signal_name in ("valueChanged", "textChanged", "currentIndexChanged"):
             signal = getattr(editor, signal_name, None)
             if signal is not None:
                 signal.connect(lambda *_: self.refresh_preview())
@@ -345,8 +364,8 @@ class TargetEditDialog(QDialog):
         self.enabled[name].setChecked(True)
         if isinstance(editor, (QSpinBox, QDoubleSpinBox)):
             editor.setValue(value)
-        elif isinstance(editor, QCheckBox):
-            editor.setChecked(bool(value))
+        elif isinstance(editor, QComboBox):
+            editor.setCurrentIndex(editor.findData(bool(value)))
         else:
             editor.setText(str(value))
 
@@ -370,7 +389,7 @@ class TargetEditDialog(QDialog):
             elif name == "condition":
                 fields[name] = parse_condition(editor.text())
             elif name == "included":
-                fields[name] = editor.isChecked()
+                fields[name] = editor.currentData()
         fields["requirements"] = requirements
         return fields
 

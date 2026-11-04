@@ -42,15 +42,12 @@ from .live import LiveBusy, LiveLock, live_busy
 from .recordings import (
     Drive,
     RunSummary,
-    empty_trash,
     export_observations,
     find_drive,
     interrupted_run_ids,
     list_drives,
     list_runs,
-    list_trash,
     recover_run,
-    restore_drive,
     run_detail,
     signal_series,
     trash_drive,
@@ -94,10 +91,7 @@ OPERATIONS: tuple[Operation, ...] = (
     Operation("recordings.list", "List recorded drives", "telemetry recordings", "recordings.drives"),
     Operation("recordings.show", "Show one drive", "telemetry recordings show", "recordings.drive.detail"),
     Operation("recordings.recover", "Recover an interrupted drive", "telemetry recordings recover", "recordings.recover"),
-    Operation("recordings.trash", "Move a drive to the trash", "telemetry recordings trash", "recordings.trash"),
-    Operation("recordings.restore", "Restore a drive from the trash", "telemetry recordings restore", "recordings.restore"),
-    Operation("recordings.empty-trash", "Delete the trash permanently", "telemetry recordings empty-trash",
-              "recordings.empty-trash"),
+    Operation("recordings.trash", "Move a drive to the system trash", "telemetry recordings trash", "recordings.trash"),
     Operation("recordings.export", "Export recorded samples", "telemetry recordings export", "recordings.export"),
     Operation("export", "Export results to a deliverable folder", "telemetry export", "menu.project.export"),
 )
@@ -565,15 +559,6 @@ class OperatorService:
 
     def trash(self, key: str) -> Drive:
         return trash_drive(self.repository(), key)
-
-    def trashed(self) -> list[Drive]:
-        return list_trash(self.repository())
-
-    def restore(self, key: str) -> Drive:
-        return restore_drive(self.repository(), key)
-
-    def empty_trash(self) -> int:
-        return empty_trash(self.repository())
 
     def export(self, signal_refs: Iterable[str], stream: TextIO, *, run_ids: Iterable[str] = ()) -> int:
         repository = self.repository()

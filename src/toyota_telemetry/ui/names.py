@@ -61,6 +61,16 @@ def requirement_names(names) -> str:
     return text[:1].upper() + text[1:]
 
 
+def session_label(recipe: dict[str, Any]) -> str:
+    """A reviewed session recipe by what it does, e.g. "Extended (10 03)"."""
+
+    steps = recipe.get("steps") or []
+    if not steps:
+        return recipe.get("id", "Session")
+    text = " then ".join(step["label"] for step in steps)
+    return f"{text[:1].upper()}{text[1:]} ({steps[-1]['request_hex'].upper()})"
+
+
 def _can(value: str) -> str:
     return value[2:].upper() if value.lower().startswith("0x") else value.upper()
 
@@ -79,4 +89,4 @@ def target_summary(target: dict[str, Any] | None) -> str:
     if target.get("condition"):
         parts.append(f"when {format_condition(target['condition'])}")
     text = "; ".join(parts)
-    return text if target["included"] else f"{text} (excluded)"
+    return text if target["included"] else f"{text} (paused)"

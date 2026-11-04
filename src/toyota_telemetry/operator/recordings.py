@@ -1,4 +1,4 @@
-"""Drives and runs: listing, recovery, trash, and bounded observation export.
+"""Drives and runs: listing, recovery, deletion, and bounded observation export.
 
 A run is one capture folder. Imported recordings arrive as many short runs,
 so people work with drives instead: runs grouped wherever recording paused
@@ -17,9 +17,9 @@ from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
-import shutil
 from typing import Any, Iterable, Mapping, TextIO
 
+from .. import system_trash
 from ..capture_writer import recover_incomplete_segment
 from ..identity import SignalRef, canonical_run_id
 from ..repository import ProjectRepository
@@ -38,7 +38,6 @@ END_REASONS = {
     "recovered_prefix": "recovered after interruption",
 }
 DRIVE_GAP_SECONDS = 60
-TRASH_DIR = "trash"
 CSV_COLUMNS = (
     "signal_ref", "run_id", "sequence", "response_utc", "elapsed_ms",
     "raw_hex", "decoded_value", "condition",
@@ -183,61 +182,18 @@ def find_drive(drives: Iterable[Drive], key: str) -> Drive:
     raise ValueError(f"no drive {key}; drives are named by their start, e.g. 2026-09-01T08:15")
 
 
-def list_trash(repository: ProjectRepository) -> list[Drive]:
-    root = _trash_root(repository)
-    if not root.is_dir():
-        return []
-    return group_drives(_cached_summary(path) for path in sorted(root.iterdir()) if path.is_dir())
-
-
 def trash_drive(repository: ProjectRepository, key: str) -> Drive:
-    """Move a drive's runs to the workspace trash; restore brings them back."""
+    """Move a drive's run folders to the system trash; restoring them there brings them back."""
 
     drive = find_drive(list_drives(repository), key)
-    destination = _trash_root(repository)
-    clashes = [run_id for run_id in drive.run_ids if (destination / run_id).exists()]
-    if clashes:
-        raise ValueError(f"the trash already holds {len(clashes)} of this drive's runs; empty or restore it first")
-    _move_runs(repository, drive.run_ids, repository.paths.captures, destination, "trash")
-    return drive
-
-
-def restore_drive(repository: ProjectRepository, key: str) -> Drive:
-    drive = find_drive(list_trash(repository), key)
-    clashes = [run_id for run_id in drive.run_ids if (repository.paths.captures / run_id).exists()]
-    if clashes:
-        raise ValueError(f"{len(clashes)} of this drive's runs are already in the recordings")
-    _move_runs(repository, drive.run_ids, _trash_root(repository), repository.paths.captures, "restore")
-    return drive
-
-
-def empty_trash(repository: ProjectRepository) -> int:
-    """Permanently delete everything in the trash; returns the number of drives removed."""
-
-    drives = list_trash(repository)
-    root = _trash_root(repository)
     try:
         with LiveLock(repository):
-            for path in sorted(root.iterdir()) if root.is_dir() else []:
-                if path.is_dir():
-                    shutil.rmtree(path)
+            system_trash.send_to_trash([repository.paths.captures / run_id for run_id in drive.run_ids])
     except LiveBusy as exc:
-        raise ValueError("a live job is running; empty the trash after it stops") from exc
-    return len(drives)
-
-
-def _move_runs(repository: ProjectRepository, run_ids: list[str], source: Path, destination: Path, verb: str) -> None:
-    destination.mkdir(parents=True, exist_ok=True)
-    try:
-        with LiveLock(repository):
-            for run_id in run_ids:
-                shutil.move(str(source / run_id), str(destination / run_id))
-    except LiveBusy as exc:
-        raise ValueError(f"a live job is running; {verb} after it stops") from exc
-
-
-def _trash_root(repository: ProjectRepository) -> Path:
-    return repository.paths.state / TRASH_DIR
+        raise ValueError("a live job is running; delete after it stops") from exc
+    except system_trash.TrashError as exc:
+        raise ValueError(f"not moved to the trash: {exc}") from exc
+    return drive
 
 
 def _parse_utc(value: str | None) -> datetime | None:
