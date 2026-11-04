@@ -323,14 +323,38 @@ class RecordingsTests(ServiceTestCase):
         self.service.recover(interrupted[0].run_id)
         self.assertEqual(self.service.run(interrupted[0].run_id).end_reason, "recovered_prefix")
 
-    def test_quarantine_moves_an_unrecoverable_run_aside(self) -> None:
+    def test_trash_moves_an_unrecoverable_run_aside_and_restores_it(self) -> None:
         self.import_rows()
         run_id = self.target_and_crash(exchanges=0)
         with self.assertRaisesRegex(ValueError, "no recoverable exchange"):
             self.service.recover(run_id)
-        destination = self.service.quarantine(run_id)
-        self.assertTrue(destination.is_dir())
+        drive = self.service.trash(run_id)
+        self.assertIn(run_id, drive.run_ids)
         self.assertNotIn(run_id, [run.run_id for run in self.service.runs()])
+        self.assertEqual([d.key for d in self.service.trashed()], [drive.key])
+        self.assertEqual(self.service.observation_summary(drive.run_ids), {})
+        self.service.restore(drive.key)
+        self.assertIn(run_id, [run.run_id for run in self.service.runs()])
+        self.service.trash(drive.key)
+        self.assertEqual(self.service.empty_trash(), 1)
+        self.assertEqual(self.service.trashed(), [])
+
+    def test_runs_group_into_drives_by_pause(self) -> None:
+        from toyota_telemetry.operator.recordings import RunSummary, group_drives
+
+        def run(run_id: str, start: str, seconds: float) -> RunSummary:
+            return RunSummary(run_id, "complete", created_utc=start, duration_seconds=seconds)
+
+        drives = group_drives([
+            run("c", "2026-09-01T08:20:30Z", 1),
+            run("a", "2026-09-01T08:15:00Z", 300),   # ends 08:20:00
+            run("b", "2026-09-01T08:20:59Z", 1),     # 59 s after a's end: same drive
+            run("d", "2026-09-01T08:22:01Z", 5),     # 61 s after b's end: new drive
+            run("e", None, 0),
+        ])
+        self.assertEqual([[r.run_id for r in drive.runs] for drive in drives], [["a", "c", "b"], ["d"], ["e"]])
+        self.assertEqual(drives[0].key, "2026-09-01T08:15")
+        self.assertEqual(drives[0].duration_seconds, 360)
 
     def test_series_and_export_follow_run_start_time(self) -> None:
         self.import_rows()

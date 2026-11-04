@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 
-LIVE_TIP = "Transmits to the vehicle. You confirm the exact scope first."
+LIVE_TIP = "Transmits to the vehicle; you confirm first."
 
 
 def page_title(title: str, description: str) -> QWidget:

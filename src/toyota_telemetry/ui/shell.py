@@ -1,4 +1,4 @@
-"""Application shell: a step bar over four task pages, the next step, and live-safe closing."""
+"""Application shell: a step bar over four task pages, the project menu, and live-safe closing."""
 
 from __future__ import annotations
 
@@ -8,12 +8,9 @@ from PySide6.QtCore import QEvent, QSettings
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFileDialog,
-    QFrame,
-    QHBoxLayout,
     QLabel,
     QMainWindow,
     QMessageBox,
-    QPushButton,
     QScrollArea,
     QStackedWidget,
     QStatusBar,
@@ -34,10 +31,10 @@ from .widgets.step_bar import ATTENTION, DONE, NEXT, PENDING, Part, StepBar
 PAGES = ("setup", "signals", "collect", "recordings")
 TITLES = {"setup": "Setup", "signals": "Signals", "collect": "Collect", "recordings": "Recordings"}
 DESCRIPTIONS = {
-    "setup": "Project check, connector, and candidate signal list. Nothing here transmits.",
-    "signals": "Verify endpoints and DIDs, review signals, and set collection targets.",
-    "collect": "Check readiness, then start and stop collection.",
-    "recordings": "Recorded runs, recovery, plots, and export of the result.",
+    "setup": "Connector and candidate signals",
+    "signals": "What to collect, and how often",
+    "collect": "Run collection; target progress",
+    "recordings": "Drives, plots, and export",
 }
 
 
@@ -74,7 +71,7 @@ def step_states(status, dirty: bool) -> list[tuple[str, list[Part]]]:
     if targets:
         complete = status.targets_complete
         collect.append(Part("Targets met", DONE if complete == targets else PENDING, f"{complete}/{targets}"))
-    recordings = [Part("Runs", DONE if status.runs else PENDING, f"{status.runs}")]
+    recordings = [Part("Recorded", DONE if status.runs else PENDING, "" if status.runs else "nothing yet")]
     if status.recoverable_runs:
         recordings.append(Part("Interrupted", ATTENTION, f"{len(status.recoverable_runs)}"))
     next_page = status.next_action.page if status.next_action else None
@@ -109,7 +106,9 @@ class OperatorWindow(QMainWindow):
 
         self.navigation = StepBar([TITLES[page] for page in PAGES])
         self._status = None
-        self.banner = self._build_banner()
+        self.next_action = "Open or create a project"
+        self.context.register("status", self.navigation, "Progress; click a step to open it")
+        self.choose_result_folder = lambda start: QFileDialog.getExistingDirectory(self, "Deliverable folder", start)
         self.setup_page = SetupPage(self.context)
         self.signals_page = SignalsPage(self.context)
         self.collect_page = CollectPage(self.context)
@@ -130,7 +129,6 @@ class OperatorWindow(QMainWindow):
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
         content_layout.addWidget(self.navigation)
-        content_layout.addWidget(self.banner)
         content_layout.addWidget(self.pages, 1)
         self.setCentralWidget(content)
         self.navigation.current_changed.connect(self.pages.setCurrentIndex)
@@ -143,6 +141,9 @@ class OperatorWindow(QMainWindow):
         self.context.project_changed.connect(self.refresh_status)
         self.context.data_changed.connect(self.refresh_status)
         self.context.busy_changed.connect(self._busy_changed)
+        self.context.project_changed.connect(self._update_actions)
+        self.context.busy_changed.connect(lambda _busy: self._update_actions())
+        self._update_actions()
 
         if project_path is not None:
             self.open_project(project_path)
@@ -156,38 +157,23 @@ class OperatorWindow(QMainWindow):
 
     # Construction -----------------------------------------------------------
 
-    def _build_banner(self) -> QFrame:
-        frame = QFrame()
-        frame.setFrameShape(QFrame.Shape.NoFrame)
-        frame.setAccessibleName("Next step")
-        layout = QHBoxLayout(frame)
-        layout.setContentsMargins(12, 4, 12, 4)
-        self.next_text = QLabel()
-        font = self.next_text.font()
-        font.setBold(True)
-        self.next_text.setFont(font)
-        layout.addWidget(self.next_text, 1)
-        self.next_button = QPushButton("Go")
-        self.next_button.clicked.connect(self._follow_next)
-        self.context.register("status", self.next_button, "Open the page for the next step")
-        layout.addWidget(self.next_button)
-        self._next_page = "setup"
-        return frame
-
     def _build_menu(self) -> None:
         project_menu = self.menuBar().addMenu("&Project")
         new_action = QAction("New project", self)
         new_action.setShortcut(QKeySequence.StandardKey.New)
         new_action.triggered.connect(self.new_project)
-        self.context.register(
-            "init", new_action,
-            "Create an empty workspace in a new or empty folder, outside any repository.",
-        )
+        self.context.register("init", new_action, "Create a workspace in an empty folder")
         project_menu.addAction(new_action)
         open_action = QAction("Open project", self)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.choose_project)
         project_menu.addAction(open_action)
+        project_menu.addSeparator()
+        self.export_result_action = QAction("Export result", self)
+        self.export_result_action.triggered.connect(self.export_result)
+        self.context.register("export", self.export_result_action, "Findings and settings, for the deliverable repository")
+        project_menu.addAction(self.export_result_action)
+        project_menu.setToolTipsVisible(True)
         refresh = QAction("Refresh", self)
         refresh.setShortcut(QKeySequence.StandardKey.Refresh)
         refresh.triggered.connect(self.context.changed)
@@ -210,7 +196,7 @@ class OperatorWindow(QMainWindow):
         status = QStatusBar()
         self.setStatusBar(status)
         self.work_status = QLabel("")
-        self.work_status.setToolTip("Reading project data in the background")
+        self.work_status.setToolTip("Reading project data")
         self.project_status = QLabel("No project open")
         self.connector_status = QLabel("No connector")
         self.adapter_status = QLabel("Adapter closed")
@@ -265,48 +251,59 @@ class OperatorWindow(QMainWindow):
     def refresh_status(self) -> None:
         service = self.context.service
         if service is None:
-            self.next_text.setText("Open a project")
-            self.next_text.setToolTip("Create one with Project > New project, or open an existing workspace.")
-            self._next_page = "open"
+            self.next_action = "Open or create a project"
             self.project_status.setText("No project open")
             self.connector_status.setText("No connector")
             self._status = None
             self._show_steps()
             return
         self.project_status.setText(service.root.name)
-        if not self.next_text.text().startswith("Next:"):
-            self.next_text.setText("Loading…")
         self.context.run("status", lambda service: service.status(), self._show_status, lambda _detail: None)
 
     def _show_status(self, status) -> None:
         name = Path(status.project_root).name
         self.project_status.setText(name if status.valid else f"{name}: invalid")
         self.connector_status.setText(status.connector or "No connector")
-        action = status.next_action
-        self.next_text.setText(f"Next: {action.text}")
-        self.next_text.setToolTip(status.error or "")
-        self._next_page = action.page
-        self._next_target = action.target
+        self.next_action = status.next_action.text
         self._status = status
         self._show_steps()
 
     def _show_steps(self) -> None:
         dirty = self.signals_page.dirty
         for index, (page, (state, parts)) in enumerate(zip(PAGES, step_states(self._status, dirty))):
-            self.navigation.set_step(index, state, parts, f"{DESCRIPTIONS[page]} (Alt+{index + 1})")
+            tip = f"{DESCRIPTIONS[page]} (Alt+{index + 1})"
+            if state == NEXT:
+                tip += f"\nNext: {self.next_action}"
+            self.navigation.set_step(index, state, parts, tip)
 
-    def _follow_next(self) -> None:
-        if self._next_page == "open":
-            self.choose_project()
-            return
-        self.navigate(self._next_page, getattr(self, "_next_target", None))
-
-    def navigate(self, page: str, target: tuple[str, str] | None = None) -> None:
+    def navigate(self, page: str) -> None:
         if page in PAGES:
             self.navigation.setCurrentRow(PAGES.index(page))
-        owner = {"signals": self.signals_page, "recordings": self.recordings_page}.get(page)
-        if target is not None and owner is not None:
-            owner.focus(*target)
+
+    def _update_actions(self) -> None:
+        enabled = self.context.service is not None and not self.context.live_job_running
+        self.export_result_action.setEnabled(enabled)
+
+    def export_result(self) -> None:
+        service = self.context.service
+        if service is None:
+            return
+        key = f"export/{service.root.as_posix()}"
+        folder = self.choose_result_folder(self.context.recall(key) or str(service.root.parent))
+        if not folder:
+            return
+        destination = Path(folder)
+
+        def done(manifest) -> None:
+            self.context.remember(key, destination.as_posix())
+            self.context.message(
+                f"Exported the result ({manifest['row_counts']['signals']} signals) to {destination.name}."
+            )
+
+        self.statusBar().showMessage("Exporting the result…")
+        self.context.run(
+            "export", lambda service: service.export_result(destination), done, title="Result not exported",
+        )
 
     def _busy_changed(self, running: bool) -> None:
         self.adapter_status.setText("LIVE - adapter open" if running else "Adapter closed")
@@ -336,13 +333,15 @@ class OperatorWindow(QMainWindow):
             "settings.\n\n"
             "Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) "
             "or 0x22 (conditions not correct); the app names common ones.\n\n"
+            "Drive: recordings without a pause longer than a minute. Delete moves a drive to the trash; "
+            "Restore brings it back, and Empty trash deletes it for good.\n\n"
             "Interrupted drive: a recording that stopped without finishing. Recover keeps everything saved "
-            "up to the interruption; Quarantine moves the drive aside without deleting it.\n\n"
+            "up to the interruption.\n\n"
             "Only the buttons with a warning icon (Verify and Start) transmit to the vehicle, and "
             "each shows its exact scope first.\n\n"
             "Hover over any control for a short explanation.\n\n"
             "The steps across the top are the pages in workflow order. A tick means done, a dot marks "
-            "the next step, and ! needs attention.\n\n"
+            "the next step (hover it to see what to do), and ! needs attention.\n\n"
             "Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes.",
         )
 

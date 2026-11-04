@@ -12,7 +12,6 @@ from PySide6.QtWidgets import QAbstractButton, QLabel, QMessageBox, QWidget
 
 from tests.operator_fixture import (
     CANDIDATE_ID,
-    ENDPOINT_ID,
     UNCONFIRMED_KEY,
     ScriptedProbes,
     make_operator_project,
@@ -84,7 +83,8 @@ def test_starts_without_a_project_or_adapter(qtbot) -> None:
     assert window.project_path is None
     assert [step.title for step in window.navigation.steps] == ["Setup", "Signals", "Collect", "Recordings"]
     assert window.navigation.steps[0].state == "next"
-    assert window.next_text.text() == "Open a project"
+    assert window.next_action == "Open or create a project"
+    assert "Next: Open or create a project" in window.navigation.steps[0].toolTip()
     assert window.adapter_status.text() == "Adapter closed"
     assert not window.signals_page.verify_button.isEnabled()
     assert "Open a project first." in window.signals_page.verify_button.toolTip()
@@ -111,12 +111,17 @@ def test_gui_shows_no_command_line_text_and_short_buttons(qtbot, project, probes
     import_rows(qtbot, window, rows)
     window.collect_page.check_readiness()
     settle(qtbot, window)
+    long_tips = []
     for widget in window.findChildren(QWidget):
         for text in _visible_text(widget):
             assert "telemetry " not in text and " --" not in text, (widget.objectName(), text)
+        # Tooltips are a few words, not explanations.
+        tip = str(widget.property("baseToolTip") or widget.toolTip())
+        long_tips.extend(line for line in tip.splitlines() if len(line) > 60)
         if isinstance(widget, QAbstractButton) and widget.text():
             assert len(widget.text().split()) <= 2, widget.text()
             assert not widget.text().endswith(("…", "...")), widget.text()
+    assert long_tips == []
     page = window.signals_page
     assert page.verify_button.sizeHint().height() == page.add_endpoint_button.sizeHint().height()
 
@@ -125,7 +130,7 @@ def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, pro
     root, rows = project
     window = open_window(qtbot, root)
     assert window.project_path == root.resolve()
-    assert window.next_text.text() == "Next: Import a candidate signal list"
+    assert window.next_action == "Import a candidate signal list"
     import_rows(qtbot, window, rows)
     assert window.setup_page.preview_result.text() == "Applied candidates.json."
     assert json.loads((root / "config/catalog-manifest.json").read_text())["catalog_row_count"] == 4
@@ -172,7 +177,7 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
     assert "Finished: 1 positive" in page.job_log.toPlainText()
     endpoint = page.tree_data.endpoint(UNCONFIRMED_KEY)
     assert endpoint.state == "responded"
-    assert "Confirm responding endpoint" in window.next_text.text()
+    assert window.next_action == "Confirm the responding endpoint"
 
     page.select_row("endpoint", UNCONFIRMED_KEY)
     assert page.confirm_button.isEnabled()
@@ -284,10 +289,6 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     assert item.text(3) == "1 sample, 1 run"
     assert collect.targets_group.title() == "Targets: 0 of 1 met"
     assert collect.readiness.endpoint_id not in collect.endpoint.currentText()
-    collect._open_target(item, 0)
-    assert window.pages.currentWidget() is signals
-    assert signals._current() == ("signal", "372/0x1002/0..15")
-    window.navigate("collect")
     assert collect.start_button.isEnabled()
     collect.confirm_live = lambda dialog: True
     with mock.patch("toyota_telemetry.collection_service.JsonlWorkerClient", FakeWorker):
@@ -307,21 +308,35 @@ def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, 
     page = window.recordings_page
     window.navigate("recordings")
     settle(qtbot, window)
-    assert page.runs.rowCount() == 1
-    assert not page.recovery.isVisible()
-    page.runs.selectRow(0)
+    assert page.drives.rowCount() == 1
+    assert page.drive_detail.text().startswith("1 drive, ")
+    page.select_drives([page._drives[0].key])
     settle(qtbot, window)
-    assert "1 reads (0 failed)" in page.run_detail.toPlainText()
-    assert page.runs.item(0, 1).text() == "Targets complete"
+    assert page.drive_detail.text().startswith("1 drive selected")
+    assert page.drives.item(0, 4).text() == ""
+    assert not page.recover_button.isEnabled()
     page.select_signal("372/0x1002/0..15")
     settle(qtbot, window)
     assert page.plot.source_points == 1
-    assert "Constant value" in page.plot_summary.text()
+    assert "Constant" in page.plot_summary.text()
+    # The export dialog offers selected or all signals and drives, and a format.
     target = tmp_path / "out.csv"
+    chosen = {}
+    page.run_dialog = lambda dialog: (chosen.update(dialog.choice()), True)[1]
     page.choose_export_path = lambda: str(target)
     page.export_button.click()
     settle(qtbot, window)
+    assert chosen == {"signals": "selected", "drives": "selected", "format": "csv"}
     assert target.read_text().count("\n") == 2
+    # Delete moves the drive to the trash; Restore brings it back.
+    page.trash_button.click()
+    settle(qtbot, window)
+    assert page.drives.rowCount() == 0 and page.trash_table.rowCount() == 1
+    assert page.trash_toggle.text() == "Trash (1)"
+    page.trash_table.selectRow(0)
+    page.restore_button.click()
+    settle(qtbot, window)
+    assert page.drives.rowCount() == 1 and page.trash_table.rowCount() == 0
 
 
 def test_bounded_reduction_keeps_plots_small() -> None:
@@ -406,7 +421,7 @@ def test_plot_uses_dashboard_time_interaction(qtbot) -> None:
     plot.show()
     xs = [0.0, 1.0, 2.0, 3.0, float("nan"), 4.0, 5.0, 6.0]
     ys = [1.0, 2.0, 3.0, 4.0, float("nan"), 10.0, 20.0, 30.0]
-    runs = [RunSpan("aaaaaaaa-run", 0.0, 3.0), RunSpan("bbbbbbbb-run", 4.0, 6.0)]
+    runs = [RunSpan("a", 0.0, 3.0), RunSpan("b", 4.0, 6.0, "the drive of 2026-09-01 08:15")]
     xs[4] = 3.5
     plot.set_data(xs, ys, runs)
     plot.set_measurement("Speed", "km/h")
@@ -414,9 +429,10 @@ def test_plot_uses_dashboard_time_interaction(qtbot) -> None:
     qtbot.wait(50)
     (low, high), (y_low, y_high) = view.viewRange()
     assert low <= 0 and high >= 6 and y_low <= 1 and y_high >= 30
-    # Hover and click read the nearest finite sample, with its run.
+    # Hover and click read the nearest finite sample, with its drive.
     assert plot.nearest(3.4) == 3
-    assert plot.describe(plot.nearest(5.2)) == "Speed: 20 km/h\nrun bbbbbbbb at 0:01"
+    assert plot.describe(plot.nearest(5.2)) == "Speed: 20 km/h\n0:01 into the drive of 2026-09-01 08:15"
+    assert plot.describe(plot.nearest(1.1)) == "Speed: 2 km/h\n0:01"
     # Plain vertical scroll does not zoom; sideways scroll pans; Ctrl+scroll zooms time only.
     wheel = FakeWheel(120)
     view.wheelEvent(wheel)
@@ -436,7 +452,7 @@ def test_plot_uses_dashboard_time_interaction(qtbot) -> None:
     qtbot.wait(50)
     (low, high), _ = view.viewRange()
     assert low <= 0 and high >= 6
-    assert plot.highlight_run("bbbbbbbb-run") and not plot.highlight_run("missing")
+    assert plot.highlight_run("b") and not plot.highlight_run("missing")
 
 
 def test_step_bar_shows_progress_and_unsaved_changes(qtbot, project) -> None:
@@ -514,9 +530,8 @@ def test_plan_table_names_ecus_and_uses_one_readable_vocabulary(qtbot, project) 
     for row in range(model.rowCount()):
         endpoint = page.tree_data.endpoint(model.item(row, 0).data(ROLE)[1])
         label = model.item(row, 0).text()
-        # The ECU name or key leads; the ID (session, hash) stays in the tooltip.
-        assert endpoint.key not in label
-        assert endpoint.key in model.item(row, 0).toolTip()
+        # The ECU name or key leads; the endpoint ID (session, hash) is not shown.
+        assert endpoint.key not in label and endpoint.key not in model.item(row, 0).toolTip()
         for child in range(model.item(row, 0).rowCount()):
             readable.add(model.item(row, 0).child(child, 1).text())
     assert readable <= {"✓ Readable", "? Not checked", "✕ Refused"}
@@ -564,7 +579,7 @@ def test_filter_unticks_rows_it_hides(qtbot, project) -> None:
     assert page.selection().signals == ["372/0x1003/0..7"]
 
 
-def test_go_selects_the_item_the_next_step_is_about(qtbot, project, probes) -> None:
+def test_the_next_step_shows_on_its_step(qtbot, project, probes) -> None:
     root, rows = project
     window = open_window(qtbot, root)
     import_rows(qtbot, window, rows)
@@ -574,13 +589,10 @@ def test_go_selects_the_item_the_next_step_is_about(qtbot, project, probes) -> N
     page.verify_button.click()
     wait_for_job(qtbot, page)
     settle(qtbot, window)
-    assert window.next_text.text().startswith("Next: Confirm responding endpoint")
-    page.view.clearSelection()
-    window.navigate("setup")
-    window.next_button.click()
-    settle(qtbot, window)
-    assert window.pages.currentWidget() is page
-    assert page._current() == ("endpoint", UNCONFIRMED_KEY)
+    signals_step = window.navigation.steps[1]
+    assert signals_step.state == "next"
+    assert "Next: Confirm the responding endpoint" in signals_step.toolTip()
+    page.select("endpoint", UNCONFIRMED_KEY)
     assert page.confirm_button.isEnabled()
 
 
@@ -611,7 +623,7 @@ def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot) -> None:
     assert confirm.result() == confirm.DialogCode.Accepted
 
 
-def test_quarantine_asks_first_and_runs_list_interrupted_first(qtbot, project) -> None:
+def test_interrupted_drive_offers_recover_and_delete(qtbot, project) -> None:
     from toyota_telemetry.capture_writer import NativeRunWriter
 
     root, rows = project
@@ -635,13 +647,18 @@ def test_quarantine_asks_first_and_runs_list_interrupted_first(qtbot, project) -
     window.navigate("recordings")
     settle(qtbot, window)
     page = window.recordings_page
-    assert page.runs.item(0, 1).text() == "Interrupted"
-    assert page.runs.item(0, 0).text() == "2026-10-01 10:00 UTC"
-    with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Cancel) as asked:
-        page.quarantine_button.click()
-        settle(qtbot, window)
-    assert asked.called
-    assert page.runs.item(0, 1).text() == "Interrupted"
+    interrupted = [drive for drive in page._drives if drive.interrupted]
+    assert len(interrupted) == 1
+    assert window.navigation.steps[3].state == "attention"
+    page.select_drives([interrupted[0].key])
+    settle(qtbot, window)
+    rows = [row for row in range(page.drives.rowCount()) if page.drives.item(row, 4).text()]
+    assert [page.drives.item(row, 4).text() for row in rows] == ["! Interrupted"]
+    assert page.recover_button.isEnabled()
+    page.trash_button.click()
+    settle(qtbot, window)
+    assert not any(drive.interrupted for drive in page._drives)
+    assert window.navigation.steps[3].state != "attention"
 
 
 def test_new_project_and_export_result(qtbot, tmp_path) -> None:
@@ -651,17 +668,16 @@ def test_new_project_and_export_result(qtbot, tmp_path) -> None:
     window.context.actions["init"].trigger()
     settle(qtbot, window)
     assert window.project_path == workspace.resolve()
-    assert window.next_text.text() == "Next: Configure the connector"
+    assert window.next_action == "Configure the connector"
     deliverable = tmp_path / "deliverable"
-    page = window.recordings_page
     starts = []
-    page.choose_result_folder = lambda start: (starts.append(start), str(deliverable))[1]
-    window.navigation.setCurrentRow(3)
-    page.result_button.click()
+    window.choose_result_folder = lambda start: (starts.append(start), str(deliverable))[1]
+    assert window.export_result_action.isEnabled()
+    window.export_result_action.trigger()
     settle(qtbot, window)
-    assert page.result_text.text().startswith("Exported result")
+    assert window.statusBar().currentMessage().startswith("Exported the result")
     assert (deliverable / "result/current.json").is_file()
     assert (deliverable / "config/transport.json").read_bytes() == (workspace / "config/transport.json").read_bytes()
-    page.result_button.click()
+    window.export_result_action.trigger()
     settle(qtbot, window)
     assert starts == [str(tmp_path), deliverable.as_posix()]

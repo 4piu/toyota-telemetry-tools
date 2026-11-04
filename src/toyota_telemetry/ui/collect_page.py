@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
-    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -33,7 +32,7 @@ from .context import PageContext
 from .dialogs import LiveConfirmDialog
 from .jobs import LiveJob
 from .names import count, endpoint_label, requirement_names, target_summary
-from .widgets import LIVE_TIP, button_row, mark_live, notice, page_title, set_enabled
+from .widgets import LIVE_TIP, Disclosure, button_row, mark_live, notice, page_title, set_enabled
 
 
 class CollectPage(QWidget):
@@ -47,9 +46,7 @@ class CollectPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Collect",
-            "Collection readiness is checked automatically from your targets, DID settings, and "
-            "verification results. One run collects one endpoint and stops itself when its "
-            "targets are complete.",
+            "Run collection; target progress",
         ))
 
         readiness_group = QGroupBox("Readiness")
@@ -60,10 +57,7 @@ class CollectPage(QWidget):
         self.endpoint.setMinimumContentsLength(28)
         self.endpoint.activated.connect(lambda _index: self.check_readiness())
         self.check_button = QPushButton("Check")
-        self.context.register(
-            "collect.readiness", self.check_button,
-            "Check readiness from targets, DID settings, and verification results. Nothing is transmitted.",
-        )
+        self.context.register("collect.readiness", self.check_button, "Recheck; nothing is transmitted")
         self.check_button.clicked.connect(self.check_readiness)
         controls.addWidget(QLabel("Endpoint"))
         controls.addWidget(self.endpoint)
@@ -74,15 +68,11 @@ class CollectPage(QWidget):
         readiness_layout.addWidget(self.readiness_text)
         self.problem_area = QVBoxLayout()
         readiness_layout.addLayout(self.problem_area)
-        self.scope_toggle = QToolButton()
-        self.scope_toggle.setText("Scope")
-        self.scope_toggle.setToolTip("Show the exact compiled collection scope")
-        self.scope_toggle.setCheckable(True)
         self.scope_text = QPlainTextEdit()
         self.scope_text.setReadOnly(True)
-        self.scope_text.setVisible(False)
         self.scope_text.setAccessibleName("Technical collection scope")
-        self.scope_toggle.toggled.connect(self.scope_text.setVisible)
+        self.scope_toggle = Disclosure("Scope", self.scope_text)
+        self.scope_toggle.setToolTip("The exact compiled scope")
         readiness_layout.addWidget(self.scope_toggle)
         readiness_layout.addWidget(self.scope_text)
         layout.addWidget(readiness_group)
@@ -92,15 +82,11 @@ class CollectPage(QWidget):
         form = QFormLayout()
         self.note = QLineEdit()
         self.note.setPlaceholderText("optional")
-        self.note.setToolTip("Free-text note stored with the run, e.g. highway drive, passenger operating")
+        self.note.setToolTip("Saved with the drive, e.g. highway")
         form.addRow("Note", self.note)
         run_layout.addLayout(form)
         self.start_button = mark_live(QPushButton("Start"))
-        self.context.register(
-            "collect", self.start_button,
-            f"Collect the readiness-checked scope. One run collects one endpoint and stops when its "
-            f"targets are complete. {LIVE_TIP}",
-        )
+        self.context.register("collect", self.start_button, f"Stops when targets are met\n{LIVE_TIP}")
         self.start_button.clicked.connect(self.start_or_stop)
         run_layout.addLayout(button_row(self.start_button))
         self.run_state = QLabel("Idle. Adapter closed.")
@@ -111,24 +97,17 @@ class CollectPage(QWidget):
         run_layout.addWidget(self.run_state)
         run_layout.addWidget(self.progress)
         run_layout.addWidget(self.run_details)
-        self.events_toggle = QToolButton()
-        self.events_toggle.setText("Details")
-        self.events_toggle.setToolTip("Show per-read events")
-        self.events_toggle.setCheckable(True)
         self.events = QPlainTextEdit()
         self.events.setReadOnly(True)
         self.events.setMaximumBlockCount(300)
-        self.events.setVisible(False)
-        self.events_toggle.toggled.connect(self.events.setVisible)
+        self.events_toggle = Disclosure("Read log", self.events)
+        self.events_toggle.setToolTip("Every read as it happens")
         run_layout.addWidget(self.events_toggle)
         run_layout.addWidget(self.events)
         layout.addWidget(run_group)
 
         self.targets_group = QGroupBox("Targets")
-        self.targets_group.setToolTip(
-            "What each signal with a target has collected so far, across all runs. Double-click a row "
-            "to change its target on Signals."
-        )
+        self.targets_group.setToolTip("Collected so far, across all drives")
         targets_layout = QVBoxLayout(self.targets_group)
         self.targets = QTreeWidget()
         self.targets.setRootIsDecorated(False)
@@ -147,7 +126,6 @@ class CollectPage(QWidget):
         for column, width in enumerate((220, 180, 220, 170)):
             header.resizeSection(column, width)
         header.setStretchLastSection(True)
-        self.targets.itemDoubleClicked.connect(self._open_target)
         targets_layout.addWidget(self.targets)
         layout.addWidget(self.targets_group, 1)
         self._stale = True
@@ -263,7 +241,6 @@ class CollectPage(QWidget):
                 "✓ Met" if complete else requirement_names(missing) or "Everything",
             ])
             item.setData(0, Qt.ItemDataRole.UserRole, signal.signal_ref)
-            item.setToolTip(0, signal.signal_ref)
             self.targets.addTopLevelItem(item)
         self.targets_group.setTitle(f"Targets: {met} of {len(rows)} met" if rows else "Targets")
         if not rows:
@@ -271,24 +248,13 @@ class CollectPage(QWidget):
             self.targets.addTopLevelItem(empty)
             empty.setFirstColumnSpanned(True)
 
-    def _open_target(self, item: QTreeWidgetItem, _column: int) -> None:
-        signal_ref = item.data(0, Qt.ItemDataRole.UserRole)
-        if signal_ref:
-            self.context.navigate("signals", ("signal", signal_ref))
-
     def _add_problem(self, problem) -> None:
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
         label = QLabel(problem.hint)
         label.setWordWrap(True)
-        label.setToolTip(problem.message)
         row_layout.addWidget(label, 1)
-        if problem.page != "collect":
-            go = QPushButton(problem.page.title())
-            go.setToolTip(f"Open the {problem.page.title()} page")
-            go.clicked.connect(lambda _checked=False, page=problem.page: self.context.navigate(page))
-            row_layout.addWidget(go)
         self.problem_area.addWidget(row)
 
     def _clear_problems(self) -> None:
@@ -301,7 +267,7 @@ class CollectPage(QWidget):
         if self.running:
             self.start_button.setText("Stop")
             self.start_button.setIcon(QIcon())
-            self.start_button.setToolTip("Stop safely; the run is finalized")
+            self.start_button.setToolTip("Stops safely and keeps the drive")
             self.start_button.setEnabled(True)
             return
         mark_live(self.start_button)
@@ -377,7 +343,7 @@ class CollectPage(QWidget):
     def _event(self, event: dict) -> None:
         kind = event["event"]
         if kind == "started":
-            self.run_state.setText(f"LIVE - collecting. Run {event['run_id']}.")
+            self.run_state.setText("LIVE - collecting.")
         elif kind == "progress":
             self.progress.setRange(0, max(1, event["targets"]))
             self.progress.setValue(event["targets_complete"])

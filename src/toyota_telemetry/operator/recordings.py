@@ -1,4 +1,9 @@
-"""Run listing, recovery, quarantine, and bounded observation export.
+"""Drives and runs: listing, recovery, trash, and bounded observation export.
+
+A run is one capture folder. Imported recordings arrive as many short runs,
+so people work with drives instead: runs grouped wherever recording paused
+for more than ``DRIVE_GAP_SECONDS``. A drive is named by its start minute,
+which is unique because drives are at least that gap apart.
 
 The scanner tolerates damaged or interrupted runs so they can be listed and
 recovered; the strict capture reader still decides what the cache ingests.
@@ -8,6 +13,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -31,6 +37,8 @@ END_REASONS = {
     "size_limit": "storage limit reached",
     "recovered_prefix": "recovered after interruption",
 }
+DRIVE_GAP_SECONDS = 60
+TRASH_DIR = "trash"
 CSV_COLUMNS = (
     "signal_ref", "run_id", "sequence", "response_utc", "elapsed_ms",
     "raw_hex", "decoded_value", "condition",
@@ -79,6 +87,170 @@ class RunSummary:
         if segments:
             value["segment_rows"] = list(self.segment_rows)
         return value
+
+
+@dataclass
+class Drive:
+    """Runs recorded without a pause longer than ``DRIVE_GAP_SECONDS``."""
+
+    key: str
+    runs: list[RunSummary]
+    start: datetime | None = None
+    end: datetime | None = None
+
+    @property
+    def duration_seconds(self) -> float | None:
+        return (self.end - self.start).total_seconds() if self.start and self.end else None
+
+    @property
+    def run_ids(self) -> list[str]:
+        return [run.run_id for run in self.runs]
+
+    @property
+    def interrupted(self) -> list[str]:
+        return [run.run_id for run in self.runs if run.state == NEEDS_RECOVERY]
+
+    @property
+    def endpoint_ids(self) -> list[str]:
+        return sorted({run.endpoint_id for run in self.runs if run.endpoint_id})
+
+    @property
+    def notes(self) -> list[str]:
+        return list(dict.fromkeys(run.note for run in self.runs if run.note))
+
+    def total(self, name: str) -> int:
+        return sum(getattr(run, name) for run in self.runs)
+
+    def as_dict(self, *, runs: bool = False) -> dict[str, Any]:
+        value = {
+            "drive": self.key,
+            "start_utc": _iso(self.start),
+            "end_utc": _iso(self.end),
+            "duration_seconds": self.duration_seconds,
+            "runs": len(self.runs),
+            "reads": self.total("exchanges"),
+            "failed": self.total("failed"),
+            "samples": self.total("observations"),
+            "endpoint_ids": self.endpoint_ids,
+            "notes": self.notes,
+            "interrupted_runs": self.interrupted,
+        }
+        if runs:
+            value["run_list"] = [run.as_dict() for run in self.runs]
+        return value
+
+
+def group_drives(runs: Iterable[RunSummary], gap_seconds: float = DRIVE_GAP_SECONDS) -> list[Drive]:
+    """Group runs into drives, oldest first; a run without a start time is its own drive."""
+
+    drives: list[Drive] = []
+    timed = []
+    for run in runs:
+        start = _parse_utc(run.created_utc)
+        if start is None:
+            drives.append(Drive(run.run_id, [run]))
+        else:
+            timed.append((start, start + timedelta(seconds=run.duration_seconds or 0), run))
+    current: Drive | None = None
+    for start, end, run in sorted(timed, key=lambda row: (row[0], row[2].run_id)):
+        if current is None or (start - current.end).total_seconds() > gap_seconds:
+            current = Drive(start.strftime("%Y-%m-%dT%H:%M"), [], start, end)
+            drives.append(current)
+        current.runs.append(run)
+        current.end = max(current.end, end)
+    return sorted(drives, key=lambda drive: (drive.start is None, drive.start or datetime.min, drive.key))
+
+
+def list_drives(repository: ProjectRepository) -> list[Drive]:
+    return group_drives(list_runs(repository))
+
+
+def find_drive(drives: Iterable[Drive], key: str) -> Drive:
+    """A drive by its start minute ("2026-09-01T08:15" or "2026-09-01 08:15") or by one of its runs."""
+
+    wanted = key.strip().replace(" ", "T")
+    drives = list(drives)
+    for drive in drives:
+        if drive.key == wanted:
+            return drive
+    try:
+        run_id = canonical_run_id(key)
+    except ValueError:
+        run_id = None
+    for drive in drives:
+        if run_id in drive.run_ids:
+            return drive
+    raise ValueError(f"no drive {key}; drives are named by their start, e.g. 2026-09-01T08:15")
+
+
+def list_trash(repository: ProjectRepository) -> list[Drive]:
+    root = _trash_root(repository)
+    if not root.is_dir():
+        return []
+    return group_drives(_cached_summary(path) for path in sorted(root.iterdir()) if path.is_dir())
+
+
+def trash_drive(repository: ProjectRepository, key: str) -> Drive:
+    """Move a drive's runs to the workspace trash; restore brings them back."""
+
+    drive = find_drive(list_drives(repository), key)
+    destination = _trash_root(repository)
+    clashes = [run_id for run_id in drive.run_ids if (destination / run_id).exists()]
+    if clashes:
+        raise ValueError(f"the trash already holds {len(clashes)} of this drive's runs; empty or restore it first")
+    _move_runs(repository, drive.run_ids, repository.paths.captures, destination, "trash")
+    return drive
+
+
+def restore_drive(repository: ProjectRepository, key: str) -> Drive:
+    drive = find_drive(list_trash(repository), key)
+    clashes = [run_id for run_id in drive.run_ids if (repository.paths.captures / run_id).exists()]
+    if clashes:
+        raise ValueError(f"{len(clashes)} of this drive's runs are already in the recordings")
+    _move_runs(repository, drive.run_ids, _trash_root(repository), repository.paths.captures, "restore")
+    return drive
+
+
+def empty_trash(repository: ProjectRepository) -> int:
+    """Permanently delete everything in the trash; returns the number of drives removed."""
+
+    drives = list_trash(repository)
+    root = _trash_root(repository)
+    try:
+        with LiveLock(repository):
+            for path in sorted(root.iterdir()) if root.is_dir() else []:
+                if path.is_dir():
+                    shutil.rmtree(path)
+    except LiveBusy as exc:
+        raise ValueError("a live job is running; empty the trash after it stops") from exc
+    return len(drives)
+
+
+def _move_runs(repository: ProjectRepository, run_ids: list[str], source: Path, destination: Path, verb: str) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    try:
+        with LiveLock(repository):
+            for run_id in run_ids:
+                shutil.move(str(source / run_id), str(destination / run_id))
+    except LiveBusy as exc:
+        raise ValueError(f"a live job is running; {verb} after it stops") from exc
+
+
+def _trash_root(repository: ProjectRepository) -> Path:
+    return repository.paths.state / TRASH_DIR
+
+
+def _parse_utc(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _iso(value: datetime | None) -> str | None:
+    return value.isoformat().replace("+00:00", "Z") if value else None
 
 
 _FINISHED: dict[str, tuple[tuple[int, int], RunSummary]] = {}
@@ -142,24 +314,6 @@ def recover_run(repository: ProjectRepository, run_id: str) -> Path:
             return recover_incomplete_segment(incomplete[-1])
     except LiveBusy as exc:
         raise ValueError("a live job is running; recover after it stops") from exc
-
-
-def quarantine_run(repository: ProjectRepository, run_id: str) -> Path:
-    """Move a run out of the capture tree without deleting it."""
-
-    directory = _run_directory(repository, run_id)
-    if (directory / "run-end.json").is_file():
-        raise ValueError(f"run {run_id} is complete; only interrupted runs are quarantined")
-    destination = repository.paths.state / "quarantine" / directory.name
-    if destination.exists():
-        raise ValueError(f"quarantine already holds {directory.name}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with LiveLock(repository):
-            shutil.move(str(directory), str(destination))
-    except LiveBusy as exc:
-        raise ValueError("a live job is running; quarantine after it stops") from exc
-    return destination
 
 
 def export_observations(
@@ -271,5 +425,5 @@ def _summarize(directory: Path) -> RunSummary:
             summary.detail = f"run-end is unreadable: {exc}"
     else:
         summary.state = NEEDS_RECOVERY
-        summary.detail = "interrupted: recover it to keep the reads saved before the interruption, or quarantine it"
+        summary.detail = "interrupted: recover it to keep the reads saved before the interruption, or move it to the trash"
     return summary

@@ -614,12 +614,21 @@ class ProjectRepository:
                 connection.execute("SELECT kind, sha256 FROM source_file ORDER BY kind")
             )
 
-    def signal_observation_summary(self) -> dict[str, dict[str, Any]]:
+    def signal_observation_summary(self, run_ids: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:
+        """Per-signal counts over every run, or only over ``run_ids``."""
+
         with closing(sqlite3.connect(self.paths.database)) as connection:
+            where = ""
+            if run_ids is not None:
+                connection.execute("CREATE TEMP TABLE wanted_run(run_id TEXT PRIMARY KEY)")
+                connection.executemany(
+                    "INSERT OR IGNORE INTO wanted_run VALUES (?)", ((run_id,) for run_id in run_ids)
+                )
+                where = "WHERE run_id IN (SELECT run_id FROM wanted_run) "
             rows = connection.execute(
                 "SELECT signal_ref, COUNT(*), COUNT(DISTINCT raw_value), "
                 "MIN(decoded_value), MAX(decoded_value) "
-                "FROM signal_observation GROUP BY signal_ref"
+                f"FROM signal_observation {where}GROUP BY signal_ref"
             ).fetchall()
         return {
             signal_ref: {

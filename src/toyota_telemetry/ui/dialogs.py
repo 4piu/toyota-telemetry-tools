@@ -18,8 +18,8 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QRadioButton,
     QSpinBox,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -34,7 +34,67 @@ from toyota_telemetry.operator.editing import (
 
 from toyota_telemetry.operator.sources import canonical_can_id
 
-from .widgets import LIVE_TIP, mark_live
+from .widgets import Disclosure, mark_live
+
+
+EXPORT_FORMATS = {"csv": "CSV (spreadsheet)"}
+
+
+class ExportDialog(QDialog):
+    """Choose which recorded samples to export and in which format."""
+
+    def __init__(
+        self,
+        signal_name: str | None,
+        signal_count: int,
+        selected_drives: int,
+        drive_count: int,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Export samples")
+        self.setMinimumWidth(380)
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self.signals_selected = QRadioButton(f"Selected: {signal_name}" if signal_name else "Selected signal")
+        self.signals_all = QRadioButton(f"All {signal_count} signals")
+        self.signals_selected.setEnabled(signal_name is not None)
+        (self.signals_selected if signal_name else self.signals_all).setChecked(True)
+        form.addRow("Signals", _stack(self.signals_selected, self.signals_all))
+        self.drives_selected = QRadioButton(
+            f"Selected {selected_drives} drive" + ("s" if selected_drives != 1 else "") if selected_drives
+            else "Selected drives"
+        )
+        self.drives_all = QRadioButton(f"All {drive_count} drives")
+        self.drives_selected.setEnabled(selected_drives > 0)
+        (self.drives_selected if selected_drives else self.drives_all).setChecked(True)
+        form.addRow("Drives", _stack(self.drives_selected, self.drives_all))
+        self.format = QComboBox()
+        for key, label in EXPORT_FORMATS.items():
+            self.format.addItem(label, key)
+        form.addRow("Format", self.format)
+        layout.addLayout(form)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        self.export_button = buttons.addButton("Export", QDialogButtonBox.ButtonRole.AcceptRole)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def choice(self) -> dict[str, str]:
+        return {
+            "signals": "selected" if self.signals_selected.isChecked() else "all",
+            "drives": "selected" if self.drives_selected.isChecked() else "all",
+            "format": self.format.currentData(),
+        }
+
+
+def _stack(*widgets: QWidget) -> QWidget:
+    container = QWidget()
+    column = QVBoxLayout(container)
+    column.setContentsMargins(0, 0, 0, 0)
+    for widget in widgets:
+        column.addWidget(widget)
+    return container
 
 
 class LiveConfirmDialog(QDialog):
@@ -65,22 +125,18 @@ class LiveConfirmDialog(QDialog):
         layout.addWidget(text, 1)
         technical = list(technical)
         if technical:
-            toggle = QToolButton()
-            toggle.setText("Details")
-            toggle.setCheckable(True)
-            toggle.setToolTip("Exact request bytes, session steps, and the scope fingerprint")
             raw = QPlainTextEdit("\n".join(technical))
             raw.setReadOnly(True)
-            raw.setVisible(False)
             raw.setAccessibleName("Technical scope details")
-            toggle.toggled.connect(raw.setVisible)
+            toggle = Disclosure("Technical details", raw)
+            toggle.setToolTip("Request bytes and session steps")
             layout.addWidget(toggle)
             layout.addWidget(raw)
         buttons = QDialogButtonBox()
         self.cancel_button = buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
         self.start_button = mark_live(QPushButton("Start"))
         self.start_button.setToolTip(
-            f"{LIVE_TIP} Read-only diagnostic requests only. Never operate the computer while driving."
+            "Read-only requests. Never operate while driving."
         )
         buttons.addButton(self.start_button, QDialogButtonBox.ButtonRole.AcceptRole)
         self.cancel_button.setDefault(True)
@@ -132,12 +188,9 @@ class EndpointAddDialog(_ValidatedDialog):
         form.addRow("Response CAN ID", self.response)
         form.addRow("Session", self.recipe)
         form.addRow("ECU keys", self.ecus)
-        self.setToolTip(
-            "Adds a candidate only. Nothing is transmitted until you verify it, and nothing is "
-            "written to the transport settings until you confirm it."
-        )
-        self.recipe.setToolTip("Diagnostic session to open, from the project's reviewed transport settings")
-        self.ecus.setToolTip("Which ECUs answer at this address (their keys in the candidate list)")
+        self.setToolTip("Adds a candidate; nothing is transmitted")
+        self.recipe.setToolTip("Diagnostic session to open")
+        self.ecus.setToolTip("ECU keys that answer here")
         form.addRow(self._error_label())
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
@@ -163,15 +216,14 @@ class EndpointConfirmDialog(_ValidatedDialog):
     def __init__(self, endpoint_id: str, ecu_keys: list[int], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(f"Confirm endpoint {endpoint_id}")
-        self.setToolTip(f"Records {endpoint_id} as a confirmed endpoint in the workspace settings.")
+        
         form = QFormLayout(self)
         self.ecus = QLineEdit(", ".join(str(key) for key in ecu_keys))
         self.ecus.setToolTip("Which ECUs answer at this endpoint")
         self.source = QLineEdit()
         self.source.setPlaceholderText("required")
         self.source.setToolTip(
-            "Where the evidence is written up, as a path in the deliverable repository, "
-            "e.g. docs/evidence/endpoints.md. Separate several with commas."
+            "Path in the deliverable repository, e.g. docs/evidence/endpoints.md"
         )
         form.addRow("ECU keys", self.ecus)
         form.addRow("Evidence", self.source)
@@ -217,10 +269,7 @@ class TargetEditDialog(QDialog):
         self._preview = preview
         layout = QVBoxLayout(self)
         intro = QLabel(f"{signal_count} signal(s)")
-        intro.setToolTip(
-            "Only checked fields change; other values stay as they are. "
-            "A count of 0 or an empty duration removes that requirement."
-        )
+        intro.setToolTip("0 or empty removes a requirement")
         layout.addWidget(intro)
         grid = QGridLayout()
         self.enabled: dict[str, QCheckBox] = {}
@@ -253,18 +302,12 @@ class TargetEditDialog(QDialog):
         self._add_row(grid, row, "condition", "Collect when", condition)
         row += 1
         included = QCheckBox("Yes")
-        included.setToolTip("Unchecked keeps the target but leaves the signal out of collection")
+        included.setToolTip("Unchecked keeps it but skips collection")
         included.setChecked(bool((current or {}).get("included", True)))
         self._add_row(grid, row, "included", "Collect this signal", included)
         layout.addLayout(grid)
-        difference.setToolTip(
-            "A change counts when consecutive decoded values differ by at least this much, "
-            "in the signal's unit."
-        )
-        condition.setToolTip(
-            "Only observations taken while this holds count, e.g. 372/0x1002/0..15 > 10. "
-            "Combine clauses with 'and' or 'or'. Empty means always."
-        )
+        difference.setToolTip("Smallest step that counts as a change")
+        condition.setToolTip("Count samples only while this holds; empty means always")
         self.impact = QLabel()
         self.impact.setWordWrap(True)
         self.impact.setAccessibleName("Batch impact preview")
@@ -272,7 +315,7 @@ class TargetEditDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         self.ok_button.setText("Apply")
-        self.ok_button.setToolTip("Apply to the unsaved draft; Save on the Signals page writes it.")
+        self.ok_button.setToolTip("Saved with Save on Signals")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -281,7 +324,7 @@ class TargetEditDialog(QDialog):
     def _add_row(self, grid: QGridLayout, row: int, name: str, label: str, editor: QWidget) -> None:
         change = QCheckBox(label)
         change.setAccessibleName(f"Change {label}")
-        change.setToolTip(f"Check to change {label.lower()} for every selected signal.")
+        change.setToolTip(f"Change {label.lower()}")
         editor.setEnabled(False)
         change.toggled.connect(editor.setEnabled)
         change.toggled.connect(lambda _checked: self.refresh_preview())

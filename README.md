@@ -44,7 +44,7 @@ writes the reviewed result (a new immutable generation plus
 `review/`) into a **deliverable** folder, typically the vehicle's Git
 repository, which also holds the written findings and evidence. Recordings,
 connector settings, and the cache never leave the workspace. In the desktop
-application these are Project > New project and Recordings > Export result.
+application these are Project > New project and Project > Export result.
 
 ## Two interfaces
 
@@ -61,7 +61,7 @@ walks the workflow with the command and desktop page for each step.
 
 | Step | Command | Desktop page |
 |---|---|---|
-| Readiness and next action | `telemetry status`, `telemetry check` | banner on every page |
+| Readiness and next action | `telemetry status`, `telemetry check` | step bar (the next step's tooltip) |
 | Connector | `telemetry connector show\|set\|check` | Setup |
 | Candidate list | `telemetry source import file\|tis [--apply]`, `telemetry cache rebuild` | Setup |
 | Browse | `telemetry signals [SELECTOR...]`, `telemetry signals show SELECTOR` | Signals |
@@ -69,9 +69,9 @@ walks the workflow with the command and desktop page for each step.
 | Verify (LIVE) | `telemetry verify SELECTOR... [--dry-run] [--yes]` | Signals |
 | Review and targets | `telemetry signal set`, `telemetry did set`, `telemetry target set\|clear` | Signals |
 | Collect (LIVE) | `telemetry collect [--dry-run] [--yes]` | Collect |
-| Recordings | `telemetry recordings [show\|recover\|quarantine\|export]` | Recordings |
+| Recordings | `telemetry recordings [show\|recover\|trash\|restore\|empty-trash\|export]` | Recordings |
 | Workspace | `telemetry init FOLDER` | Project > New project |
-| Deliverables | `telemetry export FOLDER` | Recordings |
+| Deliverables | `telemetry export FOLDER` | Project > Export result |
 
 Only `verify` and `collect` transmit. Both show the exact scope first; the CLI
 asks for `yes` in a terminal, and a scripted `--yes` is accepted only for a
@@ -99,8 +99,10 @@ collected and how often, and each signal's target; a Filter menu and search;
 a side panel edits the settings, targets, and definition of everything
 selected, showing "mixed" where rows differ, as a draft until Save), Collect
 (automatic readiness, start/stop, live progress, and every target's
-progress), and Recordings (recovery, runs, a
-time-series plot across all valid runs, CSV export, result export). The plot
+progress), and Recordings (drives: recordings grouped wherever recording
+paused for over a minute; selecting drives lists and plots their signals;
+recovery, a restorable trash, and an Export dialog for samples). Export
+result is in the Project menu. The plot
 follows dashboard conventions: hover reads the nearest sample, click pins it,
 drag zooms into a time range, double-click shows everything, sideways scroll
 pans, and pinch or Ctrl+scroll zooms time. Buttons are short;

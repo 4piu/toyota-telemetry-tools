@@ -17,10 +17,10 @@ READABLE = "✓ Readable"
 NOT_CHECKED = "? Not checked"
 REFUSED = "✕ Refused"
 ENDPOINT_READABLE = {
-    "responded": ("Needs confirming", "Answered a probe; confirm it to plan collection"),
-    "silent": ("No answer", "Did not answer when probed"),
-    "not verified": ("Not checked", "Not probed yet; Verify checks it"),
-    "address unknown": ("No address", "No CAN address is known; Add endpoint to give it one"),
+    "responded": ("Needs confirming", "Answered; confirm it to plan"),
+    "silent": ("No answer", "Did not answer"),
+    "not verified": ("Not checked", "Not probed yet"),
+    "address unknown": ("No address", "Address unknown; Add endpoint"),
 }
 
 

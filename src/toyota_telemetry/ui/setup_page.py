@@ -38,8 +38,7 @@ class SetupPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Setup",
-            "Check the project, describe this computer's CAN connector, and import a candidate "
-            "signal list. Nothing on this page transmits to the vehicle.",
+            "Nothing here transmits",
         ))
         layout.addWidget(self._project_group())
         layout.addWidget(self._connector_group())
@@ -59,10 +58,10 @@ class SetupPage(QWidget):
         layout.addWidget(self.project_summary)
         self.check_button = QPushButton("Check")
         self.rebuild_button = QPushButton("Rebuild cache")
-        self.context.register("check", self.check_button, "Validate the workspace files and the candidate list.")
+        self.context.register("check", self.check_button, "Validate project files")
         self.context.register(
             "cache.rebuild", self.rebuild_button,
-            "Rebuild the disposable cache from project files, candidates, and recordings.",
+            "Rebuild the sample cache",
         )
         self.check_button.clicked.connect(self.check_project)
         self.rebuild_button.clicked.connect(self.rebuild_cache)
@@ -142,10 +141,7 @@ class SetupPage(QWidget):
 
     def _connector_group(self) -> QGroupBox:
         group = QGroupBox("Connector")
-        group.setToolTip(
-            "The CAN adapter and driver on this computer. Settings are machine-local and never "
-            "exported. CAN bitrate comes from the reviewed transport configuration."
-        )
+        group.setToolTip("CAN adapter on this computer; never exported")
         layout = QVBoxLayout(group)
         form = QFormLayout()
         self.connector_kind = QComboBox()
@@ -169,7 +165,7 @@ class SetupPage(QWidget):
         form.addRow(self.connector_stack)
         self.executable = QLineEdit()
         self.executable.setPlaceholderText("default")
-        self.executable.setToolTip("Worker program; empty uses the worker installed with this tool.")
+        self.executable.setToolTip("Empty uses the bundled worker")
         form.addRow("Worker executable", self.executable)
         layout.addLayout(form)
         self.context.register("connector.show", self.connector_kind, "Adapter type")
@@ -178,9 +174,9 @@ class SetupPage(QWidget):
         self.connector_save_button = QPushButton("Save")
         self.context.register(
             "connector.check", self.connector_check_button,
-            "Validate the settings and run the worker self-test. The adapter is not opened.",
+            "Self-test; the adapter is not opened",
         )
-        self.context.register("connector.set", self.connector_save_button, "Save the connector settings on this computer.")
+        self.context.register("connector.set", self.connector_save_button, "Saved on this computer")
         self.connector_check_button.clicked.connect(self.check_connector)
         self.connector_save_button.clicked.connect(self.save_connector)
         layout.addLayout(button_row(self.connector_check_button, self.connector_save_button))
@@ -247,9 +243,9 @@ class SetupPage(QWidget):
         layout = QVBoxLayout(group)
         choices = QHBoxLayout()
         self.source_file = QRadioButton("JSON file")
-        self.source_file.setToolTip("A normalized JSON file of candidate rows.")
+        self.source_file.setToolTip("Candidate rows as JSON")
         self.source_tis = QRadioButton("TIS database")
-        self.source_tis.setToolTip("Installed Techstream (TIS) databases. Windows only.")
+        self.source_tis.setToolTip("Installed Techstream databases (Windows)")
         self.source_file.setChecked(True)
         self._source_buttons = QButtonGroup(self)
         for index, button in enumerate((self.source_file, self.source_tis)):
@@ -272,10 +268,10 @@ class SetupPage(QWidget):
         self.tis_code_page = QSpinBox()
         self.tis_code_page.setRange(0, 65535)
         self.tis_code_page.setValue(932)
-        self.tis_directory.setToolTip("Techstream region folder that contains DB")
+        self.tis_directory.setToolTip("Region folder containing DB")
         self.tis_phases.setToolTip("Database phases to read, e.g. 5")
-        self.tis_ecus.setToolTip("Limit to these ECU keys; empty reads every installed ECU")
-        self.tis_code_page.setToolTip("Code page of the database text (932 for the NA set)")
+        self.tis_ecus.setToolTip("Empty reads every ECU")
+        self.tis_code_page.setToolTip("932 for the NA set")
         tis_form.addRow("Database folder", path_field(self.tis_directory, "TIS database folder", directory=True))
         tis_form.addRow("Phases", self.tis_phases)
         tis_form.addRow("ECU keys", self.tis_ecus)
@@ -289,11 +285,11 @@ class SetupPage(QWidget):
         self.apply_button = QPushButton("Apply")
         self.context.register(
             "source.preview", self.preview_button,
-            "Read the source and show what would change. Nothing is written.",
+            "Show changes; nothing is written",
         )
         self.context.register(
             "source.apply", self.apply_button,
-            "Use the previewed rows as this source's candidates and update the catalog manifest and cache.",
+            "Use the previewed rows",
         )
         set_enabled(self.apply_button, False, "Preview a source first.")
         self.preview_button.clicked.connect(self.preview_source)

@@ -31,7 +31,7 @@ class FilterButton(QToolButton):
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.setAccessibleName("Filter")
-        self.setToolTip("Show only some rows. Ticks in one group add rows; groups combine to narrow them.")
+        self.setToolTip("Filter rows")
         self.menu_ = StayOpenMenu(self)
         self.setMenu(self.menu_)
         self.groups: dict[str, list[tuple[str, str, str]]] = {}

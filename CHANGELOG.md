@@ -51,6 +51,22 @@ will run. Everything else is safe to take.
   Collect, Target, ECU groups; any within a group, all across groups)
   replaces the toggle buttons and the ECU key field. Target progress moved
   off this page: a met target shows only a tick.
+- Recordings are grouped into drives (a pause of over a minute starts a new
+  one; a drive is named by its start minute). `telemetry recordings` lists
+  drives (`--runs` for individual runs), `show|recover|trash|restore DRIVE`
+  accept a drive or any of its run IDs, `empty-trash` deletes permanently,
+  and `export --drive` limits an export. A restorable trash replaces
+  quarantine.
+- Desktop Recordings page: a drives table (local start, length, ECUs,
+  samples, status, note) replaces the runs table; selecting drives lists the
+  signals they recorded and plots them on their own clocks. Delete moves
+  drives to the trash, shown as a collapsible section with Restore and Empty
+  trash. Export opens a dialog: selected or all signals and drives, and a
+  format (CSV). Run and endpoint IDs are no longer shown.
+- Desktop: the Next/Go row is gone; the next step is marked on the step bar
+  and named in its tooltip. Export result moved to the Project menu. Pages no
+  longer jump to other pages. Collapsible sections use ▸/▾ disclosure
+  headers. Tooltips are a few words.
 - Desktop Collect page: a Targets table shows every target's recorded
   samples and runs and what it still needs; double-click opens the signal on
   Signals. Endpoints are named by ECU and address; the ID stays in the

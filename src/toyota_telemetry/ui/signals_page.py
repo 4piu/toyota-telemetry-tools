@@ -68,16 +68,13 @@ ROLE = Qt.ItemDataRole.UserRole
 SORT_ROLE = Qt.ItemDataRole.UserRole + 1
 COLUMNS = ("Name", "Readable", "Collect", "Every", "Late after", "Priority", "Target")
 COLUMN_TIPS = (
-    "ECU (endpoint) → DID (one request) → signal. An endpoint is the diagnostic route to an ECU; "
-    "a DID can carry several signals.",
-    "Whether the vehicle answers. DID: Readable, Not checked, or Refused; a signal is readable when "
-    "its DID is. Endpoint: how many DIDs are readable once confirmed; otherwise Needs confirming, "
-    "No answer, Not checked, or No address.",
-    "Whether the DID is read during collection",
-    "How often the DID is read; shared by all its signals",
-    "A read counts as late after this long",
-    "0-100; higher wins when reads compete",
-    "What each signal must collect; ✓ when already met. A DID shows how many of its signals have one.",
+    "ECU → DID (one request) → signal",
+    "Whether the vehicle answers",
+    "Read during collection",
+    "How often the DID is read",
+    "Late after this long",
+    "0-100; higher goes first",
+    "What to collect; ✓ when met",
 )
 NUMERIC = {3, 4, 5}
 FILTER_GROUPS = {
@@ -189,9 +186,7 @@ class SignalsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Signals",
-            "Plan collection: choose which DIDs are read and how often, and what each signal must "
-            "collect. Verify first to see what the vehicle answers. Select rows (Shift or Ctrl for "
-            "several); the panel on the right edits all of them at once. Progress is on Collect.",
+            "What to collect, and how often",
         ))
         layout.addLayout(self._filter_bar())
         self.external_notice = notice()
@@ -230,7 +225,7 @@ class SignalsPage(QWidget):
         row = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText("Search signal or DID")
-        self.search.setToolTip("Show signals whose name or reference contains this text, or DIDs with this ID")
+        self.search.setToolTip("Signal name or DID")
         self.search.setAccessibleName("Search signals")
         self.search.setClearButtonEnabled(True)
         self.search.addAction(search_icon(), QLineEdit.ActionPosition.LeadingPosition)
@@ -242,16 +237,16 @@ class SignalsPage(QWidget):
         self.filter_button.changed.connect(self._filters_changed)
         row.addWidget(self.filter_button)
         self.clear_filters_button = QPushButton("Clear")
-        self.clear_filters_button.setToolTip("Clear the search and every filter")
+        self.clear_filters_button.setToolTip("Clear search and filters")
         self.clear_filters_button.clicked.connect(self.clear_filters)
         row.addWidget(self.clear_filters_button)
         row.addSpacing(12)
         self.expand_button = QPushButton("Expand all")
-        self.expand_button.setToolTip("Expand every ECU and DID; Collapse shows ECUs only")
+        self.expand_button.setToolTip("Show every row")
         self.expand_button.clicked.connect(self.toggle_expanded)
         row.addWidget(self.expand_button)
         self.refresh_button = QPushButton("Refresh")
-        self.refresh_button.setToolTip("Reread project files and verification results")
+        self.refresh_button.setToolTip("Reread project files")
         self.refresh_button.clicked.connect(self.refresh_from_disk)
         row.addWidget(self.refresh_button)
         return row
@@ -283,8 +278,7 @@ class SignalsPage(QWidget):
         self.view.selectionModel().selectionChanged.connect(lambda *_: self._selection_timer.start())
         self.context.register(
             "signals.list", self.view,
-            "Each ECU (endpoint) lists its DIDs; a DID is one request and can carry several signals. "
-            "Select rows to verify them or change their collection plan.",
+            "Select rows to change their plan",
         )
         self.empty_label = QLabel("No project open.")
         self.empty_label.setWordWrap(True)
@@ -311,22 +305,18 @@ class SignalsPage(QWidget):
         layout.addWidget(self.detail_text)
 
         self.collection_group = QGroupBox("Collection")
-        self.collection_group.setToolTip(
-            "How the selected DIDs are read during collection. Shared by every signal on a DID. "
-            "Fields showing \"mixed\" differ between the selected DIDs and are left as they are "
-            "unless you change them."
-        )
+        self.collection_group.setToolTip("\"mixed\" fields stay as they are unless changed")
         form = QFormLayout(self.collection_group)
         self.did_included = QCheckBox("Collect")
-        self.did_included.setToolTip("Read the selected DIDs during collection")
+        self.did_included.setToolTip("Read during collection")
         self.did_included.clicked.connect(lambda _checked: self._included_clicked())
         self._included_touched = False
         self.did_interval = MixedSpinBox(1, 3_600_000, " ms")
-        self.did_interval.setToolTip("Aim to read each DID this often")
+        self.did_interval.setToolTip("How often to read")
         self.did_maximum = MixedSpinBox(1, 3_600_000, " ms")
-        self.did_maximum.setToolTip("A read counts as late after this long")
+        self.did_maximum.setToolTip("Late after this long")
         self.did_priority = MixedSpinBox(0, 100)
-        self.did_priority.setToolTip("0-100; higher wins when reads compete")
+        self.did_priority.setToolTip("0-100; higher goes first")
         for spin in (self.did_interval, self.did_maximum, self.did_priority):
             spin.valueChanged.connect(lambda _value: self._update_apply())
         form.addRow(self.did_included)
@@ -337,22 +327,22 @@ class SignalsPage(QWidget):
         self.did_apply.clicked.connect(self.apply_did_settings)
         self.context.register(
             "did.set", self.did_apply,
-            "Apply the changed fields to every selected DID in the unsaved draft; Save writes it.",
+            "Applied to the draft until Save",
         )
         form.addRow(self.did_apply)
         layout.addWidget(self.collection_group)
 
         self.targets_group = QGroupBox("Targets")
-        self.targets_group.setToolTip("What evidence the selected signals still need; recordings are never removed")
+        self.targets_group.setToolTip("What to collect per signal")
         targets_layout = QVBoxLayout(self.targets_group)
         self.targets_text = QLabel()
         self.targets_text.setWordWrap(True)
         targets_layout.addWidget(self.targets_text)
         self.target_button = QPushButton("Edit targets")
         self.clear_button = QPushButton("Remove targets")
-        self.context.register("target.set", self.target_button, "Set completion requirements for the selected signals")
+        self.context.register("target.set", self.target_button, "Set what to collect")
         self.context.register(
-            "target.clear", self.clear_button, "Remove targets from the selected signals; recordings are kept"
+            "target.clear", self.clear_button, "Recordings are kept"
         )
         self.target_button.clicked.connect(self.edit_targets)
         self.clear_button.clicked.connect(self.clear_targets)
@@ -360,21 +350,17 @@ class SignalsPage(QWidget):
         layout.addWidget(self.targets_group)
 
         self.definition_group = QGroupBox("Definition")
-        self.definition_group.setToolTip("How the selected signal is named and decoded")
+        self.definition_group.setToolTip("Name and decoding")
         definition = QFormLayout(self.definition_group)
         self.def_name = QLineEdit()
-        self.def_name.setToolTip("Display name; empty uses the catalog name")
+        self.def_name.setToolTip("Empty uses the catalog name")
         self.def_formula = QLineEdit()
-        self.def_formula.setToolTip("Decode formula in terms of raw, e.g. raw / 10 - 40; empty uses the catalog formula")
+        self.def_formula.setToolTip("e.g. raw / 10 - 40; empty uses the catalog")
         self.def_unit = QLineEdit()
-        self.def_unit.setToolTip("Unit; empty uses the catalog unit")
+        self.def_unit.setToolTip("Empty uses the catalog unit")
         self.def_evidence = QComboBox()
         self.def_evidence.addItems(EVIDENCE_STATES)
-        self.def_evidence.setToolTip(
-            "How well this signal's meaning is established. Candidate: from the database only. "
-            "Observed: seen in a capture. Correlated: matches a reference. Validated: checked across its range. "
-            "\"and replayed\": read again independently with this toolkit."
-        )
+        self.def_evidence.setToolTip("How well its meaning is established")
         self.def_notes = QLineEdit()
         definition.addRow("Name", self.def_name)
         definition.addRow("Formula", self.def_formula)
@@ -383,7 +369,7 @@ class SignalsPage(QWidget):
         definition.addRow("Notes", self.def_notes)
         self.def_apply = QPushButton("Apply")
         self.def_apply.clicked.connect(self.apply_definition)
-        self.context.register("signal.set", self.def_apply, "Apply to the unsaved draft; Save writes it.")
+        self.context.register("signal.set", self.def_apply, "Applied to the draft until Save")
         definition.addRow(self.def_apply)
         layout.addWidget(self.definition_group)
         layout.addStretch(1)
@@ -400,19 +386,19 @@ class SignalsPage(QWidget):
         self.confirm_button = QPushButton("Confirm endpoint")
         self.verify_button = mark_live(QPushButton("Verify"))
         self.stop_button = QPushButton("Stop")
-        self.stop_button.setToolTip("Stop after the current probe")
+        self.stop_button.setToolTip("Stops after the current probe")
         self.stop_button.setVisible(False)
         self.save_button = QPushButton("Save")
-        self.save_button.setToolTip("Write the draft to the review and policy files")
+        self.save_button.setToolTip("Write your changes")
         self.discard_button = QPushButton("Discard")
-        self.discard_button.setToolTip("Drop the draft and reload the project files")
+        self.discard_button.setToolTip("Drop your changes")
         for operation, button, tip in (
             ("endpoint.add", self.add_endpoint_button,
-             "Add an endpoint candidate by its tester and response CAN IDs"),
+             "Add a candidate by its CAN IDs"),
             ("endpoint.confirm", self.confirm_button,
-             "Record the selected responding endpoint in the transport settings"),
+             "Save it as a project endpoint"),
             ("verify", self.verify_button,
-             f"Probe the selected endpoints, then read their DIDs. {LIVE_TIP}"),
+             f"Reads the selected DIDs\n{LIVE_TIP}"),
         ):
             self.context.register(operation, button, tip)
         self.add_endpoint_button.clicked.connect(self.add_endpoint)
@@ -455,9 +441,7 @@ class SignalsPage(QWidget):
                 changed = True
             if changed:
                 show_notice(self.external_notice, "Project files changed outside this window.")
-                self.external_notice.setToolTip(
-                    "Your unsaved edits are based on older files. Discard reloads them; Save is refused until you do."
-                )
+                self.external_notice.setToolTip("Discard reloads them")
         self.rebuild()
 
     def rebuild(self, restore: tuple[str, str] | None = None) -> None:
@@ -566,7 +550,7 @@ class SignalsPage(QWidget):
                     for item in did_row[2:6]:
                         item.setForeground(dim)
                     if settings:
-                        did_row[2].setToolTip("Has collection settings but is not read")
+                        did_row[2].setToolTip("Not read during collection")
                 row[0].appendRow(did_row)
                 for signal in did.signals:
                     unit = f"  {signal.unit}" if signal.unit else ""
@@ -577,7 +561,6 @@ class SignalsPage(QWidget):
                         f"{signal.name}{unit}{conflict}", "", "", "", "", "",
                         f"{target}  ✓" if target and met else target,
                     ])
-                    signal_row[0].setToolTip(signal.signal_ref)
                     if target:
                         signal_row[6].setToolTip(target + (". Already met." if met else ""))
                     did_row[0].appendRow(signal_row)
@@ -808,7 +791,6 @@ class SignalsPage(QWidget):
                 f"Address: {endpoint_address(endpoint) or 'unknown'}",
                 f"ECU keys: {', '.join(map(str, endpoint.ecu_keys)) or '-'}",
                 f"Diagnostic session: {endpoint.session_recipe_id or 'chosen when verified'}",
-                f"Endpoint ID: {endpoint.endpoint_id or endpoint.key}",
                 f"DIDs: {len(endpoint.dids)}",
             ]
         if kind == "did":
@@ -822,7 +804,7 @@ class SignalsPage(QWidget):
             ]
         endpoint, did, signal = self._signals[key]
         lines = [
-            f"Reference: {signal.signal_ref}",
+            f"Bits: {signal.signal_ref.rsplit('/', 1)[-1]} of DID {did.data_id}",
             f"Unit: {signal.unit or '-'}   Formula: {signal.formula}",
             f"DID {did.data_id} on {endpoint_name(endpoint)}: {did_readable(did.state)[2:]}",
             f"Evidence: {_status_tip(signal, did)}",
@@ -985,12 +967,17 @@ class SignalsPage(QWidget):
             self.context.error("Cannot verify", exc)
             return
         details = []
+        technical = []
         for row in scope.endpoints:
-            action = "probe endpoint first, then read" if row.probe_endpoint else "read"
-            details.append(f"{row.key} ({row.tester_can_id}/{row.response_can_id}, session {row.session_recipe_id}): {action}")
-            details.append("    " + ", ".join(row.dids))
-        details.append(f"{scope.probe_count} probe(s), at most {scope.upper_bound_seconds:.0f} s. Scope {scope.digest[:12]}.")
-        dialog = LiveConfirmDialog("Verify", scope.summary() + "?", details, self)
+            endpoint = self.tree_data.endpoint(row.key)
+            name = endpoint_label(endpoint) if endpoint else row.key
+            action = "probe, then read" if row.probe_endpoint else "read"
+            details.append(f"{name}: {action} {count(len(row.dids), 'DID')}")
+            details.append("    " + ", ".join(did.rsplit("/", 1)[-1] for did in row.dids))
+            technical.append(f"{row.key}: {row.tester_can_id}/{row.response_can_id}, session {row.session_recipe_id}")
+        details.append(f"{scope.probe_count} probe(s), at most {scope.upper_bound_seconds:.0f} s.")
+        technical.append(f"Scope fingerprint: {scope.digest}")
+        dialog = LiveConfirmDialog("Verify", scope.summary() + "?", details, self, technical=technical)
         if not self.confirm_live(dialog):
             return
         self.job_log.clear()
@@ -1131,7 +1118,7 @@ class SignalsPage(QWidget):
             return True
         if self._base_bytes is not None and service.authority_bytes() != self._base_bytes:
             show_notice(self.external_notice, "Not saved: project files changed outside this window.")
-            self.external_notice.setToolTip("Discard to reload the files, then make your edits again.")
+            self.external_notice.setToolTip("Discard, then edit again")
             return False
         try:
             service.save(review=self.draft_review, policy=self.draft_policy)
@@ -1173,12 +1160,9 @@ def _target_state(signal) -> set[str]:
 
 
 def _endpoint_tip(endpoint) -> str:
-    lines = [endpoint_label(endpoint), f"Endpoint ID: {endpoint.endpoint_id or endpoint.key}"]
-    if endpoint.session_recipe_id:
-        lines.append(f"Diagnostic session: {endpoint.session_recipe_id}")
     if endpoint.tester_can_id is None:
-        lines.append("No CAN address is known for this ECU. Add an endpoint for it to verify it.")
-    return "\n".join(lines)
+        return "Address unknown; Add endpoint"
+    return f"Session: {endpoint.session_recipe_id}" if endpoint.session_recipe_id else ""
 
 
 def _impact_text(impact: dict[str, Any], selected: int) -> str:

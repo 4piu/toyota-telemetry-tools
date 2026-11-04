@@ -40,14 +40,20 @@ from .inventory import (
 )
 from .live import LiveBusy, LiveLock, live_busy
 from .recordings import (
+    Drive,
     RunSummary,
+    empty_trash,
     export_observations,
+    find_drive,
     interrupted_run_ids,
+    list_drives,
     list_runs,
-    quarantine_run,
+    list_trash,
     recover_run,
+    restore_drive,
     run_detail,
     signal_series,
+    trash_drive,
 )
 from .selection import Selection, resolve_selection
 from .sources import SourceRows
@@ -66,7 +72,7 @@ class Operation:
 
 OPERATIONS: tuple[Operation, ...] = (
     Operation("init", "Create a project workspace", "telemetry init", "project.new"),
-    Operation("status", "Show readiness and the next action", "telemetry status", "banner.next"),
+    Operation("status", "Show readiness and the next action", "telemetry status", "steps"),
     Operation("check", "Validate project files", "telemetry check", "setup.check"),
     Operation("connector.show", "Show connector settings", "telemetry connector show", "setup.connector.form"),
     Operation("connector.set", "Save connector settings", "telemetry connector set", "setup.connector.save"),
@@ -85,12 +91,15 @@ OPERATIONS: tuple[Operation, ...] = (
     Operation("target.clear", "Remove collection targets", "telemetry target clear", "signals.target.clear"),
     Operation("collect.readiness", "Check collection readiness", "telemetry collect --dry-run", "collect.readiness"),
     Operation("collect", "Collect data", "telemetry collect", "collect.start", live=True),
-    Operation("recordings.list", "List recorded runs", "telemetry recordings", "recordings.runs"),
-    Operation("recordings.show", "Show one run", "telemetry recordings show", "recordings.run.detail"),
-    Operation("recordings.recover", "Recover an interrupted run", "telemetry recordings recover", "recordings.recover"),
-    Operation("recordings.quarantine", "Quarantine an interrupted run", "telemetry recordings quarantine", "recordings.quarantine"),
-    Operation("recordings.export", "Export signal data as CSV", "telemetry recordings export", "recordings.export"),
-    Operation("export", "Export results to a deliverable folder", "telemetry export", "recordings.result"),
+    Operation("recordings.list", "List recorded drives", "telemetry recordings", "recordings.drives"),
+    Operation("recordings.show", "Show one drive", "telemetry recordings show", "recordings.drive.detail"),
+    Operation("recordings.recover", "Recover an interrupted drive", "telemetry recordings recover", "recordings.recover"),
+    Operation("recordings.trash", "Move a drive to the trash", "telemetry recordings trash", "recordings.trash"),
+    Operation("recordings.restore", "Restore a drive from the trash", "telemetry recordings restore", "recordings.restore"),
+    Operation("recordings.empty-trash", "Delete the trash permanently", "telemetry recordings empty-trash",
+              "recordings.empty-trash"),
+    Operation("recordings.export", "Export recorded samples", "telemetry recordings export", "recordings.export"),
+    Operation("export", "Export results to a deliverable folder", "telemetry export", "menu.project.export"),
 )
 OPERATION_IDS = frozenset(operation.id for operation in OPERATIONS)
 
@@ -249,7 +258,7 @@ class OperatorService:
         if status.recoverable_runs:
             run_id = status.recoverable_runs[0]
             return NextAction(
-                f"Recover interrupted run {run_id[:8]}", f"telemetry recordings recover {run_id}",
+                "Recover the interrupted drive", f"telemetry recordings recover {run_id}",
                 "recordings", ("run", run_id),
             )
         if status.connector is None:
@@ -263,7 +272,7 @@ class OperatorService:
             row = responded[0]
             ecus = " ".join(f"--ecu {key}" for key in row.ecu_keys) or "--ecu KEY"
             return NextAction(
-                f"Confirm responding endpoint {row.endpoint_id}",
+                "Confirm the responding endpoint",
                 f"telemetry endpoint confirm {row.endpoint_id} {ecus} --source docs/PATH.md",
                 "signals", ("endpoint", row.key),
             )
@@ -540,8 +549,31 @@ class OperatorService:
     def recover(self, run_id: str) -> Path:
         return recover_run(self.repository(), run_id)
 
-    def quarantine(self, run_id: str) -> Path:
-        return quarantine_run(self.repository(), run_id)
+    def drives(self) -> list[Drive]:
+        return list_drives(self.repository())
+
+    def drive(self, key: str) -> Drive:
+        return find_drive(self.drives(), key)
+
+    def recover_drive(self, key: str) -> list[Path]:
+        """Recover every interrupted run of a drive (a run ID also names its drive)."""
+
+        drive = self.drive(key)
+        if not drive.interrupted:
+            raise ValueError(f"drive {drive.key} has no interrupted run")
+        return [self.recover(run_id) for run_id in drive.interrupted]
+
+    def trash(self, key: str) -> Drive:
+        return trash_drive(self.repository(), key)
+
+    def trashed(self) -> list[Drive]:
+        return list_trash(self.repository())
+
+    def restore(self, key: str) -> Drive:
+        return restore_drive(self.repository(), key)
+
+    def empty_trash(self) -> int:
+        return empty_trash(self.repository())
 
     def export(self, signal_refs: Iterable[str], stream: TextIO, *, run_ids: Iterable[str] = ()) -> int:
         repository = self.repository()
@@ -549,10 +581,12 @@ class OperatorService:
             repository, self.inventory(repository), signal_refs, stream, run_ids=run_ids
         )
 
-    def observation_summary(self) -> dict[str, dict[str, Any]]:
+    def observation_summary(self, run_ids: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:
+        """Per-signal sample counts, over every run or only ``run_ids`` (e.g. one drive's)."""
+
         repository = self.repository()
         refresh_cache(repository, self.inventory(repository))
-        return repository.signal_observation_summary()
+        return repository.signal_observation_summary(run_ids)
 
     def series(self, signal_ref: str) -> list[dict[str, Any]]:
         repository = self.repository()

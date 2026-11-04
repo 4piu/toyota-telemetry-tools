@@ -21,11 +21,13 @@ from PySide6.QtWidgets import QGraphicsRectItem
 
 @dataclass(frozen=True)
 class RunSpan:
-    """Where one run lies on the end-to-end timeline."""
+    """Where one recording (a drive or a run) lies on the end-to-end timeline."""
 
     run_id: str
     start: float
     end: float
+    label: str = ""
+    label: str = ""
 
 
 def clock(seconds: float) -> str:
@@ -119,13 +121,11 @@ class MetricPlot(pg.PlotWidget):
         )
         self.setAccessibleName("Metric evidence plot")
         self.setToolTip(
-            "Hover to read a sample; click to pin it. Drag to zoom into a time range, double-click to "
-            "show everything. Scroll sideways (or Shift+scroll) to move along time; pinch or "
-            "Ctrl+scroll to zoom."
+            "Click pins a reading; drag zooms; double-click shows all"
         )
         self.setMinimumHeight(280)
         self.showGrid(x=True, y=True, alpha=0.18)
-        self.setLabel("bottom", "Run time, runs end to end (h:mm:ss)")
+        self.setLabel("bottom", "Drive time, drives end to end (h:mm:ss)")
         self.setLabel("left", "Value")
         item = self.getPlotItem()
         item.setMenuEnabled(False)
@@ -234,7 +234,9 @@ class MetricPlot(pg.PlotWidget):
         x, y = float(self._x[index]), float(self._y[index])
         run = next((run for run in self._runs if run.start <= x <= run.end), None)
         suffix = f" {self._unit}" if self._unit else ""
-        where = f"run {run.run_id[:8]} at {clock(x - run.start)}" if run else clock(x)
+        where = clock(x - run.start if run else x)
+        if run and run.label:
+            where += f" into {run.label}"
         return f"{self._measurement}: {y:g}{suffix}\n{where}"
 
     def _hover(self, scene_position) -> None:

@@ -138,14 +138,27 @@ class CliTests(unittest.TestCase):
         self.assertEqual(check[0], 1)
 
     def test_recordings_list_and_export(self) -> None:
-        runs = self.json_cli("recordings")["runs"]
-        self.assertEqual(len(runs), 1)
+        drives = self.json_cli("recordings")["drives"]
+        self.assertEqual(len(drives), 1)
+        self.assertEqual(len(self.json_cli("recordings", "--runs")["runs"]), 1)
         code, out, _ = self.run_cli("recordings", "export", "--signal", "372/0x1002/0..15")
         self.assertEqual(code, 0)
         self.assertEqual(len(out.strip().splitlines()), 2)
+        code, out, _ = self.run_cli("recordings", "export", "--signal", "372/0x1002/0..15",
+                                    "--drive", drives[0]["drive"])
+        self.assertEqual(len(out.strip().splitlines()), 2)
         code, _, err = self.run_cli("recordings", "show")
         self.assertEqual(code, 1)
-        self.assertIn("usage: telemetry recordings show RUN", err)
+        self.assertIn("usage: telemetry recordings show DRIVE", err)
+        # Trash is restorable; emptying it is permanent.
+        self.assertEqual(self.json_cli("recordings", "trash", drives[0]["drive"])["runs"], 1)
+        self.assertEqual(self.json_cli("recordings")["drives"], [])
+        self.assertEqual(len(self.json_cli("recordings", "--trash")["trash"]), 1)
+        self.json_cli("recordings", "restore", drives[0]["drive"])
+        self.assertEqual(len(self.json_cli("recordings")["drives"]), 1)
+        self.json_cli("recordings", "trash", drives[0]["drive"])
+        self.assertEqual(self.json_cli("recordings", "empty-trash", "--yes")["deleted_drives"], 1)
+        self.assertEqual(self.json_cli("recordings", "--trash")["trash"], [])
 
 
 if __name__ == "__main__":

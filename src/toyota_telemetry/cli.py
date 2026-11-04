@@ -201,13 +201,19 @@ def build_parser() -> argparse.ArgumentParser:
     collect.add_argument("--note", help="free-text run note")
     collect.add_argument("--yes", action="store_true", help="start without a prompt (needs a matching --dry-run)")
 
-    recordings = command("recordings", tuple(f"recordings.{name}" for name in ("list", "show", "recover", "quarantine", "export")), _recordings,
-                         "list runs; `recordings show|recover|quarantine RUN`; `recordings export`")
-    recordings.add_argument("action", nargs="?", choices=["list", "show", "recover", "quarantine", "export"],
-                            default="list")
-    recordings.add_argument("run", nargs="?", help="run id")
+    actions = ("list", "show", "recover", "trash", "restore", "empty-trash", "export")
+    recordings = command("recordings", tuple(f"recordings.{name}" for name in actions), _recordings,
+                         "list drives; `recordings show|recover|trash|restore DRIVE`; `empty-trash`; `export`")
+    recordings.add_argument("action", nargs="?", choices=list(actions), default="list")
+    recordings.add_argument("drive", nargs="?",
+                            help="drive start such as 2026-09-01T08:15 (or any run ID in it)")
+    recordings.add_argument("--trash", action="store_true", help="list: the drives in the trash")
+    recordings.add_argument("--runs", action="store_true", dest="list_runs", help="list: individual runs")
+    recordings.add_argument("--yes", action="store_true", help="empty-trash: delete without a prompt")
     recordings.add_argument("--signal", action="append", default=[], dest="signals",
                             help="export: selector or signal reference (repeatable)")
+    recordings.add_argument("--drive", action="append", default=[], dest="drives",
+                            help="export: only this drive (repeatable)")
     recordings.add_argument("--run", action="append", default=[], dest="runs", help="export: only this run")
     recordings.add_argument("--output", type=Path, help="export: CSV file (default: standard output)")
 
@@ -680,52 +686,106 @@ def _print_readiness(readiness) -> None:
 
 def _recordings(service: OperatorService, args: argparse.Namespace) -> int:
     if args.action == "list":
-        runs = service.runs()
+        if args.list_runs:
+            runs = service.runs()
+            if args.as_json:
+                return _emit({"runs": [run.as_dict() for run in runs]})
+            if not runs:
+                print("No recorded runs.")
+            for run in runs:
+                duration = f"{run.duration_seconds:.0f}s" if run.duration_seconds is not None else "-"
+                print(
+                    f"{run.run_id}  {run.state:<14} {run.created_utc or 'unknown time':<24} {duration:>7}  "
+                    f"{run.exchanges} reads ({run.failed} failed)  {run.endpoint_id or ''}  {run.note or ''}".rstrip()
+                )
+            return EXIT_OK
+        drives = service.trashed() if args.trash else service.drives()
         if args.as_json:
-            return _emit({"runs": [run.as_dict() for run in runs]})
-        if not runs:
-            print("No recorded runs.")
-        for run in runs:
-            duration = f"{run.duration_seconds:.0f}s" if run.duration_seconds is not None else "-"
-            print(
-                f"{run.run_id}  {run.state:<14} {run.created_utc or 'unknown time':<24} {duration:>7}  "
-                f"{run.exchanges} reads ({run.failed} failed)  {run.endpoint_id or ''}  {run.note or ''}".rstrip()
-            )
+            return _emit({"trash" if args.trash else "drives": [drive.as_dict() for drive in drives]})
+        if not drives:
+            print("The trash is empty." if args.trash else "No recordings.")
+        for drive in drives:
+            print(_drive_line(drive))
+        return EXIT_OK
+    if args.action == "empty-trash":
+        drives = service.trashed()
+        if not drives:
+            print("The trash is empty.")
+            return EXIT_OK
+        if not args.yes:
+            if args.as_json:
+                raise ValueError("empty-trash with --json needs --yes")
+            answer = input(f"Permanently delete {len(drives)} drive(s) in the trash? [y/N] ")
+            if answer.strip().lower() not in {"y", "yes"}:
+                print("Kept the trash.")
+                return EXIT_OK
+        removed = service.empty_trash()
+        if args.as_json:
+            return _emit({"deleted_drives": removed})
+        print(f"Deleted {removed} drive(s) permanently.")
         return EXIT_OK
     if args.action == "export":
         tree = service.tree()
         refs = service.select(tree, args.signals).signals if args.signals else []
         if not refs:
             raise ValueError("export needs at least one --signal SELECTOR")
+        run_ids = list(args.runs)
+        for key in args.drives:
+            run_ids.extend(service.drive(key).run_ids)
         if args.output:
             with args.output.open("w", encoding="utf-8", newline="") as stream:
-                count = service.export(refs, stream, run_ids=args.runs)
+                count = service.export(refs, stream, run_ids=run_ids)
             message = {"exported": count, "output": str(args.output)}
             if args.as_json:
                 return _emit(message)
             print(f"Wrote {count} observation(s) to {args.output}")
             return EXIT_OK
-        service.export(refs, sys.stdout, run_ids=args.runs)
+        service.export(refs, sys.stdout, run_ids=run_ids)
         return EXIT_OK
-    if not args.run:
-        raise ValueError(f"usage: telemetry recordings {args.action} RUN")
+    if not args.drive:
+        raise ValueError(f"usage: telemetry recordings {args.action} DRIVE")
     if args.action == "show":
-        run = service.run(args.run)
+        drive = service.drive(args.drive)
         if args.as_json:
-            return _emit(run.as_dict(segments=True))
-        print(f"Run {run.run_id}: {run.state}{f' ({run.end_reason})' if run.end_reason else ''}")
-        print(f"  started {run.created_utc or 'unknown'} on {run.endpoint_id or 'unknown endpoint'}; note: {run.note or '-'}")
-        for row in run.segment_rows:
-            print(f"  segment {row['segment']} {row['state']}: {row['exchanges']} reads, "
-                  f"{row['failed']} failed, {row['observations']} observations")
-        if run.detail:
-            print(f"  {run.detail}")
+            return _emit(drive.as_dict(runs=True))
+        print(_drive_line(drive))
+        for run in drive.runs:
+            state = run.state if run.state != "complete" else (run.end_label or run.state)
+            print(f"  run {run.run_id}  {run.created_utc or 'unknown'}  {run.exchanges} reads "
+                  f"({run.failed} failed), {run.observations} samples  {state}")
+            if run.detail:
+                print(f"    {run.detail}")
         return EXIT_OK
-    path = service.recover(args.run) if args.action == "recover" else service.quarantine(args.run)
+    if args.action == "recover":
+        paths = service.recover_drive(args.drive)
+        if args.as_json:
+            return _emit({"recover": args.drive, "paths": [str(path) for path in paths]})
+        print(f"Recovered {len(paths)} interrupted run(s); their saved reads are kept.")
+        return EXIT_OK
+    drive = service.trash(args.drive) if args.action == "trash" else service.restore(args.drive)
     if args.as_json:
-        return _emit({args.action: args.run, "path": str(path)})
-    print(("Recovered valid prefix into " if args.action == "recover" else "Moved run to ") + str(path))
+        return _emit({args.action: drive.key, "runs": len(drive.runs)})
+    print(("Moved drive {} to the trash." if args.action == "trash" else "Restored drive {}.").format(drive.key))
     return EXIT_OK
+
+
+def _drive_line(drive) -> str:
+    when = drive.key.replace("T", " ") + " UTC" if drive.start else f"unknown time ({drive.key})"
+    length = _length(drive.duration_seconds)
+    flags = f"  {len(drive.interrupted)} interrupted" if drive.interrupted else ""
+    note = f"  {'; '.join(drive.notes)}" if drive.notes else ""
+    return (f"{when:<22} {length:>8}  {drive.total('observations')} samples  "
+            f"{', '.join(drive.endpoint_ids) or '-'}{flags}{note}")
+
+
+def _length(seconds: float | None) -> str:
+    if seconds is None:
+        return "-"
+    if seconds < 60:
+        return f"{seconds:.0f} s"
+    if seconds < 3600:
+        return f"{seconds // 60:.0f} min"
+    return f"{seconds // 3600:.0f} h {seconds % 3600 // 60:.0f} min"
 
 
 def _init(args: argparse.Namespace) -> int:
