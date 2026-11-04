@@ -33,6 +33,23 @@ will run. Everything else is safe to take.
   documents in the deliverable repository; they are no longer resolved in the
   workspace and may not point into `captures/` or `state/`.
 
+### Changed
+
+- Desktop: a step bar replaces the page list and banner, showing per page
+  what is done, next, or needs attention, including unsaved Signals edits.
+- Desktop Signals page: standard row selection (Shift/Ctrl) replaces
+  checkboxes; DID collection settings are table columns; a side panel edits
+  collection settings, targets, and a signal's definition for the whole
+  selection, showing "mixed" where rows differ and applying only changed
+  fields. Quick filters (Not verified, Collected, Has targets, Incomplete)
+  replace the state menu. Selecting or filtering thousands of rows no longer
+  stalls (it was quadratic in the row count).
+- Desktop plot: dashboard interaction (hover reads the nearest sample with
+  its run, click pins it, drag zooms into a time range, double-click shows
+  all, sideways or Shift+scroll pans, pinch or Ctrl+scroll zooms time); the
+  value axis fits the visible samples; run boundaries are marked and the
+  selected run is shaded. Plain vertical scrolling no longer zooms.
+
 ### Added
 
 - `telemetry init FOLDER` and Project > New project create an empty

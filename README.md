@@ -91,11 +91,17 @@ uv sync --extra gui
 uv run --extra gui telemetry-ui [PROJECT]
 ```
 
-Four pages: Setup (project check, connector, candidate sources), Signals (one
-endpoint → DID → signal tree for verification, review, shared DID settings,
-and batch target edits held as a draft until Save), Collect (automatic
-readiness, start/stop, live progress), and Recordings (recovery, runs, plots
-across all valid runs, CSV export, result export). Buttons are short;
+A step bar across the top is both the navigation and the progress view: each
+page shows what is done, what is next, and what needs attention. Four pages:
+Setup (project check, connector, candidate sources), Signals (one endpoint →
+DID → signal table with standard row selection; a side panel edits the
+collection settings, targets, and definition of everything selected, showing
+"mixed" where rows differ, as a draft until Save), Collect (automatic
+readiness, start/stop, live progress), and Recordings (recovery, runs, a
+time-series plot across all valid runs, CSV export, result export). The plot
+follows dashboard conventions: hover reads the nearest sample, click pins it,
+drag zooms into a time range, double-click shows everything, sideways scroll
+pans, and pinch or Ctrl+scroll zooms time. Buttons are short;
 descriptions and disabled reasons are in tooltips. The default install
 remains dependency-free; importing the core package does not import Qt, NumPy,
 or PyQtGraph.

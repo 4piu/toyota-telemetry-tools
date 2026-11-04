@@ -26,11 +26,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from toyota_telemetry.operator import bounded_minmax
 
 from .context import PageContext
 from .widgets import button_row, notice, page_title, set_enabled, show_notice
-from .widgets.metric_plot import MetricPlot
+from .widgets.metric_plot import MetricPlot, RunSpan
 
 
 RUN_COLUMNS = ("Started (UTC)", "State", "Duration", "Reads", "Failed", "Endpoint", "Note", "Run")
@@ -112,15 +111,18 @@ class RecordingsPage(QWidget):
         analysis_layout.addLayout(left, 1)
         right = QVBoxLayout()
         self.plot = MetricPlot()
-        self.plot.viewport_width_changed.connect(lambda _width: self._redraw(reset_view=False))
         self.signals.setToolTip("Signals with recorded samples; select one to plot it across every valid run")
         self.cursor = QLabel()
         self.cursor.setWordWrap(True)
+        self.pinned = QLabel()
+        self.pinned.setWordWrap(True)
         self.plot.cursor_changed.connect(self.cursor.setText)
+        self.plot.pinned_changed.connect(self.pinned.setText)
         self.plot_summary = QLabel("Select a signal to plot it across every recorded drive.")
         self.plot_summary.setWordWrap(True)
         right.addWidget(self.plot, 1)
         right.addWidget(self.cursor)
+        right.addWidget(self.pinned)
         right.addWidget(self.plot_summary)
         analysis_layout.addLayout(right, 3)
         splitter.addWidget(analysis)
@@ -276,6 +278,7 @@ class RecordingsPage(QWidget):
 
     def show_run(self) -> None:
         run_id = self._selected_run()
+        self.plot.highlight_run(run_id)
         if run_id is None or self.context.service is None:
             return
 
@@ -331,8 +334,8 @@ class RecordingsPage(QWidget):
         data = self._series.get(self._shown) if self._shown else None
         if data is None:
             return
-        width = max(1, int(self.plot.getPlotItem().getViewBox().width()) or 600)
-        self.plot.set_series(bounded_minmax(data["x"], data["y"], width), reset_view=reset_view)
+        self.plot.set_data(data["x"], data["y"], data["spans"], reset_view=reset_view)
+        self.plot.highlight_run(self._selected_run())
         if not reset_view:
             return
         name, unit = self._names.get(self._shown, (self._shown, ""))
@@ -465,30 +468,33 @@ def _series_data(rows: list[dict]) -> dict:
 
     xs: list[float] = []
     ys: list[float] = []
+    spans: list[RunSpan] = []
     offset = 0.0
     current_run = None
     run_start = 0.0
     last = 0.0
-    runs = 0
     for row in rows:
         seconds = row["response_elapsed_ms"] / 1000
         if row["run_id"] != current_run:
             if current_run is not None:
+                spans.append(RunSpan(current_run, offset, last))
                 offset = last + 1.0
                 xs.append(offset)
                 ys.append(math.nan)
             current_run = row["run_id"]
             run_start = seconds
-            runs += 1
         last = offset + (seconds - run_start)
         xs.append(last)
         ys.append(math.nan if row["decoded_value"] is None else float(row["decoded_value"]))
+    if current_run is not None:
+        spans.append(RunSpan(current_run, offset, last))
     finite = [value for value in ys if math.isfinite(value)]
     return {
         "x": xs,
         "y": ys,
+        "spans": spans,
         "samples": len(rows),
-        "runs": runs,
+        "runs": len(spans),
         "finite": (min(finite), max(finite), finite[-1]) if finite else None,
     }
 

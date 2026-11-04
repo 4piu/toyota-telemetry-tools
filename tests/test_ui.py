@@ -81,7 +81,8 @@ def wait_for_job(qtbot, page) -> None:
 def test_starts_without_a_project_or_adapter(qtbot) -> None:
     window = open_window(qtbot)
     assert window.project_path is None
-    assert [window.navigation.item(row).text() for row in range(4)] == ["Setup", "Signals", "Collect", "Recordings"]
+    assert [step.title for step in window.navigation.steps] == ["Setup", "Signals", "Collect", "Recordings"]
+    assert window.navigation.steps[0].state == "next"
     assert window.next_text.text() == "Open a project"
     assert window.adapter_status.text() == "Adapter closed"
     assert not window.signals_page.verify_button.isEnabled()
@@ -144,8 +145,8 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
     window = open_window(qtbot, root)
     import_rows(qtbot, window, rows)
     page = window.signals_page
-    assert page.tree.topLevelItemCount() == 2
-    page.check("did", f"{UNCONFIRMED_KEY}/0x2001")
+    assert page.model.rowCount() == 2
+    page.select("did", f"{UNCONFIRMED_KEY}/0x2001", add=True)
     assert page.verify_button.isEnabled()
     assert page.verify_button.text() == "Verify"
     assert page.verify_button.property("liveAction")
@@ -194,8 +195,8 @@ def test_target_batch_edit_is_a_draft_until_saved(qtbot, project) -> None:
     page = window.signals_page
     policy_path = root / "config/collection-policy.json"
     before = policy_path.read_bytes()
-    page.check("signal", "372/0x1003/0..7")
-    page.check("signal", "372/0x1003/8..15")
+    page.select("signal", "372/0x1003/0..7", add=True)
+    page.select("signal", "372/0x1003/8..15", add=True)
 
     seen = {}
 
@@ -224,7 +225,7 @@ def test_external_edit_blocks_save_of_a_stale_draft(qtbot, project) -> None:
     window = open_window(qtbot, root)
     import_rows(qtbot, window, rows)
     page = window.signals_page
-    page.check("signal", "372/0x1003/0..7")
+    page.select("signal", "372/0x1003/0..7", add=True)
     page.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 5), True)[1]
     page.target_button.click()
     settle(qtbot, window)
@@ -244,7 +245,7 @@ def test_closing_with_a_draft_offers_save_discard_cancel(qtbot, project) -> None
     window = open_window(qtbot, root)
     import_rows(qtbot, window, rows)
     page = window.signals_page
-    page.check("signal", "372/0x1003/0..7")
+    page.select("signal", "372/0x1003/0..7", add=True)
     page.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 5), True)[1]
     page.target_button.click()
     settle(qtbot, window)
@@ -266,7 +267,7 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     assert collect.problem_area.itemAt(0).widget().findChild(QLabel).text() == "Set collection targets"
     assert "no included targets" in collect.readiness.problems[0].message
     signals = window.signals_page
-    signals.check("signal", "372/0x1002/0..15")
+    signals.select("signal", "372/0x1002/0..15", add=True)
     signals.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 2), True)[1]
     signals.target_button.click()
     settle(qtbot, window)
@@ -344,7 +345,7 @@ def test_slow_project_work_does_not_block_the_window(qtbot, project) -> None:
         release.set()
         settle(qtbot, window)
     assert window.work_status.text() == ""
-    assert window.signals_page.tree.topLevelItemCount() == 1
+    assert window.signals_page.model.rowCount() == 1
 
 
 def test_superseded_background_results_are_dropped(qtbot) -> None:
@@ -358,23 +359,124 @@ def test_superseded_background_results_are_dropped(qtbot) -> None:
     assert shown == [4]
 
 
-def test_new_signal_resets_the_plot_view_but_resizes_keep_zoom(qtbot) -> None:
-    from toyota_telemetry.ui.widgets.metric_plot import MetricPlot
+class FakeWheel:
+    def __init__(self, delta, horizontal=False, ctrl=False):
+        self._delta, self._horizontal, self._ctrl = delta, horizontal, ctrl
+        self.accepted = None
+
+    def delta(self):
+        return self._delta
+
+    def orientation(self):
+        return Qt.Orientation.Horizontal if self._horizontal else Qt.Orientation.Vertical
+
+    def modifiers(self):
+        return Qt.KeyboardModifier.ControlModifier if self._ctrl else Qt.KeyboardModifier.NoModifier
+
+    def pos(self):
+        from PySide6.QtCore import QPointF
+
+        return QPointF(0, 0)
+
+    def accept(self):
+        self.accepted = True
+
+    def ignore(self):
+        self.accepted = False
+
+
+def test_plot_uses_dashboard_time_interaction(qtbot) -> None:
+    from toyota_telemetry.ui.widgets.metric_plot import MetricPlot, RunSpan
 
     plot = MetricPlot()
     qtbot.addWidget(plot)
     plot.resize(600, 300)
     plot.show()
-    plot.set_series(bounded_minmax([0, 1, 2], [0.0, 1.0, 2.0], 600))
-    plot.getPlotItem().getViewBox().setRange(xRange=(0.5, 1.0), yRange=(0.5, 1.0), padding=0)
-    plot.set_series(bounded_minmax([0, 1, 2], [0.0, 1.5, 2.0], 600), reset_view=False)
-    (x_low, x_high), _ = plot.getPlotItem().getViewBox().viewRange()
-    assert (round(x_low, 2), round(x_high, 2)) == (0.5, 1.0)
-    plot.set_series(bounded_minmax([0, 100, 200], [1000.0, 5000.0, 9000.0], 600), reset_view=True)
+    xs = [0.0, 1.0, 2.0, 3.0, float("nan"), 4.0, 5.0, 6.0]
+    ys = [1.0, 2.0, 3.0, 4.0, float("nan"), 10.0, 20.0, 30.0]
+    runs = [RunSpan("aaaaaaaa-run", 0.0, 3.0), RunSpan("bbbbbbbb-run", 4.0, 6.0)]
+    xs[4] = 3.5
+    plot.set_data(xs, ys, runs)
+    plot.set_measurement("Speed", "km/h")
+    view = plot.getPlotItem().getViewBox()
     qtbot.wait(50)
-    (x_low, x_high), (y_low, y_high) = plot.getPlotItem().getViewBox().viewRange()
-    assert x_low <= 0 and x_high >= 200
-    assert y_low <= 1000 and y_high >= 9000
+    (low, high), (y_low, y_high) = view.viewRange()
+    assert low <= 0 and high >= 6 and y_low <= 1 and y_high >= 30
+    # Hover and click read the nearest finite sample, with its run.
+    assert plot.nearest(3.4) == 3
+    assert plot.describe(plot.nearest(5.2)) == "Speed: 20 km/h\nrun bbbbbbbb at 0:01"
+    # Plain vertical scroll does not zoom; sideways scroll pans; Ctrl+scroll zooms time only.
+    wheel = FakeWheel(120)
+    view.wheelEvent(wheel)
+    assert wheel.accepted is False and view.viewRange()[0] == [low, high]
+    view.wheelEvent(FakeWheel(-120, horizontal=True))
+    (pan_low, pan_high), _ = view.viewRange()
+    assert pan_low > low and round(pan_high - pan_low, 6) == round(high - low, 6)
+    view.wheelEvent(FakeWheel(240, ctrl=True))
+    zoomed = view.viewRange()[0]
+    assert zoomed[1] - zoomed[0] < high - low
+    # A selected range zooms time; the value axis fits what is visible.
+    view.setXRange(4.0, 6.0, padding=0)
+    qtbot.wait(50)
+    _, (y_low, y_high) = view.viewRange()
+    assert y_low >= 5 and y_high <= 35
+    plot.show_all()
+    qtbot.wait(50)
+    (low, high), _ = view.viewRange()
+    assert low <= 0 and high >= 6
+    assert plot.highlight_run("bbbbbbbb-run") and not plot.highlight_run("missing")
+
+
+def test_step_bar_shows_progress_and_unsaved_changes(qtbot, project) -> None:
+    from toyota_telemetry.ui.widgets.step_bar import ATTENTION, DONE
+
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    settle(qtbot, window)
+    steps = window.navigation.steps
+    assert steps[0].state == DONE
+    assert [part.label for part in steps[0].parts] == ["Connector", "Candidates"]
+    assert steps[1].state in ("next", "pending")
+    steps[3].click()
+    assert window.pages.currentWidget() is window.recordings_page
+    assert steps[3].isChecked() and not steps[0].isChecked()
+    page = window.signals_page
+    page.select("signal", "372/0x1003/0..7")
+    page.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 5), True)[1]
+    page.target_button.click()
+    settle(qtbot, window)
+    assert steps[1].state == ATTENTION
+    assert "Unsaved" in [part.label for part in steps[1].parts]
+
+
+def test_selection_panel_batch_edits_collection_settings(qtbot, project) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    page = window.signals_page
+    endpoint = next(row for row in page.tree_data.endpoints if row.confirmed)
+    first, second = (did.key for did in endpoint.dids[:2])
+    page.select("did", first)
+    page.did_interval.setValue(500)
+    assert page.did_apply.isEnabled()
+    page.did_apply.click()
+    settle(qtbot, window)
+    page.select("did", first)
+    page.select("did", second, add=True)
+    assert page.selection_title.text() == "2 DIDs selected"
+    assert page.did_interval.mixed and page.did_interval.text() == "mixed"
+    assert not page.did_apply.isEnabled()
+    page.did_priority.setValue(70)
+    page.did_apply.click()
+    settle(qtbot, window)
+    settings = {did.key: did.settings for did in page.tree_data.endpoint(endpoint.key).dids}
+    assert settings[first]["target_interval_ms"] == 500 and settings[second]["target_interval_ms"] == 1000
+    assert settings[first]["priority"] == settings[second]["priority"] == 70
+    # Selecting the endpoint stands for all of its DIDs and signals.
+    page.select("endpoint", endpoint.key)
+    assert len(page.selection().dids) == len(endpoint.dids)
+    assert page.collection_group.title() == f"Collection: {len(endpoint.dids)} DIDs"
 
 
 def test_signal_rows_show_one_status_ladder(qtbot, project) -> None:
@@ -385,8 +487,11 @@ def test_signal_rows_show_one_status_ladder(qtbot, project) -> None:
     assert data.find_signal("372/0x1002/0..15")[2].status == "Reviewed"
     assert data.find_signal("372/0x1003/0..7")[2].status == "Not checked"
     assert data.find_signal("405/0x2001/0..7")[2].status == "Not checked"
-    headers = [window.signals_page.tree.headerItem().text(c) for c in range(5)]
-    assert headers == ["Endpoint / DID / Signal", "Status", "Interval", "Target", "Progress"]
+    model = window.signals_page.model
+    headers = [model.headerData(column, Qt.Orientation.Horizontal) for column in range(model.columnCount())]
+    assert headers == [
+        "Endpoint / DID / Signal", "Status", "Collect", "Interval", "Max interval", "Priority", "Targets", "Progress",
+    ]
 
 
 def test_filter_unticks_rows_it_hides(qtbot, project) -> None:
@@ -394,15 +499,14 @@ def test_filter_unticks_rows_it_hides(qtbot, project) -> None:
     window = open_window(qtbot, root)
     import_rows(qtbot, window, rows)
     page = window.signals_page
-    page.check("signal", "372/0x1002/0..15")
-    page.check("signal", "372/0x1003/0..7")
-    page.state_filter.setCurrentText("Not verified")
+    page.select("signal", "372/0x1002/0..15", add=True)
+    page.select("signal", "372/0x1003/0..7", add=True)
+    page.filters["not-verified"].setChecked(True)
     settle(qtbot, window)
-    selection = page.checked_selection()
-    assert selection.signals == ["372/0x1003/0..7"]
-    page.state_filter.setCurrentText("All")
+    assert page.selection().signals == ["372/0x1003/0..7"]
+    page.filters["not-verified"].setChecked(False)
     settle(qtbot, window)
-    assert page.checked_selection().signals == ["372/0x1003/0..7"]
+    assert page.selection().signals == ["372/0x1003/0..7"]
 
 
 def test_go_selects_the_item_the_next_step_is_about(qtbot, project, probes) -> None:
@@ -410,13 +514,13 @@ def test_go_selects_the_item_the_next_step_is_about(qtbot, project, probes) -> N
     window = open_window(qtbot, root)
     import_rows(qtbot, window, rows)
     page = window.signals_page
-    page.check("did", f"{UNCONFIRMED_KEY}/0x2001")
+    page.select("did", f"{UNCONFIRMED_KEY}/0x2001", add=True)
     page.confirm_live = lambda dialog: True
     page.verify_button.click()
     wait_for_job(qtbot, page)
     settle(qtbot, window)
     assert window.next_text.text().startswith("Next: Confirm responding endpoint")
-    page.tree.setCurrentItem(None)
+    page.view.clearSelection()
     window.navigate("setup")
     window.next_button.click()
     settle(qtbot, window)
@@ -459,7 +563,7 @@ def test_quarantine_asks_first_and_runs_list_interrupted_first(qtbot, project) -
     window = open_window(qtbot, root)
     import_rows(qtbot, window, rows)
     signals = window.signals_page
-    signals.check("signal", "372/0x1002/0..15")
+    signals.select("signal", "372/0x1002/0..15", add=True)
     signals.run_dialog = lambda dialog: (dialog.set_field("minimum_samples", 9), True)[1]
     signals.target_button.click()
     settle(qtbot, window)

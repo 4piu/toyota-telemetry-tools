@@ -1,23 +1,20 @@
-"""Application shell: four task pages, a next-step banner, and live-safe closing."""
+"""Application shell: a step bar over four task pages, the next step, and live-safe closing."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QSettings, Qt
+from PySide6.QtCore import QEvent, QSettings
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QSplitter,
     QStackedWidget,
     QStatusBar,
     QVBoxLayout,
@@ -31,6 +28,7 @@ from .context import PageContext
 from .recordings_page import RecordingsPage
 from .setup_page import SetupPage
 from .signals_page import SignalsPage
+from .widgets.step_bar import ATTENTION, DONE, NEXT, PENDING, Part, StepBar
 
 
 PAGES = ("setup", "signals", "collect", "recordings")
@@ -39,8 +37,59 @@ DESCRIPTIONS = {
     "setup": "Project check, connector, and candidate signal list. Nothing here transmits.",
     "signals": "Verify endpoints and DIDs, review signals, and set collection targets.",
     "collect": "Check readiness, then start and stop collection.",
-    "recordings": "Recorded runs, recovery, plots, export, and the project result.",
+    "recordings": "Recorded runs, recovery, plots, and export of the result.",
 }
+
+
+def step_states(status, dirty: bool) -> list[tuple[str, list[Part]]]:
+    """Each page's state and status lines, from one readiness snapshot."""
+
+    if status is None:
+        return [(NEXT, [Part("Open or create a project", NEXT)])] + [(PENDING, [])] * 3
+    if not status.valid:
+        return [(ATTENTION, [Part("Project files", ATTENTION, "invalid")])] + [(PENDING, [])] * 3
+    counts = status.counts
+    setup = [
+        Part("Connector", DONE if status.connector else PENDING, (status.connector or "").split(" ")[0]),
+        Part("Candidates", DONE if status.candidate_rows else PENDING,
+             f"{status.candidate_rows}" if status.candidate_rows else ""),
+    ]
+    verified, dids, targets = counts.get("verified_dids", 0), counts.get("dids", 0), counts.get("targets", 0)
+    signals = [
+        Part("Verified", DONE if verified else PENDING, f"{verified}/{dids} DIDs" if dids else ""),
+        Part("Targets", DONE if targets else PENDING, f"{targets} set" if targets else ""),
+    ]
+    if dirty:
+        signals.append(Part("Unsaved", ATTENTION, "changes"))
+    collection = status.collection
+    if status.live_busy:
+        collect = [Part("Running", ATTENTION)]
+    elif collection is None:
+        collect = [Part("Ready", PENDING, "no targets")]
+    elif collection["ready"]:
+        collect = [Part("Ready", DONE)]
+    else:
+        problems = len(collection["problems"])
+        collect = [Part("Not ready", ATTENTION, f"{problems} problem" + ("s" if problems != 1 else ""))]
+    if targets:
+        complete = status.targets_complete
+        collect.append(Part("Complete", DONE if complete == targets else PENDING, f"{complete}/{targets}"))
+    recordings = [Part("Runs", DONE if status.runs else PENDING, f"{status.runs}")]
+    if status.recoverable_runs:
+        recordings.append(Part("Interrupted", ATTENTION, f"{len(status.recoverable_runs)}"))
+    next_page = status.next_action.page if status.next_action else None
+    result = []
+    for page, parts in zip(PAGES, (setup, signals, collect, recordings)):
+        if any(part.state == ATTENTION for part in parts):
+            state = ATTENTION
+        elif page == next_page:
+            state = NEXT
+        elif parts and all(part.state == DONE for part in parts):
+            state = DONE
+        else:
+            state = PENDING
+        result.append((state, parts))
+    return result
 
 
 class OperatorWindow(QMainWindow):
@@ -58,13 +107,8 @@ class OperatorWindow(QMainWindow):
         self.context.settings = self._settings if restore_settings else None
         self.context.message = lambda text: self.statusBar().showMessage(text, 8000)
 
-        self.navigation = QListWidget()
-        self.navigation.setAccessibleName("Pages")
-        self.navigation.setMaximumWidth(200)
-        for index, page in enumerate(PAGES):
-            item = QListWidgetItem(TITLES[page], self.navigation)
-            item.setToolTip(f"{DESCRIPTIONS[page]} (Alt+{index + 1})")
-
+        self.navigation = StepBar([TITLES[page] for page in PAGES])
+        self._status = None
         self.banner = self._build_banner()
         self.setup_page = SetupPage(self.context)
         self.signals_page = SignalsPage(self.context)
@@ -84,21 +128,18 @@ class OperatorWindow(QMainWindow):
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+        content_layout.addWidget(self.navigation)
         content_layout.addWidget(self.banner)
         content_layout.addWidget(self.pages, 1)
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.navigation)
-        splitter.addWidget(content)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([170, 1190])
-        self._splitter = splitter
-        self.setCentralWidget(splitter)
-        self.navigation.currentRowChanged.connect(self.pages.setCurrentIndex)
+        self.setCentralWidget(content)
+        self.navigation.current_changed.connect(self.pages.setCurrentIndex)
         self.navigation.setCurrentRow(0)
 
         self._build_menu()
         self._build_status_bar()
         self.signals_page.dirty_changed.connect(self._update_title)
+        self.signals_page.dirty_changed.connect(lambda _dirty: self._show_steps())
         self.context.project_changed.connect(self.refresh_status)
         self.context.data_changed.connect(self.refresh_status)
         self.context.busy_changed.connect(self._busy_changed)
@@ -117,9 +158,10 @@ class OperatorWindow(QMainWindow):
 
     def _build_banner(self) -> QFrame:
         frame = QFrame()
-        frame.setFrameShape(QFrame.Shape.StyledPanel)
+        frame.setFrameShape(QFrame.Shape.NoFrame)
         frame.setAccessibleName("Next step")
         layout = QHBoxLayout(frame)
+        layout.setContentsMargins(12, 4, 12, 4)
         self.next_text = QLabel()
         font = self.next_text.font()
         font.setBold(True)
@@ -224,10 +266,12 @@ class OperatorWindow(QMainWindow):
         service = self.context.service
         if service is None:
             self.next_text.setText("Open a project")
-            self.next_text.setToolTip("Projects are created from the template, then opened here.")
+            self.next_text.setToolTip("Create one with Project > New project, or open an existing workspace.")
             self._next_page = "open"
             self.project_status.setText("No project open")
             self.connector_status.setText("No connector")
+            self._status = None
+            self._show_steps()
             return
         self.project_status.setText(service.root.name)
         if not self.next_text.text().startswith("Next:"):
@@ -243,6 +287,13 @@ class OperatorWindow(QMainWindow):
         self.next_text.setToolTip(status.error or "")
         self._next_page = action.page
         self._next_target = action.target
+        self._status = status
+        self._show_steps()
+
+    def _show_steps(self) -> None:
+        dirty = self.signals_page.dirty
+        for index, (page, (state, parts)) in enumerate(zip(PAGES, step_states(self._status, dirty))):
+            self.navigation.set_step(index, state, parts, f"{DESCRIPTIONS[page]} (Alt+{index + 1})")
 
     def _follow_next(self) -> None:
         if self._next_page == "open":
@@ -262,7 +313,6 @@ class OperatorWindow(QMainWindow):
 
     def _busy_changed(self, running: bool) -> None:
         self.adapter_status.setText("LIVE - adapter open" if running else "Adapter closed")
-        self.navigation.setEnabled(True)
         if not running and self._closing_after_job:
             self.close()
 
@@ -294,6 +344,8 @@ class OperatorWindow(QMainWindow):
             "Only the buttons with a warning icon (Verify and Start) transmit to the vehicle, and "
             "each shows its exact scope first.\n\n"
             "Hover over any control for a short explanation.\n\n"
+            "The steps across the top are the pages in workflow order. A tick means done, a dot marks "
+            "the next step, and ! needs attention.\n\n"
             "Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes.",
         )
 

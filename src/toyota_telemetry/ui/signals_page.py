@@ -1,15 +1,23 @@
-"""Signals: the one endpoint -> DID -> signal tree for verify, review, and targets."""
+"""Signals: review and set how each DID is collected, verify, and set signal targets.
+
+One endpoint -> DID -> signal table with standard row selection. The panel on
+the right edits everything selected at once and shows "mixed" where the
+selected rows disagree.
+"""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt, QTimer, Signal
+from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDialog,
     QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
@@ -18,17 +26,16 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QSplitter,
-    QTabWidget,
-    QTreeWidget,
-    QTreeWidgetItem,
+    QTreeView,
     QVBoxLayout,
     QWidget,
 )
 
-from toyota_telemetry.operator.editing import REQUIREMENT_LABELS, format_condition, format_duration
-from toyota_telemetry.operator.inventory import EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree
+from toyota_telemetry.operator.editing import REQUIREMENT_LABELS, UNSET, format_condition, format_duration
+from toyota_telemetry.operator.inventory import EVIDENCE_STATES, VERIFIED, InventoryTree
 from toyota_telemetry.operator.selection import Selection
 from toyota_telemetry.operator.verification import RecipeRequired
 
@@ -39,14 +46,98 @@ from .widgets import LIVE_TIP, button_row, mark_live, notice, page_title, set_en
 
 
 ROLE = Qt.ItemDataRole.UserRole
-STATE_FILTERS = {
-    "All": None,
-    "Verified": "verified",
-    "Not verified": "not-verified",
-    "Failed": "failed",
-    "Has a target": "targeted",
-    "No target": "untargeted",
+SORT_ROLE = Qt.ItemDataRole.UserRole + 1
+COLUMNS = ("Endpoint / DID / Signal", "Status", "Collect", "Interval", "Max interval", "Priority", "Targets", "Progress")
+COLUMN_TIPS = (
+    "Endpoints are diagnostic routes to an ECU; a DID is one request and can carry several signals",
+    "Endpoint: Confirmed, Responded, Silent, Not verified, or Address unknown.\n"
+    "DID: Verified, Not verified, Failed, or Endpoint not verified.\n"
+    "Signal: Not checked → Responds (its DID answered) → Recorded (samples saved) "
+    "→ Reviewed (meaning confirmed by review); Refused if its DID was refused.",
+    "Whether the DID is read during collection",
+    "How often the DID is read; shared by all its signals",
+    "A read is overdue after this long",
+    "0-100; higher wins when reads compete",
+    "Signals with a target: what evidence each still needs",
+    "How much of their targets the signals have reached",
+)
+NUMERIC = {3, 4, 5}
+QUICK_FILTERS = {
+    "not-verified": ("Not verified", "Only DIDs not verified yet"),
+    "collected": ("Collected", "Only DIDs read during collection"),
+    "targeted": ("Has targets", "Only signals with a target"),
+    "incomplete": ("Incomplete", "Only signals whose target is not met yet"),
 }
+DEFAULTS = {"target_interval_ms": 1000, "maximum_interval_ms": 5000, "priority": 50, "included": False}
+
+
+def duration_text(milliseconds: int | None) -> str:
+    if milliseconds is None:
+        return ""
+    if milliseconds < 1000:
+        return f"{milliseconds} ms"
+    seconds = milliseconds / 1000
+    if seconds < 60:
+        return f"{seconds:g} s"
+    return f"{seconds / 60:g} min"
+
+
+class MixedSpinBox(QSpinBox):
+    """A spin box that can show "mixed" and reports whether the user changed it."""
+
+    def __init__(self, minimum: int, maximum: int, suffix: str = "") -> None:
+        super().__init__()
+        self._minimum = minimum
+        self.setRange(minimum, maximum)
+        self.setSuffix(suffix)
+        self.setAccelerated(True)
+        self.setSpecialValueText("mixed")
+        self.touched = False
+        self._loading = False
+        self.valueChanged.connect(self._changed)
+
+    def load(self, values: set[int]) -> None:
+        self._loading = True
+        if len(values) == 1:
+            self.setMinimum(self._minimum)
+            self.setValue(next(iter(values)))
+        else:
+            self.setMinimum(self._minimum - 1)
+            self.setValue(self._minimum - 1)
+        self.touched = False
+        self._loading = False
+
+    @property
+    def mixed(self) -> bool:
+        return self.value() < self._minimum
+
+    def _changed(self, _value: int) -> None:
+        if not self._loading:
+            self.touched = not self.mixed
+
+
+class SignalFilter(QSortFilterProxyModel):
+    """Shows only rows whose identity is in ``visible`` (None shows everything)."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.visible: set[tuple[str, str]] | None = None
+        self.setSortRole(SORT_ROLE)
+
+    def filterAcceptsRow(self, row: int, parent: QModelIndex) -> bool:  # noqa: N802 - Qt API
+        if self.visible is None:
+            return True
+        index = self.sourceModel().index(row, 0, parent)
+        return index.data(ROLE) in self.visible
+
+    def refilter(self, visible: set[tuple[str, str]] | None) -> None:
+        if hasattr(self, "beginFilterChange"):  # Qt 6.10+
+            self.beginFilterChange()
+            self.visible = visible
+            self.endFilterChange(QSortFilterProxyModel.Direction.Rows)
+        else:
+            self.visible = visible
+            self.invalidateFilter()
 
 
 class SignalsPage(QWidget):
@@ -56,11 +147,13 @@ class SignalsPage(QWidget):
         super().__init__()
         self.context = context
         self.tree_data: InventoryTree | None = None
+        # Lookups by identity, rebuilt with each load so a large selection stays linear.
+        self._dids: dict[str, tuple[Any, Any]] = {}
+        self._signals: dict[str, tuple[Any, Any, Any]] = {}
         self.draft_review: dict[str, Any] | None = None
         self.draft_policy: dict[str, Any] | None = None
         self._base_bytes: dict[str, bytes] | None = None
-        self._checked: set[tuple[str, str]] = set()
-        self._building = False
+        self._restore: dict[str, Any] | None = None
         self.job: LiveJob | None = None
         self.confirm_live = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
         self.run_dialog = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
@@ -68,20 +161,20 @@ class SignalsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Signals",
-            "Endpoints are diagnostic routes to an ECU; a DID is one request on an endpoint and can "
-            "carry several signals. Check rows, then verify them with the vehicle or set what "
-            "evidence each signal still needs.",
+            "Review and set how each DID is collected, verify DIDs with the vehicle, and set what "
+            "evidence each signal still needs. Select rows (Shift or Ctrl for several); the panel "
+            "on the right edits all of them at once.",
         ))
         layout.addLayout(self._filter_bar())
         self.external_notice = notice()
         layout.addWidget(self.external_notice)
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(self._tree_panel())
-        splitter.addWidget(self._detail_panel())
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(self._table_panel())
+        splitter.addWidget(self._selection_panel())
         splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([900, 380])
         layout.addWidget(splitter, 1)
-        layout.addLayout(self._action_bar())
         self.job_log = QPlainTextEdit()
         self.job_log.setReadOnly(True)
         self.job_log.setMaximumBlockCount(500)
@@ -89,10 +182,16 @@ class SignalsPage(QWidget):
         self.job_log.setVisible(False)
         self.job_log.setAccessibleName("Verification progress")
         layout.addWidget(self.job_log)
+        layout.addLayout(self._action_bar())
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
         self._search_timer.setInterval(250)
         self._search_timer.timeout.connect(self.apply_filters)
+        # Selection changes arrive in bursts (Shift+click, select all); refresh once per burst.
+        self._selection_timer = QTimer(self)
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.setInterval(0)
+        self._selection_timer.timeout.connect(self.show_details)
         context.project_changed.connect(self._project_changed)
         context.data_changed.connect(self.refresh_from_disk)
         self.reload()
@@ -103,54 +202,60 @@ class SignalsPage(QWidget):
         row = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText("Search")
-        self.search.setToolTip("Filter by signal name or reference")
+        self.search.setToolTip("Filter by signal name, signal reference, or DID")
         self.search.setAccessibleName("Search signals")
+        self.search.setClearButtonEnabled(True)
         self.search.textChanged.connect(lambda _text: self._search_timer.start())
         self.ecu_filter = QLineEdit()
         self.ecu_filter.setPlaceholderText("ECU key")
+        self.ecu_filter.setToolTip("Only endpoints serving this ECU key")
         self.ecu_filter.setMaximumWidth(100)
         self.ecu_filter.textChanged.connect(lambda _text: self._search_timer.start())
-        self.state_filter = QComboBox()
-        self.state_filter.addItems(list(STATE_FILTERS))
-        self.state_filter.setAccessibleName("Filter by state")
-        self.state_filter.currentIndexChanged.connect(self.apply_filters)
+        row.addWidget(self.search, 1)
+        row.addWidget(self.ecu_filter)
+        self.filters: dict[str, QPushButton] = {}
+        for key, (label, tip) in QUICK_FILTERS.items():
+            button = QPushButton(label)
+            button.setCheckable(True)
+            button.setToolTip(tip + ". Filters combine.")
+            button.toggled.connect(lambda _checked: self.apply_filters())
+            self.filters[key] = button
+            row.addWidget(button)
         self.refresh_button = QPushButton("Refresh")
         self.refresh_button.setToolTip("Reread project files and verification results")
         self.refresh_button.clicked.connect(self.refresh_from_disk)
-        row.addWidget(self.search, 1)
-        row.addWidget(QLabel("ECU"))
-        row.addWidget(self.ecu_filter)
-        row.addWidget(self.state_filter)
         row.addWidget(self.refresh_button)
         return row
 
-    def _tree_panel(self) -> QWidget:
-        self.tree = QTreeWidget()
-        self.tree.setColumnCount(5)
-        self.tree.setHeaderLabels(["Endpoint / DID / Signal", "Status", "Interval", "Target", "Progress"])
-        header_item = self.tree.headerItem()
-        header_item.setToolTip(1, (
-            "Endpoint: Confirmed, Responded, Silent, Not verified, or Address unknown.\n"
-            "DID: Verified, Not verified, Failed, or Endpoint not verified.\n"
-            "Signal: Not checked \u2192 Responds (its DID answered) \u2192 Recorded (samples saved) "
-            "\u2192 Reviewed (meaning confirmed by review); Refused if its DID was refused."
-        ))
-        header_item.setToolTip(2, "How often each DID is read during collection; shared by its signals")
-        header_item.setToolTip(3, "What each signal still needs to be complete")
-        header_item.setToolTip(4, "How much of its target each signal has reached")
-        self.tree.setAccessibleName("Endpoint, DID, and signal tree")
-        self.tree.setUniformRowHeights(True)
-        self.tree.setAlternatingRowColors(True)
-        header = self.tree.header()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for column in range(1, 5):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        self.tree.itemChanged.connect(self._item_changed)
-        self.tree.currentItemChanged.connect(lambda *_: self.show_details())
+    def _table_panel(self) -> QWidget:
+        self.model = QStandardItemModel(0, len(COLUMNS), self)
+        self.model.setHorizontalHeaderLabels(list(COLUMNS))
+        for column, tip in enumerate(COLUMN_TIPS):
+            self.model.setHeaderData(column, Qt.Orientation.Horizontal, tip, Qt.ItemDataRole.ToolTipRole)
+        self.proxy = SignalFilter(self)
+        self.proxy.setSourceModel(self.model)
+        self.view = QTreeView()
+        self.view.setModel(self.proxy)
+        self.view.setAccessibleName("Endpoint, DID, and signal table")
+        self.view.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.view.setUniformRowHeights(True)
+        self.view.setAlternatingRowColors(True)
+        self.view.setStyleSheet("QTreeView::item { padding: 4px 8px; }")
+        self.view.header().setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
+        self.view.setSortingEnabled(True)
+        header = self.view.header()
+        # Names get the room; the table scrolls sideways rather than squeezing them.
+        header.setStretchLastSection(True)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        for column, width in enumerate((340, 100, 65, 75, 90, 65, 150, 120)):
+            header.resizeSection(column, width)
+        self.view.selectionModel().selectionChanged.connect(lambda *_: self._selection_timer.start())
         self.context.register(
-            "signals.list", self.tree,
+            "signals.list", self.view,
             "Endpoints are diagnostic routes to an ECU. A DID is one request on an endpoint and can "
-            "carry several signals. Check rows to verify them or edit their targets.",
+            "carry several signals. Select rows to verify them or change their settings.",
         )
         self.empty_label = QLabel("No project open.")
         self.empty_label.setWordWrap(True)
@@ -158,23 +263,82 @@ class SignalsPage(QWidget):
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.empty_label)
-        layout.addWidget(self.tree, 1)
+        layout.addWidget(self.view, 1)
         return container
 
-    def _detail_panel(self) -> QWidget:
-        self.details = QTabWidget()
+    def _selection_panel(self) -> QWidget:
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        self.selection_title = QLabel("Nothing selected")
+        font = self.selection_title.font()
+        font.setBold(True)
+        self.selection_title.setFont(font)
+        layout.addWidget(self.selection_title)
         self.detail_text = QPlainTextEdit()
         self.detail_text.setReadOnly(True)
         self.detail_text.setAccessibleName("Selected row details")
-        self.context.register("signals.show", self.detail_text, "Details of the selected row")
-        self.details.addTab(self.detail_text, "Details")
+        self.detail_text.setMaximumHeight(130)
+        self.context.register("signals.show", self.detail_text, "Details of the selected rows")
+        layout.addWidget(self.detail_text)
 
-        definition = QWidget()
-        form = QFormLayout(definition)
+        self.collection_group = QGroupBox("Collection")
+        self.collection_group.setToolTip(
+            "How the selected DIDs are read during collection. Shared by every signal on a DID. "
+            "Fields showing \"mixed\" differ between the selected DIDs and are left as they are "
+            "unless you change them."
+        )
+        form = QFormLayout(self.collection_group)
+        self.did_included = QCheckBox("Collect")
+        self.did_included.setToolTip("Read the selected DIDs during collection")
+        self.did_included.clicked.connect(lambda _checked: self._included_clicked())
+        self._included_touched = False
+        self.did_interval = MixedSpinBox(1, 3_600_000, " ms")
+        self.did_interval.setToolTip("Aim to read each DID this often")
+        self.did_maximum = MixedSpinBox(1, 3_600_000, " ms")
+        self.did_maximum.setToolTip("A read is overdue after this long")
+        self.did_priority = MixedSpinBox(0, 100)
+        self.did_priority.setToolTip("0-100; higher wins when reads compete")
+        for spin in (self.did_interval, self.did_maximum, self.did_priority):
+            spin.valueChanged.connect(lambda _value: self._update_apply())
+        form.addRow(self.did_included)
+        form.addRow("Interval", self.did_interval)
+        form.addRow("Max interval", self.did_maximum)
+        form.addRow("Priority", self.did_priority)
+        self.did_apply = QPushButton("Apply")
+        self.did_apply.clicked.connect(self.apply_did_settings)
+        self.context.register(
+            "did.set", self.did_apply,
+            "Apply the changed fields to every selected DID in the unsaved draft; Save writes it.",
+        )
+        form.addRow(self.did_apply)
+        layout.addWidget(self.collection_group)
+
+        self.targets_group = QGroupBox("Targets")
+        self.targets_group.setToolTip("What evidence the selected signals still need; recordings are never removed")
+        targets_layout = QVBoxLayout(self.targets_group)
+        self.targets_text = QLabel()
+        self.targets_text.setWordWrap(True)
+        targets_layout.addWidget(self.targets_text)
+        self.target_button = QPushButton("Edit targets")
+        self.clear_button = QPushButton("Remove targets")
+        self.context.register("target.set", self.target_button, "Set completion requirements for the selected signals")
+        self.context.register(
+            "target.clear", self.clear_button, "Remove targets from the selected signals; recordings are kept"
+        )
+        self.target_button.clicked.connect(self.edit_targets)
+        self.clear_button.clicked.connect(self.clear_targets)
+        targets_layout.addLayout(button_row(self.target_button, self.clear_button))
+        layout.addWidget(self.targets_group)
+
+        self.definition_group = QGroupBox("Definition")
+        self.definition_group.setToolTip("How the selected signal is named and decoded")
+        definition = QFormLayout(self.definition_group)
         self.def_name = QLineEdit()
+        self.def_name.setToolTip("Display name; empty uses the catalog name")
         self.def_formula = QLineEdit()
-        self.def_formula.setPlaceholderText("e.g. raw / 10 - 40")
+        self.def_formula.setToolTip("Decode formula in terms of raw, e.g. raw / 10 - 40; empty uses the catalog formula")
         self.def_unit = QLineEdit()
+        self.def_unit.setToolTip("Unit; empty uses the catalog unit")
         self.def_evidence = QComboBox()
         self.def_evidence.addItems(EVIDENCE_STATES)
         self.def_evidence.setToolTip(
@@ -183,51 +347,24 @@ class SignalsPage(QWidget):
             "\"and replayed\": read again independently with this toolkit."
         )
         self.def_notes = QLineEdit()
-        form.addRow("Display name", self.def_name)
-        form.addRow("Formula", self.def_formula)
-        form.addRow("Unit", self.def_unit)
-        form.addRow("Evidence state", self.def_evidence)
-        form.addRow("Notes", self.def_notes)
-        self.def_formula.setToolTip("Decode formula in terms of raw; empty uses the catalog formula")
-        self.def_name.setToolTip("Display name; empty uses the catalog name")
-        self.def_unit.setToolTip("Unit; empty uses the catalog unit")
+        definition.addRow("Name", self.def_name)
+        definition.addRow("Formula", self.def_formula)
+        definition.addRow("Unit", self.def_unit)
+        definition.addRow("Evidence", self.def_evidence)
+        definition.addRow("Notes", self.def_notes)
         self.def_apply = QPushButton("Apply")
         self.def_apply.clicked.connect(self.apply_definition)
         self.context.register("signal.set", self.def_apply, "Apply to the unsaved draft; Save writes it.")
-        form.addRow(self.def_apply)
-        self.details.addTab(definition, "Definition")
+        definition.addRow(self.def_apply)
+        layout.addWidget(self.definition_group)
+        layout.addStretch(1)
 
-        settings = QWidget()
-        settings_form = QFormLayout(settings)
-        settings.setToolTip(
-            "Shared by all signals read from this endpoint and DID; changing them affects every "
-            "sibling signal."
-        )
-        self.did_interval = QSpinBox()
-        self.did_interval.setRange(1, 3_600_000)
-        self.did_interval.setSuffix(" ms")
-        self.did_maximum = QSpinBox()
-        self.did_maximum.setRange(1, 3_600_000)
-        self.did_maximum.setSuffix(" ms")
-        self.did_priority = QSpinBox()
-        self.did_priority.setRange(0, 100)
-        self.did_included = QCheckBox("Included")
-        self.did_included.setToolTip("Include this DID in collection")
-        self.did_interval.setToolTip("Aim to read this DID this often")
-        self.did_maximum.setToolTip("Reading is overdue after this long")
-        self.did_priority.setToolTip("0-100; higher wins when reads compete")
-        settings_form.addRow("Target interval", self.did_interval)
-        settings_form.addRow("Maximum interval", self.did_maximum)
-        settings_form.addRow("Priority", self.did_priority)
-        settings_form.addRow(self.did_included)
-        self.did_apply = QPushButton("Apply")
-        self.did_apply.clicked.connect(self.apply_did_settings)
-        self.context.register(
-            "did.set", self.did_apply, "Apply to the unsaved draft for every signal on this DID; Save writes it."
-        )
-        settings_form.addRow(self.did_apply)
-        self.details.addTab(settings, "DID settings")
-        return self.details
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(panel)
+        scroll.setMinimumWidth(320)
+        return scroll
 
     def _action_bar(self) -> QHBoxLayout:
         self.add_endpoint_button = QPushButton("Add endpoint")
@@ -236,8 +373,6 @@ class SignalsPage(QWidget):
         self.stop_button = QPushButton("Stop")
         self.stop_button.setToolTip("Stop after the current probe")
         self.stop_button.setVisible(False)
-        self.target_button = QPushButton("Edit targets")
-        self.clear_button = QPushButton("Remove targets")
         self.save_button = QPushButton("Save")
         self.save_button.setToolTip("Write the draft to the review and policy files")
         self.discard_button = QPushButton("Discard")
@@ -246,30 +381,23 @@ class SignalsPage(QWidget):
             ("endpoint.add", self.add_endpoint_button,
              "Add an endpoint candidate by its tester and response CAN IDs"),
             ("endpoint.confirm", self.confirm_button,
-             "Record a responding endpoint in config/transport.json"),
+             "Record the selected responding endpoint in the transport settings"),
             ("verify", self.verify_button,
-             f"Probe the checked endpoints, then read their DIDs. {LIVE_TIP}"),
-            ("target.set", self.target_button, "Set completion requirements for the checked signals"),
-            ("target.clear", self.clear_button, "Remove targets from the checked signals; recordings are kept"),
+             f"Probe the selected endpoints, then read their DIDs. {LIVE_TIP}"),
         ):
             self.context.register(operation, button, tip)
         self.add_endpoint_button.clicked.connect(self.add_endpoint)
         self.confirm_button.clicked.connect(self.confirm_endpoint)
         self.verify_button.clicked.connect(self.verify_checked)
         self.stop_button.clicked.connect(self.stop_job)
-        self.target_button.clicked.connect(self.edit_targets)
-        self.clear_button.clicked.connect(self.clear_targets)
         self.save_button.clicked.connect(self.save)
         self.discard_button.clicked.connect(self.discard)
-        row = button_row(
-            self.add_endpoint_button, self.confirm_button, self.verify_button, self.stop_button,
-            self.target_button, self.clear_button,
-        )
+        row = button_row(self.add_endpoint_button, self.confirm_button, self.verify_button, self.stop_button)
         row.addWidget(self.save_button)
         row.addWidget(self.discard_button)
         return row
 
-    # Tree -------------------------------------------------------------------
+    # Loading ------------------------------------------------------------------
 
     @property
     def dirty(self) -> bool:
@@ -284,7 +412,6 @@ class SignalsPage(QWidget):
         self.draft_review = None
         self.draft_policy = None
         self._base_bytes = None
-        self._checked.clear()
         show_notice(self.external_notice, "")
         self.dirty_changed.emit(False)
         self.rebuild()
@@ -305,14 +432,18 @@ class SignalsPage(QWidget):
         self.rebuild()
 
     def rebuild(self, restore: tuple[str, str] | None = None) -> None:
-        """Reload the tree in the background; the current tree stays until then."""
+        """Reload the table in the background; the current table stays until then."""
 
         service = self.context.service
-        self._restore = restore or self._current() or getattr(self, "_restore", None)
+        if self._restore is None:
+            self._restore = self._view_state()
+        if restore is not None:
+            self._restore["selected"] = [restore]
+            self._restore["current"] = restore
         if service is None:
             self._show_tree(None)
             return
-        if self.tree.topLevelItemCount() == 0:
+        if self.model.rowCount() == 0:
             self.empty_label.setText("Loading…")
             self.empty_label.setVisible(True)
         review, policy = self.draft_review, self.draft_policy
@@ -326,15 +457,36 @@ class SignalsPage(QWidget):
             self._show_tree, failed,
         )
 
+    def _view_state(self) -> dict[str, Any]:
+        return {
+            "expanded": {key for key, index in self._proxy_rows() if self.view.isExpanded(index)},
+            "selected": self._selected_keys(),
+            "current": self._current(),
+        }
+
     def _show_tree(self, data: InventoryTree | None) -> None:
-        expanded = {item.data(0, ROLE) for item in self._items() if item.isExpanded()}
-        restore = getattr(self, "_restore", None)
-        self._building = True
-        self.tree.clear()
-        self._building = False
+        state = self._restore or {"expanded": set(), "selected": [], "current": None}
+        self._restore = None
         self.tree_data = data
-        if data is not None:
-            self._populate(data, expanded if expanded else None)
+        self._dids = {did.key: (endpoint, did) for endpoint in data.endpoints for did in endpoint.dids} if data else {}
+        self._signals = {
+            signal.signal_ref: (endpoint, did, signal) for endpoint, did in self._dids.values() for signal in did.signals
+        }
+        self.view.setUpdatesEnabled(False)
+        try:
+            self.model.removeRows(0, self.model.rowCount())
+            if data is not None:
+                self._populate(data)
+            self.apply_filters(expand=False)
+            expanded = state["expanded"] or (
+                {("endpoint", endpoint.key) for endpoint in data.endpoints} if data and len(data.endpoints) <= 3 else set()
+            )
+            for key, index in self._proxy_rows():
+                if key in expanded:
+                    self.view.setExpanded(index, True)
+            self._select_keys(state["selected"], state["current"])
+        finally:
+            self.view.setUpdatesEnabled(True)
         has_rows = bool(data and data.endpoints)
         self.empty_label.setVisible(not has_rows)
         if self.context.service is None:
@@ -342,286 +494,343 @@ class SignalsPage(QWidget):
         elif not has_rows:
             self.empty_label.setText("No candidates.")
             self.empty_label.setToolTip("Import a candidate list in Setup.")
-        self.apply_filters()
-        if restore is not None:
-            try:
-                self.select_row(*restore)
-            except KeyError:
-                pass
-        self._restore = None
-        self.update_actions()
         self.show_details()
 
-    def _populate(self, data: InventoryTree, expanded: set[tuple[str, str]] | None = None) -> None:
-        self._building = True
+    def _populate(self, data: InventoryTree) -> None:
+        root = self.model.invisibleRootItem()
+        for endpoint in data.endpoints:
+            reachable = endpoint.tester_can_id is not None
+            address = f"{endpoint.tester_can_id}/{endpoint.response_can_id}" if reachable else "address unknown"
+            names = ", ".join(endpoint.ecu_names)
+            label = f"{endpoint.key}  {address}  ECU {', '.join(map(str, endpoint.ecu_keys))}"
+            collected = sum(1 for did in endpoint.dids if did.settings and did.settings["included"])
+            targeted = [signal for did in endpoint.dids for signal in did.signals if signal.target]
+            complete = sum(1 for signal in targeted if signal.progress and signal.progress["complete"])
+            row = self._row(("endpoint", endpoint.key), [
+                label + (f"  {names}" if names else ""), endpoint.state.capitalize(),
+                f"{collected}/{len(endpoint.dids)}" if endpoint.dids else "", "", "", "",
+                f"{len(targeted)} signals" if targeted else "",
+                f"{complete}/{len(targeted)} complete" if targeted else "",
+            ], sort=[None, None, collected, None, None, None, len(targeted), complete])
+            if not reachable:
+                row[0].setToolTip("No CAN address is known for this ECU. Add an endpoint for it to verify it.")
+            root.appendRow(row)
+            for did in endpoint.dids:
+                settings = did.settings or {}
+                included = bool(settings.get("included"))
+                did_targets = [signal for signal in did.signals if signal.target]
+                did_complete = sum(1 for signal in did_targets if signal.progress and signal.progress["complete"])
+                did_row = self._row(("did", did.key), [
+                    f"DID {did.data_id}" + (f"  ({len(did.signals)} signals)" if len(did.signals) > 1 else ""),
+                    did.state, "Yes" if included else "No",
+                    duration_text(settings.get("target_interval_ms")),
+                    duration_text(settings.get("maximum_interval_ms")),
+                    str(settings["priority"]) if settings else "",
+                    f"{len(did_targets)}/{len(did.signals)}" if did_targets else "",
+                    f"{did_complete}/{len(did_targets)} complete" if did_targets else "",
+                ], sort=[did.data_id, None, int(included), settings.get("target_interval_ms", -1),
+                         settings.get("maximum_interval_ms", -1), settings.get("priority", -1),
+                         len(did_targets), did_complete])
+                did_row[1].setToolTip(did.detail or did.state)
+                if settings and not included:
+                    did_row[2].setToolTip("Has collection settings but is excluded")
+                row[0].appendRow(did_row)
+                for signal in did.signals:
+                    unit = f" [{signal.unit}]" if signal.unit else ""
+                    conflict = "  (definitions disagree)" if signal.conflict else ""
+                    signal_row = self._row(("signal", signal.signal_ref), [
+                        f"{signal.name}{unit}{conflict}", signal.status, "", "", "", "",
+                        _target_summary(signal.target), _progress_summary(signal.progress),
+                    ])
+                    signal_row[0].setToolTip(signal.signal_ref)
+                    signal_row[1].setToolTip(_status_tip(signal, did))
+                    signal_row[6].setToolTip(_target_summary(signal.target))
+                    did_row[0].appendRow(signal_row)
+
+    @staticmethod
+    def _row(identity: tuple[str, str], texts: list[str], sort: list[Any] | None = None) -> list[QStandardItem]:
+        items = []
+        for column, text in enumerate(texts):
+            item = QStandardItem(text)
+            value = sort[column] if sort and sort[column] is not None else text.lower()
+            item.setData(value, SORT_ROLE)
+            if column in NUMERIC:
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            items.append(item)
+        items[0].setData(identity, ROLE)
+        return items
+
+    # Filters ----------------------------------------------------------------
+
+    def apply_filters(self, *, expand: bool = True) -> None:
+        data = self.tree_data
+        if data is None:
+            self.proxy.refilter(None)
+            return
+        search = self.search.text().strip().lower()
         try:
-            for endpoint in data.endpoints:
-                reachable = endpoint.tester_can_id is not None
-                address = f"{endpoint.tester_can_id}/{endpoint.response_can_id}" if reachable else "address unknown"
-                names = ", ".join(endpoint.ecu_names)
-                label = f"{endpoint.key}  {address}  ECU {', '.join(map(str, endpoint.ecu_keys))}"
-                parent = QTreeWidgetItem([label + (f"  {names}" if names else ""), endpoint.state.capitalize(), "", "", ""])
-                parent.setData(0, ROLE, ("endpoint", endpoint.key))
-                unreachable_tip = "No CAN address is known for this ECU. Add an endpoint for it to verify it."
-                if not reachable:
-                    parent.setToolTip(0, unreachable_tip)
-                self._checkable(parent, tristate=True, enabled=reachable)
-                self.tree.addTopLevelItem(parent)
-                for did in endpoint.dids:
-                    cadence = ""
-                    if did.settings:
-                        cadence = f"every {did.settings['target_interval_ms']} ms"
-                        if not did.settings["included"]:
-                            cadence += " (excluded)"
-                    did_item = QTreeWidgetItem([f"DID {did.data_id}", did.state, cadence, "", ""])
-                    did_item.setData(0, ROLE, ("did", did.key))
-                    did_item.setToolTip(1, did.detail or did.state)
-                    if did.settings:
-                        did_item.setToolTip(2, "Shared by all signals read from this endpoint and DID")
-                    if not reachable:
-                        did_item.setToolTip(0, unreachable_tip)
-                    self._checkable(did_item, tristate=bool(did.signals), enabled=reachable)
-                    parent.addChild(did_item)
-                    for signal in did.signals:
-                        unit = f" [{signal.unit}]" if signal.unit else ""
-                        conflict = "  (definitions disagree)" if signal.conflict else ""
-                        item = QTreeWidgetItem([
-                            f"{signal.name}{unit}{conflict}", signal.status, "",
-                            _target_summary(signal.target), _progress_summary(signal.progress),
-                        ])
-                        item.setData(0, ROLE, ("signal", signal.signal_ref))
-                        item.setToolTip(0, signal.signal_ref)
-                        item.setToolTip(1, _status_tip(signal, did))
-                        self._checkable(item, tristate=False, enabled=reachable)
-                        did_item.addChild(item)
-                    if not did.signals and reachable:
-                        did_item.setCheckState(
-                            0, Qt.CheckState.Checked if ("did", did.key) in self._checked else Qt.CheckState.Unchecked
-                        )
-                    if expanded is not None and ("did", did.key) in expanded:
-                        did_item.setExpanded(True)
-                parent.setExpanded(
-                    ("endpoint", endpoint.key) in expanded if expanded is not None else len(data.endpoints) <= 3
-                )
-        finally:
-            self._building = False
-
-    def _checkable(self, item: QTreeWidgetItem, *, tristate: bool, enabled: bool = True) -> None:
-        if not enabled:
-            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
-            return
-        flags = item.flags() | Qt.ItemFlag.ItemIsUserCheckable
-        if tristate:
-            flags |= Qt.ItemFlag.ItemIsAutoTristate
-        item.setFlags(flags)
-        kind, key = item.data(0, ROLE)
-        if not tristate:
-            state = Qt.CheckState.Checked if (kind, key) in self._checked else Qt.CheckState.Unchecked
-            item.setCheckState(0, state)
-
-    def _item_changed(self, item: QTreeWidgetItem, column: int) -> None:
-        if self._building or column != 0:
-            return
-        kind, key = item.data(0, ROLE)
-        if kind == "signal" or (kind == "did" and item.childCount() == 0):
-            if item.checkState(0) == Qt.CheckState.Checked:
-                self._checked.add((kind, key))
-            else:
-                self._checked.discard((kind, key))
-        self.update_actions()
-
-    def apply_filters(self) -> None:
-        if self.tree_data is None or self.context.service is None:
-            return
-        state = STATE_FILTERS[self.state_filter.currentText()]
-        try:
-            ecus = [int(self.ecu_filter.text())] if self.ecu_filter.text().strip() else []
+            ecu = int(self.ecu_filter.text()) if self.ecu_filter.text().strip() else None
         except ValueError:
-            ecus = []
-        search = self.search.text().strip() or None
-        filtered = bool(state or ecus or search)
-        selection = (
-            self.context.service.select(
-                self.tree_data, ecus=ecus, states=[state] if state else [], search=search, require=False
-            )
-            if filtered else None
-        )
-        dids = set(selection.dids) if selection else set()
-        signals = set(selection.signals) if selection else set()
-        self._building = True
-        try:
-            for index in range(self.tree.topLevelItemCount()):
-                endpoint_item = self.tree.topLevelItem(index)
-                visible_dids = 0
-                for did_index in range(endpoint_item.childCount()):
-                    did_item = endpoint_item.child(did_index)
-                    did_visible = not filtered or did_item.data(0, ROLE)[1] in dids
-                    visible_signals = 0
-                    for signal_index in range(did_item.childCount()):
-                        signal_item = did_item.child(signal_index)
-                        shown = did_visible and (not filtered or signal_item.data(0, ROLE)[1] in signals)
-                        signal_item.setHidden(not shown)
-                        if not shown:
-                            self._untick(signal_item)
-                        visible_signals += shown
-                    did_item.setHidden(not did_visible)
-                    if not did_visible and did_item.childCount() == 0:
-                        self._untick(did_item)
-                    visible_dids += did_visible
-                    if filtered and did_visible:
-                        endpoint_item.setExpanded(True)
-                        if search and visible_signals:
-                            did_item.setExpanded(True)
-                endpoint_item.setHidden(filtered and not visible_dids)
-        finally:
-            self._building = False
-        self.update_actions()
-
-    def _untick(self, item: QTreeWidgetItem) -> None:
-        """Rows hidden by a filter never stay ticked, so actions match what is shown."""
-
-        if item.flags() & Qt.ItemFlag.ItemIsUserCheckable and item.checkState(0) != Qt.CheckState.Unchecked:
-            item.setCheckState(0, Qt.CheckState.Unchecked)
-            self._checked.discard(item.data(0, ROLE))
+            ecu = None
+        active = {key for key, button in self.filters.items() if button.isChecked()}
+        signal_level = bool(search) or bool(active & {"targeted", "incomplete"})
+        if not (search or ecu is not None or active):
+            self.proxy.refilter(None)
+            self._selection_timer.start()
+            return
+        visible: set[tuple[str, str]] = set()
+        for endpoint in data.endpoints:
+            if ecu is not None and ecu not in endpoint.ecu_keys:
+                continue
+            for did in endpoint.dids:
+                if "not-verified" in active and did.state == VERIFIED:
+                    continue
+                if "collected" in active and not (did.settings and did.settings["included"]):
+                    continue
+                did_match = bool(search) and search in did.data_id.lower()
+                signals = [
+                    signal for signal in did.signals
+                    if ("targeted" not in active or signal.target)
+                    and ("incomplete" not in active or (signal.target and not (signal.progress or {}).get("complete")))
+                    and (not search or did_match or search in signal.name.lower() or search in signal.signal_ref.lower())
+                ]
+                if signal_level and not signals and not (did_match and not active & {"targeted", "incomplete"}):
+                    continue
+                visible.add(("endpoint", endpoint.key))
+                visible.add(("did", did.key))
+                visible.update(("signal", signal.signal_ref) for signal in signals)
+        self.proxy.refilter(visible)
+        if expand:
+            for key, index in self._proxy_rows():
+                if key[0] == "endpoint" or (key[0] == "did" and search):
+                    self.view.setExpanded(index, True)
+        self._selection_timer.start()
 
     # Selection --------------------------------------------------------------
 
-    def checked_selection(self) -> Selection:
-        """Checked rows, or the current row when nothing is checked."""
+    def _proxy_rows(self, parent: QModelIndex = QModelIndex()):
+        """(identity, proxy index) for every visible row, depth first."""
+
+        for row in range(self.proxy.rowCount(parent)):
+            index = self.proxy.index(row, 0, parent)
+            yield index.data(ROLE), index
+            yield from self._proxy_rows(index)
+
+    def _selected_indexes(self) -> list[QModelIndex]:
+        return self.view.selectionModel().selectedRows(0)
+
+    def _selected_keys(self) -> list[tuple[str, str]]:
+        return [index.data(ROLE) for index in self._selected_indexes()]
+
+    def selection(self) -> Selection:
+        """The DIDs and signals the selected rows stand for (visible rows only)."""
 
         selection = Selection()
         if self.tree_data is None:
             return selection
-        for index in range(self.tree.topLevelItemCount()):
-            endpoint_item = self.tree.topLevelItem(index)
-            for did_index in range(endpoint_item.childCount()):
-                did_item = endpoint_item.child(did_index)
-                if did_item.isHidden() or did_item.checkState(0) == Qt.CheckState.Unchecked:
+        dids: dict[str, None] = {}
+        signals: dict[str, None] = {}
+
+        def add_did(index: QModelIndex) -> None:
+            dids[index.data(ROLE)[1]] = None
+            for row in range(self.proxy.rowCount(index)):
+                signals[self.proxy.index(row, 0, index).data(ROLE)[1]] = None
+
+        for index in self._selected_indexes():
+            kind, key = index.data(ROLE)
+            if kind == "endpoint":
+                if self.tree_data.endpoint(key).tester_can_id is None:
                     continue
-                selection.dids.append(did_item.data(0, ROLE)[1])
-                for signal_index in range(did_item.childCount()):
-                    signal_item = did_item.child(signal_index)
-                    if not signal_item.isHidden() and signal_item.checkState(0) == Qt.CheckState.Checked:
-                        selection.signals.append(signal_item.data(0, ROLE)[1])
-        if selection.empty:
-            current = self.tree.currentItem()
-            if current is not None:
-                kind, key = current.data(0, ROLE)
-                if kind == "signal":
-                    selection.signals.append(key)
-                    selection.dids.append(current.parent().data(0, ROLE)[1])
-                elif kind == "did":
-                    selection.dids.append(key)
-                    selection.signals.extend(
-                        current.child(i).data(0, ROLE)[1] for i in range(current.childCount())
-                    )
-                else:
-                    for did_index in range(current.childCount()):
-                        child = current.child(did_index)
-                        selection.dids.append(child.data(0, ROLE)[1])
-                        selection.signals.extend(
-                            child.child(i).data(0, ROLE)[1] for i in range(child.childCount())
-                        )
+                for row in range(self.proxy.rowCount(index)):
+                    add_did(self.proxy.index(row, 0, index))
+            elif kind == "did":
+                add_did(index)
+            else:
+                dids[index.parent().data(ROLE)[1]] = None
+                signals[key] = None
+        selection.dids = [key for key in dids if self._dids[key][0].tester_can_id is not None]
+        selection.signals = [key for key in signals if self._signals[key][0].tester_can_id is not None]
         return selection
 
-    def focus(self, kind: str, key: str) -> None:
-        """Select and reveal a row, now or as soon as the tree has loaded."""
+    checked_selection = selection
 
-        try:
-            self.select_row(kind, key)
-        except KeyError:
-            self._restore = (kind, key)
+    def select(self, kind: str, key: str, *, add: bool = False) -> None:
+        """Select a row by stable identity, revealing it (automation and tests)."""
 
-    def check(self, kind: str, key: str, checked: bool = True) -> None:
-        """Check a row by stable identity (keyboard-free automation and tests)."""
-
-        for item in self._items():
-            if item.data(0, ROLE) == (kind, key):
-                item.setCheckState(0, Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+        for identity, index in self._proxy_rows():
+            if identity == (kind, key):
+                parent = index.parent()
+                while parent.isValid():
+                    self.view.setExpanded(parent, True)
+                    parent = parent.parent()
+                flags = self.view.selectionModel().SelectionFlag.Rows
+                flags |= self.view.selectionModel().SelectionFlag.Select if add else \
+                    self.view.selectionModel().SelectionFlag.ClearAndSelect
+                self.view.selectionModel().select(index, flags)
+                self.view.selectionModel().setCurrentIndex(index, self.view.selectionModel().SelectionFlag.NoUpdate)
+                self.view.scrollTo(index)
+                self._selection_timer.stop()
+                self.show_details()
                 return
         raise KeyError(key)
 
     def select_row(self, kind: str, key: str) -> None:
-        for item in self._items():
-            if item.data(0, ROLE) == (kind, key):
-                parent = item.parent()
-                while parent is not None:
-                    parent.setExpanded(True)
-                    parent = parent.parent()
-                self.tree.setCurrentItem(item)
-                self.tree.scrollToItem(item)
-                return
-        raise KeyError(key)
+        self.select(kind, key)
 
-    def _items(self):
-        stack = [self.tree.topLevelItem(i) for i in range(self.tree.topLevelItemCount())]
-        while stack:
-            item = stack.pop()
-            yield item
-            stack.extend(item.child(i) for i in range(item.childCount()))
+    def focus(self, kind: str, key: str) -> None:
+        """Select and reveal a row, now or as soon as the table has loaded."""
+
+        try:
+            self.select(kind, key)
+        except KeyError:
+            self._restore = {"expanded": set(), "selected": [(kind, key)], "current": (kind, key)}
+
+    def _select_keys(self, keys: Iterable[tuple[str, str]], current: tuple[str, str] | None) -> None:
+        wanted = set(keys)
+        if not wanted:
+            return
+        model = self.view.selectionModel()
+        for identity, index in self._proxy_rows():
+            if identity in wanted:
+                model.select(index, model.SelectionFlag.Select | model.SelectionFlag.Rows)
+            if identity == current:
+                model.setCurrentIndex(index, model.SelectionFlag.NoUpdate)
+                self.view.scrollTo(index)
 
     def _current(self) -> tuple[str, str] | None:
-        item = self.tree.currentItem()
-        return item.data(0, ROLE) if item is not None else None
+        selected = self._selected_indexes()
+        if len(selected) == 1:
+            return selected[0].data(ROLE)
+        index = self.view.selectionModel().currentIndex()
+        return index.siblingAtColumn(0).data(ROLE) if index.isValid() and selected else None
 
-    # Details ----------------------------------------------------------------
+    # Panel ----------------------------------------------------------------
 
     def show_details(self) -> None:
-        current = self._current()
         data = self.tree_data
-        set_enabled(self.def_apply, False, "Select a signal on a confirmed endpoint.")
-        set_enabled(self.did_apply, False, "Select a DID on a confirmed endpoint.")
-        if current is None or data is None:
-            self.detail_text.setPlainText("")
-            self.update_actions()
-            return
-        kind, key = current
-        lines: list[str] = []
+        keys = self._selected_keys()
+        selection = self.selection()
+        kinds = [kind for kind, _ in keys]
+        if not keys or data is None:
+            self.selection_title.setText("Nothing selected")
+            self.detail_text.setPlainText("Select rows to see and change their settings.")
+        elif len(keys) == 1:
+            kind, key = keys[0]
+            self.selection_title.setText({"endpoint": "Endpoint", "did": "DID", "signal": "Signal"}[kind])
+            self.detail_text.setPlainText("\n".join(self._detail_lines(kind, key)))
+        else:
+            parts = [f"{kinds.count(kind)} {name}" for kind, name in
+                     (("endpoint", "endpoints"), ("did", "DIDs"), ("signal", "signals")) if kind in kinds]
+            self.selection_title.setText(", ".join(parts) + " selected")
+            self.detail_text.setPlainText(
+                f"{len(selection.dids)} DID(s) and {len(selection.signals)} signal(s) in the selection."
+            )
+        self._load_collection(selection)
+        self._load_targets(selection)
+        single_signal = len(keys) == 1 and kinds[0] == "signal"
+        self.definition_group.setVisible(single_signal)
+        if single_signal:
+            endpoint, _did, signal = self._signals[keys[0][1]]
+            self._load_definition(endpoint, signal)
+        self.update_actions()
+
+    def _detail_lines(self, kind: str, key: str) -> list[str]:
+        data = self.tree_data
         if kind == "endpoint":
             endpoint = data.endpoint(key)
-            lines = [
+            return [
                 f"Endpoint {endpoint.key}: {endpoint.state}",
                 f"Tester/response CAN IDs: {endpoint.tester_can_id or '?'} / {endpoint.response_can_id or '?'}",
                 f"ECU keys: {', '.join(map(str, endpoint.ecu_keys))}  {', '.join(endpoint.ecu_names)}",
                 f"Session recipe: {endpoint.session_recipe_id or 'chosen when verified'}",
                 f"DIDs: {len(endpoint.dids)}",
             ]
-        elif kind == "did":
-            endpoint, did = data.find_did(key)
-            lines = [
+        if kind == "did":
+            _endpoint, did = self._dids[key]
+            return [
                 f"DID {did.key}: {did.state}" + (f" ({did.detail})" if did.detail else ""),
                 f"Baseline response: {did.baseline_hex or '-'}",
                 f"Latency: {did.latency_ms if did.latency_ms is not None else '-'} ms at {did.observed_utc or '-'}",
                 f"Signals: {len(did.signals)}",
             ]
-            self._load_did_settings(endpoint, did)
-        else:
-            endpoint, did, signal = data.find_signal(key)
-            lines = [
-                f"{signal.name} ({signal.signal_ref})",
-                f"Unit: {signal.unit or '-'}   Formula: {signal.formula}",
-                f"DID {did.key}: {did.state}",
-            ]
-            if signal.conflict:
-                lines.append(f"{signal.variants} catalog variants disagree; review the definition.")
-            if signal.review:
-                lines.append(f"Review: {signal.review['evidence_state']}. {signal.review['notes']}".rstrip())
-            lines.append(f"Target: {_target_summary(signal.target) or 'none'}")
+        _endpoint, did, signal = self._signals[key]
+        lines = [
+            f"{signal.name} ({signal.signal_ref})",
+            f"Unit: {signal.unit or '-'}   Formula: {signal.formula}",
+            f"DID {did.key}: {did.state}",
+        ]
+        if signal.conflict:
+            lines.append(f"{signal.variants} catalog variants disagree; review the definition.")
+        if signal.review:
+            lines.append(f"Review: {signal.review['evidence_state']}. {signal.review['notes']}".rstrip())
+        return lines
+
+    def _selected_dids(self, selection: Selection):
+        return [self._dids[key] for key in selection.dids]
+
+    def _load_collection(self, selection: Selection) -> None:
+        found = self._selected_dids(selection)
+        settings = [{**DEFAULTS, **(did.settings or {})} for _endpoint, did in found]
+        self._included_touched = False
+        included = {row["included"] for row in settings}
+        self.did_included.setTristate(len(included) > 1)
+        self.did_included.setCheckState(
+            Qt.CheckState.PartiallyChecked if len(included) > 1
+            else Qt.CheckState.Checked if included == {True} else Qt.CheckState.Unchecked
+        )
+        for spin, name in ((self.did_interval, "target_interval_ms"), (self.did_maximum, "maximum_interval_ms"),
+                           (self.did_priority, "priority")):
+            spin.load({row[name] for row in settings} or {DEFAULTS[name]})
+        unconfirmed = next((endpoint for endpoint, _did in found if not endpoint.confirmed), None)
+        enabled = bool(found) and unconfirmed is None
+        reason = "Select DIDs first." if not found else f"Confirm endpoint {unconfirmed.key} first." if unconfirmed else ""
+        for widget in (self.did_included, self.did_interval, self.did_maximum, self.did_priority):
+            set_enabled(widget, enabled, reason)
+        title = "Collection" if len(found) <= 1 else f"Collection: {len(found)} DIDs"
+        self.collection_group.setTitle(title)
+        self._update_apply()
+
+    def _included_clicked(self) -> None:
+        self.did_included.setTristate(False)
+        self._included_touched = True
+        self._update_apply()
+
+    def _update_apply(self) -> None:
+        touched = self._included_touched or any(
+            spin.touched for spin in (self.did_interval, self.did_maximum, self.did_priority)
+        )
+        enabled = self.did_interval.isEnabled()
+        set_enabled(self.did_apply, enabled and touched,
+                    self.did_interval.toolTip() if not enabled else "Change a field first.")
+
+    def _load_targets(self, selection: Selection) -> None:
+        found =[self._signals[ref][2] for ref in selection.signals]
+        targeted = [signal for signal in found if signal.target]
+        complete = sum(1 for signal in targeted if signal.progress and signal.progress["complete"])
+        if not found:
+            text = "Select signals, DIDs, or endpoints."
+        elif len(found) == 1:
+            signal = found[0]
+            lines = [f"Target: {_target_summary(signal.target) or 'none'}"]
             if signal.progress:
                 counters = signal.progress["counters"]
                 lines.append(
                     f"Recorded: {counters['samples']} samples, {counters['runs']} runs, "
-                    f"{counters['changes']} changes, {counters['transitions']} transitions, "
-                    f"states {counters['states'][:12]}"
+                    f"{counters['changes']} changes, {counters['transitions']} transitions"
                 )
                 missing = [
                     REQUIREMENT_LABELS[name] for name, met in signal.progress["requirements_met"].items() if not met
                 ]
                 lines.append("Remaining: " + (", ".join(missing) if missing else "complete"))
-            self._load_definition(endpoint, signal)
-            self._load_did_settings(endpoint, did)
-        self.detail_text.setPlainText("\n".join(lines))
-        self.update_actions()
+            text = "\n".join(lines)
+        else:
+            summaries = {_target_summary(signal.target) for signal in targeted}
+            text = f"{len(found)} signals: {len(targeted)} with targets, {complete} complete."
+            if len(summaries) == 1 and len(targeted) == len(found):
+                text += f"\nAll: {next(iter(summaries))}"
+            elif targeted:
+                text += "\nTargets are mixed."
+        self.targets_text.setText(text)
 
     def _load_definition(self, endpoint, signal) -> None:
         review = signal.review or {}
@@ -638,20 +847,12 @@ class SignalsPage(QWidget):
         self.def_notes.setText(review.get("notes") or "")
         set_enabled(self.def_apply, endpoint.confirmed, "Confirm the endpoint first.")
 
-    def _load_did_settings(self, endpoint, did) -> None:
-        settings = did.settings or {"target_interval_ms": 1000, "maximum_interval_ms": 5000, "priority": 50, "included": True}
-        self.did_interval.setValue(settings["target_interval_ms"])
-        self.did_maximum.setValue(settings["maximum_interval_ms"])
-        self.did_priority.setValue(settings["priority"])
-        self.did_included.setChecked(settings["included"])
-        set_enabled(self.did_apply, endpoint.confirmed, "Confirm the endpoint first.")
-
     # Actions ----------------------------------------------------------------
 
     def update_actions(self) -> None:
         has_project = self.context.service is not None
         busy = self.job is not None and self.job.running
-        selection = self.checked_selection() if has_project else Selection()
+        selection = self.selection() if has_project else Selection()
         current = self._current()
         responded = False
         if current and current[0] == "endpoint" and self.tree_data is not None:
@@ -661,9 +862,10 @@ class SignalsPage(QWidget):
         set_enabled(self.add_endpoint_button, ready, blocked)
         set_enabled(self.confirm_button, ready and responded,
                     blocked or "Select an endpoint that responded during verification.")
-        set_enabled(self.verify_button, ready and bool(selection.dids), blocked or "Check DIDs or signals first.")
-        set_enabled(self.target_button, ready and bool(selection.signals), blocked or "Check signals first.")
-        set_enabled(self.clear_button, ready and bool(selection.signals), blocked or "Check signals first.")
+        set_enabled(self.verify_button, ready and bool(selection.dids),
+                    blocked or "Select DIDs, or endpoints with a known address, first.")
+        set_enabled(self.target_button, ready and bool(selection.signals), blocked or "Select signals first.")
+        set_enabled(self.clear_button, ready and bool(selection.signals), blocked or "Select signals first.")
         set_enabled(self.save_button, self.dirty and not busy, blocked or "No unsaved changes.")
         set_enabled(self.discard_button, self.dirty and not busy, blocked or "No unsaved changes.")
 
@@ -696,14 +898,14 @@ class SignalsPage(QWidget):
         except (OSError, ValueError) as exc:
             self.context.error("Endpoint not confirmed", exc)
             return
-        self.context.message(f"Confirmed {endpoint.endpoint_id} in config/transport.json.")
+        self.context.message(f"Confirmed {endpoint.endpoint_id}.")
         self.context.changed()
 
     def verify_checked(self) -> None:
         service = self.context.service
         if service is None or self.tree_data is None:
             return
-        selection = self.checked_selection()
+        selection = self.selection()
         try:
             scope = service.verification_scope(self.tree_data, selection)
         except RecipeRequired as exc:
@@ -784,7 +986,7 @@ class SignalsPage(QWidget):
 
     def edit_targets(self) -> None:
         service = self.context.service
-        selection = self.checked_selection()
+        selection = self.selection()
         if service is None or self.tree_data is None or not selection.signals:
             return
         current = None
@@ -810,7 +1012,7 @@ class SignalsPage(QWidget):
 
     def clear_targets(self) -> None:
         service = self.context.service
-        selection = self.checked_selection()
+        selection = self.selection()
         if service is None or not selection.signals:
             return
         result = service.clear_targets(selection.signals, policy=self.draft_policy)
@@ -832,31 +1034,26 @@ class SignalsPage(QWidget):
         self._set_draft(review=result.review)
 
     def apply_did_settings(self) -> None:
-        current = self._current()
-        if self.context.service is None or current is None:
+        selection = self.selection()
+        if self.context.service is None or not selection.dids:
             return
-        kind, key = current
-        if kind == "signal":
-            did_key = self.tree.currentItem().parent().data(0, ROLE)[1]
-            selected = [key]
-        elif kind == "did":
-            did_key, selected = key, []
-        else:
-            return
+        fields: dict[str, Any] = {}
+        for spin, name in ((self.did_interval, "target_interval_ms"), (self.did_maximum, "maximum_interval_ms"),
+                           (self.did_priority, "priority")):
+            fields[name] = spin.value() if spin.touched else UNSET
+        if self._included_touched:
+            fields["included"] = self.did_included.checkState() == Qt.CheckState.Checked
         try:
             result = self.context.service.edit_dids(
-                self.tree_data, [did_key], selected_signals=selected, policy=self.draft_policy,
-                target_interval_ms=self.did_interval.value(),
-                maximum_interval_ms=self.did_maximum.value(),
-                priority=self.did_priority.value(),
-                included=self.did_included.isChecked(),
+                self.tree_data, selection.dids, selected_signals=selection.signals,
+                policy=self.draft_policy, **fields,
             )
         except ValueError as exc:
-            self.context.error("DID settings not applied", exc)
+            self.context.error("Collection settings not applied", exc)
             return
         siblings = result.impact()["unselected_siblings"]
         if siblings:
-            self.context.message(f"DID settings also apply to {len(siblings)} other signal(s) on this DID.")
+            self.context.message(f"Settings also apply to {len(siblings)} other signal(s) on the same DIDs.")
         self._set_draft(policy=result.policy)
 
     def _set_draft(self, *, review=None, policy=None) -> None:
@@ -867,7 +1064,7 @@ class SignalsPage(QWidget):
         if policy is not None:
             self.draft_policy = policy
         self.dirty_changed.emit(True)
-        self.rebuild(self._current())
+        self.rebuild()
 
     def save(self) -> bool:
         service = self.context.service
@@ -883,7 +1080,7 @@ class SignalsPage(QWidget):
             self.context.error("Not saved", exc)
             return False
         self.reload()
-        self.context.message("Saved review and collection targets.")
+        self.context.message("Saved review and collection settings.")
         self.context.changed()
         return True
 
@@ -896,7 +1093,7 @@ class SignalsPage(QWidget):
         if not self.dirty:
             return True
         answer = QMessageBox.question(
-            self, "Unsaved changes", "Save changes to signal review and collection targets?",
+            self, "Unsaved changes", "Save changes to signal review and collection settings?",
             QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
@@ -938,8 +1135,9 @@ def _impact_text(impact: dict[str, Any], selected: int) -> str:
     text = f"{selected} signal(s) on {len(impact['dids'])} DID(s) will change."
     created = len(impact["created_did_settings"])
     if created:
-        text += f" {created} DID(s) will start being read every 1 s (change this under DID settings)."
+        text += f" {created} DID(s) will start being read every 1 s (change this under Collection)."
     return text
+
 
 def _status_tip(signal, did) -> str:
     if signal.status == "Reviewed":
