@@ -1,8 +1,7 @@
-"""Recordings: drives, their plots, recovery, deletion, and sample export.
+"""Recordings: runs, their plots, recovery, deletion, and sample export.
 
-People work with drives (runs grouped wherever recording paused), named by
-their local start time. Run and endpoint IDs stay out of sight; the CLI uses
-them.
+Runs are named by their local start time. Run and endpoint IDs stay out of
+sight; the CLI uses them.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from toyota_telemetry.operator.recordings import Drive
+from toyota_telemetry.operator.recordings import NEEDS_RECOVERY, UNREADABLE, RunSummary
 
 from .context import PageContext
 from .dialogs import ExportDialog
@@ -40,7 +39,8 @@ from .widgets import LoadingOverlay, button_row, page_title, search_icon, set_en
 from .widgets.metric_plot import MetricPlot, RunSpan
 
 
-DRIVE_COLUMNS = ("Started", "Length", "ECUs", "Samples", "Status", "Note")
+RUN_COLUMNS = ("Started", "Length", "ECU", "Samples", "Status", "Note")
+STATUS = {NEEDS_RECOVERY: "! Interrupted", UNREADABLE: "✕ Unreadable"}
 KEY = Qt.ItemDataRole.UserRole
 SORT = Qt.ItemDataRole.UserRole + 1
 
@@ -64,11 +64,11 @@ class RecordingsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Recordings",
-            "A pause over a minute starts a new drive",
+            "Select runs to see and plot their signals",
         ))
 
         splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(self._drives_panel())
+        splitter.addWidget(self._runs_panel())
         splitter.addWidget(self._plot_panel())
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 1)
@@ -80,7 +80,7 @@ class RecordingsPage(QWidget):
         self.context.register("recordings.export", self.export_button, "Export recorded samples")
         layout.addLayout(button_row(self.export_button))
 
-        self._drives: list[Drive] = []
+        self._runs: list[RunSummary] = []
         self._labels: dict[str, str] = {}
         self._names: dict[str, tuple[str, str]] = {}
         self._series: dict[str, list[dict]] = {}
@@ -94,25 +94,25 @@ class RecordingsPage(QWidget):
 
     # Layout -----------------------------------------------------------------
 
-    def _drives_panel(self) -> QWidget:
+    def _runs_panel(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.drives = self._table(DRIVE_COLUMNS, "Recorded drives")
-        self.drives.setMinimumHeight(180)
-        self.drives.itemSelectionChanged.connect(self._selection_changed)
-        # Clicking below the last row, or Esc, goes back to all drives.
-        self.drives.viewport().installEventFilter(self)
-        self.context.register("recordings.list", self.drives, "Select drives to narrow the signals")
-        self.drives_loading = LoadingOverlay(self.drives)
-        layout.addWidget(self.drives, 1)
-        self.drive_detail = QLabel()
-        self.drive_detail.setWordWrap(True)
-        self.context.register("recordings.show", self.drive_detail, "The selected drives")
+        self.runs = self._table(RUN_COLUMNS, "Recorded runs")
+        self.runs.setMinimumHeight(180)
+        self.runs.itemSelectionChanged.connect(self._selection_changed)
+        # Clicking below the last row, or Esc, goes back to all runs.
+        self.runs.viewport().installEventFilter(self)
+        self.context.register("recordings.list", self.runs, "Select runs to narrow the signals")
+        self.runs_loading = LoadingOverlay(self.runs)
+        layout.addWidget(self.runs, 1)
+        self.run_detail = QLabel()
+        self.run_detail.setWordWrap(True)
+        self.context.register("recordings.show", self.run_detail, "The selected runs")
         self.all_button = QPushButton("Show all")
         self.all_button.setToolTip("Clear the selection (Esc)")
-        self.all_button.clicked.connect(self.drives.clearSelection)
-        QShortcut(QKeySequence(Qt.Key.Key_Escape), self.drives, self.drives.clearSelection)
+        self.all_button.clicked.connect(self.runs.clearSelection)
+        QShortcut(QKeySequence(Qt.Key.Key_Escape), self.runs, self.runs.clearSelection)
         self.recover_button = QPushButton("Recover")
         self.trash_button = QPushButton("Delete")
         self.context.register("recordings.recover", self.recover_button, "Keeps what was saved")
@@ -120,17 +120,17 @@ class RecordingsPage(QWidget):
         self.recover_button.clicked.connect(self.recover)
         self.trash_button.clicked.connect(self.trash)
         actions = button_row(self.all_button, self.recover_button, self.trash_button)
-        actions.insertWidget(0, self.drive_detail, 1)
+        actions.insertWidget(0, self.run_detail, 1)
         layout.addLayout(actions)
         return panel
 
     def eventFilter(self, watched, event) -> bool:  # noqa: N802 - Qt API
         if (
-            watched is self.drives.viewport()
+            watched is self.runs.viewport()
             and event.type() == QEvent.Type.MouseButtonPress
-            and not self.drives.indexAt(event.position().toPoint()).isValid()
+            and not self.runs.indexAt(event.position().toPoint()).isValid()
         ):
-            self.drives.clearSelection()
+            self.runs.clearSelection()
         return super().eventFilter(watched, event)
 
     def _plot_panel(self) -> QWidget:
@@ -181,7 +181,7 @@ class RecordingsPage(QWidget):
         table.setStyleSheet("QTableView::item { padding: 3px 8px; }")
         header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        for column, width in enumerate((150, 80, 220, 90, 110)[: len(columns) - 1]):
+        for column, width in enumerate((170, 80, 200, 90, 120)[: len(columns) - 1]):
             header.resizeSection(column, width)
         header.setStretchLastSection(True)
         table.setSortingEnabled(True)
@@ -206,7 +206,7 @@ class RecordingsPage(QWidget):
             self.refresh()
 
     def refresh(self) -> None:
-        """Load drives and recorded signals in the background."""
+        """Load runs and recorded signals in the background."""
 
         self._stale = False
         if self.context.service is None:
@@ -216,7 +216,7 @@ class RecordingsPage(QWidget):
         def work(service):
             tree = service.tree()
             return {
-                "drives": service.drives(),
+                "runs": service.runs(),
                 "summary": service.observation_summary(),
                 "names": {signal.signal_ref: (signal.name, signal.unit) for _, _, signal in tree.signals()},
                 "labels": {
@@ -226,42 +226,40 @@ class RecordingsPage(QWidget):
             }
 
         def failed(detail: str) -> None:
-            self.drives_loading.stop()
+            self.runs_loading.stop()
             self.signals_loading.stop()
-            self.drive_detail.setText(f"Cannot read recordings: {detail.split(chr(10) * 2, 1)[0]}")
+            self.run_detail.setText(f"Cannot read recordings: {detail.split(chr(10) * 2, 1)[0]}")
 
-        self.drives_loading.start("Loading drives…")
+        self.runs_loading.start("Loading runs…")
         self.signals_loading.start("Loading signals…")
         self.context.run("recordings.list", work, self._show_listing, failed)
 
     def _show_listing(self, listing: dict | None) -> None:
-        self.drives_loading.stop()
-        selected = set(self._selected_keys(self.drives))
+        self.runs_loading.stop()
+        selected = set(self._selected_keys())
         current = self.signals.currentItem()
         current_signal = current.data(KEY) if current is not None else None
-        self._drives = listing["drives"] if listing else []
+        self._runs = listing["runs"] if listing else []
         self._labels = listing["labels"] if listing else {}
         self._names = listing["names"] if listing else {}
-        self._fill(self.drives, self._drives)
-        self.drives.blockSignals(True)
-        self.select_drives(list(selected))
-        self.drives.blockSignals(False)
+        self._fill()
+        self.runs.blockSignals(True)
+        self.select_runs(list(selected))
+        self.runs.blockSignals(False)
         self._all_signals = listing["summary"] if listing else {}
         self._show_selection()
         self._load_signals(current_signal)
 
     def _load_signals(self, keep: str | None = None) -> None:
-        """List the signals recorded in the selected drives (all drives when none is selected)."""
+        """List the signals recorded in the selected runs (all runs when none is selected)."""
 
-        drives = self.selected_drives()
-        if not drives or self.context.service is None:
+        run_ids = [run.run_id for run in self.selected_runs()]
+        if not run_ids or self.context.service is None:
             self._show_signals(self._all_signals, keep)
             return
-        run_ids = [run_id for drive in drives for run_id in drive.run_ids]
-        keys = [drive.key for drive in drives]
 
         def done(summary: dict) -> None:
-            if [drive.key for drive in self.selected_drives()] == keys:
+            if [run.run_id for run in self.selected_runs()] == run_ids:
                 self._show_signals(summary, keep)
 
         self.signals_loading.start("Loading signals…")
@@ -287,51 +285,53 @@ class RecordingsPage(QWidget):
                 pass
         self._update_buttons()
 
-    def _fill(self, table: QTableWidget, drives: list[Drive]) -> None:
+    def _fill(self) -> None:
+        table = self.runs
         table.setSortingEnabled(False)
         table.setRowCount(0)
-        for drive in drives:
+        for run in self._runs:
             row = table.rowCount()
             table.insertRow(row)
-            ecus = ", ".join(self._labels.get(endpoint, "Unknown ECU") for endpoint in drive.endpoint_ids)
+            start = _utc(run.created_utc)
             values = [
-                (_local(drive), drive.start.timestamp() if drive.start else 0.0),
-                (_length(drive.duration_seconds), drive.duration_seconds or 0.0),
-                (ecus or "-", None),
-                (f"{drive.total('observations'):,}", drive.total("observations")),
-                ("! Interrupted" if drive.interrupted else "", int(bool(drive.interrupted))),
-                ("; ".join(drive.notes), None),
+                (_local(run), start or 0.0),
+                (_length(run.duration_seconds), run.duration_seconds or 0.0),
+                (self._labels.get(run.endpoint_id, "Unknown ECU") if run.endpoint_id else "-", None),
+                (f"{run.observations:,}", run.observations),
+                (STATUS.get(run.state, ""), int(run.state in STATUS)),
+                (run.note or "", None),
             ]
             for column, (text, sort) in enumerate(values):
                 item = SortItem(text)
-                item.setData(KEY, drive.key)
+                item.setData(KEY, run.run_id)
                 item.setData(SORT, sort)
                 if column == 3:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 table.setItem(row, column, item)
-            if drive.interrupted:
-                table.item(row, 4).setToolTip("Stopped without finishing")
+            if run.state in STATUS:
+                table.item(row, 4).setToolTip(
+                    "Stopped without finishing" if run.state == NEEDS_RECOVERY else "Cannot be read"
+                )
         table.setSortingEnabled(True)
         table.sortItems(0, Qt.SortOrder.DescendingOrder)
 
     # Selection ----------------------------------------------------------------
 
-    @staticmethod
-    def _selected_keys(table: QTableWidget) -> list[str]:
-        return list(dict.fromkeys(index.data(KEY) for index in table.selectionModel().selectedRows(0)))
+    def _selected_keys(self) -> list[str]:
+        return list(dict.fromkeys(index.data(KEY) for index in self.runs.selectionModel().selectedRows(0)))
 
-    def selected_drives(self) -> list[Drive]:
-        keys = set(self._selected_keys(self.drives))
-        return [drive for drive in self._drives if drive.key in keys]
+    def selected_runs(self) -> list[RunSummary]:
+        keys = set(self._selected_keys())
+        return [run for run in self._runs if run.run_id in keys]
 
-    def select_drives(self, keys: list[str]) -> None:
-        """Select drives by key (automation and tests)."""
+    def select_runs(self, run_ids: list[str]) -> None:
+        """Select runs by ID (automation and tests)."""
 
-        model = self.drives.selectionModel()
+        model = self.runs.selectionModel()
         model.clearSelection()
-        for row in range(self.drives.rowCount()):
-            if self.drives.item(row, 0).data(KEY) in keys:
-                model.select(self.drives.model().index(row, 0), model.SelectionFlag.Select | model.SelectionFlag.Rows)
+        for row in range(self.runs.rowCount()):
+            if self.runs.item(row, 0).data(KEY) in run_ids:
+                model.select(self.runs.model().index(row, 0), model.SelectionFlag.Select | model.SelectionFlag.Rows)
 
     def _selection_changed(self) -> None:
         self._show_selection()
@@ -340,31 +340,31 @@ class RecordingsPage(QWidget):
         self._redraw(reset_view=True)
 
     def _show_selection(self) -> None:
-        drives = self.selected_drives()
-        if not self._drives:
-            self.drive_detail.setText("No recordings." if self.context.service else "")
-        elif not drives:
-            total = sum(drive.total("observations") for drive in self._drives)
-            self.drive_detail.setText(f"All {count(len(self._drives), 'drive')}, {total:,} samples.")
+        runs = self.selected_runs()
+        if not self._runs:
+            self.run_detail.setText("No recordings." if self.context.service else "")
+        elif not runs:
+            total = sum(run.observations for run in self._runs)
+            self.run_detail.setText(f"All {count(len(self._runs), 'run')}, {total:,} samples.")
         else:
-            seconds = sum(drive.duration_seconds or 0 for drive in drives)
-            samples = sum(drive.total("observations") for drive in drives)
-            failed = sum(drive.total("failed") for drive in drives)
-            text = f"{count(len(drives), 'drive')} selected: {_length(seconds)}, {samples:,} samples"
+            seconds = sum(run.duration_seconds or 0 for run in runs)
+            samples = sum(run.observations for run in runs)
+            failed = sum(run.failed for run in runs)
+            text = f"{count(len(runs), 'run')} selected: {_length(seconds)}, {samples:,} samples"
             if failed:
                 text += f", {failed:,} failed reads"
-            self.drive_detail.setText(text + ".")
+            self.run_detail.setText(text + ".")
         self._update_buttons()
 
     def _update_buttons(self) -> None:
         has = self.context.service is not None
         live = self.context.live_job_running
         blocked = "Open a project first." if not has else "Wait for the live job to finish." if live else ""
-        drives = self.selected_drives()
-        set_enabled(self.recover_button, has and not live and any(drive.interrupted for drive in drives),
-                    blocked or "Select an interrupted drive.")
-        set_enabled(self.trash_button, has and not live and bool(drives), blocked or "Select drives first.")
-        self.all_button.setVisible(bool(drives))
+        runs = self.selected_runs()
+        set_enabled(self.recover_button, has and not live and any(run.state == NEEDS_RECOVERY for run in runs),
+                    blocked or "Select an interrupted run.")
+        set_enabled(self.trash_button, has and not live and bool(runs), blocked or "Select runs first.")
+        self.all_button.setVisible(bool(runs))
         set_enabled(self.export_button, has and self.signals.count() > 0, blocked or "Nothing recorded yet.")
 
     def _filter_signals(self, text: str) -> None:
@@ -414,15 +414,15 @@ class RecordingsPage(QWidget):
         rows = self._series.get(self._shown) if self._shown else None
         if rows is None:
             return
-        drives = self.selected_drives() or self._drives
-        data = series_data(rows, drives)
+        runs = self.selected_runs() or self._runs
+        data = series_data(rows, runs)
         self.plot.set_data(data["x"], data["y"], data["spans"], reset_view=reset_view)
         name, unit = self._names.get(self._shown, (self._shown, ""))
         self.plot.set_measurement(name, unit)
         finite = data["finite"]
-        where = count(data["drives"], "drive")
+        where = count(data["runs"], "run")
         if not data["samples"]:
-            self.plot_summary.setText("No samples of this signal in the selected drives.")
+            self.plot_summary.setText("No samples of this signal in the selected runs.")
         elif finite:
             minimum, maximum, last = finite
             self.plot_summary.setText(
@@ -435,36 +435,39 @@ class RecordingsPage(QWidget):
     # Actions ----------------------------------------------------------------
 
     def recover(self) -> None:
-        keys = [drive.key for drive in self.selected_drives() if drive.interrupted]
-        self._each(keys, "recover_drive", "Not recovered", lambda n: f"Recovered {count(n, 'drive')}.")
+        run_ids = [run.run_id for run in self.selected_runs() if run.state == NEEDS_RECOVERY]
+        self._each(run_ids, "recover", "Not recovered", lambda n: f"Recovered {count(n, 'run')}.")
 
     def trash(self) -> None:
-        keys = [drive.key for drive in self.selected_drives()]
-        self._each(keys, "trash", "Not deleted", lambda n: f"Moved {count(n, 'drive')} to the system trash.")
+        run_ids = [run.run_id for run in self.selected_runs()]
+        self._each(run_ids, "trash", "Not deleted", lambda n: f"Moved {count(n, 'run')} to the system trash.")
 
-    def _each(self, keys: list, method: str, title: str, message) -> None:
-        if self.context.service is None or not keys:
+    def _each(self, run_ids: list[str], method: str, title: str, message) -> None:
+        if self.context.service is None or not run_ids:
             return
 
         def work(service):
-            for key in keys:
-                getattr(service, method)(key)
-            return len(keys)
+            if method == "trash":
+                service.trash_runs(run_ids)
+            else:
+                for run_id in run_ids:
+                    service.recover(run_id)
+            return len(run_ids)
 
         def done(number: int) -> None:
-            self.drives_loading.stop()
+            self.runs_loading.stop()
             self.context.message(message(number))
             self.context.changed()
 
         def failed(detail: str) -> None:
-            self.drives_loading.stop()
+            self.runs_loading.stop()
             self._update_buttons()
             self.context.error(title, detail.split("\n\n", 1)[0])
             self.context.changed()
 
         for button in (self.recover_button, self.trash_button):
             button.setEnabled(False)
-        self.drives_loading.start("Recovering…" if method == "recover_drive" else "Deleting…")
+        self.runs_loading.start("Recovering…" if method == "recover" else "Deleting…")
         self.context.run(f"recordings.{method}", work, done, failed)
 
     def export(self) -> None:
@@ -472,10 +475,10 @@ class RecordingsPage(QWidget):
         if service is None:
             return
         item = self.signals.currentItem()
-        selected = self.selected_drives()
+        selected = self.selected_runs()
         dialog = ExportDialog(
             self._names.get(item.data(KEY), ("",))[0] if item is not None else None,
-            self.signals.count(), len(selected), len(self._drives), self,
+            self.signals.count(), len(selected), len(self._runs), self,
         )
         if not self.run_dialog(dialog):
             return
@@ -483,7 +486,7 @@ class RecordingsPage(QWidget):
         refs = [item.data(KEY)] if choice["signals"] == "selected" and item is not None else [
             self.signals.item(index).data(KEY) for index in range(self.signals.count())
         ]
-        run_ids = [run_id for drive in selected for run_id in drive.run_ids] if choice["drives"] == "selected" else []
+        run_ids = [run.run_id for run in selected] if choice["runs"] == "selected" else []
         path = self.choose_export_path()
         if not path:
             return
@@ -504,44 +507,44 @@ class RecordingsPage(QWidget):
         self.context.run("recordings.export", work, done, failed)
 
 
-def series_data(rows: list[dict], drives: list[Drive]) -> dict:
-    """Lay the chosen drives end to end on their own clocks, with a gap so lines never join."""
+def series_data(rows: list[dict], runs: list[RunSummary]) -> dict:
+    """Lay the chosen runs end to end on their own clocks, with a gap so lines never join."""
 
-    starts = {run.run_id: (drive, _utc(run.created_utc)) for drive in drives for run in drive.runs}
+    chosen = {run.run_id: run for run in runs}
     xs: list[float] = []
     ys: list[float] = []
     spans: list[RunSpan] = []
     offset = 0.0
     origin = 0.0
-    current: Drive | None = None
+    current: RunSummary | None = None
     last = 0.0
     samples = 0
     for row in rows:
-        found = starts.get(row["run_id"])
-        if found is None:
+        run = chosen.get(row["run_id"])
+        if run is None:
             continue
-        drive, run_start = found
+        run_start = _utc(run.created_utc)
         when = _utc(row.get("response_utc"))
         if when is None:
-            # Without wall-clock times, a recording runs on its own elapsed clock.
+            # Without wall-clock times, a run is placed on its own elapsed clock.
             when = (run_start or 0.0) + row["response_elapsed_ms"] / 1000
-        if drive is not current:
+        if run is not current:
             if current is not None:
-                spans.append(RunSpan(current.key, offset, last, _span_label(current)))
+                spans.append(RunSpan(current.run_id, offset, last, _span_label(current)))
                 offset = last + 1.0
                 xs.append(offset)
                 ys.append(math.nan)
-            current = drive
-            origin = drive.start.timestamp() if drive.start else when
+            current = run
+            origin = run_start if run_start is not None else when
         last = offset + max(0.0, when - origin)
         xs.append(last)
         ys.append(math.nan if row["decoded_value"] is None else float(row["decoded_value"]))
         samples += 1
     if current is not None:
-        spans.append(RunSpan(current.key, offset, last, _span_label(current)))
+        spans.append(RunSpan(current.run_id, offset, last, _span_label(current)))
     finite = [value for value in ys if math.isfinite(value)]
     return {
-        "x": xs, "y": ys, "spans": spans, "samples": samples, "drives": len(spans),
+        "x": xs, "y": ys, "spans": spans, "samples": samples, "runs": len(spans),
         "finite": (min(finite), max(finite), finite[-1]) if finite else None,
     }
 
@@ -555,12 +558,13 @@ def _utc(value) -> float | None:
         return None
 
 
-def _span_label(drive: Drive) -> str:
-    return f"the drive of {_local(drive)}" if drive.start else "a recording without a start time"
+def _span_label(run: RunSummary) -> str:
+    return f"the run of {_local(run)}" if run.created_utc else "a run without a start time"
 
 
-def _local(drive: Drive) -> str:
-    return drive.start.astimezone().strftime("%Y-%m-%d %H:%M") if drive.start else "Unknown time"
+def _local(run: RunSummary) -> str:
+    start = _utc(run.created_utc)
+    return datetime.fromtimestamp(start).strftime("%Y-%m-%d %H:%M:%S") if start is not None else "Unknown time"
 
 
 def _length(seconds: float | None) -> str:

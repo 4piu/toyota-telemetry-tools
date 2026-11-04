@@ -1182,7 +1182,7 @@ def _status_tip(signal, did) -> str:
     if signal.status == "Reviewed":
         return f"reviewed as {signal.review['evidence_state']}"
     if signal.status == "Recorded":
-        return f"{signal.observations} samples recorded across drives; meaning not reviewed yet"
+        return f"{signal.observations} samples recorded across runs; meaning not reviewed yet"
     if signal.status == "Refused":
         return "none; its DID was refused"
     return "nothing recorded yet"

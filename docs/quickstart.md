@@ -146,19 +146,16 @@ logger.
 ## 5. Analyze (Recordings page)
 
 ```powershell
-telemetry recordings                     # drives, newest last
-telemetry recordings show 2026-09-01T08:15
-telemetry recordings recover 2026-09-01T08:15   # interrupted: keep what was saved
-telemetry recordings trash 2026-09-01T08:15     # to the system trash (Recycle Bin)
-telemetry recordings export --signal 372/0x1002/0..15 --drive 2026-09-01T08:15 --output battery.csv
+telemetry recordings
+telemetry recordings show RUN
+telemetry recordings recover RUN          # interrupted run: keep its valid prefix
+telemetry recordings trash RUN            # to the system trash (Recycle Bin)
+telemetry recordings export --signal 372/0x1002/0..15 --run RUN --output battery.csv
 telemetry export C:\work\my-car-deliverables
 ```
 
-Recordings are grouped into drives: a pause of more than a minute starts a
-new drive, and a drive is named by its start (UTC). Imported recordings
-often arrive as thousands of short runs; `--runs` lists those individually.
-Deleting a drive moves its run folders to the operating system's trash;
-restore them there to bring the drive back.
+Deleting a run moves its folder to the operating system's trash; restore it
+there to bring the run back.
 All valid runs are included. Export writes UTC, run, elapsed time, raw bytes,
 decoded value, and condition state for external plotting; the desktop
 application plots the same data with run boundaries kept apart. `export`

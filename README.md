@@ -99,9 +99,9 @@ collected and how often, and each signal's target; a Filter menu and search;
 a side panel edits the settings, targets, and definition of everything
 selected, showing "mixed" where rows differ, as a draft until Save), Collect
 (automatic readiness, start/stop, live progress, and every target's
-progress), and Recordings (drives: recordings grouped wherever recording
-paused for over a minute; selecting drives lists and plots their signals;
-recovery, Delete to the system trash, and an Export dialog for samples). Export
+progress), and Recordings (runs by start time; selecting runs lists and
+plots their signals; recovery, Delete to the system trash, and an Export
+dialog for samples). Export
 result is in the Project menu. The plot
 follows dashboard conventions: hover reads the nearest sample, click pins it,
 drag zooms into a time range, double-click shows everything, sideways scroll

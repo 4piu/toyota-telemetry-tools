@@ -327,48 +327,48 @@ def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, 
     page = window.recordings_page
     window.navigate("recordings")
     settle(qtbot, window)
-    assert page.drives.rowCount() == 1
-    assert page.drive_detail.text().startswith("All 1 drive, ")
+    assert page.runs.rowCount() == 1
+    assert page.run_detail.text().startswith("All 1 run, ")
     assert page.all_button.isHidden()
-    assert not page.drives_loading.active and not page.signals_loading.active
-    page.select_drives([page._drives[0].key])
+    assert not page.runs_loading.active and not page.signals_loading.active
+    page.select_runs([page._runs[0].run_id])
     settle(qtbot, window)
-    assert page.drive_detail.text().startswith("1 drive selected")
+    assert page.run_detail.text().startswith("1 run selected")
     # A selection can always be undone: Show all, Esc, or a click below the rows.
     assert not page.all_button.isHidden()
     page.all_button.click()
-    assert page.selected_drives() == [] and page.drive_detail.text().startswith("All ")
-    page.select_drives([page._drives[0].key])
-    qtbot.mouseClick(page.drives.viewport(), Qt.MouseButton.LeftButton, pos=page.drives.viewport().rect().bottomLeft()
+    assert page.selected_runs() == [] and page.run_detail.text().startswith("All ")
+    page.select_runs([page._runs[0].run_id])
+    qtbot.mouseClick(page.runs.viewport(), Qt.MouseButton.LeftButton, pos=page.runs.viewport().rect().bottomLeft()
                      - QPoint(-5, 5))
-    assert page.selected_drives() == []
-    page.select_drives([page._drives[0].key])
+    assert page.selected_runs() == []
+    page.select_runs([page._runs[0].run_id])
     settle(qtbot, window)
-    assert page.drives.item(0, 4).text() == ""
+    assert page.runs.item(0, 4).text() == ""
     assert not page.recover_button.isEnabled()
     page.select_signal("372/0x1002/0..15")
     settle(qtbot, window)
     assert page.plot.source_points == 1
     assert "Constant" in page.plot_summary.text()
-    # The export dialog offers selected or all signals and drives, and a format.
+    # The export dialog offers selected or all signals and runs, and a format.
     target = tmp_path / "out.csv"
     chosen = {}
     page.run_dialog = lambda dialog: (chosen.update(dialog.choice()), True)[1]
     page.choose_export_path = lambda: str(target)
     page.export_button.click()
     settle(qtbot, window)
-    assert chosen == {"signals": "selected", "drives": "selected", "format": "csv"}
+    assert chosen == {"signals": "selected", "runs": "selected", "format": "csv"}
     assert target.read_text().count("\n") == 2
-    # Delete moves the drive's folders to the system trash; restoring them there brings it back.
+    # Delete moves the run's folder to the system trash; restoring it there brings it back.
     page.trash_button.click()
     settle(qtbot, window)
-    assert page.drives.rowCount() == 0
+    assert page.runs.rowCount() == 0
     assert len(list(system_trash.iterdir())) == 1
     folder = next(system_trash.iterdir())
     folder.rename(root / "captures" / folder.name)
     window.context.changed()
     settle(qtbot, window)
-    assert page.drives.rowCount() == 1
+    assert page.runs.rowCount() == 1
 
 
 def test_a_single_sample_plot_settles(qtbot) -> None:
@@ -488,7 +488,7 @@ def test_plot_uses_dashboard_time_interaction(qtbot) -> None:
     plot.show()
     xs = [0.0, 1.0, 2.0, 3.0, float("nan"), 4.0, 5.0, 6.0]
     ys = [1.0, 2.0, 3.0, 4.0, float("nan"), 10.0, 20.0, 30.0]
-    runs = [RunSpan("a", 0.0, 3.0), RunSpan("b", 4.0, 6.0, "the drive of 2026-09-01 08:15")]
+    runs = [RunSpan("a", 0.0, 3.0), RunSpan("b", 4.0, 6.0, "the run of 2026-09-01 08:15:00")]
     xs[4] = 3.5
     plot.set_data(xs, ys, runs)
     plot.set_measurement("Speed", "km/h")
@@ -496,9 +496,9 @@ def test_plot_uses_dashboard_time_interaction(qtbot) -> None:
     qtbot.wait(50)
     (low, high), (y_low, y_high) = view.viewRange()
     assert low <= 0 and high >= 6 and y_low <= 1 and y_high >= 30
-    # Hover and click read the nearest finite sample, with its drive.
+    # Hover and click read the nearest finite sample, with its run.
     assert plot.nearest(3.4) == 3
-    assert plot.describe(plot.nearest(5.2)) == "Speed: 20 km/h\n0:01 into the drive of 2026-09-01 08:15"
+    assert plot.describe(plot.nearest(5.2)) == "Speed: 20 km/h\n0:01 into the run of 2026-09-01 08:15:00"
     assert plot.describe(plot.nearest(1.1)) == "Speed: 2 km/h\n0:01"
     # Plain vertical scroll does not zoom; sideways scroll pans; Ctrl+scroll zooms time only.
     wheel = FakeWheel(120)
@@ -693,7 +693,7 @@ def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot) -> None:
     assert confirm.result() == confirm.DialogCode.Accepted
 
 
-def test_interrupted_drive_offers_recover_and_delete(qtbot, project) -> None:
+def test_interrupted_run_offers_recover_and_delete(qtbot, project) -> None:
     from toyota_telemetry.capture_writer import NativeRunWriter
 
     root, rows = project
@@ -717,17 +717,17 @@ def test_interrupted_drive_offers_recover_and_delete(qtbot, project) -> None:
     window.navigate("recordings")
     settle(qtbot, window)
     page = window.recordings_page
-    interrupted = [drive for drive in page._drives if drive.interrupted]
+    interrupted = [run for run in page._runs if run.state == "needs recovery"]
     assert len(interrupted) == 1
     assert window.navigation.steps[3].state == "attention"
-    page.select_drives([interrupted[0].key])
+    page.select_runs([interrupted[0].run_id])
     settle(qtbot, window)
-    rows = [row for row in range(page.drives.rowCount()) if page.drives.item(row, 4).text()]
-    assert [page.drives.item(row, 4).text() for row in rows] == ["! Interrupted"]
+    rows = [row for row in range(page.runs.rowCount()) if page.runs.item(row, 4).text()]
+    assert [page.runs.item(row, 4).text() for row in rows] == ["! Interrupted"]
     assert page.recover_button.isEnabled()
     page.trash_button.click()
     settle(qtbot, window)
-    assert not any(drive.interrupted for drive in page._drives)
+    assert not any(run.state == "needs recovery" for run in page._runs)
     assert window.navigation.steps[3].state != "attention"
 
 

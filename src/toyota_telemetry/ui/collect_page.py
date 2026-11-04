@@ -82,7 +82,7 @@ class CollectPage(QWidget):
         form = QFormLayout()
         self.note = QLineEdit()
         self.note.setPlaceholderText("optional")
-        self.note.setToolTip("Saved with the drive, e.g. highway")
+        self.note.setToolTip("Saved with the run, e.g. highway")
         form.addRow("Note", self.note)
         run_layout.addLayout(form)
         self.start_button = mark_live(QPushButton("Start"))
@@ -107,7 +107,7 @@ class CollectPage(QWidget):
         layout.addWidget(run_group)
 
         self.targets_group = QGroupBox("Targets")
-        self.targets_group.setToolTip("Collected so far, across all drives")
+        self.targets_group.setToolTip("Collected so far, across all runs")
         targets_layout = QVBoxLayout(self.targets_group)
         self.targets = QTreeWidget()
         self.targets.setRootIsDecorated(False)
@@ -267,7 +267,7 @@ class CollectPage(QWidget):
         if self.running:
             self.start_button.setText("Stop")
             self.start_button.setIcon(QIcon())
-            self.start_button.setToolTip("Stops safely and keeps the drive")
+            self.start_button.setToolTip("Stops safely and keeps the run")
             self.start_button.setEnabled(True)
             return
         mark_live(self.start_button)

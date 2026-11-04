@@ -1,11 +1,6 @@
-"""Drives and runs: listing, recovery, deletion, and bounded observation export.
+"""Runs: listing, recovery, deletion, and bounded observation export.
 
-A run is one capture folder. Imported recordings arrive as many short runs,
-so people work with drives instead: runs grouped wherever recording paused
-for more than ``DRIVE_GAP_SECONDS``. A drive is named by its start minute,
-which is unique because drives are at least that gap apart.
-
-The scanner tolerates damaged or interrupted runs so they can be listed and
+A run is one capture folder. The scanner tolerates damaged or interrupted runs so they can be listed and
 recovered; the strict capture reader still decides what the cache ingests.
 """
 
@@ -13,7 +8,6 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 import json
 import os
 from pathlib import Path
@@ -37,7 +31,6 @@ END_REASONS = {
     "size_limit": "storage limit reached",
     "recovered_prefix": "recovered after interruption",
 }
-DRIVE_GAP_SECONDS = 60
 CSV_COLUMNS = (
     "signal_ref", "run_id", "sequence", "response_utc", "elapsed_ms",
     "raw_hex", "decoded_value", "condition",
@@ -88,125 +81,18 @@ class RunSummary:
         return value
 
 
-@dataclass
-class Drive:
-    """Runs recorded without a pause longer than ``DRIVE_GAP_SECONDS``."""
+def trash_runs(repository: ProjectRepository, run_ids: Iterable[str]) -> list[RunSummary]:
+    """Move run folders to the system trash in one step; restoring them there brings them back."""
 
-    key: str
-    runs: list[RunSummary]
-    start: datetime | None = None
-    end: datetime | None = None
-
-    @property
-    def duration_seconds(self) -> float | None:
-        return (self.end - self.start).total_seconds() if self.start and self.end else None
-
-    @property
-    def run_ids(self) -> list[str]:
-        return [run.run_id for run in self.runs]
-
-    @property
-    def interrupted(self) -> list[str]:
-        return [run.run_id for run in self.runs if run.state == NEEDS_RECOVERY]
-
-    @property
-    def endpoint_ids(self) -> list[str]:
-        return sorted({run.endpoint_id for run in self.runs if run.endpoint_id})
-
-    @property
-    def notes(self) -> list[str]:
-        return list(dict.fromkeys(run.note for run in self.runs if run.note))
-
-    def total(self, name: str) -> int:
-        return sum(getattr(run, name) for run in self.runs)
-
-    def as_dict(self, *, runs: bool = False) -> dict[str, Any]:
-        value = {
-            "drive": self.key,
-            "start_utc": _iso(self.start),
-            "end_utc": _iso(self.end),
-            "duration_seconds": self.duration_seconds,
-            "runs": len(self.runs),
-            "reads": self.total("exchanges"),
-            "failed": self.total("failed"),
-            "samples": self.total("observations"),
-            "endpoint_ids": self.endpoint_ids,
-            "notes": self.notes,
-            "interrupted_runs": self.interrupted,
-        }
-        if runs:
-            value["run_list"] = [run.as_dict() for run in self.runs]
-        return value
-
-
-def group_drives(runs: Iterable[RunSummary], gap_seconds: float = DRIVE_GAP_SECONDS) -> list[Drive]:
-    """Group runs into drives, oldest first; a run without a start time is its own drive."""
-
-    drives: list[Drive] = []
-    timed = []
-    for run in runs:
-        start = _parse_utc(run.created_utc)
-        if start is None:
-            drives.append(Drive(run.run_id, [run]))
-        else:
-            timed.append((start, start + timedelta(seconds=run.duration_seconds or 0), run))
-    current: Drive | None = None
-    for start, end, run in sorted(timed, key=lambda row: (row[0], row[2].run_id)):
-        if current is None or (start - current.end).total_seconds() > gap_seconds:
-            current = Drive(start.strftime("%Y-%m-%dT%H:%M"), [], start, end)
-            drives.append(current)
-        current.runs.append(run)
-        current.end = max(current.end, end)
-    return sorted(drives, key=lambda drive: (drive.start is None, drive.start or datetime.min, drive.key))
-
-
-def list_drives(repository: ProjectRepository) -> list[Drive]:
-    return group_drives(list_runs(repository))
-
-
-def find_drive(drives: Iterable[Drive], key: str) -> Drive:
-    """A drive by its start minute ("2026-09-01T08:15" or "2026-09-01 08:15") or by one of its runs."""
-
-    wanted = key.strip().replace(" ", "T")
-    drives = list(drives)
-    for drive in drives:
-        if drive.key == wanted:
-            return drive
-    try:
-        run_id = canonical_run_id(key)
-    except ValueError:
-        run_id = None
-    for drive in drives:
-        if run_id in drive.run_ids:
-            return drive
-    raise ValueError(f"no drive {key}; drives are named by their start, e.g. 2026-09-01T08:15")
-
-
-def trash_drive(repository: ProjectRepository, key: str) -> Drive:
-    """Move a drive's run folders to the system trash; restoring them there brings them back."""
-
-    drive = find_drive(list_drives(repository), key)
+    runs = [run_detail(repository, run_id) for run_id in run_ids]
     try:
         with LiveLock(repository):
-            system_trash.send_to_trash([repository.paths.captures / run_id for run_id in drive.run_ids])
+            system_trash.send_to_trash([_run_directory(repository, run.run_id) for run in runs])
     except LiveBusy as exc:
         raise ValueError("a live job is running; delete after it stops") from exc
     except system_trash.TrashError as exc:
         raise ValueError(f"not moved to the trash: {exc}") from exc
-    return drive
-
-
-def _parse_utc(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat().replace("+00:00", "Z") if value else None
+    return runs
 
 
 _FINISHED: dict[str, tuple[tuple[int, int], RunSummary]] = {}

@@ -52,27 +52,23 @@ will run. Everything else is safe to take.
   replaces the toggle buttons and the ECU key field. Target progress moved
   off this page: a met target shows only a tick.
 - Desktop: a spinner in the status bar and a dimmed "Loading…" overlay on
-  the area being loaded (Signals table, Recordings drives, signals, plot).
+  the area being loaded (Signals table, Recordings runs, signals, plot).
 - Desktop Recordings: Show all, Esc, or a click below the rows clears the
-  drive selection. A plot of a single sample no longer flickers.
+  run selection. A plot of a single sample no longer flickers.
 - Desktop Signals: the duplicate Clear button is gone (the search box and the
   Filter menu each clear themselves). Diagnostic sessions are shown by what
   they do, e.g. "Extended (10 03)", instead of their IDs; the Confirm dialog
   names the ECU and says nothing is sent.
 - Desktop target editor: each field's tooltip is a short example; "Collect
   this signal / Yes" became Status: Active or Paused.
-- Recordings are grouped into drives (a pause of over a minute starts a new
-  one; a drive is named by its start minute). `telemetry recordings` lists
-  drives (`--runs` for individual runs), `show|recover|trash DRIVE` accept a
-  drive or any of its run IDs, and `export --drive` limits an export.
-  `trash` moves the drive's run folders to the operating system's trash
-  (Recycle Bin, Finder Trash, or the freedesktop trash) and replaces
-  quarantine; restoring happens there.
-- Desktop Recordings page: a drives table (local start, length, ECUs,
-  samples, status, note) replaces the runs table; selecting drives lists the
-  signals they recorded and plots them on their own clocks. Delete moves
-  drives to the system trash. Export opens a dialog: selected or all signals and drives, and a
-  format (CSV). Run and endpoint IDs are no longer shown.
+- `telemetry recordings trash RUN` moves a run's folder to the operating
+  system's trash (Recycle Bin, Finder Trash, or the freedesktop trash) and
+  replaces quarantine; restoring happens there.
+- Desktop Recordings page: the runs table shows local start, length, ECU,
+  samples, status, and note; selecting runs lists the signals they recorded
+  and plots them on their own clocks. Delete moves runs to the system trash.
+  Export opens a dialog: selected or all signals and runs, and a format
+  (CSV). Run and endpoint IDs are no longer shown.
 - Desktop: the Next/Go row is gone; the next step is marked on the step bar
   and named in its tooltip. Export result moved to the Project menu. Pages no
   longer jump to other pages. Collapsible sections use ▸/▾ disclosure

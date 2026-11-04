@@ -62,8 +62,8 @@ class ExportDialog(QDialog):
         self,
         signal_name: str | None,
         signal_count: int,
-        selected_drives: int,
-        drive_count: int,
+        selected_runs: int,
+        run_count: int,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -76,14 +76,11 @@ class ExportDialog(QDialog):
         self.signals_selected.setEnabled(signal_name is not None)
         (self.signals_selected if signal_name else self.signals_all).setChecked(True)
         form.addRow("Signals", _stack(self.signals_selected, self.signals_all))
-        self.drives_selected = QRadioButton(
-            f"Selected {selected_drives} drive" + ("s" if selected_drives != 1 else "") if selected_drives
-            else "Selected drives"
-        )
-        self.drives_all = QRadioButton(f"All {drive_count} drives")
-        self.drives_selected.setEnabled(selected_drives > 0)
-        (self.drives_selected if selected_drives else self.drives_all).setChecked(True)
-        form.addRow("Drives", _stack(self.drives_selected, self.drives_all))
+        self.runs_selected = QRadioButton(f"Selected {count(selected_runs, 'run')}" if selected_runs else "Selected runs")
+        self.runs_all = QRadioButton(f"All {count(run_count, 'run')}")
+        self.runs_selected.setEnabled(selected_runs > 0)
+        (self.runs_selected if selected_runs else self.runs_all).setChecked(True)
+        form.addRow("Runs", _stack(self.runs_selected, self.runs_all))
         self.format = QComboBox()
         for key, label in EXPORT_FORMATS.items():
             self.format.addItem(label, key)
@@ -98,7 +95,7 @@ class ExportDialog(QDialog):
     def choice(self) -> dict[str, str]:
         return {
             "signals": "selected" if self.signals_selected.isChecked() else "all",
-            "drives": "selected" if self.drives_selected.isChecked() else "all",
+            "runs": "selected" if self.runs_selected.isChecked() else "all",
             "format": self.format.currentData(),
         }
 

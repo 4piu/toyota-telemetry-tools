@@ -76,7 +76,7 @@ The collector keeps one endpoint session open, rotates immutable segments
 without replaying setup, and updates target deficits in memory. Completed
 segments remain useful after an operator stop, storage limit, or transport
 loss. A crashed partial earns no progress until explicit offline recovery
-(`telemetry recordings recover DRIVE`) copies its valid prefix into a new
+(`telemetry recordings recover RUN`) copies its valid prefix into a new
 finalized segment.
 
 Heartbeat, response-pending, disconnected, and transport-error states remain

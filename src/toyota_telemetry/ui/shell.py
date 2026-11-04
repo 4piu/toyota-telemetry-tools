@@ -35,7 +35,7 @@ DESCRIPTIONS = {
     "setup": "Connector and candidate signals",
     "signals": "What to collect, and how often",
     "collect": "Run collection; target progress",
-    "recordings": "Drives, plots, and export",
+    "recordings": "Runs, plots, and export",
 }
 
 
@@ -338,9 +338,9 @@ class OperatorWindow(QMainWindow):
             "you think it is, with where the evidence is written up. Collection needs both.\n\n"
             "Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) "
             "or 0x22 (conditions not correct); the app names common ones.\n\n"
-            "Drive: recordings without a pause longer than a minute. Delete moves a drive's folders to "
-            "the system trash; restore them from there to bring the drive back.\n\n"
-            "Interrupted drive: a recording that stopped without finishing. Recover keeps everything saved "
+            "Run: one recording session, saved as one folder. Delete moves a run's folder to the system "
+            "trash; restore it from there to bring the run back.\n\n"
+            "Interrupted run: a recording that stopped without finishing. Recover keeps everything saved "
             "up to the interruption.\n\n"
             "Only the buttons with a warning icon (Verify and Start) transmit to the vehicle, and "
             "each shows its exact scope first.\n\n"

@@ -40,17 +40,14 @@ from .inventory import (
 )
 from .live import LiveBusy, LiveLock, live_busy
 from .recordings import (
-    Drive,
     RunSummary,
     export_observations,
-    find_drive,
     interrupted_run_ids,
-    list_drives,
     list_runs,
     recover_run,
     run_detail,
     signal_series,
-    trash_drive,
+    trash_runs,
 )
 from .selection import Selection, resolve_selection
 from .sources import SourceRows
@@ -88,10 +85,10 @@ OPERATIONS: tuple[Operation, ...] = (
     Operation("target.clear", "Remove collection targets", "telemetry target clear", "signals.target.clear"),
     Operation("collect.readiness", "Check collection readiness", "telemetry collect --dry-run", "collect.readiness"),
     Operation("collect", "Collect data", "telemetry collect", "collect.start", live=True),
-    Operation("recordings.list", "List recorded drives", "telemetry recordings", "recordings.drives"),
-    Operation("recordings.show", "Show one drive", "telemetry recordings show", "recordings.drive.detail"),
-    Operation("recordings.recover", "Recover an interrupted drive", "telemetry recordings recover", "recordings.recover"),
-    Operation("recordings.trash", "Move a drive to the system trash", "telemetry recordings trash", "recordings.trash"),
+    Operation("recordings.list", "List recorded runs", "telemetry recordings", "recordings.runs"),
+    Operation("recordings.show", "Show one run", "telemetry recordings show", "recordings.run.detail"),
+    Operation("recordings.recover", "Recover an interrupted run", "telemetry recordings recover", "recordings.recover"),
+    Operation("recordings.trash", "Move a run to the system trash", "telemetry recordings trash", "recordings.trash"),
     Operation("recordings.export", "Export recorded samples", "telemetry recordings export", "recordings.export"),
     Operation("export", "Export results to a deliverable folder", "telemetry export", "menu.project.export"),
 )
@@ -252,7 +249,7 @@ class OperatorService:
         if status.recoverable_runs:
             run_id = status.recoverable_runs[0]
             return NextAction(
-                "Recover the interrupted drive", f"telemetry recordings recover {run_id}",
+                "Recover the interrupted run", f"telemetry recordings recover {run_id}",
                 "recordings", ("run", run_id),
             )
         if status.connector is None:
@@ -543,22 +540,11 @@ class OperatorService:
     def recover(self, run_id: str) -> Path:
         return recover_run(self.repository(), run_id)
 
-    def drives(self) -> list[Drive]:
-        return list_drives(self.repository())
+    def trash(self, run_id: str) -> RunSummary:
+        return self.trash_runs([run_id])[0]
 
-    def drive(self, key: str) -> Drive:
-        return find_drive(self.drives(), key)
-
-    def recover_drive(self, key: str) -> list[Path]:
-        """Recover every interrupted run of a drive (a run ID also names its drive)."""
-
-        drive = self.drive(key)
-        if not drive.interrupted:
-            raise ValueError(f"drive {drive.key} has no interrupted run")
-        return [self.recover(run_id) for run_id in drive.interrupted]
-
-    def trash(self, key: str) -> Drive:
-        return trash_drive(self.repository(), key)
+    def trash_runs(self, run_ids: Iterable[str]) -> list[RunSummary]:
+        return trash_runs(self.repository(), run_ids)
 
     def export(self, signal_refs: Iterable[str], stream: TextIO, *, run_ids: Iterable[str] = ()) -> int:
         repository = self.repository()
@@ -567,7 +553,7 @@ class OperatorService:
         )
 
     def observation_summary(self, run_ids: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:
-        """Per-signal sample counts, over every run or only ``run_ids`` (e.g. one drive's)."""
+        """Per-signal sample counts, over every run or only ``run_ids`` (e.g. the selected runs)."""
 
         repository = self.repository()
         refresh_cache(repository, self.inventory(repository))

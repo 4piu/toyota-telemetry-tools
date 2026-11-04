@@ -138,22 +138,21 @@ class CliTests(unittest.TestCase):
         self.assertEqual(check[0], 1)
 
     def test_recordings_list_and_export(self) -> None:
-        drives = self.json_cli("recordings")["drives"]
-        self.assertEqual(len(drives), 1)
-        self.assertEqual(len(self.json_cli("recordings", "--runs")["runs"]), 1)
+        runs = self.json_cli("recordings")["runs"]
+        self.assertEqual(len(runs), 1)
         code, out, _ = self.run_cli("recordings", "export", "--signal", "372/0x1002/0..15")
         self.assertEqual(code, 0)
         self.assertEqual(len(out.strip().splitlines()), 2)
         code, out, _ = self.run_cli("recordings", "export", "--signal", "372/0x1002/0..15",
-                                    "--drive", drives[0]["drive"])
+                                    "--run", runs[0]["run_id"])
         self.assertEqual(len(out.strip().splitlines()), 2)
         code, _, err = self.run_cli("recordings", "show")
         self.assertEqual(code, 1)
-        self.assertIn("usage: telemetry recordings show DRIVE", err)
-        # Deleting moves the run folders to the system trash (a stand-in here).
+        self.assertIn("usage: telemetry recordings show RUN", err)
+        # Deleting moves the run folder to the system trash (a stand-in here).
         trashed = []
         with mock.patch("toyota_telemetry.system_trash.send_to_trash", trashed.extend):
-            self.assertEqual(self.json_cli("recordings", "trash", drives[0]["drive"])["runs"], 1)
+            self.assertEqual(self.json_cli("recordings", "trash", runs[0]["run_id"])["trash"], runs[0]["run_id"])
         self.assertEqual(len(trashed), 1)
         self.assertEqual(trashed[0].parent.name, "captures")
 

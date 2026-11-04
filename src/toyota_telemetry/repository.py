@@ -644,7 +644,7 @@ class ProjectRepository:
         """Return every cached observation for one signal across all runs.
 
         Runs are ordered by their recorded start time (runs without one last),
-        so a plot or export reads left to right in drive order.
+        so a plot or export reads left to right in run order.
         """
 
         canonical = str(SignalRef.parse(signal_ref))

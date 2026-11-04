@@ -24,7 +24,7 @@ MIN_TIME_SPAN = 2.0  # seconds shown at most zoom, and around a lone sample
 
 @dataclass(frozen=True)
 class RunSpan:
-    """Where one recording (a drive or a run) lies on the end-to-end timeline."""
+    """Where one run lies on the end-to-end timeline."""
 
     run_id: str
     start: float
@@ -127,7 +127,7 @@ class MetricPlot(pg.PlotWidget):
         )
         self.setMinimumHeight(280)
         self.showGrid(x=True, y=True, alpha=0.18)
-        self.setLabel("bottom", "Drive time, drives end to end (h:mm:ss)")
+        self.setLabel("bottom", "Run time, runs end to end (h:mm:ss)")
         self.setLabel("left", "Value")
         item = self.getPlotItem()
         item.setMenuEnabled(False)

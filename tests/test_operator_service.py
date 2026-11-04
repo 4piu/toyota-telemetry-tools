@@ -340,11 +340,10 @@ class RecordingsTests(ServiceTestCase):
                 path.rename(bin_ / path.name)
 
         with mock.patch.object(system_trash, "send_to_trash", fake):
-            drive = self.service.trash(run_id)
-        self.assertIn(run_id, drive.run_ids)
+            self.assertEqual(self.service.trash(run_id).run_id, run_id)
         self.assertNotIn(run_id, [run.run_id for run in self.service.runs()])
-        self.assertEqual(self.service.observation_summary(drive.run_ids), {})
-        # Restoring from the system trash puts the folder back; the drive returns.
+        self.assertEqual(self.service.observation_summary([run_id]), {})
+        # Restoring from the system trash puts the folder back; the run returns.
         (bin_ / run_id).rename(self.service.repository().paths.captures / run_id)
         self.assertIn(run_id, [run.run_id for run in self.service.runs()])
 
@@ -370,23 +369,6 @@ class RecordingsTests(ServiceTestCase):
         info = (trash / "info" / "some run.trashinfo").read_text(encoding="utf-8")
         self.assertIn("Path=", info)
         self.assertIn("some%20run", info)
-
-    def test_runs_group_into_drives_by_pause(self) -> None:
-        from toyota_telemetry.operator.recordings import RunSummary, group_drives
-
-        def run(run_id: str, start: str, seconds: float) -> RunSummary:
-            return RunSummary(run_id, "complete", created_utc=start, duration_seconds=seconds)
-
-        drives = group_drives([
-            run("c", "2026-09-01T08:20:30Z", 1),
-            run("a", "2026-09-01T08:15:00Z", 300),   # ends 08:20:00
-            run("b", "2026-09-01T08:20:59Z", 1),     # 59 s after a's end: same drive
-            run("d", "2026-09-01T08:22:01Z", 5),     # 61 s after b's end: new drive
-            run("e", None, 0),
-        ])
-        self.assertEqual([[r.run_id for r in drive.runs] for drive in drives], [["a", "c", "b"], ["d"], ["e"]])
-        self.assertEqual(drives[0].key, "2026-09-01T08:15")
-        self.assertEqual(drives[0].duration_seconds, 360)
 
     def test_series_and_export_follow_run_start_time(self) -> None:
         self.import_rows()
