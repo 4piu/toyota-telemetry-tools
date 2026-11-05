@@ -50,6 +50,7 @@ from .names import (
     endpoint_label,
     endpoint_name,
     session_label,
+    states_lines,
     target_summary,
 )
 from .widgets import (
@@ -362,9 +363,14 @@ class SignalsPage(QWidget):
         self.def_evidence.addItems(EVIDENCE_STATES)
         self.def_evidence.setToolTip("How well its meaning is established")
         self.def_notes = QLineEdit()
+        self.def_states = QLabel()
+        self.def_states.setWordWrap(True)
+        self.def_states.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.def_states.setToolTip("Text the manufacturer tool shows")
         definition.addRow("Name", self.def_name)
         definition.addRow("Formula", self.def_formula)
         definition.addRow("Unit", self.def_unit)
+        definition.addRow("States", self.def_states)
         definition.addRow("Evidence", self.def_evidence)
         definition.addRow("Notes", self.def_notes)
         self.def_apply = QPushButton("Apply")
@@ -561,13 +567,15 @@ class SignalsPage(QWidget):
                     unit = f"  {signal.unit}" if signal.unit else ""
                     conflict = "  (definitions disagree)" if signal.conflict else ""
                     met = bool(signal.progress and signal.progress["complete"])
-                    target = target_summary(signal.target)
+                    target = target_summary(signal.target, signal.states)
                     signal_row = self._row(("signal", signal.signal_ref), [
                         f"{signal.name}{unit}{conflict}", "", "", "", "", "",
                         f"{target}  ✓" if target and met else target,
                     ])
                     if target:
                         signal_row[6].setToolTip(target + (". Already met." if met else ""))
+                    if signal.states:
+                        signal_row[0].setToolTip("States\n" + states_lines(signal.states))
                     did_row[0].appendRow(signal_row)
 
     @staticmethod
@@ -863,7 +871,7 @@ class SignalsPage(QWidget):
             text = "Select signals, DIDs, or endpoints."
         elif len(found) == 1:
             signal = found[0]
-            text = f"Target: {target_summary(signal.target) or 'none'}"
+            text = f"Target: {target_summary(signal.target, signal.states) or 'none'}"
             if signal.target and met:
                 text += "\nAlready met."
         else:
@@ -883,6 +891,8 @@ class SignalsPage(QWidget):
         self.def_formula.setPlaceholderText(signal.formula)
         self.def_unit.setText(review.get("unit_override") or "")
         self.def_unit.setPlaceholderText(signal.unit)
+        self.def_states.setText(states_lines(signal.states))
+        self.definition_group.layout().setRowVisible(self.def_states, bool(signal.states))
         state = review.get("evidence_state") or "Candidate"
         if self.def_evidence.findText(state) < 0:
             self.def_evidence.addItem(state)
@@ -1048,7 +1058,11 @@ class SignalsPage(QWidget):
             result = service.edit_targets(self.tree_data, selection.signals, policy=self.draft_policy, **fields)
             return _impact_text(result.impact(), len(selection.signals))
 
-        dialog = TargetEditDialog(len(selection.signals), current, preview, self)
+        # Offer states by name when every selected signal shares one set.
+        found = [self.tree_data.find_signal(ref) for ref in selection.signals]
+        shared = {tuple(sorted(item[2].states.items())) for item in found if item}
+        states = dict(next(iter(shared))) if len(shared) == 1 else None
+        dialog = TargetEditDialog(len(selection.signals), current, preview, self, states=states or None)
         if not self.run_dialog(dialog):
             return
         try:

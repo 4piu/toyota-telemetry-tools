@@ -31,7 +31,7 @@ from toyota_telemetry.operator.inventory import InventoryTree
 from .context import PageContext
 from .dialogs import LiveConfirmDialog
 from .jobs import LiveJob
-from .names import count, endpoint_label, requirement_names, target_summary
+from .names import count, endpoint_label, still_needed, target_summary
 from .widgets import LIVE_TIP, Disclosure, button_row, mark_live, notice, page_title, set_enabled
 
 
@@ -240,8 +240,8 @@ class CollectPage(QWidget):
                 if counters.get("samples") else "Nothing yet"
             )
             item = QTreeWidgetItem([
-                signal.name, endpoint_label(endpoint), target_summary(signal.target), recorded,
-                "✓ Met" if complete else requirement_names(missing) or "Everything",
+                signal.name, endpoint_label(endpoint), target_summary(signal.target, signal.states), recorded,
+                "✓ Met" if complete else still_needed(missing, signal.target, counters, signal.states),
             ])
             item.setData(0, Qt.ItemDataRole.UserRole, signal.signal_ref)
             self.targets.addTopLevelItem(item)

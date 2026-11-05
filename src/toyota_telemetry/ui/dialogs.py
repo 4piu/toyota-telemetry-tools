@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable
 from pathlib import PurePosixPath
 from typing import Any
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -53,6 +54,41 @@ TARGET_EXAMPLES = {
     "condition": "e.g. 372/0x1002/0..15 > 10; empty means always",
     "included": "Paused keeps the target but leaves it out of plans",
 }
+
+
+# Up to this many states are offered as check boxes; more stay a typed list.
+STATE_PICKER_LIMIT = 16
+
+
+class StatePicker(QWidget):
+    """Required states as check boxes named by their text.
+
+    Reads and writes the same "0,1" raw list as the plain field it replaces.
+    """
+
+    textChanged = Signal(str)  # noqa: N815 - matches QLineEdit
+
+    def __init__(self, states: dict[str, str], selected: Iterable[int] = (), parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        grid = QGridLayout(self)
+        grid.setContentsMargins(0, 0, 0, 0)
+        chosen = {int(value) for value in selected}
+        self.boxes: dict[int, QCheckBox] = {}
+        for index, raw in enumerate(sorted(states, key=int)):
+            box = QCheckBox(states[raw])
+            box.setToolTip(f"Raw value {raw}")
+            box.setChecked(int(raw) in chosen)
+            box.toggled.connect(lambda _checked: self.textChanged.emit(self.text()))
+            grid.addWidget(box, index // 4, index % 4)
+            self.boxes[int(raw)] = box
+
+    def text(self) -> str:
+        return ",".join(str(raw) for raw, box in sorted(self.boxes.items()) if box.isChecked())
+
+    def setText(self, text: str) -> None:  # noqa: N802 - matches QLineEdit
+        chosen = {int(value) for value in str(text).split(",") if value.strip()}
+        for raw, box in self.boxes.items():
+            box.setChecked(raw in chosen)
 
 
 class ExportDialog(QDialog):
@@ -278,7 +314,11 @@ class TargetEditDialog(QDialog):
         current: dict[str, Any] | None,
         preview: Callable[[dict[str, Any]], str],
         parent: QWidget | None = None,
+        *,
+        states: dict[str, str] | None = None,
     ) -> None:
+        """``states`` are the selected signals' shared state text, if any."""
+
         super().__init__(parent)
         self.setWindowTitle("Batch edit collection targets" if signal_count > 1 else "Edit collection target")
         self.setMinimumWidth(620)
@@ -302,9 +342,16 @@ class TargetEditDialog(QDialog):
                 editor = QLineEdit(format_duration(requirements[name]) if name in requirements else "")
                 editor.setPlaceholderText("e.g. 30m or 2h; empty removes")
             else:
-                editor = QLineEdit(",".join(str(value) for value in requirements.get(name, [])))
-                editor.setPlaceholderText("raw states, e.g. 0,1,2; empty removes")
+                current_states = requirements.get(name, [])
+                if (states and len(states) <= STATE_PICKER_LIMIT
+                        and all(str(value) in states for value in current_states)):
+                    editor = StatePicker(states, current_states)
+                else:
+                    editor = QLineEdit(",".join(str(value) for value in current_states))
+                    editor.setPlaceholderText("raw states, e.g. 0,1,2; empty removes")
             self._add_row(grid, row, name, label, editor)
+            if isinstance(editor, StatePicker):
+                self.enabled[name].setToolTip("Each checked state must be seen")
             row += 1
         difference = QDoubleSpinBox()
         difference.setDecimals(4)

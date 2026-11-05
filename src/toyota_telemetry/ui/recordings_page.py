@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 )
 
 from toyota_telemetry.operator.recordings import NEEDS_RECOVERY, UNREADABLE, RunSummary
+from toyota_telemetry.states import raw_number
 
 from .context import PageContext
 from .dialogs import ExportDialog
@@ -126,6 +127,7 @@ class RecordingsPage(QWidget):
         self._labels: dict[str, str] = {}
         self._names: dict[str, tuple[str, str]] = {}
         self._places: dict[str, tuple[str, str]] = {}
+        self._states: dict[str, dict[str, str]] = {}
         self._series: dict[str, list[dict]] = {}
         self._all_signals: dict[str, dict] = {}
         self._shown: str | None = None
@@ -266,6 +268,7 @@ class RecordingsPage(QWidget):
                 "runs": service.runs(),
                 "summary": service.observation_summary(),
                 "names": {signal.signal_ref: (signal.name, signal.unit) for _, _, signal in tree.signals()},
+                "states": {signal.signal_ref: signal.states for _, _, signal in tree.signals() if signal.states},
                 "places": {
                     signal.signal_ref: (signal.ecu_name or f"ECU {signal.ecu_key}", did.data_id)
                     for _, did, signal in tree.signals()
@@ -294,6 +297,7 @@ class RecordingsPage(QWidget):
         self._labels = listing["labels"] if listing else {}
         self._names = listing["names"] if listing else {}
         self._places = listing["places"] if listing else {}
+        self._states = listing["states"] if listing else {}
         self._fill()
         self.runs.blockSignals(True)
         self.select_runs(list(selected))
@@ -471,13 +475,17 @@ class RecordingsPage(QWidget):
             return
         runs = self.selected_runs() or self._runs
         data = series_data(rows, runs)
-        self.plot.set_data(data["x"], data["y"], data["spans"], reset_view=reset_view)
+        states = self._states.get(self._shown, {})
+        self.plot.set_data(data["x"], data["y"], data["spans"], raw=data["raw"], states=states,
+                           reset_view=reset_view)
         name, unit = self._names.get(self._shown, (self._shown, ""))
         self.plot.set_measurement(name, unit)
         finite = data["finite"]
         where = count(data["runs"], "run")
         if not data["samples"]:
             self.plot_summary.setText("No samples of this signal in the selected runs.")
+        elif self.plot.state_mode:
+            self.plot_summary.setText(f"{data['samples']:,} samples in {where}. " + state_summary(data["raw"], states))
         elif finite:
             minimum, maximum, last = finite
             self.plot_summary.setText(
@@ -589,12 +597,27 @@ def signal_entries(
     return entries
 
 
+def state_summary(raws: list[int | None], states: dict[str, str]) -> str:
+    """Which states the readings reached, in raw order, and the last one."""
+
+    seen = [raw for raw in raws if raw is not None]
+    if not seen:
+        return ""
+    reached = sorted(set(seen))
+    names = ", ".join(states.get(str(raw), str(raw)) for raw in reached)
+    last = states.get(str(seen[-1]), str(seen[-1]))
+    if len(reached) == 1:
+        return f"Always {last} ({len(states) - 1} other state(s) not seen)."
+    return f"Seen {names} ({len(reached)} of {len(states)} states). Last {last}."
+
+
 def series_data(rows: list[dict], runs: list[RunSummary]) -> dict:
     """Lay the chosen runs end to end on their own clocks, with a gap so lines never join."""
 
     chosen = {run.run_id: run for run in runs}
     xs: list[float] = []
     ys: list[float] = []
+    raws: list[int | None] = []
     spans: list[RunSpan] = []
     offset = 0.0
     origin = 0.0
@@ -616,17 +639,19 @@ def series_data(rows: list[dict], runs: list[RunSummary]) -> dict:
                 offset = last + 1.0
                 xs.append(offset)
                 ys.append(math.nan)
+                raws.append(None)
             current = run
             origin = run_start if run_start is not None else when
         last = offset + max(0.0, when - origin)
         xs.append(last)
         ys.append(math.nan if row["decoded_value"] is None else float(row["decoded_value"]))
+        raws.append(raw_number(row["raw_hex"]) if row.get("raw_hex") else None)
         samples += 1
     if current is not None:
         spans.append(RunSpan(current.run_id, offset, last, _span_label(current)))
     finite = [value for value in ys if math.isfinite(value)]
     return {
-        "x": xs, "y": ys, "spans": spans, "samples": samples, "runs": len(spans),
+        "x": xs, "y": ys, "raw": raws, "spans": spans, "samples": samples, "runs": len(spans),
         "finite": (min(finite), max(finite), finite[-1]) if finite else None,
     }
 

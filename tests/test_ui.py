@@ -403,6 +403,71 @@ def test_shared_signal_names_get_a_greyed_ecu_prefix() -> None:
     assert entries["397/0x1075/0..15"] == ("", "Wheel Speed  (5)", "Hybrid Control\nDID 0x1075")
 
 
+SHIFT = {"0": "P", "2": "R", "4": "N", "6": "D", "8": "B"}
+
+
+def test_a_state_signal_plots_as_named_steps(qtbot) -> None:
+    plot = MetricPlot()
+    qtbot.addWidget(plot)
+    plot.set_measurement("Shift Position", "")
+    plot.set_data([0, 1, 2, 3], [0, 6, 6, 0], [RunSpan("run", 0, 3)], raw=[0, 6, 6, 0], states=SHIFT)
+    assert plot.state_mode
+    # Steps hold each state until the next reading.
+    x, y = plot._curve.getData()
+    assert list(x[:3]) == [0, 1, 1] and list(y[:3]) == [0, 0, 6]
+    ticks = plot.getAxis("left")._tickLevels[0]
+    assert [label for _, label in ticks] == ["P", "R", "N", "D", "B"]
+    # Every state stays in view, reached or not.
+    low, high = plot.getViewBox().viewRange()[1]
+    assert low <= -0.5 + 1e-9 and high >= 8.5 - 1e-9
+    assert plot.describe(1).startswith("Shift Position: D (raw 6)")
+
+
+def test_labels_on_a_numeric_signal_only_name_their_values(qtbot) -> None:
+    plot = MetricPlot()
+    qtbot.addWidget(plot)
+    plot.set_measurement("Gear request", "")
+    plot.set_data([0, 1], [0.0, 2.5], raw=[0, 5], states={"0": "None"})
+    assert not plot.state_mode
+    assert plot.getAxis("left")._tickLevels is None
+    assert plot.describe(0).startswith("Gear request: None (raw 0)")
+    assert plot.describe(1).startswith("Gear request: 2.5")
+
+
+def test_state_wording_for_summaries_tooltips_and_targets() -> None:
+    from toyota_telemetry.ui.names import states_lines, target_summary
+    from toyota_telemetry.ui.recordings_page import state_summary
+
+    assert state_summary([0, 6, None, 6, 0], SHIFT) == "Seen P, D (2 of 5 states). Last P."
+    assert state_summary([3, 3], {"0": "Stop", "3": "Running"}) == "Always Running (1 other state(s) not seen)."
+    many = {str(raw): f"State number {raw}" for raw in range(9)}
+    assert all(len(line) <= 60 for line in states_lines(many).splitlines())
+    assert states_lines(SHIFT) == "0=P, 2=R, 4=N, 6=D, 8=B"
+    target = {"requirements": {"required_states": [0, 1]}, "included": True, "condition": None}
+    assert target_summary(target, {"0": "OFF", "1": "ON"}) == "required states OFF, ON"
+    assert target_summary(target) == "required states 0, 1"
+    from toyota_telemetry.ui.names import still_needed
+    needs = still_needed(["required_states", "minimum_transitions"], target, {"states": [0]}, {"0": "OFF", "1": "ON"})
+    assert needs == "State ON; transitions"
+    assert still_needed(["minimum_samples"], target, {}, {}) == "Samples"
+
+
+def test_required_states_are_picked_by_name(qtbot) -> None:
+    from toyota_telemetry.ui.dialogs import StatePicker, TargetEditDialog
+
+    dialog = TargetEditDialog(1, {"requirements": {"required_states": [0]}}, lambda fields: "", states={"0": "OFF", "1": "ON"})
+    qtbot.addWidget(dialog)
+    picker = dialog.editors["required_states"]
+    assert isinstance(picker, StatePicker)
+    assert [box.text() for box in picker.boxes.values()] == ["OFF", "ON"]
+    dialog.set_field("required_states", "0,1")
+    assert dialog.fields()["requirements"]["required_states"] == [0, 1]
+    # Without shared states, or with too many, the raw list is typed.
+    plain = TargetEditDialog(2, None, lambda fields: "")
+    qtbot.addWidget(plain)
+    assert not isinstance(plain.editors["required_states"], StatePicker)
+
+
 def test_a_single_sample_plot_settles(qtbot) -> None:
     plot = MetricPlot()
     qtbot.addWidget(plot)

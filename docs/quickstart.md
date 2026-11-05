@@ -157,8 +157,10 @@ telemetry export C:\work\my-car-deliverables
 Deleting a run moves its folder to the operating system's trash; restore it
 there to bring the run back.
 All valid runs are included. Export writes UTC, run, elapsed time, raw bytes,
-decoded value, and condition state for external plotting; the desktop
-application plots the same data with run boundaries kept apart. `export`
+decoded value, state text, and condition state for external plotting; the
+desktop application plots the same data with run boundaries kept apart, and
+draws a state signal as steps on an axis named by its states. `signals show`
+lists a signal's states. `export`
 writes the privacy-minimized result generation and copies of the curated
 inputs into the deliverable folder (Recordings > Export result). A generation
 holds `signals.json`, `signals.csv`, and `signals.md` (a readable reference,

@@ -108,6 +108,15 @@ will run. Everything else is safe to take.
 
 ### Added
 
+- State text in both interfaces. Recordings plots a state signal as steps on
+  an axis named by its states, every state in view; the readout shows
+  `D (raw 6)` and the summary which states were seen (`Seen P, D (2 of 5
+  states). Last P.`). Numeric signals with labelled values name them in the
+  readout only. Signals shows a signal's states in its tooltip and
+  Definition; the target dialog offers required states as named check boxes
+  when the selected signals share them; Collect names unseen states
+  (`State ON`). The sample export gains a `state` column and
+  `telemetry signals show` prints the states.
 - `telemetry init FOLDER` and Project > New project create an empty
   workspace. A transport may now have no endpoints or session recipes yet.
 - The vehicle-independent method moved here from the retired template

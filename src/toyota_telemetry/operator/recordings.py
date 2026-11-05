@@ -17,7 +17,8 @@ from .. import system_trash
 from ..capture_writer import recover_incomplete_segment
 from ..identity import SignalRef, canonical_run_id
 from ..repository import ProjectRepository
-from .inventory import refresh_cache
+from ..states import raw_number, state_label
+from .inventory import refresh_cache, signal_states
 from .live import LiveBusy, LiveLock
 
 
@@ -33,7 +34,7 @@ END_REASONS = {
 }
 CSV_COLUMNS = (
     "signal_ref", "run_id", "sequence", "response_utc", "elapsed_ms",
-    "raw_hex", "decoded_value", "condition",
+    "raw_hex", "decoded_value", "state", "condition",
 )
 
 
@@ -167,6 +168,7 @@ def export_observations(
     run_ids: Iterable[str] = (),
 ) -> int:
     refresh_cache(repository, inventory)
+    states = signal_states(repository, inventory)
     wanted_runs = {canonical_run_id(value) for value in run_ids}
     writer = csv.writer(stream, lineterminator="\n")
     writer.writerow(CSV_COLUMNS)
@@ -179,6 +181,7 @@ def export_observations(
                 signal_ref, row["run_id"], row["sequence"], row["response_utc"] or "",
                 row["response_elapsed_ms"], row["raw_hex"],
                 "" if row["decoded_value"] is None else row["decoded_value"],
+                state_label(states.get(signal_ref, {}), raw_number(row["raw_hex"])) or "",
                 row["recorded_applicability"],
             ))
             count += 1

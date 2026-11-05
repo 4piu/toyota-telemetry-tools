@@ -19,6 +19,7 @@ from typing import Any
 
 from .identity import SignalRef
 from .repository import ProjectRepository
+from .states import state_text
 
 
 CSV_FIELDS = [
@@ -262,12 +263,6 @@ def readable_formula(formula: str) -> str:
     if offset:
         text += f" {'-' if offset < 0 else '+'} {_number(abs(offset))}"
     return text
-
-
-def state_text(states: dict[str, str]) -> str:
-    """Raw-value labels as one line, e.g. "0=OFF, 1=ON", in raw order."""
-
-    return ", ".join(f"{raw}={states[raw]}" for raw in sorted(states, key=int))
 
 
 def _number(value: Fraction) -> str:

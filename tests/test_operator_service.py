@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import io
 import json
 import os
@@ -411,6 +412,23 @@ class RecordingsTests(ServiceTestCase):
         header, row = stream.getvalue().splitlines()
         self.assertTrue(header.startswith("signal_ref,run_id"))
         self.assertIn("34 12", row)
+
+    def test_state_text_reaches_the_tree_and_the_sample_export(self) -> None:
+        rows = json.loads(self.rows.read_text())
+        # The fixture's one recorded raw value is 0x3412 = 13330.
+        next(row for row in rows if row.get("signal_ref") == "372/0x1002/0..15")["states"] = {
+            "0": "OFF", "13330": "Marker",
+        }
+        self.rows.write_text(json.dumps(rows))
+        self.import_rows()
+        signal = self.service.tree().find_signal("372/0x1002/0..15")[2]
+        self.assertEqual(signal.states, {"0": "OFF", "13330": "Marker"})
+        self.assertEqual(signal.as_dict()["states"], {"0": "OFF", "13330": "Marker"})
+        stream = io.StringIO()
+        self.service.export(["372/0x1002/0..15"], stream)
+        lines = list(csv.reader(stream.getvalue().splitlines()))
+        record = dict(zip(lines[0], lines[1]))
+        self.assertEqual((record["raw_hex"], record["state"]), ("34 12", "Marker"))
 
     def target_and_crash(self, exchanges: int = 1) -> str:
         tree = self.service.tree()

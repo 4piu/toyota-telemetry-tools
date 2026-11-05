@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import numpy as np
 import pyqtgraph as pg
@@ -37,6 +37,12 @@ def clock(seconds: float) -> str:
     hours, remainder = divmod(seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{hours:d}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes:d}:{seconds:02d}"
+
+
+def _short(text: str, width: int = 14) -> str:
+    """A state name short enough for an axis tick; the readout shows it whole."""
+
+    return text if len(text) <= width else text[: width - 1] + "…"
 
 
 class ElapsedTimeAxis(pg.AxisItem):
@@ -158,6 +164,9 @@ class MetricPlot(pg.PlotWidget):
         self._measurement = "Value"
         self._x = np.empty(0)
         self._y = np.empty(0)
+        self._raw: list[int | None] = []
+        self._states: dict[str, str] = {}
+        self.state_mode = False
         self._runs: list[RunSpan] = []
 
     @property
@@ -170,16 +179,40 @@ class MetricPlot(pg.PlotWidget):
         y: Sequence[float],
         runs: Sequence[RunSpan] = (),
         *,
+        raw: Sequence[int | None] | None = None,
+        states: Mapping[str, str] | None = None,
         reset_view: bool = True,
     ) -> None:
-        """Show every sample; ``reset_view`` fits the time axis to the data."""
+        """Show every sample; ``reset_view`` fits the time axis to the data.
+
+        With ``states`` (raw value text) and the samples' ``raw`` values, a
+        signal whose every reading is a labelled state plots as steps on an
+        axis named by its states; otherwise labels only appear in readouts.
+        """
 
         self._x = np.asarray(x, dtype=float)
         self._y = np.asarray(y, dtype=float)
+        self._raw = list(raw) if raw is not None else [None] * len(self._x)
+        self._states = dict(states or {})
         self._runs = list(runs)
+        finite = [(value, code) for value, code in zip(self._y, self._raw) if math.isfinite(value)]
+        self.state_mode = bool(self._states) and bool(finite) and all(
+            code is not None and str(code) in self._states and value == code for value, code in finite
+        )
         accent = self.palette().color(QPalette.ColorRole.Highlight)
         self._curve.setPen(pg.mkPen(accent, width=1.4))
-        self._curve.setData(self._x, self._y, connect="finite")
+        if self.state_mode:
+            # A state holds until the next reading: draw steps, not slopes.
+            step_x = np.repeat(self._x, 2)[1:]
+            step_y = np.repeat(self._y, 2)[:-1]
+            step_y[1::2][np.isnan(self._y[1:])] = math.nan
+            self._curve.setData(step_x, step_y, connect="finite")
+            ticks = [(float(code), _short(text)) for code, text in sorted(
+                ((int(code), text) for code, text in self._states.items()), key=lambda item: item[0])]
+            self.getAxis("left").setTicks([ticks, []])
+        else:
+            self._curve.setData(self._x, self._y, connect="finite")
+            self.getAxis("left").setTicks(None)
         for line in self._boundaries:
             self.removeItem(line)
         boundary_pen = pg.mkPen(self.palette().color(QPalette.ColorRole.Mid), style=Qt.PenStyle.DotLine)
@@ -206,7 +239,13 @@ class MetricPlot(pg.PlotWidget):
                 self._view.setXRange(middle - MIN_TIME_SPAN / 2, middle + MIN_TIME_SPAN / 2, padding=0)
             else:
                 self._view.setXRange(low, high, padding=0.02)
-        self._view.enableAutoRange(axis=pg.ViewBox.YAxis, enable=True)
+        if self.state_mode:
+            # Show every state, seen or not, so unreached ones are visible too.
+            codes = [int(code) for code in self._states] + [float(value) for value in self._y if math.isfinite(value)]
+            self._view.enableAutoRange(axis=pg.ViewBox.YAxis, enable=False)
+            self._view.setYRange(min(codes) - 0.5, max(codes) + 0.5, padding=0)
+        else:
+            self._view.enableAutoRange(axis=pg.ViewBox.YAxis, enable=True)
 
     def highlight_run(self, run_id: str | None) -> bool:
         """Shade one run's stretch of the timeline; False when it has no samples here."""
@@ -246,7 +285,10 @@ class MetricPlot(pg.PlotWidget):
         where = clock(x - run.start if run else x)
         if run and run.label:
             where += f" into {run.label}"
-        return f"{self._measurement}: {y:g}{suffix}\n{where}"
+        code = self._raw[index] if index < len(self._raw) else None
+        label = self._states.get(str(code)) if code is not None else None
+        value = f"{label} (raw {code})" if label else f"{y:g}{suffix}"
+        return f"{self._measurement}: {value}\n{where}"
 
     def _hover(self, scene_position) -> None:
         inside = self._view.sceneBoundingRect().contains(scene_position)

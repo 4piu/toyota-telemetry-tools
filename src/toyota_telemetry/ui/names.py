@@ -75,7 +75,35 @@ def _can(value: str) -> str:
     return value[2:].upper() if value.lower().startswith("0x") else value.upper()
 
 
-def target_summary(target: dict[str, Any] | None) -> str:
+def still_needed(
+    missing: list[str], target: dict[str, Any], counters: dict[str, Any], states: dict[str, str],
+) -> str:
+    """What a target still lacks; unseen required states by name, e.g. "State ON"."""
+
+    if "required_states" not in missing:
+        return requirement_names(missing) or "Everything"
+    seen = set(counters.get("states") or ())
+    unseen = [raw for raw in target["requirements"]["required_states"] if raw not in seen]
+    others = requirement_names([name for name in missing if name != "required_states"])
+    text = "State " + ", ".join(states.get(str(raw)) or str(raw) for raw in unseen)
+    return text + (f"; {others.lower()}" if others else "")
+
+
+def states_lines(states: dict[str, str], width: int = 60) -> str:
+    """State text wrapped to tooltip width: "0=P, 2=R, 4=N, ..."."""
+
+    lines, line = [], ""
+    for raw in sorted(states, key=int):
+        entry = f"{raw}={states[raw]}"
+        if line and len(line) + 2 + len(entry) > width:
+            lines.append(line + ",")
+            line = entry
+        else:
+            line = f"{line}, {entry}" if line else entry
+    return "\n".join(lines + [line]) if line else ""
+
+
+def target_summary(target: dict[str, Any] | None, states: dict[str, str] | None = None) -> str:
     if target is None:
         return ""
     parts = []
@@ -84,7 +112,10 @@ def target_summary(target: dict[str, Any] | None) -> str:
         if name.endswith("_seconds"):
             value = format_duration(value)
         elif isinstance(value, list):
-            value = ",".join(map(str, value))
+            # Required states read by their text where the signal has one.
+            value = ", ".join(
+                (states or {}).get(str(raw)) or str(raw) for raw in value
+            )
         parts.append(f"{label} {value}")
     if target.get("condition"):
         parts.append(f"when {format_condition(target['condition'])}")

@@ -386,6 +386,7 @@ class SignalItem:
     observations: int = 0
     status: str = SIGNAL_NOT_CHECKED
     ecu_name: str = ""
+    states: dict[str, str] = field(default_factory=dict)
 
     @property
     def ecu_key(self) -> int:
@@ -406,6 +407,7 @@ class SignalItem:
             "observations": self.observations,
             "status": self.status,
             "ecu_name": self.ecu_name,
+            "states": dict(self.states),
         }
 
 
@@ -635,6 +637,7 @@ def build_tree(
             progress=progress.get(signal_ref),
             in_inventory=bool(rows),
             ecu_name=str(chosen.get("ecu_name") or ""),
+            states={str(raw): str(text) for raw, text in (chosen.get("states") or {}).items()},
         ))
 
     _apply_verification(repository, endpoints, settings)
@@ -662,6 +665,21 @@ def _signal_status(signal: SignalItem, did: DidItem) -> str:
     if did.state == FAILED:
         return SIGNAL_FAILED
     return SIGNAL_NOT_CHECKED
+
+
+def signal_states(repository: ProjectRepository, inventory: Mapping[str, Any]) -> dict[str, dict[str, str]]:
+    """State text per signal, from the catalog variant the tree shows."""
+
+    reviews = {row["signal_ref"]: row for row in repository.review["signals"]}
+    rows_by_signal: dict[str, list[dict[str, Any]]] = {}
+    for entry in inventory["rows"]:
+        rows_by_signal.setdefault(entry["row"]["signal_ref"], []).append(entry["row"])
+    result = {}
+    for signal_ref, rows in rows_by_signal.items():
+        states = _chosen_row(rows, reviews.get(signal_ref)).get("states")
+        if states:
+            result[signal_ref] = {str(raw): str(text) for raw, text in states.items()}
+    return result
 
 
 def _chosen_row(rows: list[dict[str, Any]], review: Mapping[str, Any] | None) -> dict[str, Any]:

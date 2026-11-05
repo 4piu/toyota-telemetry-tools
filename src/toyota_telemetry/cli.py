@@ -29,6 +29,7 @@ from .operator.service import OperatorService
 from .operator.sources import NormalizedFileSource, TisDatabaseSource
 from .operator.verification import RecipeRequired
 from .project import find_project_root
+from .states import state_text
 
 
 EXIT_OK = 0
@@ -450,6 +451,8 @@ def _signals_show(service: OperatorService, tree, tokens: list[str], args: argpa
             )
     for row in document["signals"]:
         print(f"Signal {row['signal_ref']}: {row['name']} [{row['unit']}] formula {row['formula']}")
+        if row["states"]:
+            print(f"  states: {state_text(row['states'])}")
         if row["conflict"]:
             print(f"  {row['variants']} catalog variants disagree; choose with `telemetry signal set --variant`")
         if row["review"]:
