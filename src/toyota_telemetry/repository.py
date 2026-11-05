@@ -614,6 +614,20 @@ class ProjectRepository:
                 connection.execute("SELECT kind, sha256 FROM source_file ORDER BY kind")
             )
 
+    def response_data_bits(self) -> dict[tuple[str, int], int]:
+        """Longest positive response data per (endpoint_id, DID), in bits after the 62 DID echo."""
+
+        with closing(sqlite3.connect(self.paths.database)) as connection:
+            rows = connection.execute(
+                "SELECT acquisition_id, MAX(LENGTH(response)) FROM acquisition_exchange "
+                "WHERE outcome = 'positive' GROUP BY acquisition_id"
+            ).fetchall()
+        result = {}
+        for acquisition_id, length in rows:
+            ref = AcquisitionRef.parse(acquisition_id)
+            result[(ref.endpoint_id, ref.data_id)] = max(0, (int(length) - 3) * 8)
+        return result
+
     def signal_observation_summary(self, run_ids: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:
         """Per-signal counts over every run, or only over ``run_ids``."""
 

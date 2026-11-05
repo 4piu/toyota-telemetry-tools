@@ -12,7 +12,7 @@ from toyota_telemetry.admission import compile_plan
 from toyota_telemetry.capture_store import inspect_capture_tree
 from toyota_telemetry.capture_writer import NativeRunWriter, recover_incomplete_segment
 from toyota_telemetry.collector import load_verified_plan
-from toyota_telemetry.exporting import export_project
+from toyota_telemetry.exporting import export_project, readable_formula
 from toyota_telemetry.objectives import ReplayObservation, replay_targets
 from toyota_telemetry.repository import ProjectRepository
 from toyota_telemetry.schemas import validate_target
@@ -109,7 +109,8 @@ class TargetReplayTests(unittest.TestCase):
         self.assertEqual(counters["samples"], 4)
         self.assertEqual(counters["changes"], 1)
         self.assertEqual(counters["transitions"], 1)
-        self.assertEqual(counters["states"], [1, 2, 3])
+        # Only required states are kept; other raw values are readings.
+        self.assertEqual(counters["states"], [1, 3])
         self.assertEqual(counters["applicable_seconds"], 2)
         self.assertEqual(counters["span_seconds"], 10)
         self.assertEqual(counters["runs"], 2)
@@ -375,10 +376,24 @@ class PlanningAndExportTests(unittest.TestCase):
             self.assertEqual(first, second)
             self.assertEqual(before, tree_hashes(deliverable))
             self.assertEqual(first["row_counts"]["signals"], 1)
-            self.assertIn("No raw response payloads", first["privacy"])
+            self.assertIn("No recorded values", first["privacy"])
             generation = deliverable / "result" / "generations" / first["generation_id"]
             self.assertTrue((generation / "signals.csv").is_file())
-            self.assertTrue((generation / "signals.json").is_file())
+            # Recordings appear as counts only: recorded values include readings.
+            result = json.loads((generation / "signals.json").read_text(encoding="utf-8"))
+            observation = result["signals"][0]["observation"]
+            self.assertEqual(sorted(observation), ["distinct_raw_values", "observations", "recorded"])
+            self.assertNotIn("decoded", (generation / "signals.csv").read_text(encoding="utf-8"))
+            reference = (generation / "signals.md").read_text(encoding="utf-8")
+            self.assertIn("| DID | Bits | Name | Formula | Unit | Evidence | Recorded | Notes |", reference)
+            self.assertIn(f"| {observation['recorded']} |", reference)
+
+    def test_reference_formulas_read_as_scale_and_offset(self) -> None:
+        self.assertEqual(readable_formula("((raw * 1 / 100) + 0) / (10 ** 0)"), "raw × 0.01")
+        self.assertEqual(readable_formula("((raw * 1 / 1) + -40) / (10 ** 0)"), "raw - 40")
+        self.assertEqual(readable_formula("((raw * 5 / 1) + 0) / (10 ** 1)"), "raw × 0.5")
+        self.assertEqual(readable_formula("raw"), "raw")
+        self.assertEqual(readable_formula("signed(raw, 16) / 10"), "signed(raw, 16) / 10")
 
 
 if __name__ == "__main__":

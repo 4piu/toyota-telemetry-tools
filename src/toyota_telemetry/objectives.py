@@ -249,7 +249,9 @@ def _finish(target: Mapping[str, Any], state: dict[str, Any]) -> dict[str, Any]:
         "samples": state["samples"],
         "runs": len(state["runs"]),
         "span_seconds": span,
-        "states": sorted(state["states"]),
+        # Only the states a target asks for: other raw values are readings
+        # (speeds, odometer) and must not reach exported progress.
+        "states": sorted(state["states"] & set(target["requirements"].get("required_states", ()))),
         "transitions": state["transitions"],
         "changes": state["changes"],
         "applicable_seconds": applicable_ms / 1000,

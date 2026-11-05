@@ -11,6 +11,16 @@ will run. Everything else is safe to take.
 
 ### Breaking
 
+- Exports no longer contain recorded values. `signals.json` is schema 2: each
+  observation is `observations`, `distinct_raw_values`, and `recorded`
+  (`changed`, `constant`, `beyond response` when the signal lies past this
+  vehicle's response, `not recorded`); `decoded_minimum`/`decoded_maximum` are
+  gone from JSON and CSV, which gain `ecu` and `recorded`. Exported target
+  progress keeps only the states a target requires. Recorded minima and
+  maxima had published readings such as the odometer.
+- Each export generation adds `signals.md`, a readable reference with one
+  table per ECU: DID, bits, name, formula as scale and offset, unit,
+  evidence, and recorded status.
 - The toolkit is standalone. `telemetry-project.toml` is schema 3 with only
   `schema_version` and `project_id`; the `[toolkit]` pin and `[paths]` table
   are gone, and the workspace layout is fixed: `config/transport.json`,
