@@ -141,6 +141,14 @@ will run. Everything else is safe to take.
 
 ### Fixed
 
+- Collect page: ticking ECUs, dragging, or changing the strategy started a
+  readiness check every time, and a late result could reset the strategy box.
+  Options now follow each change at once, one check runs about 0.7 s after
+  the last change, Start stays off until it reports, and results never change
+  the user's choices.
+- Cache connections wait up to 30 s for another writer (the desktop
+  application and a CLI command on the same workspace) instead of SQLite's
+  5 s, which a large cache refresh exceeded with "database is locked".
 - Collection with the default (bundled) worker failed before opening the
   adapter with "local backend executable must be a non-empty string"; only
   probing accepted the default. Both now do.

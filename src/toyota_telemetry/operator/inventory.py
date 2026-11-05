@@ -24,6 +24,7 @@ from ..repository import (
     _encoded_json,
     _exact_json,
     _normalized_catalog_rows,
+    connect_cache,
 )
 from .sources import SourceRows, canonical_can_id
 
@@ -757,7 +758,7 @@ def _recorded_did_status(repository: ProjectRepository) -> dict[tuple[str, str],
     if not database.is_file():
         return {}
     try:
-        with closing(sqlite3.connect(database)) as connection:
+        with closing(connect_cache(database)) as connection:
             return {
                 (endpoint_id, data_id): status
                 for endpoint_id, data_id, status in connection.execute(
@@ -775,7 +776,7 @@ def progress_by_signal(repository: ProjectRepository) -> dict[str, dict[str, Any
     if not database.is_file():
         return {}
     try:
-        with closing(sqlite3.connect(database)) as connection:
+        with closing(connect_cache(database)) as connection:
             return {
                 signal_ref: json.loads(document)
                 for signal_ref, document in connection.execute(

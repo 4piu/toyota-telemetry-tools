@@ -49,6 +49,16 @@ _CACHE_TABLES = (
 )
 
 
+# How long a connection waits for another one (the desktop application and a
+# CLI command on the same workspace) to finish writing the cache. Refreshing a
+# large cache takes longer than SQLite's 5 s default.
+CACHE_BUSY_TIMEOUT_SECONDS = 30
+
+
+def connect_cache(path: Path) -> sqlite3.Connection:
+    return sqlite3.connect(path, timeout=CACHE_BUSY_TIMEOUT_SECONDS)
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -334,7 +344,7 @@ class ProjectRepository:
         self._validate_catalog_rows(rows)
         if self.paths.database.is_file():
             try:
-                with closing(sqlite3.connect(self.paths.database)) as connection:
+                with closing(connect_cache(self.paths.database)) as connection:
                     version = connection.execute("PRAGMA user_version").fetchone()[0]
                     current = dict(connection.execute("SELECT kind, sha256 FROM source_file"))
                 if version == CACHE_SCHEMA_VERSION and current == self.source_hashes(rows, captures_root):
@@ -347,7 +357,7 @@ class ProjectRepository:
     def ingest_captures(self, captures_root: Path) -> None:
         """Incrementally ingest immutable runs into an existing cache."""
 
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             connection.execute("PRAGMA foreign_keys = ON")
             if connection.execute("PRAGMA user_version").fetchone()[0] != CACHE_SCHEMA_VERSION:
                 raise ValueError("project cache schema version mismatch")
@@ -363,7 +373,7 @@ class ProjectRepository:
     def _require_cache(self) -> None:
         if not self.paths.database.is_file():
             raise ValueError("project cache is missing; run telemetry cache rebuild first")
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             if connection.execute("PRAGMA user_version").fetchone()[0] != CACHE_SCHEMA_VERSION:
                 raise ValueError("project cache schema version mismatch; run telemetry cache rebuild")
 
@@ -504,7 +514,7 @@ class ProjectRepository:
                 )
 
     def cache_snapshot(self) -> dict[str, list[tuple[Any, ...]]]:
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             if connection.execute("PRAGMA user_version").fetchone()[0] != CACHE_SCHEMA_VERSION:
                 raise ValueError("project cache schema version mismatch")
             snapshot: dict[str, list[tuple[Any, ...]]] = {}
@@ -519,7 +529,7 @@ class ProjectRepository:
     def replay_progress(self) -> list[dict[str, Any]]:
         """Recompute target progress from immutable cached observations."""
 
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             observations = []
             for run_id, sequence, signal_ref, raw_value, decoded, exchange_json in connection.execute(
                 "SELECT o.run_id, o.sequence, o.signal_ref, o.raw_value, o.decoded_value, e.document_json "
@@ -559,7 +569,7 @@ class ProjectRepository:
 
         self._require_cache()
         grouped: dict[str, dict[str, Any]] = {}
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             rows = connection.execute(
                 "SELECT acquisition_id, response, latency_ms, outcome "
                 "FROM acquisition_exchange ORDER BY acquisition_id, run_id, sequence"
@@ -600,7 +610,7 @@ class ProjectRepository:
         return result
 
     def catalog_variants(self) -> list[dict[str, Any]]:
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             return [
                 json.loads(document)
                 for (document,) in connection.execute(
@@ -609,7 +619,7 @@ class ProjectRepository:
             ]
 
     def cached_source_hashes(self) -> dict[str, str]:
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             return dict(
                 connection.execute("SELECT kind, sha256 FROM source_file ORDER BY kind")
             )
@@ -617,7 +627,7 @@ class ProjectRepository:
     def response_data_bits(self) -> dict[tuple[str, int], int]:
         """Longest positive response data per (endpoint_id, DID), in bits after the 62 DID echo."""
 
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             rows = connection.execute(
                 "SELECT acquisition_id, MAX(LENGTH(response)) FROM acquisition_exchange "
                 "WHERE outcome = 'positive' GROUP BY acquisition_id"
@@ -631,7 +641,7 @@ class ProjectRepository:
     def signal_observation_summary(self, run_ids: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:
         """Per-signal counts over every run, or only over ``run_ids``."""
 
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             where = ""
             if run_ids is not None:
                 connection.execute("CREATE TEMP TABLE wanted_run(run_id TEXT PRIMARY KEY)")
@@ -662,7 +672,7 @@ class ProjectRepository:
         """
 
         canonical = str(SignalRef.parse(signal_ref))
-        with closing(sqlite3.connect(self.paths.database)) as connection:
+        with closing(connect_cache(self.paths.database)) as connection:
             rows = connection.execute(
                 "SELECT o.run_id, o.sequence, o.raw_value, o.decoded_value, "
                 "o.applicability, e.document_json "

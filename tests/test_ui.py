@@ -412,8 +412,7 @@ def test_collect_lists_ecus_to_check_order_and_take_in_turn(qtbot, project) -> N
     root, rows = project
     window = open_window(qtbot, root)
     collect = window.collect_page
-    checks: list[tuple[list[str], set[str]]] = []
-    collect.check_readiness = lambda: checks.append((list(collect._order), set(collect._checked)))
+    settle(qtbot, window)
 
     def endpoint(name):
         session = {"endpoint_id": name, "tester_can_id": "0x7E0", "response_can_id": "0x7E8",
@@ -444,13 +443,24 @@ def test_collect_lists_ecus_to_check_order_and_take_in_turn(qtbot, project) -> N
     assert "up to 8.0 reads/s" in collect.readiness_text.text()
     details = collect._rotation_dialog(slices).findChild(QPlainTextEdit).toPlainText()
     assert "ECUs in turn, 5 min each, in this order:" in details and "    A: 1 signal, 1 DID(s)" in details
-    # Dragging sets the order; unchecking leaves an ECU out. Both recheck readiness.
+    # Dragging sets the order and unchecking leaves an ECU out. Options follow at
+    # once; one check runs after the user settles, and Start waits for it.
+    checks: list[tuple[list[str], set[str]]] = []
+    collect._settle.timeout.disconnect()
+    collect._settle.timeout.connect(lambda: checks.append((list(collect._order), set(collect._checked))))
     collect.ecus.model().moveRow(QModelIndex(), 1, QModelIndex(), 0)
-    assert checks[-1] == (["B", "A"], {"A", "B"})
     collect.ecus.item(1).setCheckState(Qt.CheckState.Unchecked)
-    assert checks[-1] == (["B", "A"], {"B"})
-    # One after another hides the slice and warns that a stuck ECU holds the rest.
-    collect._checked = {"A", "B"}
+    assert collect._order == ["B", "A"] and collect._checked == {"B"}
+    assert not collect.turns.isRowVisible(collect.strategy)
+    assert collect.readiness_text.text() == "Checking…" and not collect.start_button.isEnabled()
+    qtbot.waitUntil(lambda: bool(checks), timeout=3000)
+    assert checks == [(["B", "A"], {"B"})]
+    # Choosing one after another hides the slice at once, before any check.
+    collect.ecus.item(1).setCheckState(Qt.CheckState.Checked)
+    collect.strategy.setCurrentIndex(collect.strategy.findData("sequential"))
+    collect.strategy.activated.emit(collect.strategy.currentIndex())
+    assert collect.turns.isRowVisible(collect.strategy) and not collect.turns.isRowVisible(collect.slice)
+    # The result shows what was asked for and warns that a stuck ECU holds the rest.
     sequential = rotation("sequential", None, ["B", "A"])
     collect._show_readiness(sequential)
     assert not collect.turns.isRowVisible(collect.slice)
@@ -459,6 +469,7 @@ def test_collect_lists_ecus_to_check_order_and_take_in_turn(qtbot, project) -> N
     assert "keeps the next ECUs waiting until you stop" in details
     # Nothing checked: nothing to start.
     collect._checked = set()
+    collect.strategy.setCurrentIndex(collect.strategy.findData("slices"))
     collect._show_readiness(slices)
     assert collect.readiness_text.text() == "Check at least one ECU to collect."
     assert not collect.start_button.isEnabled()

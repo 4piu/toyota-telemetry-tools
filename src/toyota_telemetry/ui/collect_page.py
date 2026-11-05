@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -38,6 +38,8 @@ from .widgets import LIVE_TIP, Disclosure, button_row, mark_live, notice, page_t
 
 ENDPOINT = Qt.ItemDataRole.UserRole
 SLICE_MINUTES = (2, 5, 10, 15)
+# Ticking, dragging, or choosing settles for this long before one check runs.
+SETTLE_MS = 700
 DEFAULT_SLICE_MINUTES = 5
 
 
@@ -64,6 +66,13 @@ class CollectPage(QWidget):
         self.ecus.setToolTip("Check ECUs to collect; drag to order")
         self.ecus.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.ecus.setMaximumHeight(140)
+        # Changes wait until the user settles, then one check runs; until its
+        # result arrives, Start stays off.
+        self._pending = False
+        self._settle = QTimer(self)
+        self._settle.setSingleShot(True)
+        self._settle.setInterval(SETTLE_MS)
+        self._settle.timeout.connect(self.check_readiness)
         self.ecus.itemChanged.connect(self._ecus_changed)
         self.ecus.model().rowsMoved.connect(lambda *_: self._ecus_changed())
         self._order: list[str] = []
@@ -74,14 +83,14 @@ class CollectPage(QWidget):
         self.strategy.setToolTip("How to move between checked ECUs")
         for key, label in STRATEGIES.items():
             self.strategy.addItem(label, key)
-        self.strategy.activated.connect(lambda _index: self.check_readiness())
+        self.strategy.activated.connect(lambda _index: self._choices_changed())
         self.slice = QComboBox()
         self.slice.setAccessibleName("Time on each ECU")
         self.slice.setToolTip("Time on each ECU before the next")
         for minutes in SLICE_MINUTES:
             self.slice.addItem(f"{minutes} min", minutes * 60)
         self.slice.setCurrentIndex(SLICE_MINUTES.index(DEFAULT_SLICE_MINUTES))
-        self.slice.activated.connect(lambda _index: self.check_readiness())
+        self.slice.activated.connect(lambda _index: self._choices_changed())
         self.check_button = QPushButton("Check")
         self.context.register("collect.readiness", self.check_button, "Recheck; nothing is transmitted")
         self.check_button.clicked.connect(self.check_readiness)
@@ -181,6 +190,7 @@ class CollectPage(QWidget):
 
         if self.running:
             return
+        self._settle.stop()
         self._stale = False
         if self.context.service is None:
             self._show_readiness(None)
@@ -191,6 +201,7 @@ class CollectPage(QWidget):
         self.readiness_text.setText("Checking…")
 
         def failed(detail: str) -> None:
+            self._pending = False
             self.check_button.setEnabled(True)
             self.readiness = None
             self._clear_problems()
@@ -216,6 +227,7 @@ class CollectPage(QWidget):
         self.context.run("collect.readiness", work, self._show_readiness, failed)
 
     def _show_readiness(self, readiness: CollectionReadiness | None) -> None:
+        self._pending = False
         self.check_button.setEnabled(self.context.service is not None)
         self._clear_problems()
         self.readiness = readiness
@@ -225,11 +237,6 @@ class CollectPage(QWidget):
             self._update_start()
             return
         self._show_targets(getattr(self, "_tree", None))
-        if readiness.rotation is not None:
-            # The boxes show what would be confirmed.
-            self.strategy.setCurrentIndex(self.strategy.findData(readiness.rotation["strategy"]))
-            if readiness.rotation["slice_seconds"]:
-                self.slice.setCurrentIndex(max(0, self.slice.findData(readiness.rotation["slice_seconds"])))
         self._fill_ecus(readiness)
         rotating = readiness.rotation is not None
         if self._none_checked:
@@ -296,7 +303,17 @@ class CollectPage(QWidget):
             self.ecus.item(row).data(ENDPOINT) for row in range(self.ecus.count())
             if self.ecus.item(row).checkState() == Qt.CheckState.Checked
         }
-        self.check_readiness()
+        self._choices_changed()
+
+    def _choices_changed(self) -> None:
+        """Show the matching options now; check once the user settles."""
+
+        self._show_turn_options(len(self._checked))
+        self._pending = True
+        self.readiness_text.setText("Checking…")
+        self._clear_problems()
+        self._update_start()
+        self._settle.start()
 
     def _show_turn_options(self, checked: int) -> None:
         several = checked > 1
@@ -369,7 +386,10 @@ class CollectPage(QWidget):
         mark_live(self.start_button)
         self.start_button.setText("Start")
         self.start_button.setToolTip(self.start_button.property("baseToolTip") or "")
-        ready = self.readiness is not None and self.readiness.ready and not getattr(self, "_none_checked", False)
+        ready = (
+            self.readiness is not None and self.readiness.ready
+            and not getattr(self, "_none_checked", False) and not self._pending
+        )
         busy = self.context.live_job_running
         complete = self.readiness is not None and self.readiness.complete
         set_enabled(
