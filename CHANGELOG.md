@@ -141,6 +141,10 @@ will run. Everything else is safe to take.
 
 ### Fixed
 
+- A live collection keeps the computer from sleeping (Windows
+  SetThreadExecutionState; macOS `caffeinate`), in the desktop application
+  and the CLI. A laptop that slept mid-run left the run silent for 43
+  minutes. The display may still turn off.
 - Collect page: ticking ECUs, dragging, or changing the strategy started a
   readiness check every time, and a late result could reset the strategy box.
   Options now follow each change at once, one check runs about 0.7 s after

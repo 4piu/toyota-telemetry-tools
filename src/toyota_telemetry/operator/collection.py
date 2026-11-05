@@ -11,6 +11,7 @@ from typing import Any, Callable, Mapping
 
 from ..admission import ALL_COMPLETE, compile_plan
 from ..collection_service import run_collection
+from ..keep_awake import keep_awake
 from ..repository import ProjectRepository
 from .inventory import refresh_cache
 from .live import LiveLock, scope_hash
@@ -274,7 +275,7 @@ def start_collection(
         return _rotate(repository, inventory, readiness, note=note, event_sink=event_sink, stop_event=stop_event)
     if not readiness.ready or readiness.endpoint_id is None:
         raise ValueError("collection is not ready; resolve the readiness problems first")
-    with LiveLock(repository):
+    with LiveLock(repository), keep_awake():
         reason = run_collection(
             repository.root,
             plan_path=repository.paths.plans / PLAN_FILE,
@@ -307,7 +308,7 @@ def _rotate(
     confirmed = {row["endpoint"]["endpoint_id"]: row for row in readiness.scope["endpoints"]}
     rotation = readiness.scope["rotation"]
     limit_ms = Rotation(rotation["strategy"], rotation["slice_seconds"]).turn_limit_ms()
-    with LiveLock(repository):
+    with LiveLock(repository), keep_awake():
         while not stop_event.is_set():
             collected = False
             for endpoint_id in readiness.scope["rotation"]["order"]:

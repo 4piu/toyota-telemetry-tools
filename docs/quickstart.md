@@ -155,6 +155,10 @@ Two strategies decide how long a turn lasts:
 
 Only one endpoint is read at a time.
 
+While a collection runs, the computer is kept from sleeping (the display may
+still turn off), because a sleeping computer stops reading the vehicle. Run
+on mains power: an empty battery still ends the run.
+
 Do not operate a computer while driving; use a passenger or an unattended
 logger.
 
