@@ -148,6 +148,12 @@ will run. Everything else is safe to take.
   their conditions read. Measured on a 108-run workspace: deleting a run
   48 s -> about 2 s, editing a target 48 s -> about 2 s. The cache schema is
   now 4, so the first start after updating rebuilds it once.
+- Whether the cache is current is now decided from each capture file's name,
+  size, and modification time instead of hashing its content, so a new
+  `telemetry` command or app start no longer reads every recording first
+  (0.7 s -> 0.06 s for 96 MB). The first refresh after updating sees every
+  run as changed and rebuilds once. Segment hashes in run-end records and
+  the plan's checks of the curated files are unchanged.
 - Desktop step bar: steps with fewer status lines were shorter than the
   others and centred; every step now has the height of the tallest.
 - A live collection keeps the computer from sleeping (Windows

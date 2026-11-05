@@ -83,24 +83,15 @@ class CaptureRun:
     segments: tuple[CaptureSegment, ...]
 
 
-_FILE_HASHES: dict[str, tuple[int, int, str]] = {}
+def _file_stamp(entry: os.DirEntry) -> list[int]:
+    """Size and modification time: enough to tell that a capture file changed.
 
-
-def _file_sha256(entry: os.DirEntry) -> str:
-    """Content hash, reused while the file's size and modification time hold.
-
-    Capture files are written once and never edited in place, so a changed
-    file always changes its size or modification time.
+    Capture files are only ever appended to, renamed, or deleted, so any
+    change shows in the size or the time. Reading content is not needed.
     """
 
     stat = entry.stat()
-    cached = _FILE_HASHES.get(entry.path)
-    if cached is not None and cached[:2] == (stat.st_size, stat.st_mtime_ns):
-        return cached[2]
-    with open(entry.path, "rb") as handle:
-        digest = _sha256(handle.read())
-    _FILE_HASHES[entry.path] = (stat.st_size, stat.st_mtime_ns, digest)
-    return digest
+    return [stat.st_size, stat.st_mtime_ns]
 
 
 def _capture_files(directory: str, prefix: str) -> list[tuple[str, os.DirEntry]]:
@@ -116,16 +107,18 @@ def _capture_files(directory: str, prefix: str) -> list[tuple[str, os.DirEntry]]
 
 
 def capture_set_hash(captures_root: Path | None) -> str:
+    """A fingerprint of every capture file's name, size, and modification time."""
+
     entries = []
     if captures_root is not None and captures_root.is_dir():
         for relative, entry in sorted(_capture_files(str(captures_root), ""), key=lambda item: item[0]):
-            entries.append((relative, _file_sha256(entry)))
+            entries.append((relative, _file_stamp(entry)))
     encoded = json.dumps(entries, separators=(",", ":"), ensure_ascii=True).encode("ascii")
     return _sha256(encoded)
 
 
 def capture_run_hashes(captures_root: Path | None) -> dict[str, str]:
-    """One content hash per run folder, keyed by folder name.
+    """One fingerprint per run folder (file names, sizes, times), keyed by folder name.
 
     It changes whenever a file in that run is added, removed, renamed, or
     rewritten, so a cache can re-read only the runs that changed.
@@ -140,7 +133,7 @@ def capture_run_hashes(captures_root: Path | None) -> dict[str, str]:
                 continue
             files = sorted(_capture_files(entry.path, ""), key=lambda item: item[0])
             encoded = json.dumps(
-                [(relative, _file_sha256(file)) for relative, file in files],
+                [(relative, _file_stamp(file)) for relative, file in files],
                 separators=(",", ":"), ensure_ascii=True,
             ).encode("ascii")
             hashes[entry.name] = _sha256(encoded)
