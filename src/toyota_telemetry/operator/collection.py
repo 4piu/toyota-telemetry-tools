@@ -9,7 +9,7 @@ import shutil
 import threading
 from typing import Any, Callable, Mapping
 
-from ..admission import compile_plan
+from ..admission import ALL_COMPLETE, compile_plan
 from ..collection_service import run_collection
 from ..repository import ProjectRepository
 from .inventory import refresh_cache
@@ -36,6 +36,7 @@ class Problem:
 class CollectionReadiness:
     ready: bool
     problems: list[Problem] = field(default_factory=list)
+    complete: bool = False  # every included target is met; nothing to collect
     endpoints: list[str] = field(default_factory=list)
     endpoint_id: str | None = None
     summary: dict[str, Any] = field(default_factory=dict)
@@ -45,6 +46,7 @@ class CollectionReadiness:
     def as_dict(self) -> dict[str, Any]:
         return {
             "ready": self.ready,
+            "complete": self.complete,
             "problems": [problem.as_dict() for problem in self.problems],
             "endpoints": list(self.endpoints),
             "endpoint_id": self.endpoint_id,
@@ -81,7 +83,10 @@ def collection_readiness(
             output=repository.paths.plans / PLAN_FILE,
         )
     except ValueError as exc:
-        readiness.problems.append(_problem_for(str(exc)))
+        if ALL_COMPLETE in str(exc):
+            readiness.complete = True
+        else:
+            readiness.problems.append(_problem_for(str(exc)))
         return readiness
 
     readiness.endpoints = [row["endpoint_id"] for row in plan["endpoint_sessions"]]
@@ -172,8 +177,6 @@ _FIXES = (
      "telemetry did set {0} --include", "signals"),
     (re.compile(r"no included targets"), "Set collection targets",
      "telemetry target set SELECTOR --min-samples N", "signals"),
-    (re.compile(r"already complete"), "Raise target requirements, or analyze recordings",
-     "telemetry target set SELECTOR ...", "recordings"),
     (re.compile(r"insufficient disk"), "Free disk space", "telemetry status", "setup"),
     (re.compile(r"endpoint (\S+) .*exceeds tracked limit"), "Lengthen DID intervals on {0}",
      "telemetry did set {0} --interval MS", "signals"),

@@ -304,6 +304,14 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     assert "Completed" in collect.run_state.text()
     assert window.adapter_status.text() == "Adapter closed"
     assert len(window.collect_page.context.service.runs()) == 2
+    # Every target met is a finished state, not a problem.
+    collect.check_readiness()
+    settle(qtbot, window)
+    assert collect.readiness.complete and not collect.readiness.problems
+    assert collect.readiness_text.text() == "✓ All targets met. Nothing left to collect."
+    assert collect.problem_area.count() == 0
+    assert not collect.start_button.isEnabled()
+    assert "All targets met." in collect.start_button.toolTip()
 
 
 @pytest.fixture(autouse=True)

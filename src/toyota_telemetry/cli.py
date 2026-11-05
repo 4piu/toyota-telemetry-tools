@@ -626,7 +626,7 @@ def _collect(service: OperatorService, args: argparse.Namespace) -> int:
             _print_readiness(readiness)
             if readiness.ready:
                 print("Dry run only; nothing was transmitted. Re-run without --dry-run to start.")
-        return EXIT_OK if readiness.ready else EXIT_FAILED
+        return EXIT_OK if readiness.ready or readiness.complete else EXIT_FAILED
     if not args.as_json:
         _print_readiness(readiness)
     summary = (
@@ -671,6 +671,10 @@ def _print_readiness(readiness) -> None:
                 f"{summary['request_rate_hz']:.1f} requests/s, storage limit {summary['capture_tree_max_mib']} MiB"
             )
         print(f"  scope {readiness.digest[:12]}")
+        return
+    if readiness.complete and not readiness.problems:
+        print("Nothing to collect: every included target is met.")
+        print("  To collect more, raise or add targets: telemetry target set SELECTOR ...")
         return
     print("Not ready to collect:")
     for problem in readiness.problems:

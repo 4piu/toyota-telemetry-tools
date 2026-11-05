@@ -19,6 +19,8 @@ from .identity import AcquisitionRef, SignalRef
 from .objectives import condition_leaves, condition_refs
 from .repository import ProjectRepository
 
+ALL_COMPLETE = "all included collection targets are already complete"
+
 
 def _json_bytes(value: Any) -> bytes:
     return (
@@ -119,7 +121,7 @@ def compile_plan(
                 )
 
     if not compiled_targets:
-        raise ValueError("all included collection targets are already complete")
+        raise ValueError(ALL_COMPLETE)
 
     costs = repository.acquisition_cost_facts()
     safety = transport["safety"]

@@ -121,6 +121,17 @@ class CliTests(unittest.TestCase):
         self.assertIn("Not ready to collect", out)
         self.assertIn("fix: telemetry target set", out)
 
+    def test_collect_with_every_target_met_has_nothing_to_do(self) -> None:
+        self.run_cli("source", "import", "file", str(self.rows), "--apply")
+        self.assertEqual(self.run_cli("target", "set", "372/0x1002/0..15", "--min-samples", "1")[0], 0)
+        code, out, _ = self.run_cli("collect", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("Nothing to collect: every included target is met.", out)
+        self.assertNotIn("Not ready", out)
+        result = self.json_cli("collect", "--dry-run")
+        self.assertTrue(result["complete"])
+        self.assertEqual(result["problems"], [])
+
     def test_connector_set_and_check_never_open_a_device(self) -> None:
         # The bundled workers may be built in a development checkout; use none here.
         patcher = mock.patch("toyota_telemetry.project.WORKERS", self.root / "no-workers")

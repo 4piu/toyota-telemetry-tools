@@ -205,6 +205,9 @@ class CollectPage(QWidget):
                 + f", storage limit {summary['capture_tree_max_mib']} MiB."
             )
             self.scope_text.setPlainText(json.dumps(readiness.scope, indent=2, sort_keys=True))
+        elif readiness.complete and not readiness.problems:
+            self.readiness_text.setText("✓ All targets met. Nothing left to collect.")
+            self.scope_text.setPlainText("")
         else:
             self.readiness_text.setText("Not ready:")
             self.scope_text.setPlainText("")
@@ -275,9 +278,11 @@ class CollectPage(QWidget):
         self.start_button.setToolTip(self.start_button.property("baseToolTip") or "")
         ready = self.readiness is not None and self.readiness.ready
         busy = self.context.live_job_running
+        complete = self.readiness is not None and self.readiness.complete
         set_enabled(
             self.start_button, ready and not busy,
-            "Another live job is running." if busy else "Readiness has problems.",
+            "Another live job is running." if busy
+            else "All targets met." if complete else "Readiness has problems.",
         )
 
     def start_or_stop(self) -> None:
