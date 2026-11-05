@@ -24,6 +24,7 @@ namespace Telemetry.TisDb
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --protocol\n" +
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --physical G[,G]\n" +
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --units U[,U]\n" +
+            "  telemetry-tisdb --database DIR [options] --keys K[,K] --states S[,S]\n" +
             "\n" +
             "Options:\n" +
             "  --bin DIR          Techstream bin folder (default: DIR\\..\\bin)\n" +
@@ -107,6 +108,12 @@ namespace Telemetry.TisDb
                             records.AddRange(database.Unit(key, unit));
                         }
                         break;
+                    case "states":
+                        foreach (uint stateSet in options.Values)
+                        {
+                            records.AddRange(Limit(database.States(key, stateSet, options.Raw), options.MaxItems));
+                        }
+                        break;
                 }
             }
             return records;
@@ -150,6 +157,8 @@ namespace Telemetry.TisDb
             Check(parsed.Mode == "physical" && parsed.Keys.Count == 2 && parsed.Keys[1] == 0x18F
                   && parsed.Values[0] == 0x20 && parsed.Values[1] == 7 && parsed.MaxItems == 3
                   && parsed.Bin == @"C:\TS\bin" && parsed.Table == TisDatabase.MonitorTable, "argument parsing");
+            Options states = Options.Parse(new[] { "--database", "x", "--keys", "397", "--states", "7,0xC0" });
+            Check(states.Mode == "states" && states.Values.Count == 2 && states.Values[1] == 0xC0, "states arguments");
             Expect(new[] { "--database", "x", "--monitors" }, "monitors without keys");
             Expect(new[] { "--database", "x", "--catalog", "--protocol" }, "two query modes");
             Expect(new[] { "--database", "x", "--catalog", "--bogus" }, "unknown option");
@@ -213,6 +222,7 @@ namespace Telemetry.TisDb
                     case "--protocol": options.SetMode("protocol"); break;
                     case "--physical": options.SetMode("physical"); options.Values = Numbers(Value(args, ref index)); break;
                     case "--units": options.SetMode("units"); options.Values = Numbers(Value(args, ref index)); break;
+                    case "--states": options.SetMode("states"); options.Values = Numbers(Value(args, ref index)); break;
                     default: throw new ArgumentException("unknown argument: " + name);
                 }
             }
@@ -222,7 +232,8 @@ namespace Telemetry.TisDb
             }
             if (options.Mode == null)
             {
-                throw new ArgumentException("choose one query: --catalog, --monitors, --protocol, --physical, --units");
+                throw new ArgumentException(
+                    "choose one query: --catalog, --monitors, --protocol, --physical, --units, --states");
             }
             if (options.Mode != "catalog" && options.Keys.Count == 0)
             {

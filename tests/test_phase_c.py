@@ -12,7 +12,7 @@ from toyota_telemetry.admission import compile_plan
 from toyota_telemetry.capture_store import inspect_capture_tree
 from toyota_telemetry.capture_writer import NativeRunWriter, recover_incomplete_segment
 from toyota_telemetry.collector import load_verified_plan
-from toyota_telemetry.exporting import export_project, readable_formula
+from toyota_telemetry.exporting import export_project, readable_formula, state_text
 from toyota_telemetry.objectives import ReplayObservation, replay_targets
 from toyota_telemetry.repository import ProjectRepository
 from toyota_telemetry.schemas import validate_target
@@ -385,7 +385,7 @@ class PlanningAndExportTests(unittest.TestCase):
             self.assertEqual(sorted(observation), ["distinct_raw_values", "observations", "recorded"])
             self.assertNotIn("decoded", (generation / "signals.csv").read_text(encoding="utf-8"))
             reference = (generation / "signals.md").read_text(encoding="utf-8")
-            self.assertIn("| DID | Bits | Name | Formula | Unit | Evidence | Recorded | Notes |", reference)
+            self.assertIn("| DID | Bits | Name | Formula | Unit | States | Evidence | Recorded | Notes |", reference)
             self.assertIn(f"| {observation['recorded']} |", reference)
 
     def test_reference_formulas_read_as_scale_and_offset(self) -> None:
@@ -394,6 +394,10 @@ class PlanningAndExportTests(unittest.TestCase):
         self.assertEqual(readable_formula("((raw * 5 / 1) + 0) / (10 ** 1)"), "raw × 0.5")
         self.assertEqual(readable_formula("raw"), "raw")
         self.assertEqual(readable_formula("signed(raw, 16) / 10"), "signed(raw, 16) / 10")
+
+    def test_reference_states_read_in_raw_order(self) -> None:
+        self.assertEqual(state_text({"8": "B", "0": "P", "10": "X", "2": "R"}), "0=P, 2=R, 8=B, 10=X")
+        self.assertEqual(state_text({}), "")
 
 
 if __name__ == "__main__":

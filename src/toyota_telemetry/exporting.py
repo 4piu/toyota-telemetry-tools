@@ -22,7 +22,7 @@ from .repository import ProjectRepository
 
 
 CSV_FIELDS = [
-    "signal_ref", "ecu", "name", "formula", "unit", "evidence_state", "recorded",
+    "signal_ref", "ecu", "name", "formula", "unit", "states", "evidence_state", "recorded",
     "observations", "distinct_raw_values", "notes",
 ]
 # How a signal appears in the recordings. Exports carry counts, never values:
@@ -152,12 +152,14 @@ def export_project(
         name = review["display_name_override"] if review and review["display_name_override"] is not None else selected.get("name", "")
         formula = review["formula_override"] if review and review["formula_override"] is not None else selected.get("formula", "raw")
         unit = review["unit_override"] if review and review["unit_override"] is not None else selected.get("unit", "")
+        states = selected.get("states") or {}
         flat = {
             "signal_ref": signal_ref,
             "ecu": ecu,
             "name": name,
             "formula": formula,
             "unit": unit,
+            "states": state_text(states),
             "evidence_state": review["evidence_state"] if review else "Candidate",
             **summary,
             "notes": review["notes"] if review else "",
@@ -173,10 +175,11 @@ def export_project(
                     "name": selected.get("name", ""),
                     "formula": selected.get("formula", "raw"),
                     "unit": selected.get("unit", ""),
+                    "states": states,
                 },
                 "observation": summary,
                 "review": review,
-                "resolved": {"name": name, "formula": formula, "unit": unit},
+                "resolved": {"name": name, "formula": formula, "unit": unit, "states": states},
                 "target_progress": progress_by_signal.get(signal_ref),
             }
         )
@@ -261,6 +264,12 @@ def readable_formula(formula: str) -> str:
     return text
 
 
+def state_text(states: dict[str, str]) -> str:
+    """Raw-value labels as one line, e.g. "0=OFF, 1=ON", in raw order."""
+
+    return ", ".join(f"{raw}={states[raw]}" for raw in sorted(states, key=int))
+
+
 def _number(value: Fraction) -> str:
     return str(value.numerator) if value.denominator == 1 else format(float(value), ".10g")
 
@@ -285,7 +294,8 @@ def _reference_bytes(
         "`22 DID` on its ECU's endpoint. Bit 0 is the most significant bit of the",
         "first data byte after the `62 DID` echo; the bits form an unsigned",
         "big-endian raw value. Formulas come from the manufacturer database unless",
-        "the review overrides them.",
+        "the review overrides them. States give the text Techstream shows for",
+        "the listed raw values; other raw values are numbers.",
         "",
         "Recorded, over every recording of this vehicle:",
         "",
@@ -301,14 +311,14 @@ def _reference_bytes(
             "",
             f"## {ecu_rows[0]['ecu']} (ECU {ecu_key}{address})",
             "",
-            "| DID | Bits | Name | Formula | Unit | Evidence | Recorded | Notes |",
-            "|---|---|---|---|---|---|---|---|",
+            "| DID | Bits | Name | Formula | Unit | States | Evidence | Recorded | Notes |",
+            "|---|---|---|---|---|---|---|---|---|",
         ]
         for row in ecu_rows:
             ref = SignalRef.parse(row["signal_ref"])
             lines.append("| " + " | ".join(_cell(value) for value in (
                 f"0x{ref.data_id:04X}", f"{ref.first_bit}..{ref.last_bit}", row["name"],
-                readable_formula(row["formula"]), row["unit"], row["evidence_state"], row["recorded"],
+                readable_formula(row["formula"]), row["unit"], row["states"], row["evidence_state"], row["recorded"],
                 row["notes"],
             )) + " |")
     return ("\n".join(lines) + "\n").encode("utf-8")

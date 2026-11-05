@@ -26,7 +26,7 @@ _PHASE = re.compile(r"_P(\d)\.ddb$", re.IGNORECASE)
 _HEX = re.compile(r"(?:0x)?([0-9A-Fa-f]+)")
 _TIS_ROW_FIELDS = (
     "name", "unit", "formula", "formula_state", "value_type", "internal_id",
-    "ecu_name", "tester_can_id", "response_can_id",
+    "ecu_name", "tester_can_id", "response_can_id", "states",
 )
 
 
@@ -205,6 +205,12 @@ class TisDatabaseSource:
             for row in self._query(["--keys", str(key), "--units", ",".join(chunk)]):
                 if row.get("Status") == "0x00000000" and int(row.get("Count", 0) or 0) > 0:
                     units[str(row["UnitId"])] = row.get("Unit") or ""
+        state_sets = sorted({int(row.get("StateSet") or 0) for row in monitors} - {0})
+        states: dict[int, dict[str, str]] = {}
+        for chunk in _chunks([str(value) for value in state_sets]):
+            for row in self._query(["--keys", str(key), "--states", ",".join(chunk)]):
+                if row.get("Status") == "0x00000000" and row.get("Text") is not None:
+                    states.setdefault(int(row["StateSet"]), {})[str(row["Value"])] = row["Text"]
         rows = []
         for monitor in monitors:
             group = physical.get(str(monitor.get("PhysicalGroup") or ""))
@@ -224,6 +230,9 @@ class TisDatabaseSource:
                 "tester_can_id": protocol.get("PhysicalRequestCanId"),
                 "response_can_id": protocol.get("ResponseCanIdCandidate"),
             }
+            # Text Techstream shows for listed raw values; other values display as numbers.
+            if states.get(int(monitor.get("StateSet") or 0)):
+                row["states"] = states[int(monitor["StateSet"])]
             if monitor.get("Acquisition") != "direct DID":
                 row["rejected"] = "mapped or dynamic record, not a direct DID"
             rows.append(row)

@@ -55,9 +55,12 @@ convention is common but not universal, and nothing here validates it beyond
 
 Raw state values are recorded faithfully, and a state that changes with an
 observable event can be correlated. Mapping a raw state to a *meaning* —
-which gear, which control mode, which inverter request — currently depends on
-the OEM database labels being present and trustworthy. Where they are absent,
-the enum stays unmapped and the signal stays Observed.
+which gear, which control mode, which inverter request — depends on the OEM
+database labels being present and trustworthy. Techstream's state table now
+supplies them (see [enums and invalid values](05-decode/enums-and-invalids.md));
+whether they hold for a given calibration is still checked against observed
+behavior. Where a set is absent, the enum stays unmapped and the signal stays
+Observed.
 
 ## Signals that cannot be safely excited
 

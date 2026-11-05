@@ -21,6 +21,7 @@ namespace Telemetry.TisDb
         internal const short ProtocolTable = 0x010d;
         internal const short PhysicalTable = 0x020d;
         internal const short UnitTable = 0x020f;
+        internal const short StateTable = 0x020e;
 
         // Generous buffers isolate this caller from incomplete class layouts.
         private const int DataCtrlSize = 4096;
@@ -160,7 +161,11 @@ namespace Telemetry.TisDb
                         .Add("FirstBit", (long)BitConverter.ToUInt16(item, 0x2c))
                         .Add("LastBit", (long)BitConverter.ToUInt16(item, 0x2e))
                         .Add("PhysicalGroup", Hex16(BitConverter.ToUInt16(item, 0x2a)))
-                        .Add("DataId", Hex16(dataId));
+                        .Add("DataId", Hex16(dataId))
+                        // 1: state text, 2: number, 13: number with labelled special values.
+                        .Add("DisplayKind", (long)item[0x3a])
+                        // Key of this signal's state texts in the state table; 0 for none.
+                        .Add("StateSet", (long)BitConverter.ToUInt16(item, 0x32));
                     records.Add(raw ? result.Add("Raw", Hex(item)) : result);
                 }
             });
@@ -230,6 +235,37 @@ namespace Telemetry.TisDb
                         .Add("UnitId", Hex16(BitConverter.ToUInt16(item, 0x0e)))
                         .Add("ValueType", string.Format(CultureInfo.InvariantCulture, "0x{0:X2}", item[0x14]))
                         .Add("SignalLsb", (long)item[0x15]);
+                    records.Add(raw ? result.Add("Raw", Hex(item)) : result);
+                }
+            });
+            return records;
+        }
+
+        /// <summary>One state set: the text Techstream shows for each listed raw value.</summary>
+        internal IEnumerable<Record> States(uint key, uint stateSet, bool raw)
+        {
+            var records = new List<Record>();
+            WithRecord("CDbPatDispResRecords", delegate
+            {
+                var get = Native.Export<Native.GetDbRecord2>(
+                    module, "?GetDbRecord@CDiagToolDb@@QAEKFPAVCDbResRecordsBase@@KK@Z");
+                var getText = Native.Export<Native.GetString>(
+                    module, "?GetPatDispString@CDbPatDispResRecords@@QAEPADF@Z");
+                uint status = get(DiagToolDb, StateTable, record, key, stateSet);
+                int count = Count();
+                if (status != 0 || count <= 0)
+                {
+                    records.Add(Missing(key, status, count).Add("StateSet", (long)stateSet));
+                    return;
+                }
+                for (int index = 0; index < count; index++)
+                {
+                    byte[] item = Item(index, 16);
+                    var result = new Record()
+                        .Add("Key", (long)key).Add("StateSet", (long)stateSet).Add("Status", Status(status))
+                        .Add("Count", count).Add("Index", index)
+                        .Add("Value", (long)BitConverter.ToUInt32(item, 4))
+                        .Add("Text", Text(getText(record, (short)index)));
                     records.Add(raw ? result.Add("Raw", Hex(item)) : result);
                 }
             });

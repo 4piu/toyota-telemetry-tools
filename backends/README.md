@@ -67,9 +67,9 @@ a vehicle. `telemetry source import tis` runs it to read an installed
 Techstream database through Techstream's own `KgpDataCtrl.dll`, which is
 32-bit, so the helper builds x86 and without the CAN core. It writes one JSON
 record per line: the ECU catalog, data-monitor records, protocol CAN IDs,
-physical-conversion groups, and unit strings. Run it with `--help` for the
-query forms; `--self-test` checks argument parsing, record output, and code
-page 932 text without opening a database.
+physical-conversion groups, unit strings, and state text (`--states`). Run it
+with `--help` for the query forms; `--self-test` checks argument parsing,
+record output, and code page 932 text without opening a database.
 
 ## Safety boundary
 

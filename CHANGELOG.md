@@ -18,6 +18,14 @@ will run. Everything else is safe to take.
   gone from JSON and CSV, which gain `ecu` and `recorded`. Exported target
   progress keeps only the states a target requires. Recorded minima and
   maxima had published readings such as the odometer.
+- State text: `telemetry source import tis` gives each state signal's row
+  `states`, {raw value: text} from Techstream's state table (0x020E, keyed by
+  the ECU key and the state set its data-monitor record names), such as
+  `0=P, 2=R, 4=N, 6=D, 8=B` or an inverted `0=ON, 1=OFF`; numeric signals
+  with labelled special values (`0=None`) get their labels too. Exports carry
+  `states` in `signals.json`, a `states` column in `signals.csv`, and a States
+  column in `signals.md`. `telemetry-tisdb` gains `--states` and reports each
+  monitor's `DisplayKind` and `StateSet`.
 - `telemetry source import tis` reads the Techstream database through the
   bundled 32-bit `telemetry-tisdb.exe` (built by `backends\build.ps1` with
   the workers) instead of `query-techstream-db.ps1`, which is removed. Its

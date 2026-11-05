@@ -21,7 +21,10 @@ ANSWERS = {
     "--monitors": [
         {"Key": 397, "Status": OK, "Count": 2, "Index": 0, "Name": "Vehicle Speed", "Flags": "0x00000000",
          "InternalId": "0x0001", "Acquisition": "direct DID", "ReadRequest": "22 10 75", "FirstBit": 0,
-         "LastBit": 15, "PhysicalGroup": "0x0020", "DataId": "0x1075"},
+         "LastBit": 15, "PhysicalGroup": "0x0020", "DataId": "0x1075", "DisplayKind": 2, "StateSet": 0},
+        {"Key": 397, "Status": OK, "Count": 2, "Index": 2, "Name": "Shift Position", "Flags": "0x00000000",
+         "InternalId": "0x0003", "Acquisition": "direct DID", "ReadRequest": "22 10 61", "FirstBit": 0,
+         "LastBit": 7, "PhysicalGroup": "0x0021", "DataId": "0x1061", "DisplayKind": 1, "StateSet": 8},
         {"Key": 397, "Status": OK, "Count": 2, "Index": 1, "Name": "Mapped", "Flags": "0x00000010",
          "InternalId": "0x0002", "Acquisition": "mapped/dynamic", "ReadRequest": None, "FirstBit": 0,
          "LastBit": 7, "PhysicalGroup": "0x0021", "DataId": "0x1076"},
@@ -36,6 +39,10 @@ ANSWERS = {
         {"Key": 397, "PhysicalGroup": "0x0021", "Status": "0x00000005", "Count": 0},
     ],
     "--units": [{"Key": 397, "UnitId": "0x0005", "Status": OK, "Count": 1, "Unit": "km/h"}],
+    "--states": [
+        {"Key": 397, "StateSet": 8, "Status": OK, "Count": 2, "Index": 0, "Value": 0, "Text": "P"},
+        {"Key": 397, "StateSet": 8, "Status": OK, "Count": 2, "Index": 1, "Value": 2, "Text": "R"},
+    ],
 }
 
 
@@ -61,7 +68,11 @@ class TisSourceTests(unittest.TestCase):
             result = source.read()
         self.assertEqual(self.commands[0][0], str(sources.WORKERS / "telemetry-tisdb.exe"))
         self.assertEqual(self.commands[0][1:5], ["--database", str(self.database), "--code-page", "932"])
-        self.assertEqual([row["signal_ref"] for row in result.rows], ["397/0x1075/0..15"])
+        self.assertEqual([row["signal_ref"] for row in result.rows], ["397/0x1075/0..15", "397/0x1061/0..7"])
+        # A state signal carries the text Techstream shows for each listed raw value.
+        self.assertEqual(result.rows[1]["states"], {"0": "P", "2": "R"})
+        self.assertNotIn("states", result.rows[0])
+        self.assertIn(["--keys", "397", "--states", "8"], [command[-4:] for command in self.commands])
         row = result.rows[0]
         self.assertEqual((row["name"], row["unit"], row["ecu_name"]), ("Vehicle Speed", "km/h", "Hybrid Control"))
         self.assertEqual(row["formula"], "((raw * 1 / 100) + 0) / (10 ** 0)")
