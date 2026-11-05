@@ -7,7 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Collection, Mapping
 
 from .identity import AcquisitionRef, SignalRef, canonical_did, canonical_run_id
 
@@ -124,11 +124,41 @@ def capture_set_hash(captures_root: Path | None) -> str:
     return _sha256(encoded)
 
 
-def load_capture_tree(captures_root: Path, project_root: Path) -> tuple[CaptureRun, ...]:
+def capture_run_hashes(captures_root: Path | None) -> dict[str, str]:
+    """One content hash per run folder, keyed by folder name.
+
+    It changes whenever a file in that run is added, removed, renamed, or
+    rewritten, so a cache can re-read only the runs that changed.
+    """
+
+    hashes: dict[str, str] = {}
+    if captures_root is None or not captures_root.is_dir():
+        return hashes
+    with os.scandir(captures_root) as entries:
+        for entry in entries:
+            if not entry.is_dir(follow_symlinks=False):
+                continue
+            files = sorted(_capture_files(entry.path, ""), key=lambda item: item[0])
+            encoded = json.dumps(
+                [(relative, _file_sha256(file)) for relative, file in files],
+                separators=(",", ":"), ensure_ascii=True,
+            ).encode("ascii")
+            hashes[entry.name] = _sha256(encoded)
+    return hashes
+
+
+def load_capture_tree(
+    captures_root: Path, project_root: Path, names: Collection[str] | None = None
+) -> tuple[CaptureRun, ...]:
+    """Read and validate every run, or only the run folders in ``names``."""
+
     if not captures_root.is_dir():
         return ()
     runs: list[CaptureRun] = []
-    for directory in sorted(path for path in captures_root.iterdir() if path.is_dir()):
+    for directory in sorted(
+        path for path in captures_root.iterdir()
+        if path.is_dir() and (names is None or path.name in names)
+    ):
         run_id = canonical_run_id(directory.name)
         start, _ = _exact_json(directory / "run-start.json")
         origin = start.get("origin")

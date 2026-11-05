@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from toyota_telemetry.identity import AcquisitionRef, SignalRef, canonical_run_id
-from toyota_telemetry.repository import ProjectRepository
+from toyota_telemetry.repository import CACHE_SCHEMA_VERSION, ProjectRepository
 from toyota_telemetry.schemas import validate_local_settings, validate_transport
 
 
@@ -220,7 +220,7 @@ class RepositoryTests(unittest.TestCase):
             repository = ProjectRepository(root)
             repository.rebuild_cache(catalog)
             first = repository.cache_snapshot()
-            self.assertEqual(first["schema_meta"][0], ("cache_schema_version", "3"))
+            self.assertEqual(first["schema_meta"][0], ("cache_schema_version", str(CACHE_SCHEMA_VERSION)))
             self.assertEqual(len(first["catalog_variant"]), 1)
             self.assertEqual(first["run"], [])
             self.assertFalse(repository.refresh_cache(catalog))

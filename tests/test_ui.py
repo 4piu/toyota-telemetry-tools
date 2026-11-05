@@ -718,6 +718,20 @@ def test_step_bar_shows_progress_and_unsaved_changes(qtbot, project) -> None:
     assert "Unsaved" in [part.label for part in steps[1].parts]
 
 
+def test_steps_line_up_when_their_status_lines_differ(qtbot) -> None:
+    from toyota_telemetry.ui.widgets.step_bar import DONE, NEXT, Part, StepBar
+
+    bar = StepBar(["Setup", "Signals", "Collect", "Recordings"])
+    qtbot.addWidget(bar)
+    bar.set_step(0, DONE, [Part("Connector", DONE), Part("Candidates", DONE), Part("Endpoints", DONE)])
+    bar.set_step(1, NEXT, [Part("Targets", NEXT)])
+    bar.resize(800, bar.sizeHint().height())
+    bar.show()
+    qtbot.waitExposed(bar)
+    heights = {step.height() for step in bar.steps}
+    assert heights == {bar.steps[0].sizeHint().height()}
+
+
 def test_selection_panel_batch_edits_collection_settings(qtbot, project) -> None:
     root, rows = project
     window = open_window(qtbot, root)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 
 DONE = "done"
@@ -39,6 +39,9 @@ class StepButton(QPushButton):
         self.setAutoDefault(False)
         self.setFlat(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Fill the bar's height, so steps with fewer status lines line up with
+        # the tallest instead of being centred at their own height.
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         self.number = number
         self.title = title
         self.setAccessibleName(title)
@@ -86,6 +89,8 @@ class StepBar(QWidget):
         super().__init__(parent)
         self.setAccessibleName("Steps")
         self.setObjectName("step-bar")
+        # As tall as the tallest step; every step fills that height.
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.setStyleSheet(
             "QPushButton#step { text-align: left; border: none; border-bottom: 3px solid transparent;"
             " border-radius: 0; padding: 0; }"

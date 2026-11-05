@@ -14,7 +14,7 @@ import tempfile
 import tomllib
 from typing import Any, Iterable, Mapping
 
-from .capture_store import capture_set_hash, load_capture_tree
+from .capture_store import capture_run_hashes, capture_set_hash, load_capture_tree
 from .identity import AcquisitionRef, SignalRef, canonical_did
 from .objectives import ReplayObservation, condition_refs, replay_targets
 from .schemas import (
@@ -26,8 +26,19 @@ from .schemas import (
 )
 
 
-CACHE_SCHEMA_VERSION = 3
+CACHE_SCHEMA_VERSION = 4
 VERIFICATION_FACTS_FILE = "verification-facts.json"
+# Tables filled from the curated inputs, children before parents.
+_CURATED_TABLES = (
+    "catalog_variant",
+    "signal_review",
+    "policy_target",
+    "policy_acquisition",
+    "dynamic_did",
+    "endpoint_ecu",
+    "endpoint",
+    "session_recipe",
+)
 _CACHE_TABLES = (
     "schema_meta",
     "source_file",
@@ -340,6 +351,14 @@ class ProjectRepository:
         catalog_rows: Iterable[Mapping[str, Any]] = (),
         captures_root: Path | None = None,
     ) -> bool:
+        """Bring the cache up to date; True when anything had to change.
+
+        Only what changed is redone: changed curated inputs replace their own
+        small tables, and changed captures re-read only the runs that were
+        added, removed, or rewritten. A missing cache, another schema version,
+        or an unreadable database is rebuilt from scratch.
+        """
+
         rows = _normalized_catalog_rows(catalog_rows)
         self._validate_catalog_rows(rows)
         if self.paths.database.is_file():
@@ -347,12 +366,67 @@ class ProjectRepository:
                 with closing(connect_cache(self.paths.database)) as connection:
                     version = connection.execute("PRAGMA user_version").fetchone()[0]
                     current = dict(connection.execute("SELECT kind, sha256 FROM source_file"))
-                if version == CACHE_SCHEMA_VERSION and current == self.source_hashes(rows, captures_root):
-                    return False
+                    wanted = self.source_hashes(rows, captures_root)
+                    if version == CACHE_SCHEMA_VERSION and current == wanted:
+                        return False
+                    if version == CACHE_SCHEMA_VERSION and set(current) == set(wanted):
+                        self._update_cache(connection, rows, captures_root, current, wanted)
+                        if self.policy["targets"]:
+                            self.replay_progress()
+                        return True
             except sqlite3.Error:
                 pass
         self.rebuild_cache(rows, captures_root)
         return True
+
+    def _update_cache(
+        self,
+        connection: sqlite3.Connection,
+        rows: list[dict[str, Any]],
+        captures_root: Path | None,
+        current: Mapping[str, str],
+        wanted: Mapping[str, str],
+    ) -> None:
+        """Replace what changed in one transaction; the result equals a rebuild."""
+
+        changed = {kind for kind in wanted if current.get(kind) != wanted[kind]}
+        connection.execute("PRAGMA foreign_keys = ON")
+        try:
+            # Derived tables point at curated and capture rows; they are
+            # recomputed below (target progress by the caller's replay).
+            connection.execute("DELETE FROM target_progress")
+            connection.execute("DELETE FROM did_status")
+            if changed - {"capture_set"}:
+                for table in _CURATED_TABLES:
+                    connection.execute(f"DELETE FROM {table}")
+                self._insert_curated(connection, rows)
+            if "capture_set" in changed:
+                self._sync_capture_runs(connection, captures_root)
+            self._rebuild_did_status(connection)
+            if connection.execute("PRAGMA foreign_key_check").fetchall():
+                raise RuntimeError("project cache failed foreign-key validation")
+            connection.executemany(
+                "UPDATE source_file SET sha256 = ? WHERE kind = ?",
+                ((wanted[kind], kind) for kind in sorted(changed)),
+            )
+            connection.commit()
+        except BaseException:
+            connection.rollback()
+            raise
+
+    def _sync_capture_runs(self, connection: sqlite3.Connection, captures_root: Path | None) -> None:
+        """Drop runs that are gone or changed on disk, then read the new ones."""
+
+        present = capture_run_hashes(captures_root)
+        stored = dict(connection.execute("SELECT run_id, files_sha256 FROM run"))
+        for run_id, digest in stored.items():
+            if present.get(run_id) != digest:
+                for table in ("signal_observation", "acquisition_exchange", "segment", "run"):
+                    connection.execute(f"DELETE FROM {table} WHERE run_id = ?", (run_id,))
+        unchanged = {run_id for run_id, digest in stored.items() if present.get(run_id) == digest}
+        names = set(present) - unchanged
+        if captures_root is not None and names:
+            self._insert_capture_runs(connection, captures_root, names, present)
 
     def ingest_captures(self, captures_root: Path) -> None:
         """Incrementally ingest immutable runs into an existing cache."""
@@ -361,7 +435,8 @@ class ProjectRepository:
             connection.execute("PRAGMA foreign_keys = ON")
             if connection.execute("PRAGMA user_version").fetchone()[0] != CACHE_SCHEMA_VERSION:
                 raise ValueError("project cache schema version mismatch")
-            self._insert_capture_runs(connection, captures_root)
+            self._insert_capture_runs(connection, captures_root, None, capture_run_hashes(captures_root))
+            self._rebuild_did_status(connection)
             connection.execute(
                 "INSERT OR REPLACE INTO source_file(kind, sha256) VALUES ('capture_set', ?)",
                 (capture_set_hash(captures_root),),
@@ -529,21 +604,31 @@ class ProjectRepository:
     def replay_progress(self) -> list[dict[str, Any]]:
         """Recompute target progress from immutable cached observations."""
 
+        # Only targets and the signals their conditions read can change
+        # progress; every other recorded signal is left out of the replay.
+        wanted = set()
+        for target in self.policy["targets"]:
+            wanted.add(str(SignalRef.parse(target["signal_ref"])))
+            if target.get("condition") is not None:
+                wanted |= condition_refs(target["condition"])
         with closing(connect_cache(self.paths.database)) as connection:
+            connection.execute("CREATE TEMP TABLE replay_signal(signal_ref TEXT PRIMARY KEY)")
+            connection.executemany("INSERT INTO replay_signal VALUES (?)", ((ref,) for ref in sorted(wanted)))
             observations = []
-            for run_id, sequence, signal_ref, raw_value, decoded, exchange_json in connection.execute(
-                "SELECT o.run_id, o.sequence, o.signal_ref, o.raw_value, o.decoded_value, e.document_json "
+            for run_id, sequence, signal_ref, raw_value, decoded, elapsed_ms, response_utc in connection.execute(
+                "SELECT o.run_id, o.sequence, o.signal_ref, o.raw_value, o.decoded_value, "
+                "e.response_elapsed_ms, e.response_utc "
                 "FROM signal_observation o JOIN acquisition_exchange e "
                 "ON e.run_id = o.run_id AND e.sequence = o.sequence "
+                "WHERE o.signal_ref IN (SELECT signal_ref FROM replay_signal) "
                 "ORDER BY o.run_id, o.sequence, o.signal_ref"
             ):
-                exchange = json.loads(exchange_json)
                 observations.append(
                     ReplayObservation(
                         run_id,
                         sequence,
-                        int(exchange["response_elapsed_ms"]),
-                        exchange["response_utc"],
+                        int(elapsed_ms),
+                        response_utc,
                         signal_ref,
                         int.from_bytes(raw_value, "big"),
                         decoded,
@@ -675,7 +760,7 @@ class ProjectRepository:
         with closing(connect_cache(self.paths.database)) as connection:
             rows = connection.execute(
                 "SELECT o.run_id, o.sequence, o.raw_value, o.decoded_value, "
-                "o.applicability, e.document_json "
+                "o.applicability, e.response_utc, e.response_elapsed_ms "
                 "FROM signal_observation o JOIN acquisition_exchange e "
                 "ON e.run_id = o.run_id AND e.sequence = o.sequence "
                 "JOIN run r ON r.run_id = o.run_id "
@@ -685,14 +770,13 @@ class ProjectRepository:
                 (canonical,),
             )
             result = []
-            for run_id, sequence, raw_value, decoded, applicability, document in rows:
-                exchange = json.loads(document)
+            for run_id, sequence, raw_value, decoded, applicability, response_utc, elapsed_ms in rows:
                 result.append(
                     {
                         "run_id": run_id,
                         "sequence": sequence,
-                        "response_utc": exchange["response_utc"],
-                        "response_elapsed_ms": exchange["response_elapsed_ms"],
+                        "response_utc": response_utc,
+                        "response_elapsed_ms": elapsed_ms,
                         "raw_hex": bytes(raw_value).hex(" ").upper(),
                         "decoded_value": decoded,
                         "recorded_applicability": applicability,
@@ -718,6 +802,12 @@ class ProjectRepository:
             connection.execute(
                 "INSERT INTO source_file(kind, sha256) VALUES (?, ?)", (kind, digest)
             )
+        self._insert_curated(connection, catalog_rows)
+        if captures_root is not None:
+            self._insert_capture_runs(connection, captures_root, None, capture_run_hashes(captures_root))
+        self._rebuild_did_status(connection)
+
+    def _insert_curated(self, connection: sqlite3.Connection, catalog_rows: list[dict[str, Any]]) -> None:
         for recipe in self.transport["session_recipes"]:
             connection.execute(
                 "INSERT INTO session_recipe(id, document_json) VALUES (?, ?)",
@@ -768,15 +858,20 @@ class ProjectRepository:
                 "INSERT INTO catalog_variant(catalog_variant_id, signal_ref, document_json) VALUES (?, ?, ?)",
                 (row["catalog_variant_id"], row["signal_ref"], _canonical_json(row)),
             )
-        if captures_root is not None:
-            self._insert_capture_runs(connection, captures_root)
 
     def _insert_capture_runs(
-        self, connection: sqlite3.Connection, captures_root: Path
+        self,
+        connection: sqlite3.Connection,
+        captures_root: Path,
+        names: set[str] | None,
+        run_hashes: Mapping[str, str],
     ) -> None:
-        for run in load_capture_tree(captures_root, self.root):
+        """Insert the given run folders (all when ``names`` is None)."""
+
+        for run in load_capture_tree(captures_root, self.root, names):
             if run.start["project_id"] != self.project_id or run.start["profile_id"] != self.profile_id:
                 raise ValueError(f"capture run {run.run_id} does not belong to this project profile")
+            files_sha256 = run_hashes.get(run.run_id, "")
             existing = connection.execute(
                 "SELECT document_json FROM run WHERE run_id = ?", (run.run_id,)
             ).fetchone()
@@ -784,10 +879,13 @@ class ProjectRepository:
             if existing is not None:
                 if existing[0] != encoded_start:
                     raise ValueError(f"capture run identity collision: {run.run_id}")
+                connection.execute(
+                    "UPDATE run SET files_sha256 = ? WHERE run_id = ?", (files_sha256, run.run_id)
+                )
             else:
                 connection.execute(
-                    "INSERT INTO run(run_id, origin, document_json) VALUES (?, ?, ?)",
-                    (run.run_id, run.start["origin"], encoded_start),
+                    "INSERT INTO run(run_id, origin, files_sha256, document_json) VALUES (?, ?, ?, ?)",
+                    (run.run_id, run.start["origin"], files_sha256, encoded_start),
                 )
             for segment in run.segments:
                 existing_segment = connection.execute(
@@ -811,72 +909,71 @@ class ProjectRepository:
                         _canonical_json(segment.end),
                     ),
                 )
-                for exchange in segment.exchanges:
-                    response = (
-                        bytes.fromhex(exchange["response_hex"])
-                        if exchange["response_hex"] is not None
-                        else None
-                    )
-                    connection.execute(
-                        "INSERT INTO acquisition_exchange("
-                        "run_id, sequence, acquisition_id, request, response, outcome, latency_ms, document_json"
-                        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                connection.executemany(
+                    "INSERT INTO acquisition_exchange("
+                    "run_id, sequence, acquisition_id, endpoint_id, data_id, request, response, outcome, "
+                    "negative_response_code, latency_ms, response_elapsed_ms, response_utc, document_json"
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
                         (
                             run.run_id,
                             exchange["run_sequence"],
                             exchange["acquisition_id"],
+                            exchange["endpoint_id"],
+                            exchange["data_id"],
                             bytes.fromhex(exchange["request_hex"]),
-                            response,
+                            None if exchange["response_hex"] is None else bytes.fromhex(exchange["response_hex"]),
                             exchange["outcome"],
+                            exchange["negative_response_code"],
                             exchange["latency_ms"],
+                            exchange["response_elapsed_ms"],
+                            exchange["response_utc"],
                             _canonical_json(exchange),
-                        ),
-                    )
-                    for observation in exchange["observations"]:
-                        connection.execute(
-                            "INSERT INTO signal_observation("
-                            "run_id, sequence, signal_ref, raw_value, decoded_value, applicability"
-                            ") VALUES (?, ?, ?, ?, ?, ?)",
-                            (
-                                run.run_id,
-                                exchange["run_sequence"],
-                                observation["signal_ref"],
-                                bytes.fromhex(observation["raw_hex"]),
-                                observation["decoded_value"],
-                                observation["applicability"],
-                            ),
                         )
-        self._rebuild_did_status(connection)
+                        for exchange in segment.exchanges
+                    ],
+                )
+                connection.executemany(
+                    "INSERT INTO signal_observation("
+                    "run_id, sequence, signal_ref, raw_value, decoded_value, applicability"
+                    ") VALUES (?, ?, ?, ?, ?, ?)",
+                    [
+                        (
+                            run.run_id,
+                            exchange["run_sequence"],
+                            observation["signal_ref"],
+                            bytes.fromhex(observation["raw_hex"]),
+                            observation["decoded_value"],
+                            observation["applicability"],
+                        )
+                        for exchange in segment.exchanges
+                        for observation in exchange["observations"]
+                    ],
+                )
 
     @staticmethod
     def _rebuild_did_status(connection: sqlite3.Connection) -> None:
         grouped: dict[tuple[str, str], dict[str, int]] = {}
-        for (document_json,) in connection.execute(
-            "SELECT document_json FROM acquisition_exchange ORDER BY run_id, sequence"
+        for endpoint_id, data_id, outcome, code in connection.execute(
+            "SELECT endpoint_id, data_id, outcome, negative_response_code "
+            "FROM acquisition_exchange ORDER BY run_id, sequence"
         ):
-            exchange = json.loads(document_json)
-            key = (exchange["endpoint_id"], exchange["data_id"])
-            label = (
-                "supported"
-                if exchange["outcome"] == "positive"
-                else str(exchange["negative_response_code"] or "negative")
-            )
-            counts = grouped.setdefault(key, {})
+            label = "supported" if outcome == "positive" else str(code or "negative")
+            counts = grouped.setdefault((endpoint_id, data_id), {})
             counts[label] = counts.get(label, 0) + 1
         connection.execute("DELETE FROM did_status")
-        for (endpoint_id, data_id), counts in sorted(grouped.items()):
-            status = next(iter(counts)) if len(counts) == 1 else "conflicting"
-            connection.execute(
-                "INSERT INTO did_status(endpoint_id, data_id, status, document_json) VALUES (?, ?, ?, ?)",
+        connection.executemany(
+            "INSERT INTO did_status(endpoint_id, data_id, status, document_json) VALUES (?, ?, ?, ?)",
+            [
                 (
                     endpoint_id,
                     data_id,
-                    status,
-                    _canonical_json(
-                        {"authority": "provisional_legacy_import", "counts": counts}
-                    ),
-                ),
-            )
+                    next(iter(counts)) if len(counts) == 1 else "conflicting",
+                    _canonical_json({"authority": "provisional_legacy_import", "counts": counts}),
+                )
+                for (endpoint_id, data_id), counts in sorted(grouped.items())
+            ],
+        )
 
 
 def _normalized_catalog_rows(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -963,6 +1060,7 @@ def _create_cache_schema(connection: sqlite3.Connection) -> None:
         CREATE TABLE run (
             run_id TEXT PRIMARY KEY,
             origin TEXT NOT NULL,
+            files_sha256 TEXT NOT NULL,
             document_json TEXT NOT NULL
         );
         CREATE TABLE segment (
@@ -978,10 +1076,15 @@ def _create_cache_schema(connection: sqlite3.Connection) -> None:
             run_id TEXT NOT NULL REFERENCES run(run_id),
             sequence INTEGER NOT NULL,
             acquisition_id TEXT NOT NULL,
+            endpoint_id TEXT NOT NULL,
+            data_id TEXT NOT NULL,
             request BLOB NOT NULL,
             response BLOB,
             outcome TEXT NOT NULL,
+            negative_response_code,
             latency_ms INTEGER,
+            response_elapsed_ms INTEGER NOT NULL,
+            response_utc TEXT,
             document_json TEXT NOT NULL,
             PRIMARY KEY(run_id, sequence)
         );
@@ -995,6 +1098,7 @@ def _create_cache_schema(connection: sqlite3.Connection) -> None:
             PRIMARY KEY(run_id, sequence, signal_ref),
             FOREIGN KEY(run_id, sequence) REFERENCES acquisition_exchange(run_id, sequence)
         );
+        CREATE INDEX signal_observation_by_signal ON signal_observation(signal_ref);
         CREATE TABLE did_status (
             endpoint_id TEXT NOT NULL REFERENCES endpoint(id),
             data_id TEXT NOT NULL,

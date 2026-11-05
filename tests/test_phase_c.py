@@ -352,6 +352,73 @@ class PlanningAndExportTests(unittest.TestCase):
             repository.rebuild_cache(rows, repository.paths.captures)
             self.assertEqual(repository.cache_snapshot(), incremental)
 
+    def test_refresh_redoes_only_what_changed_and_equals_a_rebuild(self) -> None:
+        import shutil
+        from unittest import mock
+
+        from toyota_telemetry import repository as repository_module
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "vehicle"
+            root.mkdir()
+            repository, rows = current_repository(root)
+            repository = author_collection_policy(repository, rows, minimum_observations=10)
+            captures = repository.paths.captures
+            plan_path = repository.paths.plans / "admitted-plan.json"
+            plan, _ = compile_plan(
+                repository, available_disk_mib=4096, created_utc="2026-01-01T00:00:00Z", output=plan_path,
+            )
+            acquisition = plan["acquisitions"][0]
+            run_id = str(uuid.uuid4())
+            writer = NativeRunWriter(
+                captures, plan, plan_path.read_bytes(), run_id=run_id,
+                created_utc="2026-01-01T00:00:00Z", backend_kind="synthetic", disk_free_bytes=lambda _: 10**12,
+            )
+            writer.append_exchange({
+                "acquisition_id": acquisition["acquisition_id"], "endpoint_id": acquisition["endpoint_id"],
+                "data_id": acquisition["data_id"], "response_utc": "2026-01-01T00:00:00Z",
+                "request_elapsed_ms": 0, "response_elapsed_ms": 10, "request_hex": acquisition["request_hex"],
+                "response_hex": "62 10 02 00 01", "outcome": "positive", "negative_response_code": None,
+                "pending_count": 0, "pending_duration_ms": 0, "latency_ms": 10, "retry_count": 0,
+                "scheduler_reason": "target_due", "objective_ids": acquisition["objective_ids"],
+                "observations": [{"signal_ref": SIGNAL, "raw_hex": "00 01", "decoded_value": 0.001,
+                                  "applicability": "true"}],
+            })
+            writer.finish("operator_stop")
+            read: list = []
+            real_load = repository_module.load_capture_tree
+
+            def counting_load(captures_root, project_root, names=None):
+                read.append(None if names is None else set(names))
+                return real_load(captures_root, project_root, names)
+
+            def refresh_and_compare(expected_reads: list) -> None:
+                current = ProjectRepository(root)
+                read.clear()
+                with mock.patch.object(repository_module, "load_capture_tree", counting_load):
+                    self.assertTrue(current.refresh_cache(rows, captures))
+                self.assertEqual(read, expected_reads)
+                incremental = current.cache_snapshot()
+                current.paths.database.unlink()
+                current.rebuild_cache(rows, captures)
+                self.assertEqual(current.cache_snapshot(), incremental)
+
+            # A new run: only that run is read.
+            refresh_and_compare([{run_id}])
+            # A changed target: no run is read again.
+            author = ProjectRepository(root)
+            policy = dict(author.policy)
+            policy["targets"] = [{**policy["targets"][0], "requirements": {"minimum_samples": 2}}]
+            author.write_authored_document("collection_policy", policy)
+            refresh_and_compare([])
+            self.assertTrue(ProjectRepository(root).replay_progress()[0]["complete"])
+            # A deleted run: nothing is read; its rows go.
+            shutil.rmtree(captures / run_id)
+            refresh_and_compare([])
+            self.assertEqual(len(ProjectRepository(root).signal_observations(SIGNAL)), 1)
+            # Nothing changed: no work at all.
+            self.assertFalse(ProjectRepository(root).refresh_cache(rows, captures))
+
     def test_export_is_reproducible_and_privacy_minimized(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "vehicle"

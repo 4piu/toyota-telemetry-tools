@@ -141,6 +141,15 @@ will run. Everything else is safe to take.
 
 ### Fixed
 
+- The cache no longer rebuilds from every run when something changes. A
+  deleted or new run re-reads only that run, and an edited target, signal,
+  or transport replaces only those small tables; the result is identical to
+  a full rebuild. Target progress replays only the targets and the signals
+  their conditions read. Measured on a 108-run workspace: deleting a run
+  48 s -> about 2 s, editing a target 48 s -> about 2 s. The cache schema is
+  now 4, so the first start after updating rebuilds it once.
+- Desktop step bar: steps with fewer status lines were shorter than the
+  others and centred; every step now has the height of the tallest.
 - A live collection keeps the computer from sleeping (Windows
   SetThreadExecutionState; macOS `caffeinate`), in the desktop application
   and the CLI. A laptop that slept mid-run left the run silent for 43

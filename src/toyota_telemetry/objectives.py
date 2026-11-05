@@ -4,11 +4,19 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from functools import lru_cache
 from datetime import datetime
 import math
 from typing import Any, Iterable, Mapping
 
 from .identity import SignalRef
+
+
+@lru_cache(maxsize=None)
+def _signal(signal_ref: str) -> SignalRef:
+    """Parsed once per distinct reference; replays sort and look up hundreds of thousands."""
+
+    return SignalRef.parse(signal_ref)
 
 
 @dataclass(frozen=True)
@@ -48,7 +56,7 @@ def evaluate_condition(
             return "true"
         return "unknown" if "unknown" in states else "false"
 
-    observation = context.get(str(SignalRef.parse(node["signal_ref"])))
+    observation = context.get(str(_signal(node["signal_ref"])))
     if (
         observation is None
         or observation.run_id != run_id
@@ -165,7 +173,7 @@ def replay_targets(
         if run_id != current_run:
             context.clear()
             current_run = run_id
-        ordered = sorted(exchange_observations, key=lambda item: SignalRef.parse(item.signal_ref))
+        ordered = sorted(exchange_observations, key=lambda item: _signal(item.signal_ref))
         for observation in ordered:
             context[observation.signal_ref] = observation
         for observation in ordered:
