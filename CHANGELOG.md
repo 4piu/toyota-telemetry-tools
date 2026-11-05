@@ -18,6 +18,11 @@ will run. Everything else is safe to take.
   gone from JSON and CSV, which gain `ecu` and `recorded`. Exported target
   progress keeps only the states a target requires. Recorded minima and
   maxima had published readings such as the odometer.
+- `telemetry source import tis` reads the Techstream database through the
+  bundled 32-bit `telemetry-tisdb.exe` (built by `backends\build.ps1` with
+  the workers) instead of `query-techstream-db.ps1`, which is removed. Its
+  output matched the script's record for record on an installed database.
+  Rebuild the workers before importing.
 - Each export generation adds `signals.md`, a readable reference with one
   table per ECU: DID, bits, name, formula as scale and offset, unit,
   evidence, and recorded status.

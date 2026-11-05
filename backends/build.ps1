@@ -16,6 +16,11 @@
     Telemetry.Backend.Gsusb\runtime\. slcan builds AnyCPU: it only talks to a
     CDC-ACM virtual COM port through System.IO.Ports, no native dependency.
 
+    telemetry-tisdb is not a worker: it reads an installed Techstream (TIS)
+    database for `telemetry source import tis` and never talks to a vehicle.
+    It builds x86 without the CAN core because Techstream's KgpDataCtrl.dll
+    is 32-bit.
+
     By default the workers go into the Python package
     (src\toyota_telemetry\workers), where the tool finds them and from which
     a wheel bundles them.
@@ -25,7 +30,7 @@
     .\build.ps1 -Backend pcan -OutputDirectory C:\temp\workers
 #>
 param(
-    [ValidateSet('all', 'pcan', 'j2534', 'gsusb', 'slcan')]
+    [ValidateSet('all', 'pcan', 'j2534', 'gsusb', 'slcan', 'tisdb')]
     [string]$Backend = 'all',
 
     [ValidateSet('Release', 'Debug')]
@@ -57,7 +62,8 @@ function Build-Backend {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $true)][string]$ProjectDirectory,
-        [Parameter(Mandatory = $true)][string]$Platform
+        [Parameter(Mandatory = $true)][string]$Platform,
+        [switch]$WithoutCore
     )
 
     $frameworkDirectory = if ($Platform -eq 'x64') { 'Framework64' } else { 'Framework' }
@@ -91,7 +97,9 @@ function Build-Backend {
         $arguments += '/debug:full'
         $arguments += '/define:DEBUG;TRACE'
     }
-    $arguments += $coreSources
+    if (-not $WithoutCore) {
+        $arguments += $coreSources
+    }
     $arguments += $projectSources
 
     & $compiler @arguments
@@ -130,6 +138,12 @@ if ($Backend -eq 'all' -or $Backend -eq 'slcan') {
         -Platform 'anycpu'
 }
 
+if ($Backend -eq 'all' -or $Backend -eq 'tisdb') {
+    Build-Backend -Name 'telemetry-tisdb' `
+        -ProjectDirectory (Join-Path $PSScriptRoot 'Telemetry.TisDb') `
+        -Platform 'x86' -WithoutCore
+}
+
 Write-Output ''
 Write-Output "Verify the build before connecting to a vehicle:"
 if ($Backend -eq 'all' -or $Backend -eq 'pcan') {
@@ -143,4 +157,7 @@ if ($Backend -eq 'all' -or $Backend -eq 'gsusb') {
 }
 if ($Backend -eq 'all' -or $Backend -eq 'slcan') {
     Write-Output "  $OutputDirectory\telemetry-slcan.exe --self-test"
+}
+if ($Backend -eq 'all' -or $Backend -eq 'tisdb') {
+    Write-Output "  $OutputDirectory\telemetry-tisdb.exe --self-test"
 }

@@ -17,9 +17,11 @@ import subprocess
 from typing import Any, Iterable
 
 from ..identity import SignalRef, stable_slug
+from ..project import WORKERS
 
 
-QUERY_SCRIPT = Path(__file__).with_name("query-techstream-db.ps1")
+# Techstream's database DLL is 32-bit, so a bundled 32-bit helper reads it.
+TISDB = "telemetry-tisdb.exe"
 _PHASE = re.compile(r"_P(\d)\.ddb$", re.IGNORECASE)
 _HEX = re.compile(r"(?:0x)?([0-9A-Fa-f]+)")
 _TIS_ROW_FIELDS = (
@@ -114,7 +116,7 @@ class NormalizedFileSource:
 
 
 class TisDatabaseSource:
-    """Installed Techstream Phase-5 databases read through 32-bit PowerShell.
+    """Installed Techstream Phase-5 databases read through the bundled telemetry-tisdb helper.
 
     Selection narrows the installed ECU catalog by database phase and ECU key.
     Database records are candidates; only verification establishes support.
@@ -141,8 +143,8 @@ class TisDatabaseSource:
     def availability(self) -> str | None:
         if os.name != "nt":
             return "the TIS database reader needs Windows (32-bit Techstream libraries)"
-        if not _powershell_x86().is_file():
-            return "32-bit Windows PowerShell was not found"
+        if not (WORKERS / TISDB).is_file():
+            return f"{TISDB} is missing from this installation; build it with backends\\build.ps1"
         if not (self.database_directory / "DB").is_dir():
             return f"no DB folder under the database directory {self.database_directory.name}"
         return None
@@ -152,7 +154,7 @@ class TisDatabaseSource:
         if problem:
             raise FileNotFoundError(problem)
         catalog = [
-            row for row in self._query(["-Catalog"])
+            row for row in self._query(["--catalog"])
             if row.get("Ecu") and row.get("File") and row.get("Key") is not None
         ]
         installed = {path.name.lower() for path in (self.database_directory / "DB").glob("*.ddb")}
@@ -181,12 +183,12 @@ class TisDatabaseSource:
     def _ecu_rows(self, ecu: dict[str, Any]) -> list[dict[str, Any]]:
         key = ecu["key"]
         monitors = [
-            row for row in self._query(["-Keys", str(key), "-NoRaw"])
+            row for row in self._query(["--keys", str(key), "--monitors"])
             if row.get("Status") == "0x00000000" and row.get("Name")
         ]
         protocol = next(
             (
-                row for row in self._query(["-Keys", str(key), "-ProtocolInfo", "-NoRaw"])
+                row for row in self._query(["--keys", str(key), "--protocol"])
                 if row.get("Status") == "0x00000000" and int(row.get("Count", 0) or 0) > 0
             ),
             {},
@@ -194,13 +196,13 @@ class TisDatabaseSource:
         groups = sorted({str(row["PhysicalGroup"]) for row in monitors if row.get("PhysicalGroup")})
         physical: dict[str, dict[str, Any]] = {}
         for chunk in _chunks(groups):
-            for row in self._query(["-Keys", str(key), "-PhysicalGroups", ",".join(chunk), "-NoRaw"]):
+            for row in self._query(["--keys", str(key), "--physical", ",".join(chunk)]):
                 if row.get("Status") == "0x00000000" and int(row.get("Count", 0) or 0) > 0:
                     physical[str(row["PhysicalGroup"])] = row
         unit_ids = sorted({str(row["UnitId"]) for row in physical.values() if row.get("UnitId") is not None})
         units: dict[str, str] = {}
         for chunk in _chunks(unit_ids):
-            for row in self._query(["-Keys", str(key), "-UnitIds", ",".join(chunk), "-NoRaw"]):
+            for row in self._query(["--keys", str(key), "--units", ",".join(chunk)]):
                 if row.get("Status") == "0x00000000" and int(row.get("Count", 0) or 0) > 0:
                     units[str(row["UnitId"])] = row.get("Unit") or ""
         rows = []
@@ -229,17 +231,16 @@ class TisDatabaseSource:
 
     def _query(self, arguments: list[str]) -> list[dict[str, Any]]:
         command = [
-            str(_powershell_x86()), "-NoProfile", "-ExecutionPolicy", "Bypass",
-            "-File", str(QUERY_SCRIPT),
-            "-DatabaseDirectory", str(self.database_directory),
-            "-TextCodePage", str(self.text_code_page),
+            str(WORKERS / TISDB),
+            "--database", str(self.database_directory),
+            "--code-page", str(self.text_code_page),
         ]
         if self.techstream_bin_directory is not None:
-            command += ["-TechstreamBinDirectory", str(self.techstream_bin_directory)]
-        command += [*arguments, "-OutputFormat", "JsonLines"]
+            command += ["--bin", str(self.techstream_bin_directory)]
+        command += arguments
         result = subprocess.run(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            encoding="utf-8-sig", errors="replace", check=False,
+            encoding="utf-8", errors="replace", check=False,
         )
         if result.returncode:
             raise RuntimeError(f"TIS query failed ({result.returncode}): {result.stderr.strip()}")
@@ -291,8 +292,3 @@ def _formula_for(physical: dict[str, Any] | None) -> tuple[str, str]:
 def _chunks(values: list[str], size: int = 300) -> Iterable[list[str]]:
     for start in range(0, len(values), size):
         yield values[start:start + size]
-
-
-def _powershell_x86() -> Path:
-    windows = Path(os.environ.get("WINDIR", r"C:\Windows"))
-    return windows / "SysWOW64" / "WindowsPowerShell" / "v1.0" / "powershell.exe"

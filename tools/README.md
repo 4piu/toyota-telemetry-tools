@@ -10,9 +10,9 @@ This directory contains offline utilities, run from a toolkit checkout:
 - `privacy-scan.ps1` checks a tree for private material before publishing.
 
 Candidate lists are imported with `telemetry source import` (or the desktop
-Setup page). The TIS database reader that import uses is shipped inside the
-package as `src/toyota_telemetry/operator/query-techstream-db.ps1`; it can
-also be run directly for investigation.
+Setup page). The TIS database reader that import uses is the bundled
+`telemetry-tisdb.exe` helper (source in `backends/Telemetry.TisDb/`); run it
+with `--help` to query the database directly for investigation.
 
 OEM databases, vendor libraries, raw logs, and complete derived atlases are
 private inputs. Keep them in the workspace or another private folder, and

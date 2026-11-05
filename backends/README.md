@@ -50,6 +50,7 @@ the admitted plan into a temporary exact worker config.
 .\bin\Release\telemetry-j2534.exe --self-test
 .\bin\Release\telemetry-gsusb.exe --self-test
 .\bin\Release\telemetry-slcan.exe --self-test
+.\bin\Release\telemetry-tisdb.exe --self-test
 ```
 
 Self-test checks ISO-TP framing, the built-in telemetry guard, and
@@ -58,6 +59,17 @@ command-line arguments fail. The only other accepted process forms are the
 private `--worker --config PATH` protocol launched by collection and the
 private `--probe --config PATH` protocol launched by verification; operators
 should not invoke either directly.
+
+## Techstream database helper
+
+`telemetry-tisdb.exe` (`Telemetry.TisDb/`) is not a worker and never talks to
+a vehicle. `telemetry source import tis` runs it to read an installed
+Techstream database through Techstream's own `KgpDataCtrl.dll`, which is
+32-bit, so the helper builds x86 and without the CAN core. It writes one JSON
+record per line: the ECU catalog, data-monitor records, protocol CAN IDs,
+physical-conversion groups, and unit strings. Run it with `--help` for the
+query forms; `--self-test` checks argument parsing, record output, and code
+page 932 text without opening a database.
 
 ## Safety boundary
 

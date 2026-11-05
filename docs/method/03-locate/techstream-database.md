@@ -21,7 +21,7 @@ physical = ((raw * A / B) + C) / (10 ** N)
 
 Preserve `A`, `B`, `C`, and `N` as well as a rendered expression. Negative physical ranges do not prove the raw field is signed; an unsigned field plus a negative offset is common.
 
-[The database utility](../../../src/toyota_telemetry/operator/query-techstream-db.ps1) exposes observed Techstream structures and requires an x86 process because the examined controller DLL is 32-bit. Its table layouts are version-specific implementation findings, not an official schema.
+[The database helper](../../../backends/Telemetry.TisDb/) (`telemetry-tisdb.exe`, built with the workers) exposes observed Techstream structures through Techstream's own controller DLL, one JSON record per line; it is a 32-bit program because that DLL is 32-bit. Run it with `--help` to query tables directly for investigation. Its table layouts are version-specific implementation findings, not an official schema.
 
 ## Output and limits
 
