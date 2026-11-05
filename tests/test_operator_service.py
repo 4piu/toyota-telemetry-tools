@@ -286,17 +286,31 @@ class ReadinessAndCollectionTests(ServiceTestCase):
     def test_rotation_confirms_every_endpoint_once_and_runs_until_targets_are_met(self) -> None:
         self.import_rows()
         self.target_battery(samples=3)
+        from toyota_telemetry.operator.collection import SEQUENTIAL, SLICES, Rotation
+
         single = self.service.readiness()
-        rotation = self.service.readiness(rotate_slice_seconds=300)
+        self.assertEqual(single.summary["endpoint_targets"], {ENDPOINT_ID: 1})
+        rotation = self.service.readiness(rotation=Rotation(SLICES, 300))
         self.assertTrue(rotation.ready, rotation.problems)
         self.assertIsNone(rotation.endpoint_id)
-        self.assertEqual(rotation.rotation_slice_seconds, 300)
-        self.assertEqual(rotation.scope["rotation"], {"slice_seconds": 300, "order": [ENDPOINT_ID]})
+        expected = {"strategy": SLICES, "slice_seconds": 300, "order": [ENDPOINT_ID]}
+        self.assertEqual(rotation.rotation, expected)
+        self.assertEqual(rotation.scope["rotation"], expected)
         self.assertEqual(rotation.scope["endpoints"][0]["acquisitions"], single.scope["acquisitions"])
         self.assertNotEqual(rotation.digest, single.digest)
-        short = self.service.readiness(rotate_slice_seconds=30)
+        short = self.service.readiness(rotation=Rotation(SLICES, 30))
         self.assertFalse(short.ready)
         self.assertIn("shorter than 60 s", short.problems[0].message)
+        # One after another has no time limit, whatever slice is given.
+        sequential = self.service.readiness(rotation=Rotation(SEQUENTIAL, 30))
+        self.assertTrue(sequential.ready, sequential.problems)
+        self.assertEqual(sequential.rotation["slice_seconds"], None)
+        self.assertNotEqual(sequential.digest, rotation.digest)
+        # Only ready endpoints can be chosen.
+        unknown = self.service.readiness(rotation=Rotation(SLICES, 300, (ENDPOINT_ID, "7a1-7a9-other")))
+        self.assertFalse(unknown.ready)
+        self.assertIn("7a1-7a9-other has no unfinished targets", unknown.problems[0].message)
+        self.assertEqual(unknown.rotation["order"], [ENDPOINT_ID])
         events: list[dict] = []
         with mock.patch("toyota_telemetry.collection_service.JsonlWorkerClient", FakeWorker):
             reason = self.service.collect(rotation, note=None, event_sink=events.append,
@@ -313,8 +327,9 @@ class ReadinessAndCollectionTests(ServiceTestCase):
             reads = [{"acquisition_id": f"{endpoint}/0x1002", "request_hex": "22 10 02"}, *extra]
             return {"connector": {"kind": "pcan"}, "endpoint": {"endpoint_id": endpoint}, "acquisitions": reads}
 
-        confirmed = CollectionReadiness(True, endpoints=["A", "B"], rotation_slice_seconds=120, scope={
-            "connector": {"kind": "pcan"}, "rotation": {"slice_seconds": 120, "order": ["A", "B"]},
+        turns = {"strategy": "slices", "slice_seconds": 120, "order": ["A", "B"]}
+        confirmed = CollectionReadiness(True, endpoints=["A", "B"], rotation=turns, scope={
+            "connector": {"kind": "pcan"}, "rotation": turns,
             "endpoints": [{**scope("A"), "targets": []}, {**scope("B"), "targets": []}],
         })
         # Turn 1: A uses its slice, B finishes. Turn 2: A finishes, B has nothing left. Turn 3: done.
@@ -342,6 +357,22 @@ class ReadinessAndCollectionTests(ServiceTestCase):
             )
         self.assertEqual(reason, "plan_complete")
         self.assertEqual(runs, [("A", 120_000), ("B", 120_000), ("A", 120_000)])
+
+        # One after another: each turn runs until its targets are met.
+        sequential = {"strategy": "sequential", "slice_seconds": None, "order": ["B", "A"]}
+        in_order = CollectionReadiness(True, endpoints=["A", "B"], rotation=sequential,
+                                       scope={**confirmed.scope, "rotation": sequential})
+        states = {"A": ["ready", "complete"], "B": ["ready", "complete"]}
+        reasons = iter(["plan_complete", "plan_complete"])
+        runs.clear()
+        with mock.patch.object(collection, "collection_readiness", readiness), \
+                mock.patch.object(collection, "run_collection", run), \
+                mock.patch.object(collection, "refresh_cache"):
+            reason = collection.start_collection(
+                repository, {}, in_order, note=None, event_sink=lambda _event: None, stop_event=threading.Event(),
+            )
+        self.assertEqual(reason, "plan_complete")
+        self.assertEqual(runs, [("B", None), ("A", None)])
 
         # A turn that would send a read the operator did not confirm is refused before it starts.
         grown = lambda _r, _i, *, endpoint_id: CollectionReadiness(  # noqa: E731

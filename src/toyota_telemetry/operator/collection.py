@@ -32,6 +32,30 @@ class Problem:
         return {"message": self.message, "hint": self.hint, "command": self.command, "page": self.page}
 
 
+SLICES = "slices"
+SEQUENTIAL = "sequential"
+# How one confirmed collection takes several endpoints: name -> label. A
+# strategy only decides each turn's time limit (and, later, the next
+# endpoint); confirmation and the per-turn scope check are shared.
+STRATEGIES = {
+    SLICES: "Switch every few minutes",
+    SEQUENTIAL: "One after another, each until done",
+}
+MIN_SLICE_SECONDS = 60
+
+
+@dataclass(frozen=True)
+class Rotation:
+    """A request to take several endpoints in turn."""
+
+    strategy: str = SLICES
+    slice_seconds: int | None = 300  # SLICES only
+    endpoints: tuple[str, ...] = ()  # the order; empty means every ready endpoint
+
+    def turn_limit_ms(self) -> int | None:
+        return self.slice_seconds * 1000 if self.strategy == SLICES and self.slice_seconds else None
+
+
 @dataclass
 class CollectionReadiness:
     ready: bool
@@ -42,14 +66,15 @@ class CollectionReadiness:
     summary: dict[str, Any] = field(default_factory=dict)
     scope: dict[str, Any] = field(default_factory=dict)
     digest: str | None = None
-    # Set when one confirmed collection takes the endpoints in turn.
-    rotation_slice_seconds: int | None = None
+    # Set when one confirmed collection takes several endpoints in turn:
+    # {"strategy", "slice_seconds", "order"}, as confirmed in the scope.
+    rotation: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "ready": self.ready,
             "complete": self.complete,
-            "rotation_slice_seconds": self.rotation_slice_seconds,
+            "rotation": self.rotation,
             "problems": [problem.as_dict() for problem in self.problems],
             "endpoints": list(self.endpoints),
             "endpoint_id": self.endpoint_id,
@@ -64,13 +89,13 @@ def collection_readiness(
     inventory: Mapping[str, Any],
     *,
     endpoint_id: str | None = None,
-    rotate_slice_seconds: int | None = None,
+    rotation: Rotation | None = None,
     available_disk_mib: int | None = None,
 ) -> CollectionReadiness:
     """Compile the current collection scope without opening a connector.
 
-    With ``rotate_slice_seconds``, the scope covers every ready endpoint and
-    one collection takes them in turn, one run per endpoint and time slice.
+    With ``rotation``, the scope covers the chosen endpoints and one
+    collection takes them in turn, one run per endpoint and turn.
     """
 
     readiness = CollectionReadiness(False)
@@ -98,8 +123,8 @@ def collection_readiness(
         return readiness
 
     readiness.endpoints = [row["endpoint_id"] for row in plan["endpoint_sessions"]]
-    if rotate_slice_seconds is not None:
-        return _rotation_readiness(repository, readiness, plan, plan_sha256, rotate_slice_seconds)
+    if rotation is not None:
+        return _rotation_readiness(repository, readiness, plan, plan_sha256, rotation)
     if endpoint_id is None and len(readiness.endpoints) == 1:
         endpoint_id = readiness.endpoints[0]
     if endpoint_id is None:
@@ -123,6 +148,7 @@ def collection_readiness(
         "unfinished_targets": len({ref for row in acquisitions for ref in row["objective_ids"]}),
         "dids": len(acquisitions),
         "endpoint_count": len(readiness.endpoints),
+        "endpoint_targets": _endpoint_targets(plan),
         "estimated_bus_utilization": (
             loads[endpoint_id]["bus_utilization"] if endpoint_id in loads else None
         ),
@@ -142,40 +168,53 @@ def collection_readiness(
     return readiness
 
 
-MIN_SLICE_SECONDS = 60
-
-
 def _rotation_readiness(
     repository: ProjectRepository,
     readiness: CollectionReadiness,
     plan: Mapping[str, Any],
     plan_sha256: str,
-    slice_seconds: int,
+    rotation: Rotation,
 ) -> CollectionReadiness:
-    """One scope over every ready endpoint, collected in turn."""
+    """One scope over the chosen endpoints, collected in turn."""
 
-    readiness.rotation_slice_seconds = slice_seconds
-    if slice_seconds < MIN_SLICE_SECONDS:
+    order = list(dict.fromkeys(rotation.endpoints)) or list(readiness.endpoints)
+    for endpoint_id in order:
+        if endpoint_id not in readiness.endpoints:
+            readiness.problems.append(Problem(
+                f"{endpoint_id} has no unfinished targets ready to collect",
+                "Leave it out", "telemetry collect --rotate --endpoint ENDPOINT ...", "collect",
+            ))
+    order = [endpoint_id for endpoint_id in order if endpoint_id in readiness.endpoints]
+    if rotation.strategy not in STRATEGIES:
         readiness.problems.append(Problem(
-            f"a time slice of {slice_seconds} s is shorter than {MIN_SLICE_SECONDS} s",
+            f"unknown strategy {rotation.strategy!r}", "Choose " + " or ".join(STRATEGIES),
+            "telemetry collect --rotate --strategy " + SLICES, "collect",
+        ))
+    slice_seconds = rotation.slice_seconds if rotation.strategy == SLICES else None
+    if rotation.strategy == SLICES and (slice_seconds or 0) < MIN_SLICE_SECONDS:
+        readiness.problems.append(Problem(
+            f"a time slice of {slice_seconds or 0} s is shorter than {MIN_SLICE_SECONDS} s",
             "Switch ECUs less often", "telemetry collect --rotate --slice 5m", "collect",
         ))
-    loads = plan["stress"]["endpoint_loads"]
+    readiness.rotation = {"strategy": rotation.strategy, "slice_seconds": slice_seconds, "order": order}
+    acquisitions = [row for row in plan["acquisitions"] if row["endpoint_id"] in order]
+    loads = [row for row in plan["stress"]["endpoint_loads"] if row["endpoint_id"] in order]
     readiness.summary = {
-        "unfinished_targets": len({ref for row in plan["acquisitions"] for ref in row["objective_ids"]}),
-        "dids": len(plan["acquisitions"]),
-        "endpoint_count": len(readiness.endpoints),
+        "unfinished_targets": len({ref for row in acquisitions for ref in row["objective_ids"]}),
+        "dids": len(acquisitions),
+        "endpoint_count": len(order),
+        "endpoint_targets": _endpoint_targets(plan),
         # One endpoint is read at a time, so the busiest one sets the peak.
         "estimated_bus_utilization": max((row["bus_utilization"] for row in loads), default=None),
         "request_rate_hz": max((row["request_rate_hz"] for row in loads), default=None),
         "capture_tree_max_mib": plan["storage"]["capture_tree_max_mib"],
         "plan_sha256": plan_sha256,
     }
-    if repository.local_settings is not None:
-        endpoints = [_endpoint_scope(plan, endpoint_id) for endpoint_id in readiness.endpoints]
+    if repository.local_settings is not None and order:
+        endpoints = [_endpoint_scope(plan, endpoint_id) for endpoint_id in order]
         readiness.scope = {
             "connector": _connector(repository),
-            "rotation": {"slice_seconds": slice_seconds, "order": list(readiness.endpoints)},
+            "rotation": dict(readiness.rotation),
             "endpoints": endpoints,
             "targets": sorted({ref for row in endpoints for ref in row["targets"]}),
             "storage": plan["storage"],
@@ -184,6 +223,15 @@ def _rotation_readiness(
         readiness.digest = scope_hash(readiness.scope)
     readiness.ready = not readiness.problems
     return readiness
+
+
+def _endpoint_targets(plan: Mapping[str, Any]) -> dict[str, int]:
+    """Unfinished targets per ready endpoint, for choosing which to collect."""
+
+    targets: dict[str, set[str]] = {row["endpoint_id"]: set() for row in plan["endpoint_sessions"]}
+    for row in plan["acquisitions"]:
+        targets[row["endpoint_id"]].update(row["objective_ids"])
+    return {endpoint_id: len(refs) for endpoint_id, refs in targets.items()}
 
 
 def _connector(repository: ProjectRepository) -> dict[str, Any]:
@@ -222,7 +270,7 @@ def start_collection(
 ) -> str:
     """Run one live collection for a ready scope while owning the project."""
 
-    if readiness.ready and readiness.rotation_slice_seconds is not None:
+    if readiness.ready and readiness.rotation is not None:
         return _rotate(repository, inventory, readiness, note=note, event_sink=event_sink, stop_event=stop_event)
     if not readiness.ready or readiness.endpoint_id is None:
         raise ValueError("collection is not ready; resolve the readiness problems first")
@@ -251,13 +299,14 @@ def _rotate(
     """Take the confirmed endpoints in turn until every target is met.
 
     Each turn is an ordinary run on one endpoint that ends when its targets
-    are met or its time slice is over. Before each turn the scope is compiled
-    again; it may only shrink as targets complete, never send anything the
-    operator did not confirm.
+    are met or, with the slices strategy, its time slice is over. Before each
+    turn the scope is compiled again; it may only shrink as targets complete,
+    never send anything the operator did not confirm.
     """
 
     confirmed = {row["endpoint"]["endpoint_id"]: row for row in readiness.scope["endpoints"]}
-    slice_ms = readiness.rotation_slice_seconds * 1000
+    rotation = readiness.scope["rotation"]
+    limit_ms = Rotation(rotation["strategy"], rotation["slice_seconds"]).turn_limit_ms()
     with LiveLock(repository):
         while not stop_event.is_set():
             collected = False
@@ -277,7 +326,7 @@ def _rotate(
                     run_note=note,
                     event_sink=event_sink,
                     stop_event=stop_event,
-                    max_duration_ms=slice_ms,
+                    max_duration_ms=limit_ms,
                 )
                 collected = True
                 if reason not in ("slice_end", "plan_complete"):

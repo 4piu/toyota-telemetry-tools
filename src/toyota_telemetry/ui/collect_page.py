@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -25,7 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from toyota_telemetry.operator.collection import CollectionReadiness
+from toyota_telemetry.operator.collection import SLICES, STRATEGIES, CollectionReadiness, Rotation
 from toyota_telemetry.operator.inventory import InventoryTree
 
 from .context import PageContext
@@ -34,8 +36,7 @@ from .jobs import LiveJob
 from .names import count, endpoint_label, still_needed, target_summary
 from .widgets import LIVE_TIP, Disclosure, button_row, mark_live, notice, page_title, set_enabled
 
-# The endpoint box entry that takes every ready endpoint in turn.
-ROTATE = "__rotate__"
+ENDPOINT = Qt.ItemDataRole.UserRole
 SLICE_MINUTES = (2, 5, 10, 15)
 DEFAULT_SLICE_MINUTES = 5
 
@@ -57,10 +58,23 @@ class CollectPage(QWidget):
         readiness_group = QGroupBox("Readiness")
         readiness_layout = QVBoxLayout(readiness_group)
         controls = QHBoxLayout()
-        self.endpoint = QComboBox()
-        self.endpoint.setAccessibleName("Endpoint to collect")
-        self.endpoint.setMinimumContentsLength(28)
-        self.endpoint.activated.connect(lambda _index: self.check_readiness())
+        # ECUs to collect: checked ones are collected, in the list's order.
+        self.ecus = QListWidget()
+        self.ecus.setAccessibleName("ECUs to collect")
+        self.ecus.setToolTip("Check ECUs to collect; drag to order")
+        self.ecus.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.ecus.setMaximumHeight(140)
+        self.ecus.itemChanged.connect(self._ecus_changed)
+        self.ecus.model().rowsMoved.connect(lambda *_: self._ecus_changed())
+        self._order: list[str] = []
+        self._checked: set[str] = set()
+        self._known: set[str] = set()
+        self.strategy = QComboBox()
+        self.strategy.setAccessibleName("How to move between ECUs")
+        self.strategy.setToolTip("How to move between checked ECUs")
+        for key, label in STRATEGIES.items():
+            self.strategy.addItem(label, key)
+        self.strategy.activated.connect(lambda _index: self.check_readiness())
         self.slice = QComboBox()
         self.slice.setAccessibleName("Time on each ECU")
         self.slice.setToolTip("Time on each ECU before the next")
@@ -68,19 +82,17 @@ class CollectPage(QWidget):
             self.slice.addItem(f"{minutes} min", minutes * 60)
         self.slice.setCurrentIndex(SLICE_MINUTES.index(DEFAULT_SLICE_MINUTES))
         self.slice.activated.connect(lambda _index: self.check_readiness())
-        self.slice_label = QLabel("Switch every")
-        self.slice.setVisible(False)
-        self.slice_label.setVisible(False)
         self.check_button = QPushButton("Check")
         self.context.register("collect.readiness", self.check_button, "Recheck; nothing is transmitted")
         self.check_button.clicked.connect(self.check_readiness)
-        controls.addWidget(QLabel("Endpoint"))
-        controls.addWidget(self.endpoint)
-        controls.addWidget(self.slice_label)
-        controls.addWidget(self.slice)
-        controls.addWidget(self.check_button)
-        controls.addStretch(1)
+        controls.addWidget(self.ecus, 1)
+        self.turns = QFormLayout()
+        self.turns.addRow("Several ECUs", self.strategy)
+        self.turns.addRow("Switch every", self.slice)
+        self.turns.addRow(self.check_button)
+        controls.addLayout(self.turns)
         readiness_layout.addLayout(controls)
+        self._show_turn_options(0)
         self.readiness_text = notice("No project open.")
         readiness_layout.addWidget(self.readiness_text)
         self.problem_area = QVBoxLayout()
@@ -173,7 +185,8 @@ class CollectPage(QWidget):
         if self.context.service is None:
             self._show_readiness(None)
             return
-        chosen = self.endpoint.currentData()
+        chosen = [endpoint_id for endpoint_id in self._order if endpoint_id in self._checked]
+        first = not self._known
         self.check_button.setEnabled(False)
         self.readiness_text.setText("Checking…")
 
@@ -184,15 +197,18 @@ class CollectPage(QWidget):
             self.readiness_text.setText(f"Cannot check readiness: {detail.split(chr(10) * 2, 1)[0]}")
             self._update_start()
 
-        slice_seconds = self.slice.currentData()
+        strategy, slice_seconds = self.strategy.currentData(), self.slice.currentData()
 
         def work(service):
-            if chosen == ROTATE:
-                readiness = service.readiness(rotate_slice_seconds=slice_seconds)
+            if len(chosen) == 1:
+                readiness = service.readiness(chosen[0])
+            elif chosen:
+                readiness = service.readiness(rotation=Rotation(strategy, slice_seconds, tuple(chosen)))
             else:
-                readiness = service.readiness(chosen)
-                if chosen is None and len(readiness.endpoints) > 1:
-                    readiness = service.readiness(rotate_slice_seconds=slice_seconds)
+                # First look: every ready ECU is checked, in turn when several.
+                readiness = service.readiness()
+                if first and len(readiness.endpoints) > 1:
+                    readiness = service.readiness(rotation=Rotation(strategy, slice_seconds))
             self._names = service.signal_names(readiness.scope.get("targets", []))
             self._tree = service.tree()
             return readiness
@@ -209,29 +225,23 @@ class CollectPage(QWidget):
             self._update_start()
             return
         self._show_targets(getattr(self, "_tree", None))
-        self.endpoint.blockSignals(True)
-        self.endpoint.clear()
-        if len(readiness.endpoints) > 1:
-            self.endpoint.addItem(f"All {len(readiness.endpoints)}, in turn", ROTATE)
-            self.endpoint.setItemData(0, "One run per ECU and turn", Qt.ItemDataRole.ToolTipRole)
-        for endpoint_id in readiness.endpoints:
-            self.endpoint.addItem(self._label(endpoint_id), endpoint_id)
-            self.endpoint.setItemData(self.endpoint.count() - 1, endpoint_id, Qt.ItemDataRole.ToolTipRole)
-        rotating = readiness.rotation_slice_seconds is not None
-        self.slice_label.setVisible(rotating)
-        self.slice.setVisible(rotating)
-        if rotating:
-            self.endpoint.setCurrentIndex(self.endpoint.findData(ROTATE))
-        elif readiness.endpoint_id:
-            self.endpoint.setCurrentIndex(self.endpoint.findData(readiness.endpoint_id))
-        elif readiness.endpoints:
-            self.endpoint.setCurrentIndex(-1)
-        self.endpoint.blockSignals(False)
+        if readiness.rotation is not None:
+            # The boxes show what would be confirmed.
+            self.strategy.setCurrentIndex(self.strategy.findData(readiness.rotation["strategy"]))
+            if readiness.rotation["slice_seconds"]:
+                self.slice.setCurrentIndex(max(0, self.slice.findData(readiness.rotation["slice_seconds"])))
+        self._fill_ecus(readiness)
+        rotating = readiness.rotation is not None
+        if self._none_checked:
+            self.readiness_text.setText("Check at least one ECU to collect.")
+            self.scope_text.setPlainText("")
+            self._update_start()
+            return
         if readiness.ready:
             summary = readiness.summary
             load = summary["estimated_bus_utilization"]
             where = (
-                f"{summary['endpoint_count']} ECUs in turn, {self.slice.currentText()} each"
+                f"{summary['endpoint_count']} ECUs {self._turns_text(readiness.rotation)}"
                 if rotating else self._label(readiness.endpoint_id)
             )
             self.readiness_text.setText(
@@ -251,6 +261,52 @@ class CollectPage(QWidget):
             for problem in readiness.problems:
                 self._add_problem(problem)
         self._update_start()
+
+    def _fill_ecus(self, readiness: CollectionReadiness) -> None:
+        """List the ready ECUs; keep the user's order and checks, check new ones."""
+
+        ready = list(readiness.endpoints)
+        self._order = [e for e in self._order if e in ready] + [e for e in ready if e not in self._order]
+        for endpoint_id in ready:
+            if endpoint_id not in self._known:
+                self._known.add(endpoint_id)
+                self._checked.add(endpoint_id)
+        self._checked &= set(ready)
+        counts = readiness.summary.get("endpoint_targets", {})
+        self.ecus.blockSignals(True)
+        self.ecus.clear()
+        for endpoint_id in self._order:
+            targets = counts.get(endpoint_id)
+            item = QListWidgetItem(self._label(endpoint_id) + (f"  ({count(targets, 'target')})" if targets else ""))
+            item.setData(ENDPOINT, endpoint_id)
+            item.setToolTip(endpoint_id)
+            item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+                | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsDragEnabled
+            )
+            item.setCheckState(Qt.CheckState.Checked if endpoint_id in self._checked else Qt.CheckState.Unchecked)
+            self.ecus.addItem(item)
+        self.ecus.blockSignals(False)
+        self._none_checked = bool(ready) and not self._checked
+        self._show_turn_options(len(self._checked))
+
+    def _ecus_changed(self, *_args) -> None:
+        self._order = [self.ecus.item(row).data(ENDPOINT) for row in range(self.ecus.count())]
+        self._checked = {
+            self.ecus.item(row).data(ENDPOINT) for row in range(self.ecus.count())
+            if self.ecus.item(row).checkState() == Qt.CheckState.Checked
+        }
+        self.check_readiness()
+
+    def _show_turn_options(self, checked: int) -> None:
+        several = checked > 1
+        self.turns.setRowVisible(self.strategy, several)
+        self.turns.setRowVisible(self.slice, several and self.strategy.currentData() == SLICES)
+
+    def _turns_text(self, rotation: dict) -> str:
+        if rotation["strategy"] == SLICES:
+            return f"in turn, {rotation['slice_seconds'] // 60} min each"
+        return "one after another"
 
     def _label(self, endpoint_id: str | None) -> str:
         return self.labels.get(endpoint_id or "", endpoint_id or "")
@@ -313,7 +369,7 @@ class CollectPage(QWidget):
         mark_live(self.start_button)
         self.start_button.setText("Start")
         self.start_button.setToolTip(self.start_button.property("baseToolTip") or "")
-        ready = self.readiness is not None and self.readiness.ready
+        ready = self.readiness is not None and self.readiness.ready and not getattr(self, "_none_checked", False)
         busy = self.context.live_job_running
         complete = self.readiness is not None and self.readiness.complete
         set_enabled(
@@ -330,7 +386,7 @@ class CollectPage(QWidget):
         service = self.context.service
         if readiness is None or not readiness.ready or service is None:
             return
-        if readiness.rotation_slice_seconds is not None:
+        if readiness.rotation is not None:
             dialog = self._rotation_dialog(readiness)
         else:
             dialog = self._endpoint_dialog(readiness)
@@ -340,12 +396,12 @@ class CollectPage(QWidget):
         self.events.clear()
         self.progress.setVisible(True)
         self.progress.setFormat(
-            "%v of %m targets on this ECU" if readiness.rotation_slice_seconds else "%v of %m targets complete"
+            "%v of %m targets on this ECU" if readiness.rotation else "%v of %m targets complete"
         )
         self.progress.setRange(0, max(1, readiness.summary["unfinished_targets"]))
         self.progress.setValue(0)
         self.run_state.setText("LIVE - starting…")
-        self._rotating = readiness.rotation_slice_seconds is not None
+        self._rotating = readiness.rotation is not None
         self._current = ""
 
         def work(emit, stop):
@@ -365,10 +421,13 @@ class CollectPage(QWidget):
         device = ", ".join(f"{value}" for value in connector["settings"].values())
         details = [
             f"Adapter: {connector['kind']} {device}".rstrip(),
-            f"ECUs in turn, {self.slice.currentText()} each:",
+            f"ECUs {self._turns_text(readiness.rotation)}, in this order:",
             *[f"    {self._label(row['endpoint']['endpoint_id'])}: {count(len(row['targets']), 'signal')}, "
               f"{len(row['acquisitions'])} DID(s)" for row in scope["endpoints"]],
             "One run per ECU and turn; ECUs whose targets are met are skipped.",
+            *(["Each ECU is read until its targets are met: one that cannot be met",
+               "now keeps the next ECUs waiting until you stop."]
+              if readiness.rotation["strategy"] != SLICES else []),
             "Stops when every target is met or you stop it.",
             f"Storage limit: {scope['storage']['capture_tree_max_mib']} MiB",
             f"Note: {self.note.text() or '-'}",
@@ -385,7 +444,8 @@ class CollectPage(QWidget):
             ]
         return LiveConfirmDialog(
             "Collect",
-            f"LIVE collection of {len(scope['targets'])} signal(s) on {len(scope['endpoints'])} ECUs in turn?",
+            f"LIVE collection of {len(scope['targets'])} signal(s) on {len(scope['endpoints'])} ECUs "
+            f"{self._turns_text(readiness.rotation)}?",
             details, self, technical=technical,
         )
 

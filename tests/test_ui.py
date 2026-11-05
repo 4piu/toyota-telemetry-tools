@@ -293,7 +293,7 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     assert item.data(0, Qt.ItemDataRole.UserRole) == "372/0x1002/0..15"
     assert item.text(3) == "1 sample, 1 run"
     assert collect.targets_group.title() == "Targets: 0 of 1 met"
-    assert collect.readiness.endpoint_id not in collect.endpoint.currentText()
+    assert collect.readiness.endpoint_id not in collect.ecus.item(0).text()
     assert collect.start_button.isEnabled()
     collect.confirm_live = lambda dialog: True
     with mock.patch("toyota_telemetry.collection_service.JsonlWorkerClient", FakeWorker):
@@ -403,15 +403,17 @@ def test_shared_signal_names_get_a_greyed_ecu_prefix() -> None:
     assert entries["397/0x1075/0..15"] == ("", "Wheel Speed  (5)", "Hybrid Control\nDID 0x1075")
 
 
-def test_collect_offers_every_endpoint_in_turn(qtbot, project) -> None:
+def test_collect_lists_ecus_to_check_order_and_take_in_turn(qtbot, project) -> None:
+    from PySide6.QtCore import QModelIndex, Qt
     from PySide6.QtWidgets import QPlainTextEdit
 
     from toyota_telemetry.operator.collection import CollectionReadiness
-    from toyota_telemetry.ui.collect_page import ROTATE
 
     root, rows = project
     window = open_window(qtbot, root)
     collect = window.collect_page
+    checks: list[tuple[list[str], set[str]]] = []
+    collect.check_readiness = lambda: checks.append((list(collect._order), set(collect._checked)))
 
     def endpoint(name):
         session = {"endpoint_id": name, "tester_can_id": "0x7E0", "response_can_id": "0x7E8",
@@ -419,30 +421,51 @@ def test_collect_offers_every_endpoint_in_turn(qtbot, project) -> None:
         reads = [{"acquisition_id": f"{name}/0x1002", "request_hex": "22 10 02", "target_interval_ms": 1000}]
         return {"endpoint": session, "acquisitions": reads, "targets": [f"{name}-target"]}
 
-    rotation = CollectionReadiness(
-        True, endpoints=["A", "B"], rotation_slice_seconds=300, digest="f" * 64,
-        summary={"endpoint_count": 2, "unfinished_targets": 2, "dids": 2, "estimated_bus_utilization": 0.004,
-                 "request_rate_hz": 8.0, "capture_tree_max_mib": 64},
-        scope={"connector": {"kind": "pcan", "settings": {"channel": "PCAN_USBBUS1"}},
-               "rotation": {"slice_seconds": 300, "order": ["A", "B"]},
-               "endpoints": [endpoint("A"), endpoint("B")], "targets": ["A-target", "B-target"],
-               "storage": {"capture_tree_max_mib": 64}},
-    )
-    collect._show_readiness(rotation)
-    # "All, in turn" leads the endpoint box and is chosen; the turn length shows with it.
-    assert collect.endpoint.itemData(0) == ROTATE and collect.endpoint.currentData() == ROTATE
-    assert [collect.endpoint.itemText(index) for index in range(collect.endpoint.count())] == ["All 2, in turn", "A", "B"]
-    assert not collect.slice.isHidden() and collect.slice.currentText() == "5 min"
+    def rotation(strategy, slice_seconds, order):
+        turns = {"strategy": strategy, "slice_seconds": slice_seconds, "order": order}
+        return CollectionReadiness(
+            True, endpoints=["A", "B"], rotation=turns, digest="f" * 64,
+            summary={"endpoint_count": len(order), "endpoint_targets": {"A": 1, "B": 3}, "unfinished_targets": 4,
+                     "dids": 2, "estimated_bus_utilization": 0.004, "request_rate_hz": 8.0,
+                     "capture_tree_max_mib": 64},
+            scope={"connector": {"kind": "pcan", "settings": {"channel": "PCAN_USBBUS1"}}, "rotation": turns,
+                   "endpoints": [endpoint(name) for name in order], "targets": [f"{name}-target" for name in order],
+                   "storage": {"capture_tree_max_mib": 64}},
+        )
+
+    slices = rotation("slices", 300, ["A", "B"])
+    collect._show_readiness(slices)
+    # Every ready ECU is listed and checked, with its open targets.
+    items = [collect.ecus.item(row) for row in range(collect.ecus.count())]
+    assert [item.text() for item in items] == ["A  (1 target)", "B  (3 targets)"]
+    assert all(item.checkState() == Qt.CheckState.Checked for item in items)
+    assert collect.turns.isRowVisible(collect.strategy) and collect.turns.isRowVisible(collect.slice)
     assert collect.readiness_text.text().startswith("Ready: 2 ECUs in turn, 5 min each")
     assert "up to 8.0 reads/s" in collect.readiness_text.text()
-    dialog = collect._rotation_dialog(rotation)
-    qtbot.addWidget(dialog)
-    details = dialog.findChild(QPlainTextEdit).toPlainText()
-    assert "ECUs in turn, 5 min each:" in details and "    A: 1 signal, 1 DID(s)" in details
-    # One endpoint: no rotation choice.
-    single = CollectionReadiness(False, endpoints=["A"], endpoint_id="A")
-    collect._show_readiness(single)
-    assert collect.endpoint.findData(ROTATE) < 0 and collect.slice.isHidden()
+    details = collect._rotation_dialog(slices).findChild(QPlainTextEdit).toPlainText()
+    assert "ECUs in turn, 5 min each, in this order:" in details and "    A: 1 signal, 1 DID(s)" in details
+    # Dragging sets the order; unchecking leaves an ECU out. Both recheck readiness.
+    collect.ecus.model().moveRow(QModelIndex(), 1, QModelIndex(), 0)
+    assert checks[-1] == (["B", "A"], {"A", "B"})
+    collect.ecus.item(1).setCheckState(Qt.CheckState.Unchecked)
+    assert checks[-1] == (["B", "A"], {"B"})
+    # One after another hides the slice and warns that a stuck ECU holds the rest.
+    collect._checked = {"A", "B"}
+    sequential = rotation("sequential", None, ["B", "A"])
+    collect._show_readiness(sequential)
+    assert not collect.turns.isRowVisible(collect.slice)
+    assert collect.readiness_text.text().startswith("Ready: 2 ECUs one after another")
+    details = collect._rotation_dialog(sequential).findChild(QPlainTextEdit).toPlainText()
+    assert "keeps the next ECUs waiting until you stop" in details
+    # Nothing checked: nothing to start.
+    collect._checked = set()
+    collect._show_readiness(slices)
+    assert collect.readiness_text.text() == "Check at least one ECU to collect."
+    assert not collect.start_button.isEnabled()
+    # One ECU: no turn options.
+    collect._checked = {"A"}
+    collect._show_readiness(CollectionReadiness(False, endpoints=["A"], endpoint_id="A"))
+    assert not collect.turns.isRowVisible(collect.strategy)
 
 
 SHIFT = {"0": "P", "2": "R", "4": "N", "6": "D", "8": "B"}

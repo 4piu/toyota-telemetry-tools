@@ -138,13 +138,22 @@ Readiness is compiled automatically. It skips complete targets, requires
 verified latency/size facts, checks request rate, bus and session load,
 storage, decode, and condition dependencies, and reports each problem with
 the command that fixes it. One run collects one endpoint and stops itself
-when its targets are complete. When targets span several endpoints, choose
-one (`--endpoint`), or take them all in turn (`--rotate`, the Collect page's
-"All, in turn"): you confirm every endpoint's reads once, then each endpoint
-gets a run of at most one time slice (`--slice`, default 5 minutes) before
-the next takes over, endpoints whose targets are met are skipped, and the
-collection ends when every target is met. Only one endpoint is read at a
-time; a hand-over ends the run with the reason "slice_end".
+when its targets are complete. When targets span several endpoints, collect
+one (`--endpoint E`), or several in turn (`--rotate`, optionally with
+`--endpoint E` repeated to choose and order them; on the Collect page, check
+the ECUs and drag to order). You confirm every chosen endpoint's reads once;
+each turn is then a run on one endpoint, endpoints whose targets are met are
+skipped, and the collection ends when every target is met or you stop it.
+Two strategies decide how long a turn lasts:
+
+- `--strategy slices` (default, "Switch every few minutes"): at most one time
+  slice (`--slice`, default 5 minutes), so every endpoint gets time even when
+  some target cannot be met yet; a hand-over ends the run as "slice_end".
+- `--strategy sequential` ("One after another"): each endpoint until its
+  targets are met, in order. Fewer switches, but a target that cannot be met
+  keeps the later endpoints waiting until you stop.
+
+Only one endpoint is read at a time.
 
 Do not operate a computer while driving; use a passenger or an unattended
 logger.

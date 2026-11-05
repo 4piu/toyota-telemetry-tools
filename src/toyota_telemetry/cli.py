@@ -24,6 +24,7 @@ from .operator.editing import (
     parse_condition,
     parse_duration,
 )
+from .operator.collection import SLICES, STRATEGIES, Rotation
 from .operator.live import ConfirmationRefused, LiveBusy, record_preview, require_previewed
 from .operator.service import OperatorService
 from .operator.sources import NormalizedFileSource, TisDatabaseSource
@@ -198,10 +199,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     collect = command("collect", ("collect.readiness", "collect"), _collect,
                       "LIVE: collect the readiness-checked scope; --dry-run only checks readiness", [dry])
-    collect.add_argument("--endpoint", help="endpoint to collect when targets span several")
+    collect.add_argument("--endpoint", action="append", default=[],
+                         help="endpoint to collect; repeat with --rotate to choose and order several")
     collect.add_argument("--rotate", action="store_true",
-                         help="take every ready endpoint in turn, one run per turn, until targets are met")
-    collect.add_argument("--slice", default="5m", help="time on each endpoint per turn with --rotate (default 5m)")
+                         help="take several endpoints in turn, one run per turn, until targets are met")
+    collect.add_argument("--strategy", choices=sorted(STRATEGIES), default=SLICES,
+                         help="with --rotate: switch after each slice (slices) or finish each in order (sequential)")
+    collect.add_argument("--slice", default="5m", help="time on each endpoint per turn with --strategy slices")
     collect.add_argument("--note", help="free-text run note")
     collect.add_argument("--yes", action="store_true", help="start without a prompt (needs a matching --dry-run)")
 
@@ -625,11 +629,13 @@ def _target_clear(service: OperatorService, args: argparse.Namespace) -> int:
 
 
 def _collect(service: OperatorService, args: argparse.Namespace) -> int:
-    if args.rotate and args.endpoint:
-        raise ValueError("choose --endpoint or --rotate, not both")
-    readiness = service.readiness(
-        args.endpoint, rotate_slice_seconds=round(parse_duration(args.slice)) if args.rotate else None,
-    )
+    if args.rotate:
+        rotation = Rotation(args.strategy, round(parse_duration(args.slice)), tuple(args.endpoint))
+        readiness = service.readiness(rotation=rotation)
+    elif len(args.endpoint) > 1:
+        raise ValueError("several --endpoint values need --rotate")
+    else:
+        readiness = service.readiness(args.endpoint[0] if args.endpoint else None)
     repository = service.repository()
     if args.dry_run or not readiness.ready:
         if readiness.ready:
@@ -645,7 +651,7 @@ def _collect(service: OperatorService, args: argparse.Namespace) -> int:
         _print_readiness(readiness)
     summary = (
         f"Start LIVE collection of {readiness.summary['dids']} DID(s) on "
-        + (f"{readiness.summary['endpoint_count']} endpoints in turn" if readiness.rotation_slice_seconds
+        + (f"{readiness.summary['endpoint_count']} endpoints in turn" if readiness.rotation
            else readiness.endpoint_id)
     )
     _confirm_live(repository, "collect", readiness.digest, summary, args)
@@ -657,7 +663,7 @@ def _collect(service: OperatorService, args: argparse.Namespace) -> int:
         parse_public_event(json.dumps(event, separators=(",", ":")))
         if args.as_json:
             print(json.dumps(event, sort_keys=True, separators=(",", ":")), flush=True)
-        elif event["event"] == "scope" and readiness.rotation_slice_seconds:
+        elif event["event"] == "scope" and readiness.rotation:
             print(f"Turn on {event['endpoint_id']}", flush=True)
         elif event["event"] == "started":
             print(f"LIVE collection started: run {event['run_id']}. Ctrl+C or type 'stop' to stop safely.", flush=True)
@@ -678,12 +684,17 @@ def _collect(service: OperatorService, args: argparse.Namespace) -> int:
     return EXIT_OK if reason in {"operator_stop", "plan_complete", "size_limit", "slice_end"} else EXIT_FAILED
 
 
+def _turns_text(rotation: dict) -> str:
+    if rotation["strategy"] == SLICES:
+        return f"{format_duration(rotation['slice_seconds'])} each"
+    return "each until its targets are met"
+
+
 def _print_readiness(readiness) -> None:
     if readiness.ready:
         summary = readiness.summary
-        if readiness.rotation_slice_seconds:
-            print(f"Ready to collect {summary['endpoint_count']} endpoints in turn, "
-                  f"{format_duration(readiness.rotation_slice_seconds)} each:")
+        if readiness.rotation:
+            print(f"Ready to collect {summary['endpoint_count']} endpoints in turn, {_turns_text(readiness.rotation)}:")
             for row in readiness.scope["endpoints"]:
                 print(f"  {row['endpoint']['endpoint_id']}: {len(row['targets'])} target(s), "
                       f"{len(row['acquisitions'])} DID(s)")

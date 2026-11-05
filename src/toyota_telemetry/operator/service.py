@@ -22,7 +22,7 @@ from ..exporting import check_destination, export_project
 from ..project import PROJECT_MARKER
 from ..repository import ProjectPaths, ProjectRepository
 from . import editing
-from .collection import CollectionReadiness, collection_readiness, start_collection
+from .collection import CollectionReadiness, Rotation, collection_readiness, start_collection
 from .connector import ConnectorCheck, check_connector, connector_document
 from .editing import UNSET, EditResult
 from .inventory import (
@@ -512,15 +512,12 @@ class OperatorService:
 
     # Collection ------------------------------------------------------------
 
-    def readiness(
-        self, endpoint_id: str | None = None, *, rotate_slice_seconds: int | None = None,
-    ) -> CollectionReadiness:
-        """Offline readiness for one endpoint, or with ``rotate_slice_seconds`` for all in turn."""
+    def readiness(self, endpoint_id: str | None = None, *, rotation: Rotation | None = None) -> CollectionReadiness:
+        """Offline readiness for one endpoint, or with ``rotation`` for several in turn."""
 
         repository = self.repository()
         return collection_readiness(
-            repository, self.inventory(repository), endpoint_id=endpoint_id,
-            rotate_slice_seconds=rotate_slice_seconds,
+            repository, self.inventory(repository), endpoint_id=endpoint_id, rotation=rotation,
         )
 
     def collect(

@@ -108,12 +108,16 @@ will run. Everything else is safe to take.
 
 ### Added
 
-- Collecting endpoints in turn: `telemetry collect --rotate [--slice 5m]` and
-  the Collect page's "All, in turn" (chosen by default when targets span
-  several endpoints, with "Switch every" 2/5/10/15 min). One confirmation
-  covers every endpoint's reads; each endpoint then gets a run of at most one
-  slice, endpoints whose targets are met are skipped, and the collection ends
-  when all targets are met or you stop it. Before each turn the scope is
+- Collecting endpoints in turn: `telemetry collect --rotate [--strategy
+  slices|sequential] [--slice 5m] [--endpoint E ...]`, and on the Collect
+  page a checkable list of ready ECUs with their open targets (drag to order;
+  all checked at first) plus "Several ECUs": "Switch every few minutes"
+  (2/5/10/15 min) or "One after another, each until done". Strategies are
+  registered by name so others can be added. One confirmation covers every
+  chosen endpoint's reads; each turn is a run on one endpoint, endpoints
+  whose targets are met are skipped, and the collection ends when all
+  targets are met or you stop it. Readiness reports open targets per
+  endpoint (`endpoint_targets`). Before each turn the scope is
   compiled again and refused if it would send anything not confirmed. Runs
   stay one endpoint each; a hand-over ends a run with the new reason
   `slice_end`, which capture readers accept. Slices under a minute are not
