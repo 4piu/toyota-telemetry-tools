@@ -89,6 +89,9 @@ will run. Everything else is safe to take.
   workspace. A transport may now have no endpoints or session recipes yet.
 - The vehicle-independent method moved here from the retired template
   repository, under `docs/method/`.
+- Desktop Recordings: each recorded signal's tooltip names its ECU and DID,
+  and signals that share a name get a greyed ECU prefix (plus the DID when the
+  ECU is shared too). Inventory signals carry `ecu_name` from the catalog row.
 
 ### Fixed
 

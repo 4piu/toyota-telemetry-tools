@@ -116,6 +116,8 @@ class TreeAndSelectionTests(ServiceTestCase):
         self.assertEqual(len(confirmed.dids[1].signals), 2)
         self.assertEqual(candidate.state, "not verified")
         self.assertEqual(candidate.ecu_names, ["Brake"])
+        self.assertEqual(candidate.dids[0].signals[0].ecu_name, "Brake")
+        self.assertEqual(confirmed.dids[0].signals[0].ecu_name, "")
         self.assertEqual(candidate.dids[0].state, ENDPOINT_NOT_VERIFIED)
 
     def test_selectors_and_filters_resolve_finite_sets(self) -> None:

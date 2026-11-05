@@ -385,6 +385,7 @@ class SignalItem:
     in_inventory: bool = True
     observations: int = 0
     status: str = SIGNAL_NOT_CHECKED
+    ecu_name: str = ""
 
     @property
     def ecu_key(self) -> int:
@@ -404,6 +405,7 @@ class SignalItem:
             "in_inventory": self.in_inventory,
             "observations": self.observations,
             "status": self.status,
+            "ecu_name": self.ecu_name,
         }
 
 
@@ -632,6 +634,7 @@ def build_tree(
             target=targets.get(signal_ref),
             progress=progress.get(signal_ref),
             in_inventory=bool(rows),
+            ecu_name=str(chosen.get("ecu_name") or ""),
         ))
 
     _apply_verification(repository, endpoints, settings)

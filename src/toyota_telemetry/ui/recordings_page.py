@@ -7,13 +7,15 @@ sight; the CLI uses them.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QKeySequence, QPalette, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -24,6 +26,9 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QSplitter,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -43,6 +48,7 @@ RUN_COLUMNS = ("Started", "Length", "ECU", "Samples", "Status", "Note")
 STATUS = {NEEDS_RECOVERY: "! Interrupted", UNREADABLE: "✕ Unreadable"}
 KEY = Qt.ItemDataRole.UserRole
 SORT = Qt.ItemDataRole.UserRole + 1
+PREFIX = Qt.ItemDataRole.UserRole + 2
 
 
 class SortItem(QTableWidgetItem):
@@ -51,6 +57,42 @@ class SortItem(QTableWidgetItem):
         if mine is not None and theirs is not None:
             return mine < theirs
         return super().__lt__(other)
+
+
+class PrefixDelegate(QStyledItemDelegate):
+    """Draws an item's PREFIX, greyed, before its text."""
+
+    def paint(self, painter, option, index) -> None:
+        prefix = index.data(PREFIX)
+        if not prefix:
+            super().paint(painter, option, index)
+            return
+        option = QStyleOptionViewItem(option)
+        self.initStyleOption(option, index)
+        text, option.text = option.text, ""
+        style = option.widget.style() if option.widget else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, option, painter, option.widget)
+        rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, option, option.widget)
+        margin = style.pixelMetric(QStyle.PixelMetric.PM_FocusFrameHMargin, None, option.widget) + 1
+        rect = rect.adjusted(margin, 0, -margin, 0)
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        main = option.palette.color(QPalette.ColorRole.HighlightedText if selected else QPalette.ColorRole.Text)
+        dim = option.palette.color(QPalette.ColorRole.PlaceholderText)
+        if selected:
+            dim = main
+            dim.setAlpha(160)
+        lead = f"{prefix} · "
+        metrics = option.fontMetrics
+        align = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+        painter.save()
+        painter.setFont(option.font)
+        painter.setPen(dim)
+        painter.drawText(rect, align, metrics.elidedText(lead, Qt.TextElideMode.ElideRight, rect.width()))
+        rest = rect.adjusted(metrics.horizontalAdvance(lead), 0, 0, 0)
+        if rest.width() > 0:
+            painter.setPen(main)
+            painter.drawText(rest, align, metrics.elidedText(text, Qt.TextElideMode.ElideRight, rest.width()))
+        painter.restore()
 
 
 class RecordingsPage(QWidget):
@@ -83,6 +125,7 @@ class RecordingsPage(QWidget):
         self._runs: list[RunSummary] = []
         self._labels: dict[str, str] = {}
         self._names: dict[str, tuple[str, str]] = {}
+        self._places: dict[str, tuple[str, str]] = {}
         self._series: dict[str, list[dict]] = {}
         self._all_signals: dict[str, dict] = {}
         self._shown: str | None = None
@@ -146,6 +189,7 @@ class RecordingsPage(QWidget):
         self.signals = QListWidget()
         self.signals.setAccessibleName("Recorded signals")
         self.signals.setToolTip("Select one to plot it")
+        self.signals.setItemDelegate(PrefixDelegate(self.signals))
         self.signals.currentItemChanged.connect(lambda *_: self.plot_current())
         self.signals_loading = LoadingOverlay(self.signals)
         left.addWidget(self.signal_search)
@@ -219,6 +263,10 @@ class RecordingsPage(QWidget):
                 "runs": service.runs(),
                 "summary": service.observation_summary(),
                 "names": {signal.signal_ref: (signal.name, signal.unit) for _, _, signal in tree.signals()},
+                "places": {
+                    signal.signal_ref: (signal.ecu_name or f"ECU {signal.ecu_key}", did.data_id)
+                    for _, did, signal in tree.signals()
+                },
                 "labels": {
                     endpoint.endpoint_id: endpoint_label(endpoint).split("  ")[0]
                     for endpoint in tree.endpoints if endpoint.endpoint_id
@@ -242,6 +290,7 @@ class RecordingsPage(QWidget):
         self._runs = listing["runs"] if listing else []
         self._labels = listing["labels"] if listing else {}
         self._names = listing["names"] if listing else {}
+        self._places = listing["places"] if listing else {}
         self._fill()
         self.runs.blockSignals(True)
         self.select_runs(list(selected))
@@ -271,10 +320,13 @@ class RecordingsPage(QWidget):
         self.signals_loading.stop()
         self.signals.blockSignals(True)
         self.signals.clear()
-        for signal_ref in sorted(summary, key=lambda ref: self._names.get(ref, (ref, ""))[0].lower()):
-            name = self._names.get(signal_ref, (signal_ref, ""))[0]
-            item = QListWidgetItem(f"{name}  ({summary[signal_ref]['observations']:,})")
+        for signal_ref, prefix, text, tip in signal_entries(summary, self._names, self._places):
+            item = QListWidgetItem(text)
             item.setData(KEY, signal_ref)
+            item.setData(PREFIX, prefix)
+            item.setToolTip(tip)
+            if prefix:
+                item.setData(Qt.ItemDataRole.AccessibleTextRole, f"{prefix} · {text}")
             self.signals.addItem(item)
         self.signals.blockSignals(False)
         self._filter_signals(self.signal_search.text())
@@ -371,7 +423,7 @@ class RecordingsPage(QWidget):
         needle = text.lower()
         for index in range(self.signals.count()):
             item = self.signals.item(index)
-            item.setHidden(bool(needle) and needle not in item.text().lower())
+            item.setHidden(bool(needle) and needle not in f"{item.data(PREFIX) or ''} {item.text()}".lower())
 
     def select_signal(self, signal_ref: str) -> None:
         for index in range(self.signals.count()):
@@ -505,6 +557,33 @@ class RecordingsPage(QWidget):
 
         self.export_button.setEnabled(False)
         self.context.run("recordings.export", work, done, failed)
+
+
+def signal_entries(
+    summary: dict, names: dict[str, tuple[str, str]], places: dict[str, tuple[str, str]],
+) -> list[tuple[str, str, str, str]]:
+    """(signal_ref, prefix, text, tooltip) per recorded signal, by name then ECU.
+
+    The ECU prefix appears only where several recorded signals share a name,
+    with the DID added where they also share the ECU; every tooltip names both.
+    """
+
+    def name(ref: str) -> str:
+        return names.get(ref, (ref, ""))[0]
+
+    def place(ref: str) -> tuple[str, str]:
+        return places.get(ref, ("Unknown ECU", ref))
+
+    by_name = Counter(name(ref).lower() for ref in summary)
+    by_ecu = Counter((name(ref).lower(), place(ref)[0]) for ref in summary)
+    entries = []
+    for ref in sorted(summary, key=lambda ref: (name(ref).lower(), place(ref)[0].lower(), ref)):
+        ecu, did = place(ref)
+        prefix = ""
+        if by_name[name(ref).lower()] > 1:
+            prefix = f"{ecu} {did}" if by_ecu[(name(ref).lower(), ecu)] > 1 else ecu
+        entries.append((ref, prefix, f"{name(ref)}  ({summary[ref]['observations']:,})", f"{ecu}\nDID {did}"))
+    return entries
 
 
 def series_data(rows: list[dict], runs: list[RunSummary]) -> dict:

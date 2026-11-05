@@ -18,6 +18,7 @@ from tests.operator_fixture import (
 )
 from tests.test_operator_service import FakeWorker
 from toyota_telemetry.operator import OPERATION_IDS, bounded_minmax
+from toyota_telemetry.ui.recordings_page import signal_entries
 from toyota_telemetry.ui.shell import OperatorWindow
 from toyota_telemetry.ui.widgets.metric_plot import MetricPlot, RunSpan
 from toyota_telemetry.ui.signals_page import ROLE
@@ -348,6 +349,7 @@ def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, 
     assert not page.recover_button.isEnabled()
     page.select_signal("372/0x1002/0..15")
     settle(qtbot, window)
+    assert page.signals.currentItem().toolTip() == "ECU 372\nDID 0x1002"
     assert page.plot.source_points == 1
     assert "Constant" in page.plot_summary.text()
     # The export dialog offers selected or all signals and runs, and a format.
@@ -369,6 +371,24 @@ def test_recordings_lists_runs_plots_bounded_series_and_exports(qtbot, project, 
     window.context.changed()
     settle(qtbot, window)
     assert page.runs.rowCount() == 1
+
+
+def test_shared_signal_names_get_a_greyed_ecu_prefix() -> None:
+    summary = {ref: {"observations": 5} for ref in ("372/0x1F0C/0..15", "397/0x1F0C/0..15",
+                                                    "397/0x1001/0..7", "397/0x1002/0..7", "397/0x1075/0..15")}
+    names = {"372/0x1F0C/0..15": ("Engine Speed", "rpm"), "397/0x1F0C/0..15": ("Engine Speed", "rpm"),
+             "397/0x1001/0..7": ("Mode", ""), "397/0x1002/0..7": ("Mode", ""),
+             "397/0x1075/0..15": ("Wheel Speed", "km/h")}
+    places = {ref: ("Engine" if ref.startswith("372") else "Hybrid Control", "0x" + ref.split("/0x")[1][:4])
+              for ref in summary}
+    entries = {ref: (prefix, text, tip) for ref, prefix, text, tip in signal_entries(summary, names, places)}
+    assert [ref for ref, *_ in signal_entries(summary, names, places)][:2] == ["372/0x1F0C/0..15", "397/0x1F0C/0..15"]
+    assert entries["372/0x1F0C/0..15"] == ("Engine", "Engine Speed  (5)", "Engine\nDID 0x1F0C")
+    assert entries["397/0x1F0C/0..15"][0] == "Hybrid Control"
+    # Same name on the same ECU: the DID tells them apart.
+    assert entries["397/0x1001/0..7"][0] == "Hybrid Control 0x1001"
+    # A unique name has no prefix, but its tooltip still names the ECU and DID.
+    assert entries["397/0x1075/0..15"] == ("", "Wheel Speed  (5)", "Hybrid Control\nDID 0x1075")
 
 
 def test_a_single_sample_plot_settles(qtbot) -> None:
