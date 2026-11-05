@@ -211,7 +211,8 @@ def load_capture_tree(captures_root: Path, project_root: Path) -> tuple[CaptureR
             or end["reason"] not in (
                 {"plan_complete", "operator_stop", "recovered_prefix"}
                 if origin == "legacy_import"
-                else {"operator_stop", "transport_lost", "plan_complete", "size_limit", "recovered_prefix"}
+                else {"operator_stop", "transport_lost", "plan_complete", "size_limit", "recovered_prefix",
+                      "slice_end"}
             )
         ):
             raise ValueError(f"{directory}: run-end does not match its segments")
@@ -314,7 +315,7 @@ def _read_segment(
             if origin == "legacy_import"
             else {
                 "rotation", "operator_stop", "transport_lost", "plan_complete",
-                "size_limit", "recovered_prefix",
+                "size_limit", "recovered_prefix", "slice_end",
             }
         )
     ):

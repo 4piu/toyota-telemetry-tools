@@ -34,6 +34,11 @@ from .jobs import LiveJob
 from .names import count, endpoint_label, still_needed, target_summary
 from .widgets import LIVE_TIP, Disclosure, button_row, mark_live, notice, page_title, set_enabled
 
+# The endpoint box entry that takes every ready endpoint in turn.
+ROTATE = "__rotate__"
+SLICE_MINUTES = (2, 5, 10, 15)
+DEFAULT_SLICE_MINUTES = 5
+
 
 class CollectPage(QWidget):
     def __init__(self, context: PageContext) -> None:
@@ -56,11 +61,23 @@ class CollectPage(QWidget):
         self.endpoint.setAccessibleName("Endpoint to collect")
         self.endpoint.setMinimumContentsLength(28)
         self.endpoint.activated.connect(lambda _index: self.check_readiness())
+        self.slice = QComboBox()
+        self.slice.setAccessibleName("Time on each ECU")
+        self.slice.setToolTip("Time on each ECU before the next")
+        for minutes in SLICE_MINUTES:
+            self.slice.addItem(f"{minutes} min", minutes * 60)
+        self.slice.setCurrentIndex(SLICE_MINUTES.index(DEFAULT_SLICE_MINUTES))
+        self.slice.activated.connect(lambda _index: self.check_readiness())
+        self.slice_label = QLabel("Switch every")
+        self.slice.setVisible(False)
+        self.slice_label.setVisible(False)
         self.check_button = QPushButton("Check")
         self.context.register("collect.readiness", self.check_button, "Recheck; nothing is transmitted")
         self.check_button.clicked.connect(self.check_readiness)
         controls.addWidget(QLabel("Endpoint"))
         controls.addWidget(self.endpoint)
+        controls.addWidget(self.slice_label)
+        controls.addWidget(self.slice)
         controls.addWidget(self.check_button)
         controls.addStretch(1)
         readiness_layout.addLayout(controls)
@@ -167,8 +184,15 @@ class CollectPage(QWidget):
             self.readiness_text.setText(f"Cannot check readiness: {detail.split(chr(10) * 2, 1)[0]}")
             self._update_start()
 
+        slice_seconds = self.slice.currentData()
+
         def work(service):
-            readiness = service.readiness(chosen)
+            if chosen == ROTATE:
+                readiness = service.readiness(rotate_slice_seconds=slice_seconds)
+            else:
+                readiness = service.readiness(chosen)
+                if chosen is None and len(readiness.endpoints) > 1:
+                    readiness = service.readiness(rotate_slice_seconds=slice_seconds)
             self._names = service.signal_names(readiness.scope.get("targets", []))
             self._tree = service.tree()
             return readiness
@@ -187,10 +211,18 @@ class CollectPage(QWidget):
         self._show_targets(getattr(self, "_tree", None))
         self.endpoint.blockSignals(True)
         self.endpoint.clear()
+        if len(readiness.endpoints) > 1:
+            self.endpoint.addItem(f"All {len(readiness.endpoints)}, in turn", ROTATE)
+            self.endpoint.setItemData(0, "One run per ECU and turn", Qt.ItemDataRole.ToolTipRole)
         for endpoint_id in readiness.endpoints:
             self.endpoint.addItem(self._label(endpoint_id), endpoint_id)
             self.endpoint.setItemData(self.endpoint.count() - 1, endpoint_id, Qt.ItemDataRole.ToolTipRole)
-        if readiness.endpoint_id:
+        rotating = readiness.rotation_slice_seconds is not None
+        self.slice_label.setVisible(rotating)
+        self.slice.setVisible(rotating)
+        if rotating:
+            self.endpoint.setCurrentIndex(self.endpoint.findData(ROTATE))
+        elif readiness.endpoint_id:
             self.endpoint.setCurrentIndex(self.endpoint.findData(readiness.endpoint_id))
         elif readiness.endpoints:
             self.endpoint.setCurrentIndex(-1)
@@ -198,10 +230,15 @@ class CollectPage(QWidget):
         if readiness.ready:
             summary = readiness.summary
             load = summary["estimated_bus_utilization"]
+            where = (
+                f"{summary['endpoint_count']} ECUs in turn, {self.slice.currentText()} each"
+                if rotating else self._label(readiness.endpoint_id)
+            )
             self.readiness_text.setText(
-                f"Ready: {self._label(readiness.endpoint_id)}, {summary['unfinished_targets']} target(s), "
+                f"Ready: {where}, {summary['unfinished_targets']} target(s), "
                 f"{summary['dids']} DID(s)"
-                + (f", bus load {load * 100:.2f}%, {summary['request_rate_hz']:.1f} reads/s" if load is not None else "")
+                + (f", bus load {load * 100:.2f}%, {'up to ' if rotating else ''}"
+                   f"{summary['request_rate_hz']:.1f} reads/s" if load is not None else "")
                 + f", storage limit {summary['capture_tree_max_mib']} MiB."
             )
             self.scope_text.setPlainText(json.dumps(readiness.scope, indent=2, sort_keys=True))
@@ -293,6 +330,66 @@ class CollectPage(QWidget):
         service = self.context.service
         if readiness is None or not readiness.ready or service is None:
             return
+        if readiness.rotation_slice_seconds is not None:
+            dialog = self._rotation_dialog(readiness)
+        else:
+            dialog = self._endpoint_dialog(readiness)
+        if not self.confirm_live(dialog):
+            return
+        note = self.note.text().strip() or None
+        self.events.clear()
+        self.progress.setVisible(True)
+        self.progress.setFormat(
+            "%v of %m targets on this ECU" if readiness.rotation_slice_seconds else "%v of %m targets complete"
+        )
+        self.progress.setRange(0, max(1, readiness.summary["unfinished_targets"]))
+        self.progress.setValue(0)
+        self.run_state.setText("LIVE - starting…")
+        self._rotating = readiness.rotation_slice_seconds is not None
+        self._current = ""
+
+        def work(emit, stop):
+            return service.collect(readiness, note=note, event_sink=emit, stop_event=stop)
+
+        self.job = LiveJob(work, self)
+        self.job.event.connect(self._event)
+        self.job.finished.connect(self._finished)
+        self.job.failed.connect(self._failed)
+        self.context.set_live(True)
+        self.job.start()
+        self._update_start()
+
+    def _rotation_dialog(self, readiness: CollectionReadiness) -> LiveConfirmDialog:
+        scope = readiness.scope
+        connector = scope["connector"]
+        device = ", ".join(f"{value}" for value in connector["settings"].values())
+        details = [
+            f"Adapter: {connector['kind']} {device}".rstrip(),
+            f"ECUs in turn, {self.slice.currentText()} each:",
+            *[f"    {self._label(row['endpoint']['endpoint_id'])}: {count(len(row['targets']), 'signal')}, "
+              f"{len(row['acquisitions'])} DID(s)" for row in scope["endpoints"]],
+            "One run per ECU and turn; ECUs whose targets are met are skipped.",
+            "Stops when every target is met or you stop it.",
+            f"Storage limit: {scope['storage']['capture_tree_max_mib']} MiB",
+            f"Note: {self.note.text() or '-'}",
+        ]
+        technical = [f"Scope fingerprint: {readiness.digest}"]
+        for row in scope["endpoints"]:
+            session = row["endpoint"]
+            technical += [
+                f"Endpoint ID: {session['endpoint_id']} ({session['tester_can_id']}/{session['response_can_id']})",
+                f"  Session {session['session_recipe_id']}: "
+                + "; ".join(step["request_hex"] for step in session["session_setup"]),
+                *[f"  {item['acquisition_id']}: request {item['request_hex']}, every {item['target_interval_ms']} ms"
+                  for item in row["acquisitions"]],
+            ]
+        return LiveConfirmDialog(
+            "Collect",
+            f"LIVE collection of {len(scope['targets'])} signal(s) on {len(scope['endpoints'])} ECUs in turn?",
+            details, self, technical=technical,
+        )
+
+    def _endpoint_dialog(self, readiness: CollectionReadiness) -> LiveConfirmDialog:
         scope = readiness.scope
         session = scope["endpoint"]
         connector = scope["connector"]
@@ -315,30 +412,11 @@ class CollectPage(QWidget):
             *[f"{row['acquisition_id']}: request {row['request_hex']}, every {row['target_interval_ms']} ms"
               for row in scope["acquisitions"]],
         ]
-        dialog = LiveConfirmDialog(
+        return LiveConfirmDialog(
             "Collect",
             f"LIVE collection of {len(scope['targets'])} signal(s) on {self._label(readiness.endpoint_id)}?",
             details, self, technical=technical,
         )
-        if not self.confirm_live(dialog):
-            return
-        note = self.note.text().strip() or None
-        self.events.clear()
-        self.progress.setVisible(True)
-        self.progress.setRange(0, max(1, readiness.summary["unfinished_targets"]))
-        self.progress.setValue(0)
-        self.run_state.setText("LIVE - starting…")
-
-        def work(emit, stop):
-            return service.collect(readiness, note=note, event_sink=emit, stop_event=stop)
-
-        self.job = LiveJob(work, self)
-        self.job.event.connect(self._event)
-        self.job.finished.connect(self._finished)
-        self.job.failed.connect(self._failed)
-        self.context.set_live(True)
-        self.job.start()
-        self._update_start()
 
     def stop(self) -> None:
         if self.job is not None:
@@ -347,8 +425,12 @@ class CollectPage(QWidget):
 
     def _event(self, event: dict) -> None:
         kind = event["event"]
-        if kind == "started":
-            self.run_state.setText("LIVE - collecting.")
+        if kind == "scope" and getattr(self, "_rotating", False):
+            self._current = self._label(event["endpoint_id"])
+            self.run_state.setText(f"LIVE - switching to {self._current}…")
+        elif kind == "started":
+            current = getattr(self, "_current", "")
+            self.run_state.setText(f"LIVE - collecting from {current}." if current else "LIVE - collecting.")
         elif kind == "progress":
             self.progress.setRange(0, max(1, event["targets"]))
             self.progress.setValue(event["targets_complete"])
@@ -368,6 +450,7 @@ class CollectPage(QWidget):
     def _finished(self, reason: str) -> None:
         labels = {
             "plan_complete": "Completed: every target in this run is complete.",
+            "slice_end": "Turn ended.",
             "operator_stop": "Stopped safely.",
             "size_limit": "Stopped at the storage limit; the run was finalized.",
             "transport_lost": "Transport lost; the valid prefix was finalized.",

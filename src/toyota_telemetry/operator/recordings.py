@@ -27,6 +27,7 @@ NEEDS_RECOVERY = "needs recovery"
 UNREADABLE = "unreadable"
 END_REASONS = {
     "plan_complete": "targets complete",
+    "slice_end": "handed over to the next ECU",
     "operator_stop": "stopped",
     "transport_lost": "connection lost",
     "size_limit": "storage limit reached",

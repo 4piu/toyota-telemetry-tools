@@ -199,6 +199,9 @@ def build_parser() -> argparse.ArgumentParser:
     collect = command("collect", ("collect.readiness", "collect"), _collect,
                       "LIVE: collect the readiness-checked scope; --dry-run only checks readiness", [dry])
     collect.add_argument("--endpoint", help="endpoint to collect when targets span several")
+    collect.add_argument("--rotate", action="store_true",
+                         help="take every ready endpoint in turn, one run per turn, until targets are met")
+    collect.add_argument("--slice", default="5m", help="time on each endpoint per turn with --rotate (default 5m)")
     collect.add_argument("--note", help="free-text run note")
     collect.add_argument("--yes", action="store_true", help="start without a prompt (needs a matching --dry-run)")
 
@@ -622,7 +625,11 @@ def _target_clear(service: OperatorService, args: argparse.Namespace) -> int:
 
 
 def _collect(service: OperatorService, args: argparse.Namespace) -> int:
-    readiness = service.readiness(args.endpoint)
+    if args.rotate and args.endpoint:
+        raise ValueError("choose --endpoint or --rotate, not both")
+    readiness = service.readiness(
+        args.endpoint, rotate_slice_seconds=round(parse_duration(args.slice)) if args.rotate else None,
+    )
     repository = service.repository()
     if args.dry_run or not readiness.ready:
         if readiness.ready:
@@ -637,7 +644,9 @@ def _collect(service: OperatorService, args: argparse.Namespace) -> int:
     if not args.as_json:
         _print_readiness(readiness)
     summary = (
-        f"Start LIVE collection of {readiness.summary['dids']} DID(s) on {readiness.endpoint_id}"
+        f"Start LIVE collection of {readiness.summary['dids']} DID(s) on "
+        + (f"{readiness.summary['endpoint_count']} endpoints in turn" if readiness.rotation_slice_seconds
+           else readiness.endpoint_id)
     )
     _confirm_live(repository, "collect", readiness.digest, summary, args)
     stop = threading.Event()
@@ -648,6 +657,8 @@ def _collect(service: OperatorService, args: argparse.Namespace) -> int:
         parse_public_event(json.dumps(event, separators=(",", ":")))
         if args.as_json:
             print(json.dumps(event, sort_keys=True, separators=(",", ":")), flush=True)
+        elif event["event"] == "scope" and readiness.rotation_slice_seconds:
+            print(f"Turn on {event['endpoint_id']}", flush=True)
         elif event["event"] == "started":
             print(f"LIVE collection started: run {event['run_id']}. Ctrl+C or type 'stop' to stop safely.", flush=True)
         elif event["event"] == "progress":
@@ -664,13 +675,20 @@ def _collect(service: OperatorService, args: argparse.Namespace) -> int:
 
     with _safe_interrupt(stop, "Stopping safely…"):
         reason = service.collect(readiness, note=args.note, event_sink=emit, stop_event=stop)
-    return EXIT_OK if reason in {"operator_stop", "plan_complete", "size_limit"} else EXIT_FAILED
+    return EXIT_OK if reason in {"operator_stop", "plan_complete", "size_limit", "slice_end"} else EXIT_FAILED
 
 
 def _print_readiness(readiness) -> None:
     if readiness.ready:
         summary = readiness.summary
-        print(f"Ready to collect on {readiness.endpoint_id}:")
+        if readiness.rotation_slice_seconds:
+            print(f"Ready to collect {summary['endpoint_count']} endpoints in turn, "
+                  f"{format_duration(readiness.rotation_slice_seconds)} each:")
+            for row in readiness.scope["endpoints"]:
+                print(f"  {row['endpoint']['endpoint_id']}: {len(row['targets'])} target(s), "
+                      f"{len(row['acquisitions'])} DID(s)")
+        else:
+            print(f"Ready to collect on {readiness.endpoint_id}:")
         print(f"  {summary['unfinished_targets']} unfinished target(s), {summary['dids']} DID(s)")
         if summary["estimated_bus_utilization"] is not None:
             print(

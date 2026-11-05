@@ -403,6 +403,48 @@ def test_shared_signal_names_get_a_greyed_ecu_prefix() -> None:
     assert entries["397/0x1075/0..15"] == ("", "Wheel Speed  (5)", "Hybrid Control\nDID 0x1075")
 
 
+def test_collect_offers_every_endpoint_in_turn(qtbot, project) -> None:
+    from PySide6.QtWidgets import QPlainTextEdit
+
+    from toyota_telemetry.operator.collection import CollectionReadiness
+    from toyota_telemetry.ui.collect_page import ROTATE
+
+    root, rows = project
+    window = open_window(qtbot, root)
+    collect = window.collect_page
+
+    def endpoint(name):
+        session = {"endpoint_id": name, "tester_can_id": "0x7E0", "response_can_id": "0x7E8",
+                   "session_recipe_id": "extended", "session_setup": [{"request_hex": "10 03"}]}
+        reads = [{"acquisition_id": f"{name}/0x1002", "request_hex": "22 10 02", "target_interval_ms": 1000}]
+        return {"endpoint": session, "acquisitions": reads, "targets": [f"{name}-target"]}
+
+    rotation = CollectionReadiness(
+        True, endpoints=["A", "B"], rotation_slice_seconds=300, digest="f" * 64,
+        summary={"endpoint_count": 2, "unfinished_targets": 2, "dids": 2, "estimated_bus_utilization": 0.004,
+                 "request_rate_hz": 8.0, "capture_tree_max_mib": 64},
+        scope={"connector": {"kind": "pcan", "settings": {"channel": "PCAN_USBBUS1"}},
+               "rotation": {"slice_seconds": 300, "order": ["A", "B"]},
+               "endpoints": [endpoint("A"), endpoint("B")], "targets": ["A-target", "B-target"],
+               "storage": {"capture_tree_max_mib": 64}},
+    )
+    collect._show_readiness(rotation)
+    # "All, in turn" leads the endpoint box and is chosen; the turn length shows with it.
+    assert collect.endpoint.itemData(0) == ROTATE and collect.endpoint.currentData() == ROTATE
+    assert [collect.endpoint.itemText(index) for index in range(collect.endpoint.count())] == ["All 2, in turn", "A", "B"]
+    assert not collect.slice.isHidden() and collect.slice.currentText() == "5 min"
+    assert collect.readiness_text.text().startswith("Ready: 2 ECUs in turn, 5 min each")
+    assert "up to 8.0 reads/s" in collect.readiness_text.text()
+    dialog = collect._rotation_dialog(rotation)
+    qtbot.addWidget(dialog)
+    details = dialog.findChild(QPlainTextEdit).toPlainText()
+    assert "ECUs in turn, 5 min each:" in details and "    A: 1 signal, 1 DID(s)" in details
+    # One endpoint: no rotation choice.
+    single = CollectionReadiness(False, endpoints=["A"], endpoint_id="A")
+    collect._show_readiness(single)
+    assert collect.endpoint.findData(ROTATE) < 0 and collect.slice.isHidden()
+
+
 SHIFT = {"0": "P", "2": "R", "4": "N", "6": "D", "8": "B"}
 
 

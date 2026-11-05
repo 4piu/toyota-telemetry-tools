@@ -283,6 +283,82 @@ class ReadinessAndCollectionTests(ServiceTestCase):
         self.assertEqual(readiness.scope["targets"], ["372/0x1003/0..7"])
         self.assertEqual(readiness.digest, self.service.readiness().digest)
 
+    def test_rotation_confirms_every_endpoint_once_and_runs_until_targets_are_met(self) -> None:
+        self.import_rows()
+        self.target_battery(samples=3)
+        single = self.service.readiness()
+        rotation = self.service.readiness(rotate_slice_seconds=300)
+        self.assertTrue(rotation.ready, rotation.problems)
+        self.assertIsNone(rotation.endpoint_id)
+        self.assertEqual(rotation.rotation_slice_seconds, 300)
+        self.assertEqual(rotation.scope["rotation"], {"slice_seconds": 300, "order": [ENDPOINT_ID]})
+        self.assertEqual(rotation.scope["endpoints"][0]["acquisitions"], single.scope["acquisitions"])
+        self.assertNotEqual(rotation.digest, single.digest)
+        short = self.service.readiness(rotate_slice_seconds=30)
+        self.assertFalse(short.ready)
+        self.assertIn("shorter than 60 s", short.problems[0].message)
+        events: list[dict] = []
+        with mock.patch("toyota_telemetry.collection_service.JsonlWorkerClient", FakeWorker):
+            reason = self.service.collect(rotation, note=None, event_sink=events.append,
+                                          stop_event=threading.Event())
+        self.assertEqual(reason, "plan_complete")
+        self.assertEqual([event["endpoint_id"] for event in events if event["event"] == "scope"], [ENDPOINT_ID])
+        self.assertTrue(self.service.readiness().complete)
+
+    def test_rotation_takes_turns_skips_finished_endpoints_and_keeps_to_the_confirmed_scope(self) -> None:
+        from toyota_telemetry.operator import collection
+        from toyota_telemetry.operator.collection import CollectionReadiness
+
+        def scope(endpoint, extra=()):
+            reads = [{"acquisition_id": f"{endpoint}/0x1002", "request_hex": "22 10 02"}, *extra]
+            return {"connector": {"kind": "pcan"}, "endpoint": {"endpoint_id": endpoint}, "acquisitions": reads}
+
+        confirmed = CollectionReadiness(True, endpoints=["A", "B"], rotation_slice_seconds=120, scope={
+            "connector": {"kind": "pcan"}, "rotation": {"slice_seconds": 120, "order": ["A", "B"]},
+            "endpoints": [{**scope("A"), "targets": []}, {**scope("B"), "targets": []}],
+        })
+        # Turn 1: A uses its slice, B finishes. Turn 2: A finishes, B has nothing left. Turn 3: done.
+        states = {"A": ["ready", "ready", "complete"], "B": ["ready", "done", "done"]}
+        reasons = iter(["slice_end", "plan_complete", "plan_complete"])
+        runs: list[tuple[str, int]] = []
+
+        def readiness(_repository, _inventory, *, endpoint_id):
+            state = states[endpoint_id].pop(0)
+            if state == "complete":
+                return CollectionReadiness(False, complete=True)
+            endpoints = ["A", "B"] if state == "ready" else ["A"]
+            return CollectionReadiness(True, endpoints=endpoints, endpoint_id=endpoint_id, scope=scope(endpoint_id))
+
+        def run(_root, *, endpoint_id, max_duration_ms, **_kwargs):
+            runs.append((endpoint_id, max_duration_ms))
+            return next(reasons)
+
+        repository = self.service.repository()
+        with mock.patch.object(collection, "collection_readiness", readiness), \
+                mock.patch.object(collection, "run_collection", run), \
+                mock.patch.object(collection, "refresh_cache"):
+            reason = collection.start_collection(
+                repository, {}, confirmed, note=None, event_sink=lambda _event: None, stop_event=threading.Event(),
+            )
+        self.assertEqual(reason, "plan_complete")
+        self.assertEqual(runs, [("A", 120_000), ("B", 120_000), ("A", 120_000)])
+
+        # A turn that would send a read the operator did not confirm is refused before it starts.
+        grown = lambda _r, _i, *, endpoint_id: CollectionReadiness(  # noqa: E731
+            True, endpoints=["A", "B"], endpoint_id=endpoint_id,
+            scope=scope(endpoint_id, [{"acquisition_id": f"{endpoint_id}/0x1003", "request_hex": "22 10 03"}]),
+        )
+        runs.clear()
+        with mock.patch.object(collection, "collection_readiness", grown), \
+                mock.patch.object(collection, "run_collection", run), \
+                mock.patch.object(collection, "refresh_cache"):
+            with self.assertRaisesRegex(ValueError, "changed since it was confirmed"):
+                collection.start_collection(
+                    repository, {}, confirmed, note=None, event_sink=lambda _event: None,
+                    stop_event=threading.Event(),
+                )
+        self.assertEqual(runs, [])
+
     def test_collect_runs_the_ready_scope_and_updates_progress(self) -> None:
         self.import_rows()
         self.target_battery(samples=3)

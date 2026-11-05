@@ -512,9 +512,16 @@ class OperatorService:
 
     # Collection ------------------------------------------------------------
 
-    def readiness(self, endpoint_id: str | None = None) -> CollectionReadiness:
+    def readiness(
+        self, endpoint_id: str | None = None, *, rotate_slice_seconds: int | None = None,
+    ) -> CollectionReadiness:
+        """Offline readiness for one endpoint, or with ``rotate_slice_seconds`` for all in turn."""
+
         repository = self.repository()
-        return collection_readiness(repository, self.inventory(repository), endpoint_id=endpoint_id)
+        return collection_readiness(
+            repository, self.inventory(repository), endpoint_id=endpoint_id,
+            rotate_slice_seconds=rotate_slice_seconds,
+        )
 
     def collect(
         self,

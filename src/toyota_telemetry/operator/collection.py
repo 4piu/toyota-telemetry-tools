@@ -42,11 +42,14 @@ class CollectionReadiness:
     summary: dict[str, Any] = field(default_factory=dict)
     scope: dict[str, Any] = field(default_factory=dict)
     digest: str | None = None
+    # Set when one confirmed collection takes the endpoints in turn.
+    rotation_slice_seconds: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "ready": self.ready,
             "complete": self.complete,
+            "rotation_slice_seconds": self.rotation_slice_seconds,
             "problems": [problem.as_dict() for problem in self.problems],
             "endpoints": list(self.endpoints),
             "endpoint_id": self.endpoint_id,
@@ -61,9 +64,14 @@ def collection_readiness(
     inventory: Mapping[str, Any],
     *,
     endpoint_id: str | None = None,
+    rotate_slice_seconds: int | None = None,
     available_disk_mib: int | None = None,
 ) -> CollectionReadiness:
-    """Compile the current collection scope without opening a connector."""
+    """Compile the current collection scope without opening a connector.
+
+    With ``rotate_slice_seconds``, the scope covers every ready endpoint and
+    one collection takes them in turn, one run per endpoint and time slice.
+    """
 
     readiness = CollectionReadiness(False)
     if repository.local_settings is None:
@@ -90,12 +98,14 @@ def collection_readiness(
         return readiness
 
     readiness.endpoints = [row["endpoint_id"] for row in plan["endpoint_sessions"]]
+    if rotate_slice_seconds is not None:
+        return _rotation_readiness(repository, readiness, plan, plan_sha256, rotate_slice_seconds)
     if endpoint_id is None and len(readiness.endpoints) == 1:
         endpoint_id = readiness.endpoints[0]
     if endpoint_id is None:
         readiness.problems.append(Problem(
             f"targets span {len(readiness.endpoints)} endpoints; one run collects one endpoint",
-            "Choose the endpoint to collect", "telemetry collect --endpoint ENDPOINT", "collect",
+            "Choose the endpoint, or take them in turn", "telemetry collect --endpoint ENDPOINT", "collect",
         ))
     elif endpoint_id not in readiness.endpoints:
         readiness.problems.append(Problem(
@@ -121,28 +131,84 @@ def collection_readiness(
         "plan_sha256": plan_sha256,
     }
     if endpoint_id is not None and repository.local_settings is not None:
-        backend = repository.local_settings["backend"]
-        session = next(row for row in plan["endpoint_sessions"] if row["endpoint_id"] == endpoint_id)
         readiness.scope = {
-            "connector": {"kind": backend["kind"], "settings": dict(backend["settings"])},
-            "endpoint": session,
-            "acquisitions": [
-                {
-                    "acquisition_id": row["acquisition_id"],
-                    "request_hex": row["request_hex"],
-                    "priority": row["priority"],
-                    "target_interval_ms": row["target_interval_ms"],
-                    "maximum_interval_ms": row["maximum_interval_ms"],
-                }
-                for row in acquisitions
-            ],
-            "targets": sorted(ref for row in acquisitions for ref in row["objective_ids"]),
+            "connector": _connector(repository),
+            **_endpoint_scope(plan, endpoint_id),
             "storage": plan["storage"],
             "source_hashes": plan["source_hashes"],
         }
         readiness.digest = scope_hash(readiness.scope)
     readiness.ready = not readiness.problems
     return readiness
+
+
+MIN_SLICE_SECONDS = 60
+
+
+def _rotation_readiness(
+    repository: ProjectRepository,
+    readiness: CollectionReadiness,
+    plan: Mapping[str, Any],
+    plan_sha256: str,
+    slice_seconds: int,
+) -> CollectionReadiness:
+    """One scope over every ready endpoint, collected in turn."""
+
+    readiness.rotation_slice_seconds = slice_seconds
+    if slice_seconds < MIN_SLICE_SECONDS:
+        readiness.problems.append(Problem(
+            f"a time slice of {slice_seconds} s is shorter than {MIN_SLICE_SECONDS} s",
+            "Switch ECUs less often", "telemetry collect --rotate --slice 5m", "collect",
+        ))
+    loads = plan["stress"]["endpoint_loads"]
+    readiness.summary = {
+        "unfinished_targets": len({ref for row in plan["acquisitions"] for ref in row["objective_ids"]}),
+        "dids": len(plan["acquisitions"]),
+        "endpoint_count": len(readiness.endpoints),
+        # One endpoint is read at a time, so the busiest one sets the peak.
+        "estimated_bus_utilization": max((row["bus_utilization"] for row in loads), default=None),
+        "request_rate_hz": max((row["request_rate_hz"] for row in loads), default=None),
+        "capture_tree_max_mib": plan["storage"]["capture_tree_max_mib"],
+        "plan_sha256": plan_sha256,
+    }
+    if repository.local_settings is not None:
+        endpoints = [_endpoint_scope(plan, endpoint_id) for endpoint_id in readiness.endpoints]
+        readiness.scope = {
+            "connector": _connector(repository),
+            "rotation": {"slice_seconds": slice_seconds, "order": list(readiness.endpoints)},
+            "endpoints": endpoints,
+            "targets": sorted({ref for row in endpoints for ref in row["targets"]}),
+            "storage": plan["storage"],
+            "source_hashes": plan["source_hashes"],
+        }
+        readiness.digest = scope_hash(readiness.scope)
+    readiness.ready = not readiness.problems
+    return readiness
+
+
+def _connector(repository: ProjectRepository) -> dict[str, Any]:
+    backend = repository.local_settings["backend"]
+    return {"kind": backend["kind"], "settings": dict(backend["settings"])}
+
+
+def _endpoint_scope(plan: Mapping[str, Any], endpoint_id: str) -> dict[str, Any]:
+    """What one endpoint's run may send: its session and its DID reads."""
+
+    acquisitions = [row for row in plan["acquisitions"] if row["endpoint_id"] == endpoint_id]
+    return {
+        "endpoint": next(row for row in plan["endpoint_sessions"] if row["endpoint_id"] == endpoint_id),
+        "acquisitions": [
+            {
+                "acquisition_id": row["acquisition_id"],
+                "request_hex": row["request_hex"],
+                "priority": row["priority"],
+                "target_interval_ms": row["target_interval_ms"],
+                "maximum_interval_ms": row["maximum_interval_ms"],
+            }
+            for row in acquisitions
+        ],
+        "targets": sorted(ref for row in acquisitions for ref in row["objective_ids"]),
+    }
 
 
 def start_collection(
@@ -156,6 +222,8 @@ def start_collection(
 ) -> str:
     """Run one live collection for a ready scope while owning the project."""
 
+    if readiness.ready and readiness.rotation_slice_seconds is not None:
+        return _rotate(repository, inventory, readiness, note=note, event_sink=event_sink, stop_event=stop_event)
     if not readiness.ready or readiness.endpoint_id is None:
         raise ValueError("collection is not ready; resolve the readiness problems first")
     with LiveLock(repository):
@@ -169,6 +237,68 @@ def start_collection(
         )
     refresh_cache(ProjectRepository(repository.root), inventory)
     return reason
+
+
+def _rotate(
+    repository: ProjectRepository,
+    inventory: Mapping[str, Any],
+    readiness: CollectionReadiness,
+    *,
+    note: str | None,
+    event_sink: Callable[[dict], None],
+    stop_event: threading.Event,
+) -> str:
+    """Take the confirmed endpoints in turn until every target is met.
+
+    Each turn is an ordinary run on one endpoint that ends when its targets
+    are met or its time slice is over. Before each turn the scope is compiled
+    again; it may only shrink as targets complete, never send anything the
+    operator did not confirm.
+    """
+
+    confirmed = {row["endpoint"]["endpoint_id"]: row for row in readiness.scope["endpoints"]}
+    slice_ms = readiness.rotation_slice_seconds * 1000
+    with LiveLock(repository):
+        while not stop_event.is_set():
+            collected = False
+            for endpoint_id in readiness.scope["rotation"]["order"]:
+                if stop_event.is_set():
+                    break
+                current = collection_readiness(ProjectRepository(repository.root), inventory, endpoint_id=endpoint_id)
+                if current.complete or endpoint_id not in current.endpoints:
+                    continue
+                if not current.ready:
+                    raise ValueError(f"{endpoint_id} is no longer ready: {current.problems[0].message}")
+                _require_confirmed(current.scope, readiness.scope["connector"], confirmed[endpoint_id])
+                reason = run_collection(
+                    repository.root,
+                    plan_path=repository.paths.plans / PLAN_FILE,
+                    endpoint_id=endpoint_id,
+                    run_note=note,
+                    event_sink=event_sink,
+                    stop_event=stop_event,
+                    max_duration_ms=slice_ms,
+                )
+                collected = True
+                if reason not in ("slice_end", "plan_complete"):
+                    refresh_cache(ProjectRepository(repository.root), inventory)
+                    return reason
+            if not collected:
+                return "plan_complete"
+    refresh_cache(ProjectRepository(repository.root), inventory)
+    return "operator_stop"
+
+
+def _require_confirmed(current: Mapping[str, Any], connector: Mapping[str, Any], confirmed: Mapping[str, Any]) -> None:
+    """A turn may send only what the operator confirmed for that endpoint."""
+
+    allowed = {(row["acquisition_id"], row["request_hex"]) for row in confirmed["acquisitions"]}
+    sends = {(row["acquisition_id"], row["request_hex"]) for row in current["acquisitions"]}
+    if current["connector"] != connector or current["endpoint"] != confirmed["endpoint"] or not sends <= allowed:
+        raise ValueError(
+            f"the scope of {confirmed['endpoint']['endpoint_id']} changed since it was confirmed; "
+            "check readiness and start again"
+        )
 
 
 _FIXES = (

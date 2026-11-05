@@ -187,7 +187,8 @@ class CollectorTests(unittest.TestCase):
     def make_runner(self, root: Path, worker: ScriptedWorker, stop: threading.Event,
                     clock: FakeClock | None = None, segment_seconds: int = 60,
                     heartbeat_ms: int = 1000,
-                    minimum_observations: int = 100) -> tuple[CollectionRunner, list[dict]]:
+                    minimum_observations: int = 100,
+                    max_duration_ms: int | None = None) -> tuple[CollectionRunner, list[dict]]:
         plan, encoded = admitted_plan(
             segment_seconds=segment_seconds,
             minimum_observations=minimum_observations,
@@ -203,6 +204,7 @@ class CollectorTests(unittest.TestCase):
             monotonic_ms=clock.monotonic_ms if clock else None,
             wait_ms=clock.wait_ms if clock else None,
             utc_now=lambda: "2026-01-01T00:00:01Z", heartbeat_ms=heartbeat_ms,
+            max_duration_ms=max_duration_ms,
         )
         return runner, events
 
@@ -236,6 +238,21 @@ class CollectorTests(unittest.TestCase):
             run = load_capture_tree(Path(directory) / "captures", Path(directory))[0]
             self.assertEqual(worker.start_count, 1)
             self.assertEqual([s.end["reason"] for s in run.segments], ["rotation", "operator_stop"])
+
+    def test_a_time_slice_ends_the_run_as_a_complete_hand_over(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            stop = threading.Event()
+            clock = FakeClock()
+            worker = ScriptedWorker([result()] * 5, clock=clock, advance_ms=1100)
+            runner, events = self.make_runner(Path(directory), worker, stop, clock, max_duration_ms=2000)
+            self.assertEqual(runner.run(), "slice_end")
+            self.assertFalse(stop.is_set())
+            run = load_capture_tree(Path(directory) / "captures", Path(directory))[0]
+            self.assertEqual(run.segments[-1].end["reason"], "slice_end")
+            run_end = Path(directory) / "captures" / run.run_id / "run-end.json"
+            self.assertIn(b"\"slice_end\"", run_end.read_bytes())
+            self.assertEqual(len(run.segments[0].exchanges), 2)
+            self.assertEqual(events[-1]["reason"], "slice_end")
 
     def test_transport_error_keeps_clean_prefix(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

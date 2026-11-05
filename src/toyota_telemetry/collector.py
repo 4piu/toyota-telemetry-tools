@@ -178,6 +178,7 @@ class CollectionRunner:
         wait_ms: Callable[[int], None] | None = None,
         utc_now: Callable[[], str] | None = None,
         heartbeat_ms: int = 1000,
+        max_duration_ms: int | None = None,
     ) -> None:
         self.plan = dict(plan)
         self.writer = writer
@@ -192,6 +193,9 @@ class CollectionRunner:
         if heartbeat_ms < 1:
             raise ValueError("heartbeat interval must be positive")
         self.heartbeat_ms = heartbeat_ms
+        # A time slice: when it ends, the run finishes as "slice_end" so a
+        # rotation can hand over to the next endpoint.
+        self.max_duration_ms = max_duration_ms
         sessions = self.plan.get("endpoint_sessions", [])
         selected_sessions = [
             session for session in sessions
@@ -285,6 +289,9 @@ class CollectionRunner:
                 self.writer.finish("operator_stop")
                 return "operator_stop"
             now = self.monotonic_ms() - self._started_ms
+            if self.max_duration_ms is not None and now >= self.max_duration_ms:
+                self.writer.finish("slice_end")
+                return "slice_end"
             if self.writer.needs_rotation(now):
                 self.writer.rotate(now)
                 self._emit("segment_rotated", segment_index=self.writer.segment_index)

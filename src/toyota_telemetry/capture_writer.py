@@ -167,7 +167,7 @@ class NativeRunWriter:
 
     def finish(self, reason: str) -> Path:
         self._require_open()
-        if reason not in {"operator_stop", "transport_lost", "plan_complete"}:
+        if reason not in {"operator_stop", "transport_lost", "plan_complete", "slice_end"}:
             raise ValueError(f"invalid native run completion reason: {reason}")
         complete = self._finish_segment(reason)
         self._finish_run(reason)

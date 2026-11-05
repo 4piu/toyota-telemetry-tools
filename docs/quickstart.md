@@ -137,8 +137,14 @@ telemetry collect --note "highway, passenger operating"
 Readiness is compiled automatically. It skips complete targets, requires
 verified latency/size facts, checks request rate, bus and session load,
 storage, decode, and condition dependencies, and reports each problem with
-the command that fixes it. One run collects one endpoint (`--endpoint` when
-targets span several) and stops itself when its targets are complete.
+the command that fixes it. One run collects one endpoint and stops itself
+when its targets are complete. When targets span several endpoints, choose
+one (`--endpoint`), or take them all in turn (`--rotate`, the Collect page's
+"All, in turn"): you confirm every endpoint's reads once, then each endpoint
+gets a run of at most one time slice (`--slice`, default 5 minutes) before
+the next takes over, endpoints whose targets are met are skipped, and the
+collection ends when every target is met. Only one endpoint is read at a
+time; a hand-over ends the run with the reason "slice_end".
 
 Do not operate a computer while driving; use a passenger or an unattended
 logger.

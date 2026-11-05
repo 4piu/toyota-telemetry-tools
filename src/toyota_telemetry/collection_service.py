@@ -28,6 +28,7 @@ def run_collection(
     run_note: str | None = None,
     event_sink: EventSink,
     stop_event: threading.Event,
+    max_duration_ms: int | None = None,
 ) -> str:
     """Run one admitted endpoint plan without depending on a CLI parser."""
 
@@ -91,6 +92,7 @@ def run_collection(
                 worker,
                 event_sink=event_sink,
                 stop_event=stop_event,
+                max_duration_ms=max_duration_ms,
             )
         except Exception:
             writer.crash()
