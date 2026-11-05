@@ -21,6 +21,8 @@ Establish a read-only experimental boundary before connecting a diagnostic reque
 - Send the next request after the previous transaction completes. Start at the observed OEM cadence.
 - Do not keep sleeping ECUs awake or risk 12-V battery depletion.
 - During road validation, use an unattended logger or a passenger. The driver must not operate a computer.
+- Secure the adapter, cable, and computer so they cannot reach the pedals, steering, or driver.
+- Never induce hazardous events to satisfy a target. ABS, stability control, collision avoidance, airbag, overheating, and similar signals are observed only when they occur naturally and safely.
 - Never use reverse-engineered telemetry as an input to vehicle control or a safety-critical warning.
 
 ## Evidence produced
