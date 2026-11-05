@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import copy
 import json
+from pathlib import Path
+import re
 import unittest
 
+from toyota_telemetry.operator.connector import CONNECTOR_FIELDS
 from toyota_telemetry.worker_protocol import (
     build_worker_config,
     exchange_command,
@@ -120,6 +123,19 @@ class WorkerProtocolTests(unittest.TestCase):
         wrong_version["schema_version"] = 2
         with self.assertRaisesRegex(ValueError, "schema mismatch"):
             parse_event(json.dumps(wrong_version))
+
+
+class WorkerKindTests(unittest.TestCase):
+    def test_each_worker_reports_its_connector_kind(self) -> None:
+        """Probes compare backend_kind with the connector kind; the C# side must agree."""
+
+        backends = Path(__file__).resolve().parents[1] / "backends"
+        kinds = {}
+        for source in backends.glob("Telemetry.Backend.*/*Channel.cs"):
+            match = re.search(r'public string Kind\s*\{\s*get \{ return "([^"]+)"; \}', source.read_text(encoding="utf-8"))
+            self.assertIsNotNone(match, source.name)
+            kinds[source.parent.name] = match.group(1)
+        self.assertEqual(sorted(kinds.values()), sorted(CONNECTOR_FIELDS))
 
 
 if __name__ == "__main__":

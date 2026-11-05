@@ -103,6 +103,11 @@ will run. Everything else is safe to take.
   process must emit exactly one result line"; gs_usb, J2534, and slcan also
   printed before the worker's ready event. They now go to stderr. Rebuild the
   workers (`backends\build.ps1`).
+- Workers reported their display name ("PCAN-Basic", "gs_usb", "J2534") as
+  `backend_kind`, so live probes on every connector but slcan failed with
+  "probe result backend_kind does not match the requested backend". They now
+  report the connector kind (`pcan`, `gsusb`, `j2534`, `slcan`), and a test
+  holds the C# and Python kinds together. Rebuild the workers.
 - Readiness with every included target met is no longer "Not ready" with a
   problem: it reports `complete` (JSON), "Nothing to collect" (CLI, exit 0),
   and "All targets met" (Collect page).

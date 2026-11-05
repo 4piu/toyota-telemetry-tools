@@ -46,6 +46,11 @@ namespace Telemetry.Backend.J2534
             get { return "J2534"; }
         }
 
+        public string Kind
+        {
+            get { return "j2534"; }
+        }
+
         public void RefuseConcurrentClients()
         {
             // A J2534 DLL rejects a second PassThruOpen itself; there is no

@@ -41,6 +41,11 @@ namespace Telemetry.Backend.Pcan
             get { return "PCAN-Basic"; }
         }
 
+        public string Kind
+        {
+            get { return "pcan"; }
+        }
+
         public void RefuseConcurrentClients()
         {
             Process[] processes = Process.GetProcessesByName("PcanView");

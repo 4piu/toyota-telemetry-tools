@@ -290,7 +290,7 @@ namespace Telemetry.Can.Core
                     WriteEvent(
                         "{\"event\":\"ready\",\"schema_version\":1,\"endpoint_id\":\"" +
                         Hex.JsonEscape(config.EndpointId) + "\",\"backend_kind\":\"" +
-                        Hex.JsonEscape(channel.BackendName) + "\"}");
+                        Hex.JsonEscape(channel.Kind) + "\"}");
                     RunLoop(transport, config, channel, inbox);
                 }
                 exitCode = 0;

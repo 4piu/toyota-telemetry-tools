@@ -246,7 +246,7 @@ namespace Telemetry.Can.Core
                     json.Append("{\"event\":\"probe_result\",\"schema_version\":1,\"candidate_id\":\"");
                     json.Append(Hex.JsonEscape(config.CandidateId));
                     json.Append("\",\"backend_kind\":\"");
-                    json.Append(Hex.JsonEscape(channel.BackendName));
+                    json.Append(Hex.JsonEscape(channel.Kind));
                     json.Append("\",\"responded\":");
                     json.Append(responded ? "true" : "false");
                     json.Append(",\"session_steps\":[");

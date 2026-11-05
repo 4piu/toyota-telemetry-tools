@@ -52,6 +52,11 @@ namespace Telemetry.Backend.Gsusb
             get { return "gs_usb"; }
         }
 
+        public string Kind
+        {
+            get { return "gsusb"; }
+        }
+
         public void RefuseConcurrentClients()
         {
             // Both transports fail Open() outright when another process

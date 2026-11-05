@@ -51,6 +51,11 @@ namespace Telemetry.Backend.Slcan
             get { return "slcan"; }
         }
 
+        public string Kind
+        {
+            get { return "slcan"; }
+        }
+
         public void RefuseConcurrentClients()
         {
             // Windows serial ports are exclusive by default: a second Open()

@@ -21,6 +21,10 @@ namespace Telemetry.Can.Core
         /// field, e.g. "PCAN-Basic".</summary>
         string BackendName { get; }
 
+        /// <summary>Connector kind reported to the toolkit as backend_kind;
+        /// equals the configuration's device section, e.g. "pcan".</summary>
+        string Kind { get; }
+
         /// <summary>Open at the configured bitrate and install the narrowest
         /// available hardware filter for the inclusive identifier range.
         /// Must drain anything a previous session left queued.</summary>
