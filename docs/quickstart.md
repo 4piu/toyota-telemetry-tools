@@ -160,7 +160,12 @@ All valid runs are included. Export writes UTC, run, elapsed time, raw bytes,
 decoded value, and condition state for external plotting; the desktop
 application plots the same data with run boundaries kept apart. `export`
 writes the privacy-minimized result generation and copies of the curated
-inputs into the deliverable folder (Recordings > Export result). It refuses a
+inputs into the deliverable folder (Recordings > Export result). A generation
+holds `signals.json`, `signals.csv`, and `signals.md` (a readable reference,
+one table per ECU) plus the transport and a manifest. Recordings appear only
+as counts and a status: changed, constant, beyond response, or not recorded.
+Recorded values never leave the workspace, because they include readings
+such as the odometer. It refuses a
 folder inside the workspace and one that holds another project's results.
 The manifest records the toolkit version, and its commit when it runs from a
 Git checkout.
