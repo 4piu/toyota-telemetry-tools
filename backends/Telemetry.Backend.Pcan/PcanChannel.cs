@@ -225,7 +225,7 @@ namespace Telemetry.Backend.Pcan
             }
             else
             {
-                Console.WriteLine("PCAN channel closed.");
+                Console.Error.WriteLine("PCAN channel closed.");
             }
         }
     }

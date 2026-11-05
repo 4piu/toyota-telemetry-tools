@@ -66,7 +66,7 @@ namespace Telemetry.Backend.Gsusb
             this.filterToId = filterToId;
 
             transport = OpenWithFailover();
-            Console.WriteLine("gs_usb device opened via " + transport.DriverDescription + ".");
+            Console.Error.WriteLine("gs_usb device opened via " + transport.DriverDescription + ".");
 
             // Handshake: declare host byte order. candleLight ignores the
             // value and always exchanges little-endian, but real gs_usb
@@ -265,7 +265,7 @@ namespace Telemetry.Backend.Gsusb
             }
             transport.Dispose();
             transport = null;
-            Console.WriteLine("gs_usb channel closed.");
+            Console.Error.WriteLine("gs_usb channel closed.");
         }
     }
 }

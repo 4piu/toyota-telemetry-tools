@@ -96,7 +96,7 @@ namespace Telemetry.Backend.Slcan
             SendAndAwaitAck("O", "open channel");
             opened = true;
 
-            Console.WriteLine(
+            Console.Error.WriteLine(
                 "slcan channel opened on " + portName + " at " + bitrate.ToString(CultureInfo.InvariantCulture) +
                 " bit/s" + (firmwareId.Length == 0 ? "." : " (firmware: " + firmwareId + ")."));
         }
@@ -384,7 +384,7 @@ namespace Telemetry.Backend.Slcan
                 port.Dispose();
                 port = null;
             }
-            Console.WriteLine("slcan channel closed.");
+            Console.Error.WriteLine("slcan channel closed.");
         }
     }
 }

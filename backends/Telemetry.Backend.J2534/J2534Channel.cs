@@ -62,7 +62,7 @@ namespace Telemetry.Backend.J2534
             string firmware, dll, apiVersion;
             if (api.ReadVersion(deviceId, out firmware, out dll, out apiVersion) == StatusNoError)
             {
-                Console.WriteLine(
+                Console.Error.WriteLine(
                     "Adapter versions: firmware=" + firmware + ", DLL=" + dll + ", API=" + apiVersion);
             }
 
@@ -255,7 +255,7 @@ namespace Telemetry.Backend.J2534
             {
                 Report(api.Close(deviceId), "PassThruClose");
                 deviceOpen = false;
-                Console.WriteLine("J2534 session closed.");
+                Console.Error.WriteLine("J2534 session closed.");
             }
             api.Dispose();
             api = null;
