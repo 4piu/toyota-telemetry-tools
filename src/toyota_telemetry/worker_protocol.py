@@ -42,7 +42,8 @@ def build_worker_config(
 
     _exact_keys(backend, {"kind", "executable", "settings"}, "local backend")
     kind = _text(backend["kind"], "local backend kind")
-    _text(backend["executable"], "local backend executable")
+    if backend["executable"] is not None:  # None means the bundled worker
+        _text(backend["executable"], "local backend executable")
     settings = _object(backend["settings"], "local backend settings")
 
     transactions = []

@@ -63,6 +63,20 @@ class WorkerProtocolTests(unittest.TestCase):
         self.assertNotIn("objective", encoded)
         self.assertNotIn("executable", encoded)
 
+    def test_default_bundled_worker_builds_the_same_config(self) -> None:
+        bundled = build_worker_config(plan(), "700-708-session", {
+            "kind": "pcan", "executable": None, "settings": {"channel": "PCAN_USBBUS1"},
+        })
+        named = build_worker_config(plan(), "700-708-session", {
+            "kind": "pcan", "executable": "state/bin/telemetry-pcan.exe",
+            "settings": {"channel": "PCAN_USBBUS1"},
+        })
+        self.assertEqual(bundled, named)
+        with self.assertRaises(ValueError):
+            build_worker_config(plan(), "700-708-session", {
+                "kind": "pcan", "executable": "", "settings": {},
+            })
+
     def test_plan_or_endpoint_mismatch_cannot_authorize_worker(self) -> None:
         invalid = plan()
         invalid["live_authorized"] = False

@@ -95,6 +95,9 @@ will run. Everything else is safe to take.
 
 ### Fixed
 
+- Collection with the default (bundled) worker failed before opening the
+  adapter with "local backend executable must be a non-empty string"; only
+  probing accepted the default. Both now do.
 - A collection run now completes on its own endpoint's targets. Previously
   its live ledger held every target in the plan, so with targets on two
   endpoints a run never stopped by itself, and readiness and the progress
