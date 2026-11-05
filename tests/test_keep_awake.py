@@ -17,7 +17,7 @@ class KeepAwakeTests(unittest.TestCase):
                 mock.patch.object(module, "_set_execution_state", side_effect=lambda flags: calls.append(flags) or 1):
             with self.assertRaises(RuntimeError):
                 with module.keep_awake():
-                    self.assertEqual(calls, [module.ES_CONTINUOUS | module.ES_SYSTEM_REQUIRED])
+                    self.assertEqual(calls, [module.ES_CONTINUOUS | module.ES_SYSTEM_REQUIRED | module.ES_DISPLAY_REQUIRED])
                     raise RuntimeError("worker crashed")
         # Released: only ES_CONTINUOUS, so the display and system may sleep again.
         self.assertEqual(calls[-1], module.ES_CONTINUOUS)

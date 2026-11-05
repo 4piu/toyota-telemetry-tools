@@ -50,6 +50,10 @@ class CollectionCrashed(RuntimeError):
     """The worker or collector failed without a clean capture finalization."""
 
 
+class StoppedBeforeReady(Exception):
+    """The operator stopped the run while the worker was still starting."""
+
+
 class TransactionWorker(Protocol):
     def start(self) -> Mapping[str, Any]: ...
     def exchange(
@@ -85,6 +89,8 @@ class JsonlWorkerClient:
             bufsize=1,
         )
         event = self._read_event()
+        if event["event"] == "stopped" and self._stop_sent:
+            raise StoppedBeforeReady()
         if event["event"] != "ready":
             raise CollectionCrashed(f"worker emitted {event['event']} before ready")
         return event
@@ -256,6 +262,15 @@ class CollectionRunner:
             self._emit_progress()
             self._emit("finished", reason=reason)
             return reason
+        except StoppedBeforeReady:
+            # Stopped while the adapter or session was still starting: an
+            # empty run that ended normally, not a crash.
+            self.writer.finish("operator_stop")
+            self.worker.close()
+            self._set_state("disconnected")
+            self._emit_progress()
+            self._emit("finished", reason="operator_stop")
+            return "operator_stop"
         except CaptureLimitReached:
             self.worker.request_stop()
             self.worker.close()

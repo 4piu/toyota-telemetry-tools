@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 import threading
 import time
 from pathlib import Path
@@ -10,7 +11,9 @@ import uuid
 
 from toyota_telemetry.capture_store import canonical_document_bytes, load_capture_tree
 from toyota_telemetry.capture_writer import NativeRunWriter
-from toyota_telemetry.collector import CollectionCrashed, CollectionRunner, parse_public_event
+from toyota_telemetry.collector import (
+    CollectionCrashed, CollectionRunner, JsonlWorkerClient, StoppedBeforeReady, parse_public_event,
+)
 
 
 def admitted_plan(*, segment_seconds: int = 60, minimum_observations: int = 100) -> tuple[dict, bytes]:
@@ -253,6 +256,49 @@ class CollectorTests(unittest.TestCase):
             self.assertIn(b"\"slice_end\"", run_end.read_bytes())
             self.assertEqual(len(run.segments[0].exchanges), 2)
             self.assertEqual(events[-1]["reason"], "slice_end")
+
+    def test_a_stop_while_the_worker_starts_is_a_clean_empty_run(self) -> None:
+        class StoppedWhileStarting(ScriptedWorker):
+            def start(self) -> dict:
+                raise StoppedBeforeReady()
+
+        with tempfile.TemporaryDirectory() as directory:
+            stop = threading.Event()
+            stop.set()
+            worker = StoppedWhileStarting([], clock=FakeClock())
+            runner, events = self.make_runner(Path(directory), worker, stop, FakeClock())
+            self.assertEqual(runner.run(), "operator_stop")
+            run = load_capture_tree(Path(directory) / "captures", Path(directory))[0]
+            self.assertEqual(run.segments[-1].end["reason"], "operator_stop")
+            self.assertEqual(sum(len(segment.exchanges) for segment in run.segments), 0)
+            self.assertFalse(worker.terminated)
+            self.assertEqual(events[-1]["reason"], "operator_stop")
+
+    def test_client_reports_its_own_stop_before_ready_as_a_stop(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            script = Path(directory) / "worker.py"
+            script.write_text(
+                "import sys\n"
+                "sys.stdin.readline()\n"
+                "print('{\"event\":\"stopped\",\"schema_version\":1,\"reason\":\"stop\"}', flush=True)\n",
+                encoding="utf-8",
+            )
+            client = JsonlWorkerClient(Path(sys.executable), Path(directory) / "unused.json")
+            client.command = [sys.executable, str(script)]
+
+            def stop_when_running() -> None:
+                while client.process is None:
+                    time.sleep(0.01)
+                client.request_stop()
+
+            stopper = threading.Thread(target=stop_when_running)
+            stopper.start()
+            try:
+                with self.assertRaises(StoppedBeforeReady):
+                    client.start()
+            finally:
+                stopper.join()
+                client.close()
 
     def test_transport_error_keeps_clean_prefix(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
