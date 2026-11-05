@@ -98,6 +98,16 @@ will run. Everything else is safe to take.
 - Collection with the default (bundled) worker failed before opening the
   adapter with "local backend executable must be a non-empty string"; only
   probing accepted the default. Both now do.
+- Workers wrote adapter open/close messages ("PCAN channel closed.") to
+  stdout, the JSON protocol channel, so every live probe failed with "probe
+  process must emit exactly one result line"; gs_usb, J2534, and slcan also
+  printed before the worker's ready event. They now go to stderr. Rebuild the
+  workers (`backends\build.ps1`).
+- Readiness with every included target met is no longer "Not ready" with a
+  problem: it reports `complete` (JSON), "Nothing to collect" (CLI, exit 0),
+  and "All targets met" (Collect page).
+- Desktop Recordings: clicking a signal in search results no longer scrolls
+  the list to its end.
 - A collection run now completes on its own endpoint's targets. Previously
   its live ledger held every target in the plan, so with targets on two
   endpoints a run never stopped by itself, and readiness and the progress

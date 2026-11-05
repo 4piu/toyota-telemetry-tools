@@ -190,6 +190,9 @@ class RecordingsPage(QWidget):
         self.signals.setAccessibleName("Recorded signals")
         self.signals.setToolTip("Select one to plot it")
         self.signals.setItemDelegate(PrefixDelegate(self.signals))
+        # Per-item scrolling counts rows hidden by the search, so a click
+        # in filtered results jumped to the end of the list.
+        self.signals.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.signals.currentItemChanged.connect(lambda *_: self.plot_current())
         self.signals_loading = LoadingOverlay(self.signals)
         left.addWidget(self.signal_search)
