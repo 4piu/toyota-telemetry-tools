@@ -259,7 +259,11 @@ def _status(service: OperatorService, args: argparse.Namespace) -> int:
         if status.live_busy:
             lines.append("LIVE      a live job is running")
         if status.collection is not None:
-            lines.append("Collect   " + ("ready" if status.collection["ready"] else "not ready"))
+            lines.append("Collect   " + (
+                "ready" if status.collection["ready"]
+                else "complete, every target met" if status.collection["complete"] and not status.collection["problems"]
+                else "not ready"
+            ))
     if status.next_action:
         lines += ["", f"Next: {status.next_action.text}", f"  {status.next_action.command}"]
     print("\n".join(lines))

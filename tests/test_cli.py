@@ -131,6 +131,7 @@ class CliTests(unittest.TestCase):
         result = self.json_cli("collect", "--dry-run")
         self.assertTrue(result["complete"])
         self.assertEqual(result["problems"], [])
+        self.assertIn("Collect   complete, every target met", self.run_cli("status")[1])
 
     def test_connector_set_and_check_never_open_a_device(self) -> None:
         # The bundled workers may be built in a development checkout; use none here.

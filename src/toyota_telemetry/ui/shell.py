@@ -66,6 +66,8 @@ def step_states(status, dirty: bool) -> list[tuple[str, list[Part]]]:
         collect = [Part("Ready", PENDING, "no targets")]
     elif collection["ready"]:
         collect = [Part("Ready", DONE)]
+    elif collection["complete"] and not collection["problems"]:
+        collect = [Part("Complete", DONE)]
     else:
         problems = len(collection["problems"])
         collect = [Part("Not ready", ATTENTION, f"{problems} problem" + ("s" if problems != 1 else ""))]

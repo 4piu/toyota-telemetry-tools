@@ -110,7 +110,7 @@ will run. Everything else is safe to take.
   holds the C# and Python kinds together. Rebuild the workers.
 - Readiness with every included target met is no longer "Not ready" with a
   problem: it reports `complete` (JSON), "Nothing to collect" (CLI, exit 0),
-  and "All targets met" (Collect page).
+  and "All targets met" (Collect page, step bar "Complete", `status`).
 - Desktop Recordings: clicking a signal in search results no longer scrolls
   the list to its end.
 - A collection run now completes on its own endpoint's targets. Previously

@@ -312,6 +312,10 @@ def test_collect_page_explains_problems_then_runs_the_exact_scope(qtbot, project
     assert collect.problem_area.count() == 0
     assert not collect.start_button.isEnabled()
     assert "All targets met." in collect.start_button.toolTip()
+    from toyota_telemetry.ui.widgets.step_bar import DONE
+    collect_step = window.navigation.steps[2]
+    assert [part.label for part in collect_step.parts] == ["Complete", "Targets met"]
+    assert collect_step.state == DONE
 
 
 @pytest.fixture(autouse=True)

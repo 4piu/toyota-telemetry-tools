@@ -237,6 +237,7 @@ class OperatorService:
             readiness = collection_readiness(repository, inventory)
             status.collection = {
                 "ready": readiness.ready,
+                "complete": readiness.complete,
                 "problems": [problem.as_dict() for problem in readiness.problems],
                 "endpoints": readiness.endpoints,
             }
