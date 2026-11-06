@@ -12,7 +12,11 @@ This directory contains offline utilities, run from a toolkit checkout:
   request/response conversation, from which the session setup is read
   (`--signals` decodes reads with a profile like
   `j2534/signal-profile.example.json`);
-- `privacy-scan.ps1` checks a tree for private material before publishing.
+- `privacy-scan.ps1` checks a tree for private material before publishing;
+- `screenshots/take.py` renders the documentation screenshots from an
+  invented demo project (`screenshots/demo_project.py`) with the desktop
+  application offscreen:
+  `uv run --extra gui python tools/screenshots/take.py docs/images`.
 
 Candidate lists are imported with `telemetry source import` (or the desktop
 Setup page). The TIS database reader that import uses is the bundled

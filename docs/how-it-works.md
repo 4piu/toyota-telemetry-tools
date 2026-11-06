@@ -16,7 +16,7 @@ four steps, which are also the four pages of the desktop application:
 Everything the tool sends is read-only diagnostics: tester present, session
 control, and ReadDataByIdentifier. Commands and desktop actions for each step
 are in the [quickstart](quickstart.md). Read [Safety](#safety) before
-connecting anything.
+connecting anything. The screenshots below show an invented example project.
 
 ## What you need to find for your vehicle
 
@@ -106,6 +106,8 @@ signal a **target**: what it still has to show, for example enough samples
 across several runs, each listed state, or a number of value changes. You can
 correct a signal's name, formula, unit, or states here as well.
 
+![Signals page: ECUs, their DIDs and signals, which are readable, how often each is read, and each signal's target, with a side panel to edit the selection](images/signals.png)
+
 ## 3. Collect
 
 Collection reads one endpoint at a time over one held diagnostic session,
@@ -115,6 +117,8 @@ burst after a slow one. It skips signals whose targets are met and stops by
 itself once every target is. With several endpoints it rotates, either in
 time slices or one after another, and a run on each endpoint is recorded
 separately.
+
+![Collect page: the ECUs to take in turn, the readiness check, Start, and every target's progress](images/collect.png)
 
 Plan drives around the targets: a signal that only moves in reverse, with
 cruise control on, or while the parking brake moves will not change on an
@@ -138,6 +142,8 @@ cluster, a known physical value, or a related signal) at rest, in the middle
 and high range, in reverse or negative where that applies, and across state
 transitions. The Recordings page plots runs for that, and a sample export
 gives CSV for other tools.
+
+![Recordings page: runs by start time and one signal plotted across the selected runs](images/recordings.png)
 
 Exporting the result writes the signal list (JSON, CSV, and a readable
 Markdown table per ECU) with each signal's state, plus the transport

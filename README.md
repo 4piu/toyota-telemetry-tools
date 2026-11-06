@@ -5,6 +5,10 @@ OBD-II CAN bus: which DIDs answer, which bits hold a value, and whether the
 formula behind it holds up on the road. A command line and a desktop
 application do the same work; four adapter workers talk to the vehicle.
 
+![The desktop application's Recordings page: three runs listed, and vehicle speed plotted across them](docs/images/recordings.png)
+
+*Example data; [more screenshots](docs/how-it-works.md).*
+
 Everything it sends is read-only diagnostics (tester present, session control,
 and ReadDataByIdentifier), checked against a built-in allowlist before it
 reaches the bus. It never writes, codes, clears, or unlocks anything.
