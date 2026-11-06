@@ -26,9 +26,9 @@ A vehicle project has three parts:
 
 | Part | Contents |
 |---|---|
-| The tool (this repository) | Programs, adapter workers, and this method. Installed once, for example `uv tool install --editable PATH-TO/70Y074-telemetry-tools[gui]`. It holds no vehicle facts. |
+| The tool (this repository) | Programs, adapter workers, and this method. Installed once, for example `uv tool install --editable PATH-TO/toyota-telemetry-tools[gui]`. It holds no vehicle facts. |
 | The workspace | One private directory per project, created by `telemetry init DIR` or Project > New project, outside any repository. It is the source of truth for transport, collection policy, signal review, and catalog manifest, and holds captures and local state. |
-| The deliverable repository | Findings, evidence write-ups, hardware and validation notes, and the results written by `telemetry export DIR` or Recordings > Export result. Its `config/`, `review/`, and `result/` are exported copies, not hand-edited. |
+| The deliverable repository | Findings, evidence write-ups, hardware and validation notes, and the results written by `telemetry export DIR` or Project > Export result. Its `config/`, `review/`, and `result/` are exported copies, not hand-edited. |
 
 A program that would help a second vehicle belongs in the tool, not in a
 deliverable repository.

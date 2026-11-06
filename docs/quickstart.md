@@ -11,14 +11,15 @@ There are two complete, interchangeable interfaces over the same library:
 - `telemetry-ui`, the desktop application (install the `gui` extra).
 
 Every step below names the command and the desktop page that does the same
-thing. Use either, or both; they read and write the same workspace.
+thing. Use either, or both; they read and write the same workspace. For what
+each step is for, read [how it works](how-it-works.md) first.
 
 ## Install
 
 ```powershell
-git clone https://github.com/4piu/70Y074-telemetry-tools.git
-.\70Y074-telemetry-tools\backends\build.ps1
-uv tool install --editable ".\70Y074-telemetry-tools[gui]"
+git clone https://github.com/4piu/toyota-telemetry-tools.git
+.\toyota-telemetry-tools\backends\build.ps1
+uv tool install --editable ".\toyota-telemetry-tools[gui]"
 telemetry --version
 ```
 
@@ -26,6 +27,38 @@ telemetry --version
 workspace finds them. After pulling a new toolkit revision, rebuild the
 workers if `backends/` changed; the editable install picks up Python changes
 directly.
+
+## Getting help
+
+- `telemetry --help` lists the commands; `telemetry COMMAND --help` explains one.
+- `telemetry status` (or the desktop step bar) shows the next useful step.
+- In the desktop application, hover over a button for what it does, or over
+  a disabled one for why it is unavailable.
+
+## The desktop application
+
+```powershell
+telemetry-ui [PROJECT]
+```
+
+A step bar across the top is both the navigation and the progress view: each
+page shows what is done, what is next, and what needs attention.
+
+- **Setup**: project check, connector, and candidate sources.
+- **Signals**: the collection plan, an ECU → DID → signal table showing what
+  is readable, what is collected and how often, and each signal's target. A
+  Filter menu and search narrow it; a side panel edits the settings, targets,
+  and definition of everything selected (showing "mixed" where rows differ)
+  as a draft until Save.
+- **Collect**: automatic readiness, start and stop, live progress, and every
+  target's progress.
+- **Recordings**: runs by start time; selecting runs lists and plots their
+  signals. Recovery, Delete (to the system trash), and sample Export are here.
+
+New project and Export result are in the Project menu. The plot follows
+dashboard conventions: hover reads the nearest sample, click pins it, drag
+zooms into a time range, double-click shows everything, sideways scroll pans,
+and pinch or Ctrl+scroll zooms time.
 
 ## 0. Create a workspace (Project > New project)
 
@@ -183,7 +216,7 @@ desktop application plots the same data with run boundaries kept apart, and
 draws a state signal as steps on an axis named by its states. `signals show`
 lists a signal's states. `export`
 writes the privacy-minimized result generation and copies of the curated
-inputs into the deliverable folder (Recordings > Export result). A generation
+inputs into the deliverable folder (Project > Export result). A generation
 holds `signals.json`, `signals.csv`, and `signals.md` (a readable reference,
 one table per ECU) plus the transport and a manifest. Recordings appear only
 as counts and a status: changed, constant, beyond response, or not recorded.

@@ -21,7 +21,7 @@ docs/reproduce.md    how the result is reproduced with an installed tool
 ```
 
 `config/`, `review/`, and `result/` are written by `telemetry export DIR` (GUI:
-Recordings > Export result). Edit their sources in the workspace and export
+Project > Export result). Edit their sources in the workspace and export
 again; a hand edit in the deliverable repository is overwritten by the next
 export. Endpoint and dynamic-DID `provenance` entries in the workspace should
 name documents in the deliverable repository, for example

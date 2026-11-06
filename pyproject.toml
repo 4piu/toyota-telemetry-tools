@@ -22,8 +22,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/4piu/70Y074-telemetry-tools"
-Issues = "https://github.com/4piu/70Y074-telemetry-tools/issues"
+Homepage = "https://github.com/4piu/toyota-telemetry-tools"
+Issues = "https://github.com/4piu/toyota-telemetry-tools/issues"
 
 [project.optional-dependencies]
 gui = [
