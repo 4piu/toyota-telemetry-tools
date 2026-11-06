@@ -56,12 +56,10 @@ on the path. Omit `[gui]` for the command line only.
 
 ## Help
 
-- [How it works](docs/how-it-works.md): the four steps and what your vehicle
-  needs.
+- [How it works](docs/how-it-works.md): the four steps, what your vehicle
+  needs and how to find it, safety, wiring, and decoding.
 - [Quickstart](docs/quickstart.md): every step as a command and as a desktop
   page, and where the built-in help is.
-- [Method](docs/method/README.md): research notes on safety, locating
-  metadata, transport, decoding, and verification.
 - [Adapters](backends/README.md) and [adding one](docs/adding-an-adapter.md).
 - [Development](docs/development.md): layout, building, tests, packaging.
 - Questions and bugs: [issues](https://github.com/4piu/toyota-telemetry-tools/issues).

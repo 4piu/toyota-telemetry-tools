@@ -7,12 +7,11 @@
   importing the core never imports Qt, NumPy, or PyQtGraph.
 - `backends/` holds the C# vehicle-facing workers, their shared CAN/ISO-TP
   core, and the Techstream database helper ([details](../backends/README.md)).
-- `tools/` holds extraction and analysis utilities.
-- `docs/method/` is the vehicle-independent method.
+- `tools/` holds offline utilities ([details](../tools/README.md)).
+- `docs/` holds the user guides.
 
-No vehicle conclusions live here. A DID, an endpoint, or a formula that is
-true of one vehicle belongs in that vehicle's workspace and its published
-results.
+No vehicle facts live here. A DID, an endpoint, or a formula that is true of
+one vehicle belongs in that vehicle's workspace.
 
 ## Two interfaces, one service
 
