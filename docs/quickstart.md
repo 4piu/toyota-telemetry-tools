@@ -1,9 +1,8 @@
 # Toolkit quickstart
 
 The toolkit is installed once and works on a project **workspace**: one
-folder, outside any repository, that holds every working file. Results reach
-a **deliverable** folder (usually the vehicle's Git repository) only by
-export.
+folder, outside any repository, that holds every working file. Only the
+result leaves it, by export.
 
 There are two complete, interchangeable interfaces over the same library:
 
@@ -74,7 +73,7 @@ by searching upward; elsewhere pass `--project-root`.
 
 ## Workspace files
 
-Curated inputs, exported as copies:
+Curated inputs:
 
 - `config/transport.json`: confirmed endpoints, session recipes, dynamic-DID
   definitions, and measured safety limits;
@@ -92,9 +91,8 @@ application notices outside edits.
 
 A new workspace has no endpoints or session recipes. Add the reviewed session
 recipe to `config/transport.json` by hand (only diagnostic session control and
-tester present are accepted), then add or import endpoints. To continue an
-existing vehicle, copy its exported `config/` and `review/` from the
-deliverable repository into the new workspace.
+tester present are accepted), then add or import endpoints. Back up the
+workspace yourself; it is the only copy of your review and recordings.
 
 ## 1. Set up (Setup page)
 
@@ -119,7 +117,7 @@ databases. Candidate rows never become reviewed authority by being imported.
 telemetry signals --state not-verified
 telemetry verify 7a1-7a9 --dry-run
 telemetry verify 7a1-7a9
-telemetry endpoint confirm 7a1-7a9-extended --ecu 405 --source docs/evidence/probe.md
+telemetry endpoint confirm 7a1-7a9-extended --ecu 405 --note "answered at IG-ON"
 ```
 
 Selectors are `ENDPOINT`, `ENDPOINT/0xNNNN`, `ENDPOINT/0xNNNN/FIRST..LAST`, or
@@ -128,8 +126,8 @@ and `--search`. They choose only from the candidate list; there are no ranges
 or sweeps. An endpoint that is not verified yet is probed first and its DIDs
 are read only if it responds. Results (baseline bytes, latency, outcome) are
 kept in `state/verification-facts.json`. `endpoint confirm` writes a
-responding endpoint into the transport settings; `--source` names where the
-evidence is written up in the deliverable repository. `endpoint add
+responding endpoint into the transport settings; `--note` keeps an optional
+remark with it. `endpoint add
 TESTER:RESPONSE:RECIPE --ecu KEY` adds an address the source did not provide.
 
 ### Live confirmation
@@ -205,7 +203,7 @@ telemetry recordings show RUN
 telemetry recordings recover RUN          # interrupted run: keep its valid prefix
 telemetry recordings trash RUN            # to the system trash (Recycle Bin)
 telemetry recordings export --signal 372/0x1002/0..15 --run RUN --output battery.csv
-telemetry export C:\work\my-car-deliverables
+telemetry export C:\work\my-car-result
 ```
 
 Deleting a run moves its folder to the operating system's trash; restore it
@@ -215,8 +213,8 @@ decoded value, state text, and condition state for external plotting; the
 desktop application plots the same data with run boundaries kept apart, and
 draws a state signal as steps on an axis named by its states. `signals show`
 lists a signal's states. `export`
-writes the privacy-minimized result generation and copies of the curated
-inputs into the deliverable folder (Project > Export result). A generation
+writes the privacy-minimized result generation into a folder outside the
+workspace (Project > Export result). A generation
 holds `signals.json`, `signals.csv`, and `signals.md` (a readable reference,
 one table per ECU) plus the transport and a manifest. Recordings appear only
 as counts and a status: changed, constant, beyond response, or not recorded.

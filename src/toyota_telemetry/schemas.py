@@ -7,7 +7,6 @@ contract, not permissive readers for earlier project files.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import PurePosixPath
 import re
 from typing import Any
 
@@ -27,8 +26,6 @@ REQUIREMENTS = frozenset(
 )
 POLICY_SCHEMA_VERSION = 2
 PROJECT_SCHEMA_VERSION = 3
-# Workspace folders that hold private working data; references never point there.
-PRIVATE_WORKSPACE_DIRS = frozenset({"captures", "state"})
 OPERATORS = frozenset({"eq", "ne", "lt", "lte", "gt", "gte", "in"})
 SESSION_SERVICES = frozenset({0x10, 0x3E})
 BACKEND_SETTINGS = {
@@ -143,24 +140,11 @@ def _acquisition_ref(value: Any, where: str) -> AcquisitionRef:
     return parsed
 
 
-def _provenance(value: Any, where: str) -> None:
-    rows = _array(value, where, nonempty=True)
-    for index, item in enumerate(rows):
-        _tracked_relative_path(item, f"{where}[{index}]")
+def _notes(value: Any, where: str) -> None:
+    """Optional free-text notes, such as how an endpoint was confirmed."""
 
-
-def _tracked_relative_path(value: Any, where: str) -> str:
-    text = _string(value, where)
-    path = PurePosixPath(text)
-    if (
-        "\\" in text
-        or ":" in text
-        or path.is_absolute()
-        or any(part in {"", ".", ".."} for part in path.parts)
-        or path.parts[0] in PRIVATE_WORKSPACE_DIRS
-    ):
-        raise ValueError(f"{where} must be a portable relative reference to a deliverable document")
-    return text
+    for index, item in enumerate(_array(value, where)):
+        _string(item, f"{where}[{index}]")
 
 
 def _document_header(
@@ -276,7 +260,7 @@ def validate_transport(document: Mapping[str, Any]) -> None:
         _unique(members, f"{where}.ecu_keys")
         if endpoint["state"] != "confirmed":
             raise ValueError(f"{where}.state must be 'confirmed'")
-        _provenance(endpoint["provenance"], f"{where}.provenance")
+        _notes(endpoint["provenance"], f"{where}.provenance")
     _unique(endpoint_ids, "transport endpoint ids")
     _unique(ecu_keys, "transport ECU memberships")
 
@@ -297,7 +281,7 @@ def validate_transport(document: Mapping[str, Any]) -> None:
             raise ValueError(f"{where} must be an exact 0x2C definition/0x6C response")
         if dynamic["state"] != "reviewed_replay":
             raise ValueError(f"{where}.state must be 'reviewed_replay'")
-        _provenance(dynamic["provenance"], f"{where}.provenance")
+        _notes(dynamic["provenance"], f"{where}.provenance")
         dynamic_keys.append((dynamic["endpoint_id"], did))
     _unique(dynamic_keys, "transport dynamic DID identities")
 
@@ -426,9 +410,7 @@ def validate_review(document: Mapping[str, Any]) -> None:
                 _string(row[name], f"{where}.{name}")
         _string(row["evidence_state"], f"{where}.evidence_state")
         _string(row["notes"], f"{where}.notes", nonempty=False)
-        refs = _array(row["evidence_refs"], f"{where}.evidence_refs")
-        for ref_index, ref in enumerate(refs):
-            _tracked_relative_path(ref, f"{where}.evidence_refs[{ref_index}]")
+        _notes(row["evidence_refs"], f"{where}.evidence_refs")
         identities.append((signal_ref, variant))
     _unique(identities, "signal review identities")
 

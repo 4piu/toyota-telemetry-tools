@@ -6,8 +6,8 @@ is available from `telemetry` and from the desktop application.
 
 ## Sources and derived state
 
-Transport, policy, signal review, and catalog provenance are the portable
-authorities; an export copies them into the deliverable repository. Raw
+Transport, policy, signal review, and catalog provenance are the curated
+inputs; an export writes the result derived from them. Raw
 captures, the candidate inventory, verification results, compiled scopes,
 adapter settings, and the SQLite query cache stay private in the workspace
 (`captures/` and `state/`). The cache can be deleted

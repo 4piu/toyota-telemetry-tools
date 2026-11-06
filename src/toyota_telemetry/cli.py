@@ -147,8 +147,8 @@ def build_parser() -> argparse.ArgumentParser:
                       "write a responding endpoint into tracked transport", [dry], parent=endpoint_commands)
     confirm.add_argument("endpoint_id")
     confirm.add_argument("--ecu", type=int, action="append", required=True, help="ECU key served here")
-    confirm.add_argument("--source", action="append", required=True, dest="provenance",
-                         help="tracked evidence document, e.g. docs/evidence/probe.md")
+    confirm.add_argument("--note", action="append", default=[], dest="provenance",
+                         help="optional note on how it was confirmed")
 
     verify = command("verify", "verify", _verify,
                      "LIVE: probe selected endpoints, then read selected DIDs", [selector, dry])
@@ -220,8 +220,8 @@ def build_parser() -> argparse.ArgumentParser:
     recordings.add_argument("--output", type=Path, help="export: CSV file (default: standard output)")
 
     export = command("export", "export", _export,
-                     "write the reviewed result and curated inputs into a deliverable folder")
-    export.add_argument("destination", type=Path, help="deliverable folder outside the workspace")
+                     "write the reviewed signal list into a folder")
+    export.add_argument("destination", type=Path, help="export folder outside the workspace")
     return parser
 
 

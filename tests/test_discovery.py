@@ -483,7 +483,7 @@ class PromotionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already belong to a confirmed endpoint"):
             promote_confirmed_endpoint(transport(), candidate, [372], ["docs/example.md"])
 
-    def test_promote_confirmed_endpoint_requires_provenance(self) -> None:
+    def test_promote_confirmed_endpoint_note_is_optional(self) -> None:
         candidate = {
             "candidate_id": "701-709-extended",
             "tester_can_id": "0x701",
@@ -491,8 +491,12 @@ class PromotionTests(unittest.TestCase):
             "session_recipe_id": "extended",
             "responded": True,
         }
-        with self.assertRaisesRegex(ValueError, "at least one provenance"):
-            promote_confirmed_endpoint(transport(), candidate, [500], [])
+        document = promote_confirmed_endpoint(transport(), candidate, [500], [])
+        validate_transport(document)
+        endpoint = next(row for row in document["endpoints"] if row["id"] == "701-709-extended")
+        self.assertEqual([], endpoint["provenance"])
+        noted = promote_confirmed_endpoint(transport(), candidate, [500], ["Answered at IG-ON, 2026-11-06"])
+        validate_transport(noted)
 
 
 class ProbeClientTests(unittest.TestCase):

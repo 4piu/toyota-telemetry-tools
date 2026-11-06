@@ -111,7 +111,7 @@ class OperatorWindow(QMainWindow):
         self._status = None
         self.next_action = "Open or create a project"
         self.context.register("status", self.navigation, "Progress; click a step to open it")
-        self.choose_result_folder = lambda start: QFileDialog.getExistingDirectory(self, "Deliverable folder", start)
+        self.choose_result_folder = lambda start: QFileDialog.getExistingDirectory(self, "Export folder", start)
         self.setup_page = SetupPage(self.context)
         self.signals_page = SignalsPage(self.context)
         self.collect_page = CollectPage(self.context)
@@ -174,7 +174,7 @@ class OperatorWindow(QMainWindow):
         project_menu.addSeparator()
         self.export_result_action = QAction("Export result", self)
         self.export_result_action.triggered.connect(self.export_result)
-        self.context.register("export", self.export_result_action, "Findings and settings, for the deliverable repository")
+        self.context.register("export", self.export_result_action, "Write the signal list to a folder for publishing")
         project_menu.addAction(self.export_result_action)
         project_menu.setToolTipsVisible(True)
         refresh = QAction("Refresh", self)

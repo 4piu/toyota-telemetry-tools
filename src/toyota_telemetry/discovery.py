@@ -271,8 +271,6 @@ def promote_confirmed_endpoint(
         raise ValueError("only a responding discovery candidate may be promoted")
     if not ecu_keys:
         raise ValueError("promoting an endpoint requires at least one ecu_key")
-    if not provenance:
-        raise ValueError("promoting an endpoint requires at least one provenance reference")
     endpoint_id = _candidate_id(
         _canonical_can_id(candidate["tester_can_id"]),
         _canonical_can_id(candidate["response_can_id"]),

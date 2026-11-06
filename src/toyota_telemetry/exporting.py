@@ -1,7 +1,7 @@
-"""Deterministic, generation-atomic export into a deliverable directory.
+"""Deterministic, generation-atomic export of the result into a folder.
 
-The workspace stays private. An export writes the reviewed result and exact
-copies of the curated inputs that produced it; nothing else leaves.
+The workspace stays private. An export writes the reviewed signal list and
+the transport it is read with; nothing else leaves.
 """
 
 from __future__ import annotations
@@ -113,7 +113,7 @@ def export_project(
     toolkit_commit: str | None,
     generated_at_utc: str,
 ) -> dict[str, Any]:
-    """Write one immutable generation and the curated inputs, then advance the pointer."""
+    """Write one immutable result generation, then advance the pointer."""
 
     target = check_destination(repository, destination)
 
@@ -228,8 +228,6 @@ def export_project(
     generation = target / "result" / "generations" / generation_id
     for name, data in payloads.items():
         _stable_write(generation / name, data)
-    for relative, data in repository.curated_documents().items():
-        _atomic_replace(target / relative, data)
     pointer = _json_bytes(
         {
             "document_type": "telemetry.result-pointer",

@@ -52,27 +52,25 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIn("not an empty folder", err)
         self.assertEqual(sorted(path.name for path in root.iterdir()), ["notes.txt"])
 
-    def test_export_writes_result_and_curated_copies_only(self) -> None:
+    def test_export_writes_the_result_only(self) -> None:
         root = self.base / "workspace"
         root.mkdir()
         make_current_project(root)
-        deliverable = self.base / "deliverable"
-        code, out, err = run_cli("export", str(deliverable), "--project-root", str(root))
+        folder = self.base / "exported"
+        code, out, err = run_cli("export", str(folder), "--project-root", str(root))
         self.assertEqual(code, 0, err)
         self.assertIn("Exported result", out)
-        for relative in (
-            "config/transport.json", "config/collection-policy.json",
-            "config/catalog-manifest.json", "review/signals.json",
-        ):
-            self.assertEqual((deliverable / relative).read_bytes(), (root / relative).read_bytes(), relative)
-        pointer = json.loads((deliverable / "result/current.json").read_text())
-        manifest = json.loads(
-            (deliverable / "result/generations" / pointer["generation_id"] / "manifest.json").read_text()
-        )
+        pointer = json.loads((folder / "result/current.json").read_text())
+        generation = folder / "result/generations" / pointer["generation_id"]
+        manifest = json.loads((generation / "manifest.json").read_text())
         self.assertEqual(manifest["project_id"], "test-project")
         self.assertIn("toolkit_commit", manifest)
-        exported = {path.relative_to(deliverable).parts[0] for path in deliverable.rglob("*") if path.is_file()}
-        self.assertEqual(exported, {"config", "review", "result"})
+        self.assertEqual(
+            json.loads((generation / "transport.json").read_text()),
+            json.loads((root / "config/transport.json").read_text()),
+        )
+        exported = {path.relative_to(folder).parts[0] for path in folder.rglob("*") if path.is_file()}
+        self.assertEqual(exported, {"result"})
 
     def test_export_refuses_the_workspace_and_another_project(self) -> None:
         root = self.base / "workspace"

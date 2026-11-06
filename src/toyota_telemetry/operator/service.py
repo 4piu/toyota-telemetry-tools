@@ -90,7 +90,7 @@ OPERATIONS: tuple[Operation, ...] = (
     Operation("recordings.recover", "Recover an interrupted run", "telemetry recordings recover", "recordings.recover"),
     Operation("recordings.trash", "Move a run to the system trash", "telemetry recordings trash", "recordings.trash"),
     Operation("recordings.export", "Export recorded samples", "telemetry recordings export", "recordings.export"),
-    Operation("export", "Export results to a deliverable folder", "telemetry export", "menu.project.export"),
+    Operation("export", "Export the result to a folder", "telemetry export", "menu.project.export"),
 )
 OPERATION_IDS = frozenset(operation.id for operation in OPERATIONS)
 
@@ -265,7 +265,7 @@ class OperatorService:
             ecus = " ".join(f"--ecu {key}" for key in row.ecu_keys) or "--ecu KEY"
             return NextAction(
                 "Confirm the responding endpoint",
-                f"telemetry endpoint confirm {row.endpoint_id} {ecus} --source docs/PATH.md",
+                f"telemetry endpoint confirm {row.endpoint_id} {ecus}",
                 "signals", ("endpoint", row.key),
             )
         if not status.counts.get("verified_dids"):
@@ -569,7 +569,7 @@ class OperatorService:
         return signal_series(repository, self.inventory(repository), signal_ref)
 
     def export_result(self, destination: Path) -> dict[str, Any]:
-        """Write the reviewed result and curated inputs into a deliverable folder."""
+        """Write the reviewed signal list into an export folder."""
 
         repository = self.repository()
         check_destination(repository, Path(destination))

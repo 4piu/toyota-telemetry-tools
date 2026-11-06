@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from pathlib import PurePosixPath
 from typing import Any
 
 from PySide6.QtCore import Signal
@@ -268,17 +267,15 @@ class EndpointConfirmDialog(_ValidatedDialog):
         super().__init__(parent)
         self.setWindowTitle(f"Confirm {name}")
         form = QFormLayout(self)
-        form.addRow(QLabel("Nothing is sent. This records that the endpoint which\n"
-                           "answered is this ECU, and where that is written up."))
+        form.addRow(QLabel("Nothing is sent. This records that the endpoint\n"
+                           "which answered is this ECU."))
         self.ecus = QLineEdit(", ".join(str(key) for key in ecu_keys))
         self.ecus.setToolTip("Which ECUs answer at this endpoint")
-        self.source = QLineEdit()
-        self.source.setPlaceholderText("required")
-        self.source.setToolTip(
-            "Path in the deliverable repository, e.g. docs/evidence/endpoints.md"
-        )
+        self.note = QLineEdit()
+        self.note.setPlaceholderText("optional")
+        self.note.setToolTip("How it was confirmed, for your own records")
         form.addRow("ECU keys", self.ecus)
-        form.addRow("Evidence", self.source)
+        form.addRow("Note", self.note)
         form.addRow(self._error_label())
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
@@ -288,18 +285,11 @@ class EndpointConfirmDialog(_ValidatedDialog):
     def problem(self) -> str | None:
         if not parse_keys(self.ecus.text()):
             return "Enter at least one ECU key."
-        sources = self.values()[1]
-        if not sources:
-            return "Enter where the evidence for this endpoint is written up."
-        for source in sources:
-            path = PurePosixPath(source)
-            if path.is_absolute() or ":" in source or ".." in path.parts or path.parts[:1] in (("captures",), ("state",)):
-                return f"{source}: use a relative path in the deliverable repository."
         return None
 
     def values(self) -> tuple[list[int], list[str]]:
-        sources = [value.strip().replace("\\", "/") for value in self.source.text().split(",") if value.strip()]
-        return parse_keys(self.ecus.text()), sources
+        note = self.note.text().strip()
+        return parse_keys(self.ecus.text()), [note] if note else []
 
 
 class TargetEditDialog(QDialog):

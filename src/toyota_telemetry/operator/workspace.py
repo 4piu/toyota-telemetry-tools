@@ -1,7 +1,7 @@
 """Create a project workspace: one folder holding every working file.
 
 A workspace is private by default and lives outside any repository. Results
-reach a deliverable repository only through an export.
+leave it only through an export of the result.
 """
 
 from __future__ import annotations

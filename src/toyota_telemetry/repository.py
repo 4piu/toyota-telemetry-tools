@@ -301,17 +301,6 @@ class ProjectRepository:
         }
         return hashes
 
-    def curated_documents(self) -> dict[str, bytes]:
-        """The exact bytes of the curated inputs, keyed by workspace-relative path."""
-
-        documents = {
-            self.paths.transport: self._transport_bytes,
-            self.paths.collection_policy: self._policy_bytes,
-            self.paths.signal_review: self._review_bytes,
-            self.paths.catalog_manifest: self._catalog_manifest_bytes,
-        }
-        return {path.relative_to(self.root).as_posix(): data for path, data in documents.items()}
-
     def rebuild_cache(
         self,
         catalog_rows: Iterable[Mapping[str, Any]] = (),

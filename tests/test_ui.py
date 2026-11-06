@@ -185,7 +185,7 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
     assert page.confirm_button.isEnabled()
 
     def fill_confirm(dialog):
-        dialog.source.setText("docs/evidence/probe.md")
+        dialog.note.setText("Answered at IG-ON")
         return True
 
     page.run_dialog = fill_confirm
@@ -866,16 +866,14 @@ def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot) -> None:
     confirm = EndpointConfirmDialog("Engine  7A1→7A9", [405])
     assert confirm.windowTitle() == "Confirm Engine  7A1→7A9"
     qtbot.addWidget(confirm)
+    confirm.ecus.setText("")
     confirm.accept()
-    assert confirm.error.text() == "Enter where the evidence for this endpoint is written up."
-    confirm.source.setText("C:/notes/probe.md")
-    confirm.accept()
-    assert "relative path in the deliverable repository" in confirm.error.text()
-    confirm.source.setText("captures/run")
-    confirm.accept()
-    assert confirm.result() != confirm.DialogCode.Accepted
-    # Evidence lives in the deliverable repository, so it is not looked up here.
-    confirm.source.setText("docs/evidence/probe.md")
+    assert confirm.error.text() == "Enter at least one ECU key."
+    confirm.ecus.setText("405")
+    assert confirm.values() == ([405], [])
+    # The note is optional free text.
+    confirm.note.setText("  Answered at IG-ON  ")
+    assert confirm.values() == ([405], ["Answered at IG-ON"])
     confirm.accept()
     assert confirm.result() == confirm.DialogCode.Accepted
 
@@ -926,15 +924,15 @@ def test_new_project_and_export_result(qtbot, tmp_path) -> None:
     settle(qtbot, window)
     assert window.project_path == workspace.resolve()
     assert window.next_action == "Configure the connector"
-    deliverable = tmp_path / "deliverable"
+    exported = tmp_path / "exported"
     starts = []
-    window.choose_result_folder = lambda start: (starts.append(start), str(deliverable))[1]
+    window.choose_result_folder = lambda start: (starts.append(start), str(exported))[1]
     assert window.export_result_action.isEnabled()
     window.export_result_action.trigger()
     settle(qtbot, window)
     assert window.statusBar().currentMessage().startswith("Exported the result")
-    assert (deliverable / "result/current.json").is_file()
-    assert (deliverable / "config/transport.json").read_bytes() == (workspace / "config/transport.json").read_bytes()
+    assert (exported / "result/current.json").is_file()
+    assert [path.name for path in exported.iterdir()] == ["result"]
     window.export_result_action.trigger()
     settle(qtbot, window)
-    assert starts == [str(tmp_path), deliverable.as_posix()]
+    assert starts == [str(tmp_path), exported.as_posix()]
