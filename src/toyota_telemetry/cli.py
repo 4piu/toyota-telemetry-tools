@@ -26,7 +26,7 @@ from .operator.editing import (
 )
 from .operator.collection import SLICES, STRATEGIES, Rotation
 from .operator.live import ConfirmationRefused, LiveBusy, record_preview, require_previewed
-from .operator.service import OperatorService
+from .operator.service import OperatorService, toolkit_commit
 from .operator.sources import NormalizedFileSource, TisDatabaseSource
 from .operator.verification import RecipeRequired
 from .project import find_project_root
@@ -40,6 +40,16 @@ EXIT_REFUSED = 3
 
 class Refused(RuntimeError):
     """The operator declined, or confirmation rules refused, a live start."""
+
+
+class _VersionAction(argparse.Action):
+    """Print the version and, when known, the commit (snapshots share a version)."""
+
+    def __call__(self, parser, namespace, values, option_string=None) -> None:
+        commit = toolkit_commit()
+        if commit:
+            commit = commit[:12] + ("-dirty" if commit.endswith("-dirty") else "")
+        parser.exit(message=f"telemetry {__version__}" + (f" ({commit})" if commit else "") + "\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -74,7 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="telemetry",
         description="Verify, target, collect, and analyze diagnostic telemetry in one project workspace.",
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--version", action=_VersionAction, nargs=0, help="show the version and commit, then exit")
     commands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
     def command(name: str, operations, handler: Callable, help_text: str, parents=(), parent=commands):

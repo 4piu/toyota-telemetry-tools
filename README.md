@@ -41,18 +41,17 @@ and how to find it.
 
 ## Install
 
-You need Windows (for the adapter workers and the Techstream import), Python
-3.11 or newer, [uv](https://docs.astral.sh/uv/), and a PEAK PCAN, J2534,
-candleLight/gs_usb, or slcan adapter.
+You need 64-bit Windows, [uv](https://docs.astral.sh/uv/) (it fetches Python
+if needed), Git, and a PEAK PCAN, J2534, candleLight/gs_usb, or slcan adapter.
 
 ```powershell
-git clone https://github.com/4piu/toyota-telemetry-tools.git
-.\toyota-telemetry-tools\backends\build.ps1
-uv tool install --editable ".\toyota-telemetry-tools[gui]"
+uv tool install "toyota-telemetry-tools[gui] @ git+https://github.com/4piu/toyota-telemetry-tools"
 ```
 
 This puts `telemetry` (command line) and `telemetry-ui` (desktop application)
-on the path. Omit `[gui]` for the command line only.
+on the path. Installing compiles the adapter workers with the C# compiler
+built into Windows; nothing else is needed. Omit `[gui]` for the command line
+only. `uv tool upgrade toyota-telemetry-tools` updates to the latest commit.
 
 ## Help
 

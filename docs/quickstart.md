@@ -16,16 +16,16 @@ each step is for, read [how it works](how-it-works.md) first.
 ## Install
 
 ```powershell
-git clone https://github.com/4piu/toyota-telemetry-tools.git
-.\toyota-telemetry-tools\backends\build.ps1
-uv tool install --editable ".\toyota-telemetry-tools[gui]"
+uv tool install "toyota-telemetry-tools[gui] @ git+https://github.com/4piu/toyota-telemetry-tools"
 telemetry --version
+uv tool upgrade toyota-telemetry-tools      # later: update to the latest commit
 ```
 
-`build.ps1` compiles the adapter workers into the package, where every
-workspace finds them. After pulling a new toolkit revision, rebuild the
-workers if `backends/` changed; the editable install picks up Python changes
-directly.
+Installing compiles the adapter workers into the package, where every
+workspace finds them. Until releases begin, every snapshot has the same
+version number; `telemetry --version` also shows the commit, and exported
+results record it. To work on the toolkit itself, see
+[development](development.md).
 
 ## Getting help
 

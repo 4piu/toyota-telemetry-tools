@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from importlib import metadata
+import json
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -584,16 +586,18 @@ class OperatorService:
 
 
 def toolkit_commit() -> str | None:
-    """The toolkit commit when running from its source checkout, else None.
+    """The toolkit commit: from its source checkout, or as installed from Git.
 
-    An installed package carries its version only. A modified checkout is
-    reported with a ``-dirty`` suffix so a result never overstates its origin.
+    A package installed from a Git URL records its commit in the standard
+    ``direct_url.json``; any other installed package carries its version only.
+    A modified checkout is reported with a ``-dirty`` suffix so a result never
+    overstates its origin.
     """
 
     package = Path(__file__).resolve().parents[1]
     checkout = package.parents[1]
     if package.parent.name != "src" or not (checkout / "pyproject.toml").is_file():
-        return None
+        return installed_commit()
     try:
         completed = subprocess.run(
             ["git", "-C", str(checkout), "describe", "--always", "--dirty", "--abbrev=40",
@@ -603,6 +607,17 @@ def toolkit_commit() -> str | None:
     except (OSError, subprocess.CalledProcessError):
         return None
     return completed.stdout.strip() or None
+
+
+def installed_commit() -> str | None:
+    """The Git commit this package was installed from, if it was (PEP 610)."""
+
+    try:
+        text = metadata.distribution("toyota-telemetry-tools").read_text("direct_url.json")
+        commit = json.loads(text or "null")["vcs_info"]["commit_id"]
+    except (metadata.PackageNotFoundError, json.JSONDecodeError, KeyError, TypeError):
+        return None
+    return commit if isinstance(commit, str) and commit else None
 
 
 __all__ = [

@@ -171,3 +171,30 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VersionTests(unittest.TestCase):
+    def version(self, commit: str | None) -> str:
+        out = io.StringIO()
+        with mock.patch("toyota_telemetry.cli.toolkit_commit", return_value=commit), redirect_stderr(out), \
+                redirect_stdout(out), self.assertRaises(SystemExit):
+            cli.main(["--version"])
+        return out.getvalue().strip()
+
+    def test_version_names_the_commit_when_known(self) -> None:
+        self.assertRegex(self.version("0123456789abcdef0123"), r"^telemetry \S+ \(0123456789ab\)$")
+        self.assertRegex(self.version("0123456789abcdef0123-dirty"), r"\(0123456789ab-dirty\)$")
+        self.assertNotIn("(", self.version(None))
+
+    def test_installed_commit_reads_the_git_install_record(self) -> None:
+        from toyota_telemetry.operator import service
+
+        record = json.dumps({"url": "https://example.invalid/repo", "vcs_info": {"vcs": "git", "commit_id": "abc123"}})
+        distribution = mock.Mock(read_text=lambda name: record if name == "direct_url.json" else None)
+        with mock.patch.object(service.metadata, "distribution", return_value=distribution):
+            self.assertEqual(service.installed_commit(), "abc123")
+        local = mock.Mock(read_text=lambda name: json.dumps({"url": "file:///x", "dir_info": {}}))
+        with mock.patch.object(service.metadata, "distribution", return_value=local):
+            self.assertIsNone(service.installed_commit())
+        with mock.patch.object(service.metadata, "distribution", side_effect=service.metadata.PackageNotFoundError):
+            self.assertIsNone(service.installed_commit())

@@ -23,18 +23,24 @@ other, and a test checks that every operation exists in both.
 ## Build and test
 
 ```powershell
-.\backends\build.ps1                       # workers into src/toyota_telemetry/workers/
+git clone https://github.com/4piu/toyota-telemetry-tools.git
+cd toyota-telemetry-tools
+uv tool install --editable ".[gui]"        # telemetry and telemetry-ui follow the checkout
 uv sync --extra gui --group test
 uv run --extra gui --group test pytest
-uv run --extra gui telemetry-ui            # run the desktop application from the checkout
+.\backends\build.ps1                       # after changing backends/
 ```
 
 The workers build with the .NET Framework C# compiler that ships with
-Windows. Each supports `--self-test`, which checks ISO-TP framing, the
-built-in telemetry guard, and the worker protocol without opening a device.
-After pulling changes to `backends/`, rebuild the workers; the editable
-install picks up Python changes directly. A wheel built from the checkout
-bundles the built workers.
+Windows, into `src/toyota_telemetry/workers/` (ignored by Git). Each
+supports `--self-test`, which checks ISO-TP framing, the built-in telemetry
+guard, and the worker protocol without opening a device.
+
+`hatch_build.py` builds them for every wheel: a regular wheel (including an
+install from a Git URL) always compiles and self-tests them fresh and is
+tagged `win_amd64`; an editable install compiles them only when they are
+missing, so run `build.ps1` yourself after changing `backends/`. The editable
+install picks up Python changes directly.
 
 `pyproject.toml` is the version authority; keep `uv.lock` in step with it.
 

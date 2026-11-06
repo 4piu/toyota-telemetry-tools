@@ -56,3 +56,7 @@ build-backend = "hatchling.build"
 packages = ["src/toyota_telemetry"]
 # Built workers are ignored by Git but belong in the wheel.
 artifacts = ["src/toyota_telemetry/workers/*.exe", "src/toyota_telemetry/workers/*.dll"]
+
+# Compiles the Windows workers into the wheel (see hatch_build.py).
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
