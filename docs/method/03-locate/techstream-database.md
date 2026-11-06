@@ -1,5 +1,9 @@
 # Query the local Techstream database
 
+> This route needs your own licensed Techstream installation. The project is
+> not affiliated with Toyota, ships none of its software or data, and describes
+> only what was observed in one installed version, for interoperability.
+
 ## Choose this route when
 
 Techstream is installed but live capture is unavailable, or a broad candidate map is wanted before targeted validation.

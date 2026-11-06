@@ -3,8 +3,27 @@ name = "toyota-telemetry-tools"
 version = "0.5.0"
 description = "Reusable planning and validation tools for Toyota diagnostic telemetry research"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "4piu" }]
 requires-python = ">=3.11"
 dependencies = []
+keywords = ["can-bus", "uds", "iso-tp", "obd2", "vehicle-diagnostics", "telemetry", "toyota"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Hardware",
+]
+
+[project.urls]
+Homepage = "https://github.com/4piu/70Y074-telemetry-tools"
+Issues = "https://github.com/4piu/70Y074-telemetry-tools/issues"
 
 [project.optional-dependencies]
 gui = [

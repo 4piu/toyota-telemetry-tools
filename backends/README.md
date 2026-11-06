@@ -71,6 +71,10 @@ physical-conversion groups, unit strings, and state text (`--states`). Run it
 with `--help` for the query forms; `--self-test` checks argument parsing,
 record output, and code page 932 text without opening a database.
 
+The helper contains no Toyota code or data. It loads the DLL from the
+installation it is pointed at, so it needs your own licensed Techstream, and
+it never copies the database.
+
 ## Safety boundary
 
 - Classical CAN, standard 11-bit identifiers, and normal ISO-TP addressing

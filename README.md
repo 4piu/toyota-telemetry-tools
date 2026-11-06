@@ -9,6 +9,27 @@ Nothing here is specific to a vehicle. Endpoints, session setup, DID selection,
 and collection targets live in a project workspace; this repository supplies
 the machinery that reads it and the [method](docs/method/README.md) behind it.
 
+Everything it sends is read-only diagnostics (tester present, session control,
+and ReadDataByIdentifier), checked against a built-in allowlist before it
+reaches the bus. It never writes, codes, clears, or unlocks anything.
+
+> **Not affiliated with Toyota.** Toyota and Techstream are trademarks of their
+> owners and are named only to describe what the tools work with. No Toyota
+> software or data is included. Importing from Techstream requires your own
+> licensed installation. Talking to a vehicle carries risk; use this at your
+> own risk, never while driving, and never as an input to vehicle control or
+> a safety warning.
+
+## Requirements
+
+- Python 3.11 or newer and [uv](https://docs.astral.sh/uv/).
+- Windows for the adapter workers and the Techstream import. They build with
+  the .NET Framework C# compiler that ships with Windows; no SDK is needed.
+  The command line and desktop application run elsewhere, but cannot reach a
+  vehicle there.
+- A CAN adapter: PEAK PCAN-USB (or compatible), a J2534 pass-thru, a
+  candleLight/gs_usb device, or an slcan serial adapter.
+
 ## Install
 
 ```powershell
@@ -144,7 +165,7 @@ target feedback, capture, heartbeat, and stop; one private C# worker owns only
 the adapter, CAN, ISO-TP, and session lifetime, resolves each transaction by
 identifier against its launch-time table, and passes every request through the
 built-in, vehicle-agnostic telemetry guard. The collector/worker integration is
-covered by synthetic offline tests; it has not yet been exercised on a vehicle.
+covered by synthetic offline tests and has run multi-hour road collections.
 
 ## Guides
 
@@ -171,12 +192,6 @@ and safety facts come from the workspace's transport settings, while local devic
 binding comes from machine-local settings in the workspace.
 Adding a different adapter means implementing one seven-member interface.
 
-## Releases
-
-Each release is tagged, and the [changelog](CHANGELOG.md) records what a bump
-costs a workspace: entries marked **Breaking** need a change there before its
-commands will run again.
-
 ## Repository contract
 
 - `src/` is the Python package; its core has no third-party dependencies and
@@ -186,3 +201,8 @@ commands will run again.
 - `docs/method/` is the vehicle-independent method.
 - No vehicle conclusions live here. A DID, an endpoint, or a formula that is
   true of one car belongs in that car's workspace and deliverable repository.
+
+## License
+
+[MIT](LICENSE). The bundled `libusb-1.0.dll` is LGPL-2.1; see
+[its notice](backends/Telemetry.Backend.Gsusb/runtime/README.md).
