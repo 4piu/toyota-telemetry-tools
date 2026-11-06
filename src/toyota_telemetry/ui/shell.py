@@ -99,7 +99,7 @@ class OperatorWindow(QMainWindow):
         self.setWindowTitle("Telemetry Operator")
         self.resize(1360, 880)
         self.setMinimumSize(1024, 700)
-        self._settings = QSettings("70Y074", "TelemetryOperator")
+        self._settings = QSettings("toyota-telemetry-tools", "TelemetryOperator")
         self._restore_settings = restore_settings
         self._closing_after_job = False
 

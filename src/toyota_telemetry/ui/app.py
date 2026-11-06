@@ -22,7 +22,7 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(sys.argv[1:] if argv is None else argv)
     app = QApplication.instance() or QApplication(["telemetry-ui"])
-    QCoreApplication.setOrganizationName("70Y074")
+    QCoreApplication.setOrganizationName("toyota-telemetry-tools")
     QCoreApplication.setApplicationName("Telemetry Operator")
     window = OperatorWindow(args.project, restore_settings=not args.smoke_test)
     window.show()
