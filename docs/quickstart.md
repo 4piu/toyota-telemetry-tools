@@ -191,7 +191,7 @@ Two strategies decide how long a turn lasts:
 
 Only one endpoint is read at a time.
 
-While a collection runs, the computer and its display are kept awake,
+While a collection or verification runs, the computer and its display are kept awake,
 because a sleeping computer stops reading the vehicle (on many laptops the
 display turning off is what starts sleep). Lower the brightness if you like,
 but keep the lid open: closing it still sleeps. Run on mains power: an empty

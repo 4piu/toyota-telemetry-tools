@@ -40,6 +40,7 @@ from .inventory import (
     rebuild_cache,
     refresh_cache,
 )
+from ..keep_awake import keep_awake
 from .live import LiveBusy, LiveLock, live_busy
 from .recordings import (
     RunSummary,
@@ -455,7 +456,8 @@ class OperatorService:
         probe_worker_factory: ProbeWorkerFactory | None = None,
     ) -> VerificationResult:
         repository = self.repository()
-        with LiveLock(repository):
+        # A sleeping computer stops talking to the vehicle mid-scan, as in collection.
+        with LiveLock(repository), keep_awake():
             return run_verification(
                 repository, scope, utc_now=utc_now, on_event=on_event,
                 stop_event=stop_event, probe_worker_factory=probe_worker_factory,

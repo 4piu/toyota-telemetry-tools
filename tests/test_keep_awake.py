@@ -52,5 +52,32 @@ class KeepAwakeTests(unittest.TestCase):
         self.assertFalse(state["awake"])
 
 
+    def test_verification_runs_inside_keep_awake(self) -> None:
+        from toyota_telemetry.operator import service as service_module
+
+        state = {"awake": False, "seen": None}
+
+        @contextmanager
+        def awake():
+            state["awake"] = True
+            try:
+                yield
+            finally:
+                state["awake"] = False
+
+        def run(*_args, **_kwargs):
+            state["seen"] = state["awake"]
+            return "result"
+
+        service = service_module.OperatorService.__new__(service_module.OperatorService)
+        with mock.patch.object(service_module, "keep_awake", awake), \
+                mock.patch.object(service_module, "LiveLock", mock.MagicMock()), \
+                mock.patch.object(service_module, "run_verification", run), \
+                mock.patch.object(service_module.OperatorService, "repository", lambda self: mock.MagicMock()):
+            self.assertEqual(service.verify(mock.MagicMock()), "result")
+        self.assertTrue(state["seen"])
+        self.assertFalse(state["awake"])
+
+
 if __name__ == "__main__":
     unittest.main()
