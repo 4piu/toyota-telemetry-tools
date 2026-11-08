@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from toyota_telemetry.i18n import ngettext
+
 from toyota_telemetry.operator.editing import REQUIREMENT_LABELS, format_condition, format_duration
 from toyota_telemetry.operator.inventory import ENDPOINT_SILENT, FAILED, VERIFIED, EndpointItem
 
@@ -54,7 +56,16 @@ def did_readable(state: str) -> str:
 
 
 def count(number: int, noun: str) -> str:
-    return f"{number} {noun}" + ("" if number == 1 else "s")
+    """'3 signals' in the current language, with that language's plural form."""
+
+    forms = {
+        "DID": lambda n: ngettext("{count} DID", "{count} DIDs", n),
+        "signal": lambda n: ngettext("{count} signal", "{count} signals", n),
+        "run": lambda n: ngettext("{count} run", "{count} runs", n),
+        "target": lambda n: ngettext("{count} target", "{count} targets", n),
+        "sample": lambda n: ngettext("{count} sample", "{count} samples", n),
+    }
+    return forms[noun](number).format(count=f"{number:,}")
 
 
 def requirement_names(names) -> str:

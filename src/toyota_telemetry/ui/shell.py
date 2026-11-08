@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QSettings
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFileDialog,
     QLabel,
@@ -18,8 +18,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from toyota_telemetry import i18n
+from toyota_telemetry.i18n import _
 from toyota_telemetry.operator import OperatorService
 
+from .app import LANGUAGE_KEY
 from .collect_page import CollectPage
 from .context import PageContext
 from .recordings_page import RecordingsPage
@@ -228,6 +231,7 @@ class OperatorWindow(QMainWindow):
         close_action.setShortcut(QKeySequence.StandardKey.Quit)
         close_action.triggered.connect(self.close)
         project_menu.addAction(close_action)
+        self._build_language_menu()
         help_menu = self.menuBar().addMenu("&Help")
         concepts = QAction("Concepts and workflow", self)
         concepts.setShortcut(QKeySequence.StandardKey.HelpContents)
@@ -236,6 +240,27 @@ class OperatorWindow(QMainWindow):
         for index in range(len(PAGES)):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
             shortcut.activated.connect(lambda row=index: self.navigation.setCurrentRow(row))
+
+    def _build_language_menu(self) -> None:
+        """Languages by their own names; the choice applies at the next start."""
+
+        menu = self.menuBar().addMenu(_("&Language"))
+        group = QActionGroup(self)
+        saved = str(self._settings.value(LANGUAGE_KEY, "") or "") if self._restore_settings else ""
+        self.language_actions: dict[str, QAction] = {}
+        for code, name in [("", _("Automatic (system)")), *i18n.LANGUAGES.items()]:
+            action = QAction(name, self, checkable=True)
+            action.setChecked(code == saved)
+            action.triggered.connect(lambda _checked=False, code=code: self.choose_language(code))
+            group.addAction(action)
+            menu.addAction(action)
+            self.language_actions[code] = action
+
+    def choose_language(self, code: str) -> None:
+        if self._restore_settings:
+            self._settings.setValue(LANGUAGE_KEY, code)
+        if i18n.resolve(code or i18n.system_language()) != i18n.current_language():
+            self.show_report(_("Language"), _("The new language is used the next time the application starts."))
 
     def _build_status_bar(self) -> None:
         status = QStatusBar()

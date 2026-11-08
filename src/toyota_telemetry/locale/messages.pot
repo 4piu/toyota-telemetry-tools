@@ -1,0 +1,47 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: toyota-telemetry-tools\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/toyota_telemetry/ui/names.py:62
+msgid "{count} DID"
+msgid_plural "{count} DIDs"
+msgstr[0] ""
+
+#: src/toyota_telemetry/ui/names.py:63
+msgid "{count} signal"
+msgid_plural "{count} signals"
+msgstr[0] ""
+
+#: src/toyota_telemetry/ui/names.py:64
+msgid "{count} run"
+msgid_plural "{count} runs"
+msgstr[0] ""
+
+#: src/toyota_telemetry/ui/names.py:65
+msgid "{count} target"
+msgid_plural "{count} targets"
+msgstr[0] ""
+
+#: src/toyota_telemetry/ui/names.py:66
+msgid "{count} sample"
+msgid_plural "{count} samples"
+msgstr[0] ""
+
+#: src/toyota_telemetry/ui/shell.py:247
+msgid "&Language"
+msgstr ""
+
+#: src/toyota_telemetry/ui/shell.py:251
+msgid "Automatic (system)"
+msgstr ""
+
+#: src/toyota_telemetry/ui/shell.py:263
+msgid "Language"
+msgstr ""
+
+#: src/toyota_telemetry/ui/shell.py:263
+msgid "The new language is used the next time the application starts."
+msgstr ""

@@ -16,6 +16,7 @@ import threading
 from typing import Any, Callable
 
 from . import __version__
+from .i18n import SOURCE_LANGUAGE, init as init_language, set_language
 from .collector import CollectionCrashed, parse_public_event
 from .operator.editing import (
     REQUIREMENT_LABELS,
@@ -54,8 +55,12 @@ class _VersionAction(argparse.Action):
 
 
 def main(argv: list[str] | None = None) -> int:
+    arguments = sys.argv[1:] if argv is None else argv
+    # JSON output stays English for scripts; people get TELEMETRY_LANG or the system language.
+    set_language(SOURCE_LANGUAGE) if "--json" in arguments else init_language()
+    _utf8_when_redirected()
     parser = build_parser()
-    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    args = parser.parse_args(arguments)
     try:
         if args.command == "init":
             return _init(args)
@@ -65,6 +70,14 @@ def main(argv: list[str] | None = None) -> int:
         return _error(exc, args, EXIT_REFUSED)
     except (CollectionCrashed, FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
         return _error(exc, args, EXIT_FAILED)
+
+
+def _utf8_when_redirected() -> None:
+    """Write UTF-8 to files and pipes: a Windows code page cannot hold every language."""
+
+    for stream in (sys.stdout, sys.stderr):
+        if not stream.isatty() and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def build_parser() -> argparse.ArgumentParser:
