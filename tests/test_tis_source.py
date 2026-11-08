@@ -107,6 +107,21 @@ class TisSourceTests(unittest.TestCase):
                 self.assertEqual([row.get("target_address") for row in result.rows], [expected, expected])
                 self.assertEqual(result.rows[0]["tester_can_id"], "0x750")
 
+    def test_a_phase5_item_below_0x0100_is_rejected(self) -> None:
+        answers = {**ANSWERS, "--monitors": [dict(ANSWERS["--monitors"][0], DataId="0x0000",
+                                                  ReadRequest="22 00 00")]}
+
+        def helper(command, **_kwargs):
+            mode = next(argument for argument in command if argument in answers)
+            stdout = "".join(json.dumps(row) + "\n" for row in answers[mode])
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+        with mock.patch.object(TisDatabaseSource, "availability", return_value=None), \
+                mock.patch.object(sources.subprocess, "run", side_effect=helper):
+            result = TisDatabaseSource(self.database).read()
+        self.assertEqual(result.rows, ())
+        self.assertIn("reserved", result.rejections[0][1])
+
     def test_the_installed_database_is_found_in_the_standard_location(self) -> None:
         program_files = Path(self.database).parent / "Program Files (x86)"
         techstream = program_files / "Toyota Diagnostics" / "Techstream"

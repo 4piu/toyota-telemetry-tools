@@ -279,6 +279,10 @@ class TisDatabaseSource:
                 row["rejected"] = "mapped or dynamic record, not a direct DID"
             elif protocol.get("Addressing") not in (None, "normal", "extended"):
                 row["rejected"] = f"not a CAN diagnostic address ({protocol['Addressing']})"
+            elif not phase4 and int(monitor["DataId"], 16) < 0x100:
+                # Phase-5 items below 0x0100 (seen: 0x0000 placeholders) would be
+                # read as local identifiers, which they are not.
+                row["rejected"] = "DID below 0x0100 is reserved (local identifiers)"
             rows.append(row)
         return rows
 
