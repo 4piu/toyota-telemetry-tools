@@ -16,7 +16,7 @@ import threading
 from typing import Any, Callable
 
 from . import __version__
-from .i18n import SOURCE_LANGUAGE, init as init_language, set_language
+from .i18n import SOURCE_LANGUAGE, set_language
 from .collector import CollectionCrashed, parse_public_event
 from .operator.editing import (
     REQUIREMENT_LABELS,
@@ -56,8 +56,9 @@ class _VersionAction(argparse.Action):
 
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
-    # JSON output stays English for scripts; people get TELEMETRY_LANG or the system language.
-    set_language(SOURCE_LANGUAGE) if "--json" in arguments else init_language()
+    # The CLI is English; only the desktop application is translated. Messages shared
+    # with the application (problems, previews) come out in English here too.
+    set_language(SOURCE_LANGUAGE)
     _utf8_when_redirected()
     parser = build_parser()
     args = parser.parse_args(arguments)

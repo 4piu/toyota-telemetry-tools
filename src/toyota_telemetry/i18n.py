@@ -1,4 +1,4 @@
-"""Translations for the desktop application and the CLI's human-readable text.
+"""Translations for the desktop application (the CLI stays English).
 
 Catalogs are gettext ``.po`` files in ``locale/`` (UTF-8, no byte-order
 mark), compiled in memory when a language is chosen, so there is no build
