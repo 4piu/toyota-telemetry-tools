@@ -95,8 +95,10 @@ endpoints or DIDs from the candidate list (never a range or a sweep), review
 the exact scope, and confirm it.
 
 - An endpoint that has not answered yet is probed first: the session recipe,
-  sent to its request address. You then confirm each one that responds,
-  which adds it to the transport settings.
+  sent to its request address. With several recipes, each is tried in turn
+  (the one most confirmed endpoints use first) until one opens a session, and
+  that one is kept; `verify --recipe NAME` forces one. You then confirm each
+  endpoint that responds, which adds it to the transport settings.
 - Each selected DID is read once. Its answer, response size, and latency are
   recorded; collection needs them to plan safe request rates.
 - A negative response is recorded too. It means the read was refused in that

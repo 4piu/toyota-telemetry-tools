@@ -161,6 +161,59 @@ class VerificationTests(ServiceTestCase):
         self.assertEqual(result["dids"][0]["outcome"], "skipped")
         self.assertEqual(self.service.tree().endpoint(UNCONFIRMED_KEY).state, "silent")
 
+    def test_session_is_chosen_automatically_from_the_reviewed_recipes(self) -> None:
+        self.import_rows()
+        path = self.root / "config/transport.json"
+        transport = json.loads(path.read_text())
+        transport["session_recipes"].append({"id": "relaxed", "steps": [
+            {"request_hex": "3E 00", "expected_prefix_hex": "7E 00", "label": "tester present",
+             "tolerate_negative": True},
+            {"request_hex": "10 03", "expected_prefix_hex": "50 03", "label": "extended",
+             "tolerate_negative": True},
+        ]})
+        path.write_text(json.dumps(transport, indent=2) + "\n")
+        configs: list[dict] = []
+
+        def probes(config_path):
+            # This ECU refuses the extended session: the confirmed endpoints'
+            # recipe (tried first) does not open, the tolerant one does.
+            config = json.loads(Path(config_path).read_text())
+            configs.append(config)
+            steps = [
+                {"label": step["label"], "outcome": "negative" if step["request_hex"] == "10 03" else "positive",
+                 "latency_ms": 4, "nrc": "0x22" if step["request_hex"] == "10 03" else None,
+                 "response_hex": None}
+                for step in config["session_setup"]
+            ]
+            read = None
+            if "preflight_read" in config:
+                did = config["preflight_read"]["request_hex"][3:]
+                read = {"attempted": True, "outcome": "positive", "latency_ms": 9, "nrc": None,
+                        "response_hex": f"62 {did} 12 34"}
+            result = {"event": "probe_result", "schema_version": 1, "candidate_id": config["candidate_id"],
+                      "backend_kind": next(iter(config["device"])), "responded": True,
+                      "session_steps": steps, "read": read}
+            return mock.Mock(probe=lambda: result)
+
+        tree = self.service.tree()
+        scope = self.service.verification_scope(tree, self.service.select(tree, [UNCONFIRMED_KEY]))
+        row = scope.endpoints[0]
+        self.assertEqual((row.session_recipe_id, row.fallback_recipes), ("session-a1769d23a560", ["relaxed"]))
+        self.assertIn("automatic", row.session_text)
+        events: list[dict] = []
+        self.service.verify(scope, on_event=events.append, probe_worker_factory=probes)
+        self.assertEqual(events[0]["session_recipe_id"], "relaxed")
+        self.assertEqual(events[0]["target_id"], "7a1-7a9-relaxed")
+        # Two endpoint probes (one per recipe), then the DID read in the session that opened.
+        self.assertEqual([len(config["session_setup"]) for config in configs], [1, 2, 2])
+        self.assertEqual(events[-1]["outcome"], "positive")
+        self.assertEqual(self.service.tree().endpoint(UNCONFIRMED_KEY).endpoint_id, "7a1-7a9-relaxed")
+        # The explicit choice still exists as an advanced override.
+        fixed = self.service.verification_scope(
+            tree, self.service.select(tree, [UNCONFIRMED_KEY]), session_recipe_id="relaxed"
+        )
+        self.assertEqual(fixed.endpoints[0].fallback_recipes, [])
+
     def test_events_count_up_to_the_scope_total_even_when_dids_are_skipped(self) -> None:
         from toyota_telemetry.operator.verification import progress_text
 

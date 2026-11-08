@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
-    QInputDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -38,7 +37,7 @@ from PySide6.QtWidgets import (
 from toyota_telemetry.operator.editing import UNSET
 from toyota_telemetry.operator.inventory import EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree
 from toyota_telemetry.operator.selection import Selection
-from toyota_telemetry.operator.verification import RecipeRequired, progress_text
+from toyota_telemetry.operator.verification import progress_text
 
 from .context import PageContext
 from .dialogs import EndpointAddDialog, EndpointConfirmDialog, LiveConfirmDialog, TargetEditDialog
@@ -965,24 +964,9 @@ class SignalsPage(QWidget):
             return
         selection = self.selection()
         try:
+            # A new endpoint's session is chosen automatically: each reviewed
+            # recipe is tried until one opens a session.
             scope = service.verification_scope(self.tree_data, selection)
-        except RecipeRequired as exc:
-            rows = {row["id"]: row for row in service.repository().transport["session_recipes"]}
-            labels = {session_label(rows[recipe]) if recipe in rows else recipe: recipe for recipe in exc.recipes}
-            endpoint = self.tree_data.endpoint(exc.endpoint_key)
-            name = endpoint_label(endpoint) if endpoint else "This endpoint"
-            label, ok = QInputDialog.getItem(
-                self, "Diagnostic session",
-                f"{name} has not answered yet.\nWhich session should it be switched to before reading?",
-                list(labels), 0, False,
-            )
-            if not ok:
-                return
-            try:
-                scope = service.verification_scope(self.tree_data, selection, session_recipe_id=labels[label])
-            except ValueError as inner:
-                self.context.error("Cannot verify", inner)
-                return
         except ValueError as exc:
             self.context.error("Cannot verify", exc)
             return
@@ -996,7 +980,7 @@ class SignalsPage(QWidget):
             details.append("    " + ", ".join(did.rsplit("/", 1)[-1] for did in row.dids))
             address = f" address {row.target_address}" if row.target_address else ""
             technical.append(
-                f"{row.key}: {row.tester_can_id}/{row.response_can_id}{address}, session {row.session_recipe_id}"
+                f"{row.key}: {row.tester_can_id}/{row.response_can_id}{address}, {row.session_text}"
             )
         details.append(f"{scope.probe_count} probe(s), at most {scope.upper_bound_seconds:.0f} s.")
         technical.append(f"Scope fingerprint: {scope.digest}")

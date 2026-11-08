@@ -20,15 +20,6 @@ from .live import scope_hash
 from .selection import Selection
 
 
-class RecipeRequired(ValueError):
-    """An unverified endpoint needs the operator to choose a session recipe."""
-
-    def __init__(self, endpoint_key: str, recipes: list[str]) -> None:
-        super().__init__(f"{endpoint_key} needs a session recipe; choose one of {', '.join(recipes)}")
-        self.endpoint_key = endpoint_key
-        self.recipes = recipes
-
-
 @dataclass
 class EndpointProbe:
     key: str
@@ -40,6 +31,18 @@ class EndpointProbe:
     reason: str
     dids: list[str] = field(default_factory=list)
     target_address: str | None = None
+    # Further reviewed session recipes tried, in order, if the first does
+    # not open a session (automatic choice for an endpoint never verified).
+    fallback_recipes: list[str] = field(default_factory=list)
+
+    @property
+    def session_text(self) -> str:
+        """The session used, or the automatic order for an endpoint never verified."""
+
+        if not self.fallback_recipes:
+            return f"session {self.session_recipe_id}"
+        order = ", then ".join([self.session_recipe_id, *self.fallback_recipes])
+        return f"session automatic (tries {order})"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -47,6 +50,7 @@ class EndpointProbe:
             "tester_can_id": self.tester_can_id,
             "response_can_id": self.response_can_id,
             **({} if self.target_address is None else {"target_address": self.target_address}),
+            **({"fallback_recipes": list(self.fallback_recipes)} if self.fallback_recipes else {}),
             "session_recipe_id": self.session_recipe_id,
             "target_id": self.target_id,
             "probe_endpoint": self.probe_endpoint,
@@ -104,6 +108,13 @@ def build_verification_scope(
     recipes = {row["id"]: row for row in repository.transport["session_recipes"]}
     if session_recipe_id is not None and session_recipe_id not in recipes:
         raise ValueError(f"unknown session recipe {session_recipe_id!r}")
+    if not recipes:
+        raise ValueError("the transport settings have no session recipe yet")
+    # Automatic order: the recipe most confirmed endpoints use comes first.
+    usage = {recipe: 0 for recipe in recipes}
+    for row in repository.transport["endpoints"]:
+        usage[row["session_recipe_id"]] = usage.get(row["session_recipe_id"], 0) + 1
+    recipe_order = sorted(recipes, key=lambda recipe: (-usage[recipe], recipe))
     safety = repository.transport["safety"]
     did_min, did_max = int(safety["did_min"], 16), int(safety["did_max"], 16)
     per_step = (safety["initial_response_timeout_ms"] + safety["response_pending_budget_ms"]) / 1000
@@ -121,7 +132,7 @@ def build_verification_scope(
             )
         probe = grouped.get(endpoint.key)
         if probe is None:
-            probe = _endpoint_probe(endpoint, recipes, session_recipe_id)
+            probe = _endpoint_probe(endpoint, recipe_order, session_recipe_id)
             grouped[endpoint.key] = probe
         if data_id not in probe.dids:
             probe.dids.append(data_id)
@@ -133,7 +144,7 @@ def build_verification_scope(
         steps = len(recipes[row.session_recipe_id]["steps"])
         if row.probe_endpoint:
             probe_count += 1
-            seconds += 3 + steps * per_step
+            seconds += (1 + len(row.fallback_recipes)) * (3 + steps * per_step)
         probe_count += len(row.dids)
         seconds += len(row.dids) * (3 + (steps + 1) * per_step)
     backend = repository.local_settings["backend"]
@@ -146,7 +157,7 @@ def build_verification_scope(
     )
 
 
-def _endpoint_probe(endpoint, recipes, session_recipe_id: str | None) -> EndpointProbe:
+def _endpoint_probe(endpoint, recipe_order: list[str], session_recipe_id: str | None) -> EndpointProbe:
     if endpoint.tester_can_id is None or endpoint.response_can_id is None:
         raise ValueError(
             f"{endpoint.key} has no known CAN IDs; add a manual endpoint with its tester and "
@@ -165,16 +176,16 @@ def _endpoint_probe(endpoint, recipes, session_recipe_id: str | None) -> Endpoin
             target_address=endpoint.target_address,
         )
     recipe = session_recipe_id or endpoint.session_recipe_id
+    fallbacks: list[str] = []
     if recipe is None:
-        if len(recipes) != 1:
-            raise RecipeRequired(endpoint.key, sorted(recipes))
-        recipe = next(iter(recipes))
+        recipe, *fallbacks = recipe_order
     target = _candidate_id(
         endpoint.tester_can_id, endpoint.response_can_id, recipe, endpoint.target_address
     )
     return EndpointProbe(
         endpoint.key, endpoint.tester_can_id, endpoint.response_can_id, recipe, target, True,
         "endpoint not verified yet", target_address=endpoint.target_address,
+        fallback_recipes=fallbacks,
     )
 
 
@@ -227,14 +238,15 @@ def run_verification(
             result.stopped = True
             break
         responded = True
+        target_id = row.target_id
         if row.probe_endpoint:
-            fact = discover_endpoints(
-                repository, root,
-                [(row.tester_can_id, row.response_can_id, row.session_recipe_id, row.target_address)],
-                utc_now=utc_now, probe_worker_factory=probe_worker_factory,
-            )[0]
+            fact = _probe_sessions(repository, row, utc_now, probe_worker_factory)
             responded = bool(fact["responded"])
-            event = {"event": "endpoint", "key": row.key, "target_id": row.target_id, "responded": responded}
+            target_id = fact["candidate_id"]
+            event = {
+                "event": "endpoint", "key": row.key, "target_id": target_id, "responded": responded,
+                "session_recipe_id": fact["session_recipe_id"],
+            }
             result.endpoints.append(event)
             emit(event)
         for data_id in row.dids:
@@ -246,7 +258,7 @@ def run_verification(
                 event = {"event": "did", "key": did_key, "outcome": "skipped", "detail": "endpoint did not respond"}
             else:
                 fact = preflight_dids(
-                    repository, root, row.target_id, [data_id],
+                    repository, root, target_id, [data_id],
                     utc_now=utc_now, probe_worker_factory=probe_worker_factory,
                 )[0]
                 read = fact["result"].get("read") or {}
@@ -263,6 +275,42 @@ def run_verification(
         if result.stopped:
             break
     return result
+
+
+def _probe_sessions(repository, row: EndpointProbe, utc_now, probe_worker_factory) -> dict[str, Any]:
+    """Probe with each candidate recipe until one opens the whole session.
+
+    Every recipe is a reviewed, allowlisted session setup; a probe sends only
+    its steps. Returns the fact of the first recipe that opened a session, or
+    else of the first one the ECU answered at all, or else the last attempt.
+    """
+
+    recipes = {recipe["id"]: recipe for recipe in repository.transport["session_recipes"]}
+    answered = None
+    fact: dict[str, Any] = {}
+    for recipe_id in [row.session_recipe_id, *row.fallback_recipes]:
+        fact = discover_endpoints(
+            repository, repository.root,
+            [(row.tester_can_id, row.response_can_id, recipe_id, row.target_address)],
+            utc_now=utc_now, probe_worker_factory=probe_worker_factory,
+        )[0]
+        if session_opened(fact["result"], recipes[recipe_id]):
+            return fact
+        if fact["responded"] and answered is None:
+            answered = fact
+    return answered or fact
+
+
+def session_opened(result: Mapping[str, Any], recipe: Mapping[str, Any]) -> bool:
+    """Whether every session step succeeded, as the probe judges continuation."""
+
+    steps = result.get("session_steps") or []
+    if len(steps) != len(recipe["steps"]):
+        return False
+    return all(
+        step["outcome"] == "positive" or (step["outcome"] == "negative" and spec["tolerate_negative"])
+        for step, spec in zip(steps, recipe["steps"])
+    )
 
 
 def progress_text(event: Mapping[str, Any]) -> str:

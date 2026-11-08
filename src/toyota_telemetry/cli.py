@@ -28,7 +28,7 @@ from .operator.collection import SLICES, STRATEGIES, Rotation
 from .operator.live import ConfirmationRefused, LiveBusy, record_preview, require_previewed
 from .operator.service import OperatorService, toolkit_commit
 from .operator.sources import NormalizedFileSource, TisDatabaseSource
-from .operator.verification import RecipeRequired, progress_text
+from .operator.verification import progress_text
 from .project import find_project_root
 from .states import state_text
 
@@ -164,7 +164,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify = command("verify", "verify", _verify,
                      "LIVE: probe selected endpoints, then read selected DIDs", [selector, dry])
-    verify.add_argument("--recipe", help="session recipe for endpoints that are not verified yet")
+    verify.add_argument("--recipe", help="advanced: use only this session recipe for endpoints not verified "
+                        "yet (default: try each reviewed recipe until one opens a session)")
     verify.add_argument("--yes", action="store_true", help="start without a prompt (needs a matching --dry-run)")
 
     signal_cmd = commands.add_parser("signal", help="signal definition and review")
@@ -521,10 +522,7 @@ def _endpoint_confirm(service: OperatorService, args: argparse.Namespace) -> int
 def _verify(service: OperatorService, args: argparse.Namespace) -> int:
     tree = service.tree()
     selection = service.select(tree, args.selectors, ecus=args.ecu, states=args.states, search=args.search)
-    try:
-        scope = service.verification_scope(tree, selection, session_recipe_id=args.recipe)
-    except RecipeRequired as exc:
-        raise ValueError(f"{exc}; pass --recipe NAME") from exc
+    scope = service.verification_scope(tree, selection, session_recipe_id=args.recipe)
     repository = service.repository()
     if args.dry_run:
         record_preview(repository, "verify", scope.digest)
@@ -542,8 +540,8 @@ def _verify(service: OperatorService, args: argparse.Namespace) -> int:
         if args.as_json:
             print(json.dumps(event, sort_keys=True), flush=True)
         elif event["event"] == "endpoint":
-            print(f"  {progress_text(event)} endpoint {event['key']}: "
-                  f"{'responded' if event['responded'] else 'no response'}", flush=True)
+            answer = f"responded, session {event['session_recipe_id']}" if event["responded"] else "no response"
+            print(f"  {progress_text(event)} endpoint {event['key']}: {answer}", flush=True)
         else:
             detail = f" {event['detail']}" if event.get("detail") else ""
             print(f"  {progress_text(event)} {event['key']}: {event['outcome']}{detail}", flush=True)
@@ -563,7 +561,7 @@ def _print_verification_scope(scope) -> None:
     print(scope.summary())
     for row in scope.endpoints:
         action = "probe endpoint, then" if row.probe_endpoint else "use"
-        print(f"  {row.key}: {action} {row.target_id} ({row.reason}); session {row.session_recipe_id}")
+        print(f"  {row.key}: {action} {row.target_id} ({row.reason}); {row.session_text}")
         print(f"    DIDs: {', '.join(row.dids)}")
     print(f"  {scope.probe_count} probe(s), at most {scope.upper_bound_seconds:.0f} s; scope {scope.digest[:12]}")
 
