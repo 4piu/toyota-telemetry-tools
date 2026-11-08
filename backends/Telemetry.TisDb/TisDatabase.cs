@@ -439,6 +439,38 @@ namespace Telemetry.TisDb
             }
             var bytes = new byte[length];
             Marshal.Copy(pointer, bytes, 0, length);
+            return Decode(bytes, text);
+        }
+
+        private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
+
+        /// <summary>
+        /// Most text is in the database's code page, but a few strings (seen:
+        /// unit "℃") are stored as UTF-8. Bytes that are valid UTF-8 and
+        /// contain a multi-byte sequence are read as UTF-8; everything else
+        /// uses the code page.
+        /// </summary>
+        internal static string Decode(byte[] bytes, Encoding text)
+        {
+            bool multiByte = false;
+            foreach (byte value in bytes)
+            {
+                if (value >= 0x80)
+                {
+                    multiByte = true;
+                    break;
+                }
+            }
+            if (multiByte)
+            {
+                try
+                {
+                    return StrictUtf8.GetString(bytes);
+                }
+                catch (DecoderFallbackException)
+                {
+                }
+            }
             return text.GetString(bytes);
         }
 

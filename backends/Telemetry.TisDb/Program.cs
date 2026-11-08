@@ -156,6 +156,10 @@ namespace Telemetry.TisDb
                   == "{\"A\":1,\"B\":\"x\\\"\\\\\\n\\u0001\",\"C\":null}", "record JSON");
             // The databases store text in code page 932: the degree sign is 0x81 0x8B.
             Check(TextEncoding(932).GetString(new byte[] { 0x81, 0x8B }) == "\u00B0", "code page 932 text");
+            // A few strings are UTF-8 instead ("\u2103" = E2 84 83); code-page text still decodes as before.
+            Check(TisDatabase.Decode(new byte[] { 0xE2, 0x84, 0x83 }, TextEncoding(932)) == "\u2103", "UTF-8 text");
+            Check(TisDatabase.Decode(new byte[] { 0x81, 0x8B }, TextEncoding(932)) == "\u00B0", "code page text kept");
+            Check(TisDatabase.Decode(new byte[] { 0x6B, 0x50, 0x61 }, TextEncoding(932)) == "kPa", "ASCII text");
             Options parsed = Options.Parse(new[] {
                 "--database", @"C:\TS\NA", "--keys", "372, 0x18F", "--physical", "0x20,7", "--max-items", "3" });
             Check(parsed.Mode == "physical" && parsed.Keys.Count == 2 && parsed.Keys[1] == 0x18F
