@@ -41,14 +41,19 @@ VERIFIED = "Verified"
 NOT_VERIFIED = "Not verified"
 FAILED = "Failed"
 ENDPOINT_NOT_VERIFIED = "Endpoint not verified"
+# The endpoint was probed and did not answer, so its DIDs were not read.
+ENDPOINT_SILENT = "ECU did not answer"
 
 # One status ladder per signal, from least to most established.
 SIGNAL_NOT_CHECKED = "Not checked"
+SIGNAL_NO_ANSWER = "No answer"
 SIGNAL_FAILED = "Refused"
 SIGNAL_RESPONDS = "Responds"
 SIGNAL_RECORDED = "Recorded"
 SIGNAL_REVIEWED = "Reviewed"
-SIGNAL_STATUSES = (SIGNAL_NOT_CHECKED, SIGNAL_FAILED, SIGNAL_RESPONDS, SIGNAL_RECORDED, SIGNAL_REVIEWED)
+SIGNAL_STATUSES = (
+    SIGNAL_NOT_CHECKED, SIGNAL_NO_ANSWER, SIGNAL_FAILED, SIGNAL_RESPONDS, SIGNAL_RECORDED, SIGNAL_REVIEWED,
+)
 
 # Review evidence states from the project method; a review in any state other
 # than Candidate counts as Reviewed.
@@ -953,6 +958,8 @@ def _signal_status(signal: SignalItem, did: DidItem) -> str:
         return SIGNAL_RESPONDS
     if did.state == FAILED:
         return SIGNAL_FAILED
+    if did.state == ENDPOINT_SILENT:
+        return SIGNAL_NO_ANSWER
     return SIGNAL_NOT_CHECKED
 
 
@@ -1045,6 +1052,9 @@ def _apply_verification(
             if endpoint.confirmed and recorded.get((endpoint.endpoint_id, did.data_id)) == "supported":
                 did.state = VERIFIED
                 did.detail = "responded in recorded runs"
+            elif not endpoint.confirmed and endpoint.state == "silent":
+                did.state = ENDPOINT_SILENT
+                did.detail = "the ECU did not answer when verified, so this DID was not read"
             elif not endpoint.confirmed and endpoint.state != "responded":
                 did.state = ENDPOINT_NOT_VERIFIED
                 did.detail = f"endpoint is {endpoint.state}"

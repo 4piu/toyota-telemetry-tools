@@ -285,6 +285,12 @@ class VerificationTests(ServiceTestCase):
         self.assertEqual(self.probes.transmissions, 1)
         self.assertEqual(result["dids"][0]["outcome"], "skipped")
         self.assertEqual(self.service.tree().endpoint(UNCONFIRMED_KEY).state, "silent")
+        # Its DIDs say why they were not read, and stay eligible for another try.
+        endpoint = self.service.tree().endpoint(UNCONFIRMED_KEY)
+        self.assertEqual(endpoint.dids[0].state, "ECU did not answer")
+        self.assertEqual(endpoint.dids[0].signals[0].status, "No answer")
+        selection = self.service.select(self.service.tree(), [], states=["not-verified"])
+        self.assertIn(endpoint.dids[0].key, selection.dids)
 
     def test_session_is_chosen_automatically_from_the_reviewed_recipes(self) -> None:
         self.import_rows()

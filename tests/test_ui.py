@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 from PySide6.QtCore import QPoint, Qt
-from PySide6.QtWidgets import QAbstractButton, QLabel, QMessageBox, QWidget
+from PySide6.QtWidgets import QAbstractButton, QCheckBox, QLabel, QMessageBox, QRadioButton, QWidget
 
 from tests.operator_fixture import (
     CANDIDATE_ID,
@@ -120,7 +120,9 @@ def test_gui_shows_no_command_line_text_and_short_buttons(qtbot, project, probes
         # Tooltips are a few words, not explanations.
         tip = str(widget.property("baseToolTip") or widget.toolTip())
         long_tips.extend(line for line in tip.splitlines() if len(line) > 60)
-        if isinstance(widget, QAbstractButton) and widget.text():
+        # Push buttons are short; checkbox and radio labels name an option (e.g. an ECU).
+        option = isinstance(widget, (QCheckBox, QRadioButton))
+        if isinstance(widget, QAbstractButton) and not option and widget.text():
             assert len(widget.text().split()) <= 2, widget.text()
             assert not widget.text().endswith(("…", "...")), widget.text()
     assert long_tips == []
@@ -1078,3 +1080,24 @@ def test_live_view_pauses_resumes_and_stops(qtbot, project, probes) -> None:
         view.stop_button.click()
         qtbot.waitUntil(lambda: not view.isVisible(), timeout=10_000)
     assert not window.context.live_job_running
+
+
+def test_filter_options_are_checkboxes_and_a_long_group_scrolls(qtbot) -> None:
+    from PySide6.QtWidgets import QScrollArea
+    from toyota_telemetry.ui.widgets.filter_menu import VISIBLE_ROWS, FilterButton
+
+    button = FilterButton()
+    qtbot.addWidget(button)
+    button.set_group("Readable", [("readable", "Readable", "")])
+    button.set_group("ECU", [(f"ecu:{index}", f"ECU {index}", "") for index in range(40)])
+    assert isinstance(button.actions_["ecu:3"], QCheckBox)
+    scrolls = button.menu_.findChildren(QScrollArea)
+    assert len(scrolls) == 1 and scrolls[0].height() < 40 * button.actions_["ecu:3"].sizeHint().height()
+    assert scrolls[0].height() >= VISIBLE_ROWS * button.actions_["ecu:3"].sizeHint().height()
+    button.actions_["ecu:3"].setChecked(True)
+    button.actions_["readable"].setChecked(True)
+    # Replacing a group keeps the ticks of options that remain.
+    button.set_group("ECU", [(f"ecu:{index}", f"ECU {index}", "") for index in range(20)])
+    assert button.active("ECU") == {"ecu:3"} and button.text() == "Filter (2)"
+    button.clear()
+    assert button.count() == 0

@@ -16,6 +16,7 @@ from typing import Iterable
 from ..identity import SignalRef, canonical_did
 from .inventory import (
     ENDPOINT_NOT_VERIFIED,
+    ENDPOINT_SILENT,
     FAILED,
     NOT_VERIFIED,
     VERIFIED,
@@ -27,7 +28,8 @@ from .inventory import (
 
 STATE_FILTERS = {
     "verified": {VERIFIED},
-    "not-verified": {NOT_VERIFIED, ENDPOINT_NOT_VERIFIED},
+    # A silent ECU's DIDs were never read; it may answer another time.
+    "not-verified": {NOT_VERIFIED, ENDPOINT_NOT_VERIFIED, ENDPOINT_SILENT},
     "failed": {FAILED},
 }
 SIGNAL_FILTERS = {"targeted", "untargeted"}

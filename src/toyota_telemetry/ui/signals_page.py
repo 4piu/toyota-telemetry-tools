@@ -37,7 +37,9 @@ from PySide6.QtWidgets import (
 )
 
 from toyota_telemetry.operator.editing import UNSET
-from toyota_telemetry.operator.inventory import EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree, describe_deletion
+from toyota_telemetry.operator.inventory import (
+    ENDPOINT_SILENT, EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree, describe_deletion,
+)
 from toyota_telemetry.operator.selection import Selection
 from toyota_telemetry.operator.verification import progress_text
 
@@ -88,6 +90,7 @@ FILTER_GROUPS = {
     "Readable": [
         ("readable", "Readable", "DIDs that answered when verified"),
         ("unchecked", "Not checked", "DIDs not read from the vehicle yet"),
+        ("no-answer", "No answer", "DIDs whose ECU did not answer"),
         ("refused", "Refused", "DIDs the ECU refused"),
     ],
     "Collect": [
@@ -653,7 +656,7 @@ class SignalsPage(QWidget):
             if ecus and f"ecu:{endpoint.key}" not in ecus:
                 continue
             for did in endpoint.dids:
-                if readable and {VERIFIED: "readable", FAILED: "refused"}.get(did.state, "unchecked") not in readable:
+                if readable and {VERIFIED: "readable", FAILED: "refused", ENDPOINT_SILENT: "no-answer"}.get(did.state, "unchecked") not in readable:
                     continue
                 included = bool(did.settings and did.settings["included"])
                 if collect and ("collected" if included else "not-collected") not in collect:

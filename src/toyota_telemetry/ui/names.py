@@ -10,11 +10,12 @@ from __future__ import annotations
 from typing import Any
 
 from toyota_telemetry.operator.editing import REQUIREMENT_LABELS, format_condition, format_duration
-from toyota_telemetry.operator.inventory import FAILED, VERIFIED, EndpointItem
+from toyota_telemetry.operator.inventory import ENDPOINT_SILENT, FAILED, VERIFIED, EndpointItem
 
 
 READABLE = "✓ Readable"
 NOT_CHECKED = "? Not checked"
+NO_ANSWER = "– No answer"
 REFUSED = "✕ Refused"
 ENDPOINT_READABLE = {
     "responded": ("Needs confirming", "Answered; confirm it to plan"),
@@ -49,7 +50,7 @@ def endpoint_label(endpoint: EndpointItem) -> str:
 
 
 def did_readable(state: str) -> str:
-    return READABLE if state == VERIFIED else REFUSED if state == FAILED else NOT_CHECKED
+    return {VERIFIED: READABLE, FAILED: REFUSED, ENDPOINT_SILENT: NO_ANSWER}.get(state, NOT_CHECKED)
 
 
 def count(number: int, noun: str) -> str:
