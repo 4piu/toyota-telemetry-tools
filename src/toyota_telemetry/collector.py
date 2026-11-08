@@ -15,7 +15,7 @@ from typing import Any, Callable, Mapping, Protocol
 from .decoding import evaluate_formula, extract_raw
 from .capture_writer import CaptureLimitReached, NativeRunWriter
 from .capture_store import canonical_document_bytes, capture_set_hash
-from .identity import AcquisitionRef, SignalRef
+from .identity import AcquisitionRef, SignalRef, response_header_bytes
 from .live_progress import LiveTargetLedger
 from .objectives import ReplayObservation, evaluate_condition
 from .scheduler import DeterministicScheduler
@@ -397,7 +397,7 @@ class CollectionRunner:
         if result["outcome"] != "positive" or result["response_hex"] is None:
             return []
         payload = bytes.fromhex(result["response_hex"])
-        data = payload[3:]
+        data = payload[response_header_bytes(int(acquisition["data_id"], 16)):]
         decoded: list[tuple[dict[str, Any], int, float | None]] = []
         acquisition_ref = AcquisitionRef.parse(acquisition["acquisition_id"])
         for row in self.plan["decodes"]:

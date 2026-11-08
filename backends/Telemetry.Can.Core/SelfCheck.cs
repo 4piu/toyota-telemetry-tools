@@ -72,6 +72,16 @@ namespace Telemetry.Can.Core
             // every control/coding/security/programming service is rejected
             // outright regardless of what any transaction table might contain.
             TelemetryGuard.Enforce(singleRequest, TelemetryGuardContext.Transaction);
+            TelemetryGuard.Enforce(new byte[] { 0x21, 0x30 }, TelemetryGuardContext.Transaction);
+            AssertGuardRejected(
+                new byte[] { 0x21, 0x30, 0x01 }, TelemetryGuardContext.Transaction,
+                "an oversized ReadDataByLocalIdentifier request");
+            AssertGuardRejected(
+                new byte[] { 0x21, 0x30 }, TelemetryGuardContext.SessionSetup,
+                "a local-identifier read used as a session-setup step");
+            AssertGuardRejected(
+                new byte[] { 0x3B, 0x30, 0x00 }, TelemetryGuardContext.Transaction,
+                "WriteDataByLocalIdentifier");
             AssertGuardRejected(
                 new byte[] { 0x22, 0x10, 0x75, 0x00 }, TelemetryGuardContext.Transaction,
                 "an oversized ReadDataByIdentifier request");

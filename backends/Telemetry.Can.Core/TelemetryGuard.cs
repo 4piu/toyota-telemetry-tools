@@ -106,10 +106,13 @@ namespace Telemetry.Can.Core
         /// the table itself contains.</summary>
         private static void EnforceTransaction(byte[] request, byte service)
         {
-            if (service != 0x22 || request.Length != 3)
+            // ReadDataByIdentifier (22 DID), or for older ECUs
+            // ReadDataByLocalIdentifier (21 ID): both only read.
+            if ((service == 0x22 && request.Length == 3) || (service == 0x21 && request.Length == 2))
             {
-                throw Reject(request, "a service outside the runtime read capability");
+                return;
             }
+            throw Reject(request, "a service outside the runtime read capability");
         }
 
         private static InvalidOperationException Reject(byte[] request, string what)

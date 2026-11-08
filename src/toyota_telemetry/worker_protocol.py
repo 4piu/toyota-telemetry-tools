@@ -6,7 +6,10 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from .identity import canonical_did, canonical_target_address
+from .identity import (
+    canonical_did, canonical_target_address, read_request_hex, response_prefix_hex,
+    within_read_range,
+)
 from .project import atomic_json
 
 
@@ -62,7 +65,7 @@ def build_worker_config(
         request = _canonical_hex(acquisition.get("request_hex"), f"acquisitions[{index}].request_hex")
         data_id = _text(acquisition.get("data_id"), f"acquisitions[{index}].data_id")
         did = int(data_id, 16)
-        expected = f"62 {did >> 8:02X} {did & 0xFF:02X}"
+        expected = response_prefix_hex(did)
         transactions.append({
             "transaction_id": transaction_id,
             "request_hex": request,
@@ -192,14 +195,14 @@ def build_probe_config(
         did = int(read_data_id, 16)
         did_min = int(canonical_did(safety["did_min"]), 16)
         did_max = int(canonical_did(safety["did_max"]), 16)
-        if not did_min <= did <= did_max:
+        if not within_read_range(did, did_min, did_max):
             raise ValueError(
                 f"preflight DID {read_data_id} is outside the tracked project range "
                 f"0x{did_min:04X}..0x{did_max:04X}"
             )
         config["preflight_read"] = {
-            "request_hex": f"22 {did >> 8:02X} {did & 0xFF:02X}",
-            "expected_prefix_hex": f"62 {did >> 8:02X} {did & 0xFF:02X}",
+            "request_hex": read_request_hex(did),
+            "expected_prefix_hex": response_prefix_hex(did),
             "label": f"read {read_data_id}",
         }
     return config

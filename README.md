@@ -10,8 +10,9 @@ application do the same work; four adapter workers talk to the vehicle.
 *Example data; [more screenshots](docs/how-it-works.md).*
 
 Everything it sends is read-only diagnostics (tester present, session control,
-and ReadDataByIdentifier), checked against a built-in allowlist before it
-reaches the bus. It never writes, codes, clears, or unlocks anything.
+and reads by identifier or local identifier), checked against a built-in
+allowlist before it reaches the bus. It never writes, codes, clears, or
+unlocks anything.
 
 > **Not affiliated with Toyota.** Toyota and Techstream are trademarks of their
 > owners and are named only to describe what the tools work with. No Toyota

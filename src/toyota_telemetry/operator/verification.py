@@ -13,7 +13,7 @@ import threading
 from typing import Any, Callable, Mapping
 
 from ..discovery import ProbeWorkerFactory, _candidate_id, discover_endpoints, preflight_dids
-from ..identity import canonical_did
+from ..identity import canonical_did, within_read_range
 from ..repository import ProjectRepository
 from .inventory import InventoryTree
 from .live import scope_hash
@@ -126,7 +126,7 @@ def build_verification_scope(
         if endpoint is None:
             raise ValueError(f"unknown endpoint in selection: {endpoint_key}")
         data_id = canonical_did(data_id)
-        if not did_min <= int(data_id, 16) <= did_max:
+        if not within_read_range(int(data_id, 16), did_min, did_max):
             raise ValueError(
                 f"{key} is outside the transport DID safety range {safety['did_min']}..{safety['did_max']}"
             )

@@ -14,7 +14,7 @@ four steps, which are also the four pages of the desktop application:
 ```
 
 Everything the tool sends is read-only diagnostics: tester present, session
-control, and ReadDataByIdentifier. Commands and desktop actions for each step
+control, and reads (`22 DID`, or `21 LL` on older ECUs). Commands and desktop actions for each step
 are in the [quickstart](quickstart.md). Read [Safety](#safety) before
 connecting anything. The screenshots below show an invented example project.
 
@@ -216,7 +216,7 @@ the session file private, as later sections can hold the VIN.
 ## Decoding
 
 - **Bits.** Bit 0 is the most significant bit of the first data byte after
-  the `62 DID` echo, and the bits from first to last form an unsigned
+  the `62 DID` echo (`61 LL` for a local identifier), and the bits from first to last form an unsigned
   big-endian raw value. Techstream's database numbers bits the same way.
 - **Formulas.** A formula uses `raw`, numbers, `+ - * / **`, and
   `signed(raw, WIDTH)`. Techstream's numeric records have the form
@@ -246,6 +246,19 @@ database, a candidate file gives it as `target_address`, and `endpoint add
 by hand. Verification and collection then send and accept only frames
 carrying that address; frames from the other ECUs on the same response ID
 are ignored.
+
+## Older ECUs: local identifiers
+
+Some ECUs, often body modules behind the gateway, predate `22 DID`. They
+refuse tester present with `7F 3E 12`, answer `22` with `7F 22 11`, and are
+read with `21 LL`: one byte, a *local identifier*, answered by `61 LL` and
+its data. Techstream describes them in its phase-4 databases; the import
+reads those (`--phase 4`) and stores local identifier `LL` as DID `0x00LL`.
+That range is reserved for DIDs, so the toolkit treats any DID below
+`0x0100` as a local identifier and reads it with `21 LL`. Items whose layout
+the import does not understand are rejected rather than guessed. Such ECUs
+may accept no session change; a session recipe with only tester present
+(negative reply tolerated) opens them.
 
 ## Limits
 

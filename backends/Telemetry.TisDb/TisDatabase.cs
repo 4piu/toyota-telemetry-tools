@@ -172,6 +172,79 @@ namespace Telemetry.TisDb
             return records;
         }
 
+        internal const short Phase4PidTable = 0x0206;
+        internal const short Phase4DataListTable = 0x020a;
+
+        /// <summary>
+        /// Phase-4 data list of one ECU key: each item is read with service 0x21
+        /// (local identifier) rather than 0x22. Observed layout: the local
+        /// identifier table (0x0206) lists each identifier and its data length;
+        /// a data-list item (table 0x020A, 84 bytes) holds the physical group
+        /// at 0x38, first/last bit at 0x3E/0x40, and the local identifier at
+        /// 0x4F. Items whose bits do not fit the identifier's length use a
+        /// layout not understood yet and are reported with "Layout": "unknown".
+        /// </summary>
+        internal IEnumerable<Record> Phase4Monitors(uint key, Regex namePattern, bool raw)
+        {
+            var lengths = new Dictionary<int, int>();
+            WithRecord("CDbPidResRecords", delegate
+            {
+                var get = Native.Export<Native.GetDbRecord1>(
+                    module, "?GetDbRecord@CDiagToolDb@@QAEKFPAVCDbResRecordsBase@@K@Z");
+                if (get(DiagToolDb, Phase4PidTable, record, key) == 0)
+                {
+                    int count = Count();
+                    for (int index = 0; index < count; index++)
+                    {
+                        byte[] item = Item(index, 8);
+                        lengths[item[2]] = item[3];
+                    }
+                }
+            });
+            var records = new List<Record>();
+            WithRecord("CDbFreezeResRecords", delegate
+            {
+                var get = Native.Export<Native.GetDbRecord1>(
+                    module, "?GetDbRecord@CDiagToolDb@@QAEKFPAVCDbResRecordsBase@@K@Z");
+                var getName = Native.Export<Native.GetString>(
+                    module, "?GetDataMonitorName@CDbFreezeResRecords@@QAEPADF@Z");
+                uint status = get(DiagToolDb, Phase4DataListTable, record, key);
+                int count = Count();
+                if (status != 0 || count <= 0)
+                {
+                    records.Add(Missing(key, status, count).Add("Index", null).Add("Name", null));
+                    return;
+                }
+                for (int index = 0; index < count; index++)
+                {
+                    string name = Text(getName(record, (short)index));
+                    if (namePattern != null && !namePattern.IsMatch(name ?? ""))
+                    {
+                        continue;
+                    }
+                    byte[] item = Item(index, 84);
+                    int localId = item[0x4f];
+                    int first = BitConverter.ToUInt16(item, 0x3e);
+                    int last = BitConverter.ToUInt16(item, 0x40);
+                    int length;
+                    bool known = lengths.TryGetValue(localId, out length) && first <= last && last < length * 8;
+                    var result = new Record()
+                        .Add("Key", (long)key).Add("Status", Status(status)).Add("Count", count)
+                        .Add("Index", index).Add("Name", name)
+                        .Add("Layout", known ? "local identifier" : "unknown")
+                        .Add("LocalId", string.Format(CultureInfo.InvariantCulture, "0x{0:X2}", localId))
+                        .Add("LocalIdLength", lengths.ContainsKey(localId) ? (object)(long)lengths[localId] : null)
+                        .Add("ReadRequest", known
+                            ? string.Format(CultureInfo.InvariantCulture, "21 {0:X2}", localId) : null)
+                        .Add("FirstBit", (long)first)
+                        .Add("LastBit", (long)last)
+                        .Add("PhysicalGroup", Hex16(BitConverter.ToUInt16(item, 0x38)));
+                    records.Add(raw ? result.Add("Raw", Hex(item)) : result);
+                }
+            });
+            return records;
+        }
+
         /// <summary>Protocol records of one ECU key: request CAN IDs.</summary>
         internal IEnumerable<Record> Protocol(uint key, bool raw)
         {

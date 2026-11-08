@@ -334,9 +334,11 @@ class PreflightTests(unittest.TestCase):
             root = Path(directory)
             make_project(root)
             repository = make_repository(root)
+            # 0x0000..0x00FF are local identifiers (21 LL), always allowed; DIDs
+            # must lie in the reviewed range.
             with self.assertRaisesRegex(ValueError, "outside the tracked project range"):
                 preflight_dids(
-                    repository, root, "700-708-extended", ["0x0000"],
+                    repository, root, "700-708-extended", ["0xF000"],
                     utc_now=lambda: "2026-01-01T00:00:00Z",
                     probe_worker_factory=scripted_factory([]),
                 )

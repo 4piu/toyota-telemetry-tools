@@ -16,7 +16,9 @@ import json
 import sqlite3
 from typing import Any, Iterable, Mapping
 
-from ..identity import SignalRef, address_suffix, canonical_did, canonical_target_address, stable_slug
+from ..identity import (
+    SignalRef, address_suffix, canonical_did, canonical_target_address, stable_slug, within_read_range,
+)
 from ..repository import (
     ProjectRepository,
     _atomic_write,
@@ -199,7 +201,7 @@ def preview_import(
     rejections = list(source.rejections)
     for row in source.rows:
         ref = SignalRef.parse(row["signal_ref"])
-        if not did_min <= ref.data_id <= did_max:
+        if not within_read_range(ref.data_id, did_min, did_max):
             rejections.append((str(ref), "DID is outside the transport safety range"))
             continue
         accepted.append(row)

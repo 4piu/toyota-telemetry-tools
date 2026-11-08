@@ -123,7 +123,11 @@ class NormalizedFileSource:
 
 
 class TisDatabaseSource:
-    """Installed Techstream Phase-5 databases read through the bundled telemetry-tisdb helper.
+    """Installed Techstream databases read through the bundled telemetry-tisdb helper.
+
+    Phase 5 items are read with 22 DID. Phase 4 items are read with 21 LL (a
+    one-byte local identifier) and stored with DID 0x00LL; items whose layout
+    the helper does not understand are rejected rather than guessed.
 
     Selection narrows the installed ECU catalog by database phase and ECU key.
     Database records are candidates; only verification establishes support.
@@ -176,7 +180,7 @@ class TisDatabaseSource:
             match = _PHASE.search(name)
             if self.phases and (match is None or int(match.group(1)) not in self.phases):
                 continue
-            selected.setdefault(key, {"key": key, "name": record["Ecu"]})
+            selected.setdefault(key, {"key": key, "name": record["Ecu"], "phase": int(match.group(1)) if match else 5})
         if not selected:
             raise ValueError("no installed TIS database matches the phase/ECU selection")
         raw_rows: list[dict[str, Any]] = []
@@ -189,10 +193,17 @@ class TisDatabaseSource:
 
     def _ecu_rows(self, ecu: dict[str, Any]) -> list[dict[str, Any]]:
         key = ecu["key"]
+        phase4 = ecu.get("phase") == 4
         monitors = [
-            row for row in self._query(["--keys", str(key), "--monitors"])
+            row for row in self._query(["--keys", str(key), "--p4-monitors" if phase4 else "--monitors"])
             if row.get("Status") == "0x00000000" and row.get("Name")
         ]
+        if phase4:
+            for row in monitors:
+                # A local identifier LL is stored as DID 0x00LL and read with 21 LL.
+                row["DataId"] = f"0x{int(row['LocalId'], 16):04X}"
+                row["InternalId"] = row["LocalId"]
+                row["Acquisition"] = "direct DID" if row.get("Layout") == "local identifier" else "unknown layout"
         protocol = next(
             (
                 row for row in self._query(["--keys", str(key), "--protocol"])
@@ -241,7 +252,9 @@ class TisDatabaseSource:
             # Text Techstream shows for listed raw values; other values display as numbers.
             if states.get(int(monitor.get("StateSet") or 0)):
                 row["states"] = states[int(monitor["StateSet"])]
-            if monitor.get("Acquisition") != "direct DID":
+            if monitor.get("Acquisition") == "unknown layout":
+                row["rejected"] = "phase-4 item layout not understood"
+            elif monitor.get("Acquisition") != "direct DID":
                 row["rejected"] = "mapped or dynamic record, not a direct DID"
             elif protocol.get("Addressing") not in (None, "normal", "extended"):
                 row["rejected"] = f"not a CAN diagnostic address ({protocol['Addressing']})"

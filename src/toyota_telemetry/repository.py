@@ -15,7 +15,10 @@ import tomllib
 from typing import Any, Iterable, Mapping
 
 from .capture_store import capture_run_hashes, capture_set_hash, load_capture_tree
-from .identity import AcquisitionRef, SignalRef, canonical_did, canonical_target_address
+from .identity import (
+    AcquisitionRef, SignalRef, canonical_did, canonical_target_address, response_header_bytes,
+    within_read_range,
+)
 from .objectives import ReplayObservation, condition_refs, replay_targets
 from .schemas import (
     validate_local_settings,
@@ -217,7 +220,7 @@ class ProjectRepository:
             ref = AcquisitionRef.parse(row["acquisition_id"])
             if ref.endpoint_id not in endpoint_ids:
                 raise ValueError(f"unresolved policy acquisition endpoint: {ref}")
-            if not did_min <= ref.data_id <= did_max:
+            if not within_read_range(ref.data_id, did_min, did_max):
                 raise ValueError(f"policy acquisition is outside the DID safety range: {ref}")
 
         for row in self.policy["targets"]:
@@ -282,7 +285,7 @@ class ProjectRepository:
         ref = SignalRef.parse(value)
         if ref.ecu_key not in ecu_to_endpoint:
             raise ValueError(f"unresolved signal_ref ECU: {ref}")
-        if not did_min <= ref.data_id <= did_max:
+        if not within_read_range(ref.data_id, did_min, did_max):
             raise ValueError(f"signal_ref is outside the DID safety range: {ref}")
 
     def source_hashes(
@@ -700,7 +703,7 @@ class ProjectRepository:
             )
 
     def response_data_bits(self) -> dict[tuple[str, int], int]:
-        """Longest positive response data per (endpoint_id, DID), in bits after the 62 DID echo."""
+        """Longest positive response data per (endpoint_id, DID), in bits after the 62/61 echo."""
 
         with closing(connect_cache(self.paths.database)) as connection:
             rows = connection.execute(
@@ -710,7 +713,9 @@ class ProjectRepository:
         result = {}
         for acquisition_id, length in rows:
             ref = AcquisitionRef.parse(acquisition_id)
-            result[(ref.endpoint_id, ref.data_id)] = max(0, (int(length) - 3) * 8)
+            result[(ref.endpoint_id, ref.data_id)] = max(
+                0, (int(length) - response_header_bytes(ref.data_id)) * 8
+            )
         return result
 
     def signal_observation_summary(self, run_ids: Iterable[str] | None = None) -> dict[str, dict[str, Any]]:

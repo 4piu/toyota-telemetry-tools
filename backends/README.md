@@ -12,7 +12,7 @@ exactly two live process forms:
   against its own immutable launch-time transaction table.
 - `--probe --config PATH` — the bounded, single-shot probe used by verification
   (endpoint and DID probes). It opens a channel, attempts a fixed session-setup sequence
-  and optionally one ReadDataByIdentifier, prints exactly one JSON result
+  and optionally one read, prints exactly one JSON result
   line, and exits. It takes no stdin commands.
 
 Both forms pass every resolved request through the same built-in,
@@ -87,7 +87,8 @@ it never copies the database.
   immutable table; the wire protocol never resupplies request bytes.
 - The built-in telemetry guard recognizes only TesterPresent, default/extended
   DiagnosticSessionControl, a bounded DefineByIdentifier dynamic-DID
-  definition, and ReadDataByIdentifier. No vehicle control, coding, clearing,
+  definition, ReadDataByIdentifier (`22 DID`), and ReadDataByLocalIdentifier
+  (`21 LL`, older ECUs). No vehicle control, coding, clearing,
   security access, memory access, or programming operation is a recognized
   shape, regardless of what the transaction table contains.
 - DefineByIdentifier requires one or more complete source-DID/position/size

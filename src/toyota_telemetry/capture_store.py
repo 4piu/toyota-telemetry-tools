@@ -9,7 +9,9 @@ import os
 from pathlib import Path
 from typing import Any, Collection, Mapping
 
-from .identity import AcquisitionRef, SignalRef, canonical_did, canonical_run_id
+from .identity import (
+    AcquisitionRef, SignalRef, canonical_did, canonical_run_id, read_request_hex, response_prefix_hex,
+)
 
 
 def _sha256(data: bytes) -> str:
@@ -394,8 +396,8 @@ def _validate_exchange(
         raise ValueError(f"{path}: exchange DID identity mismatch")
     request = _hex_bytes(exchange["request_hex"], "exchange.request_hex")
     response = _hex_bytes(exchange["response_hex"], "exchange.response_hex", nullable=True)
-    if request != bytes((0x22, acquisition.data_id >> 8, acquisition.data_id & 0xFF)):
-        raise ValueError(f"{path}: exchange is not the declared 0x22 request")
+    if request != bytes.fromhex(read_request_hex(acquisition.data_id)):
+        raise ValueError(f"{path}: exchange is not the declared read request")
     outcome = exchange["outcome"]
     allowed_outcomes = (
         {"positive", "negative"}
@@ -404,9 +406,11 @@ def _validate_exchange(
     )
     if outcome not in allowed_outcomes:
         raise ValueError(f"{path}: unsupported exchange outcome")
-    if outcome == "positive" and (response is None or not response.startswith(bytes((0x62, acquisition.data_id >> 8, acquisition.data_id & 0xFF)))):
+    if outcome == "positive" and (
+        response is None or not response.startswith(bytes.fromhex(response_prefix_hex(acquisition.data_id)))
+    ):
         raise ValueError(f"{path}: invalid positive response")
-    if outcome == "negative" and (response is None or not response.startswith(b"\x7f\x22")):
+    if outcome == "negative" and (response is None or not response.startswith(bytes((0x7F, request[0])))):
         raise ValueError(f"{path}: invalid negative response")
     if outcome in {"timeout", "transport_error", "abandoned"} and response is not None:
         raise ValueError(f"{path}: failed exchange must not contain a response")

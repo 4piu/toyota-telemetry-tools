@@ -15,7 +15,7 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-from .identity import AcquisitionRef, SignalRef
+from .identity import read_request_hex, AcquisitionRef, SignalRef
 from .objectives import condition_leaves, condition_refs
 from .repository import ProjectRepository
 
@@ -182,7 +182,7 @@ def compile_plan(
                 "target_interval_ms": target,
                 "maximum_interval_ms": maximum,
                 "cost": facts,
-                "request_hex": f"22 {ref.data_id >> 8:02X} {ref.data_id & 0xFF:02X}",
+                "request_hex": read_request_hex(ref.data_id),
                 "objective_ids": sorted(
                     (row["signal_ref"] for row in target_rows), key=SignalRef.parse
                 ),

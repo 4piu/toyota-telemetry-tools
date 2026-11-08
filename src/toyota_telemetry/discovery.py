@@ -22,7 +22,7 @@ import subprocess
 import tempfile
 from typing import Any, Callable, Mapping, Protocol
 
-from .identity import address_suffix, canonical_did, canonical_target_address, stable_slug
+from .identity import address_suffix, canonical_did, canonical_target_address, stable_slug, within_read_range
 from .project import worker_executable
 from .repository import ProjectRepository
 from .worker_protocol import build_probe_config, parse_probe_result, write_probe_config
@@ -171,7 +171,7 @@ def preflight_dids(
     for supplied_data_id in data_ids:
         data_id = canonical_did(supplied_data_id)
         did = int(data_id, 16)
-        if not did_min <= did <= did_max:
+        if not within_read_range(did, did_min, did_max):
             raise ValueError(
                 f"preflight DID {data_id} is outside the tracked project range "
                 f"0x{did_min:04X}..0x{did_max:04X}"

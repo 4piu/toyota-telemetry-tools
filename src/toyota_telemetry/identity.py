@@ -24,6 +24,42 @@ def canonical_did(value: str) -> str:
     return f"0x{int(value, 16):04X}"
 
 
+# Data identifiers below 0x0100 are reserved by ISO 14229 and never read as
+# DIDs here; the toolkit uses them for the one-byte local identifiers of older
+# (KWP2000-style, Toyota "phase 4") ECUs, read with 21 LL -> 61 LL ...
+LOCAL_IDENTIFIER_LIMIT = 0x100
+
+
+def is_local_identifier(data_id: int) -> bool:
+    return 0 <= data_id < LOCAL_IDENTIFIER_LIMIT
+
+
+def read_request_hex(data_id: int) -> str:
+    """The read request: ``22 HH LL`` for a DID, ``21 LL`` for a local identifier."""
+
+    if is_local_identifier(data_id):
+        return f"21 {data_id:02X}"
+    return f"22 {data_id >> 8:02X} {data_id & 0xFF:02X}"
+
+
+def response_prefix_hex(data_id: int) -> str:
+    """The positive-response echo that precedes the data."""
+
+    if is_local_identifier(data_id):
+        return f"61 {data_id:02X}"
+    return f"62 {data_id >> 8:02X} {data_id & 0xFF:02X}"
+
+
+def response_header_bytes(data_id: int) -> int:
+    return 2 if is_local_identifier(data_id) else 3
+
+
+def within_read_range(data_id: int, did_min: int, did_max: int) -> bool:
+    """DIDs must lie in the reviewed safety range; local identifiers always may."""
+
+    return is_local_identifier(data_id) or did_min <= data_id <= did_max
+
+
 def canonical_target_address(value: object) -> str | None:
     """The extended-addressing target byte as ``0xNN``, or None for normal addressing.
 
