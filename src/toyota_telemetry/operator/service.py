@@ -58,7 +58,7 @@ from .recordings import (
     trash_runs,
 )
 from .selection import Selection, resolve_selection
-from .sources import SourceRows
+from .sources import SourceRows, format_rows_document, rows_document
 from .verification import VerificationResult, VerificationScope, build_verification_scope, run_verification
 from .workspace import create_workspace
 
@@ -387,8 +387,7 @@ class OperatorService:
         path = Path(path)
         if path.exists() and not overwrite:
             raise FileExistsError(f"{path.name} exists; choose another name or overwrite it")
-        lines = (json.dumps(row, ensure_ascii=False, sort_keys=True) for row in rows)
-        text = "[\n" + ",\n".join(lines) + "\n]\n"
+        text = format_rows_document(rows_document(rows))
         temporary = path.with_name(path.name + ".tmp")
         temporary.write_text(text, encoding="utf-8", newline="\n")
         os.replace(temporary, path)

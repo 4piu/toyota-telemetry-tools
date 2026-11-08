@@ -100,8 +100,13 @@ class SourceImportTests(ServiceTestCase):
         saved = self.root.parent / "backup" / "candidates.json"
         saved.parent.mkdir()
         self.assertEqual(self.service.export_source_rows(saved), 4)
-        rows = json.loads(saved.read_text(encoding="utf-8"))
-        self.assertFalse(any("catalog_variant_id" in row for row in rows))
+        document = json.loads(saved.read_text(encoding="utf-8"))
+        self.assertEqual(document["document_type"], "telemetry.candidate-rows")
+        # ECU 405's addresses are stated once; ECU 372's rows have none.
+        self.assertEqual([(ecu["ecu_key"], ecu.get("tester_can_id")) for ecu in document["ecus"]],
+                         [(372, None), (405, "0x7A1")])
+        self.assertEqual(document["ecus"][0]["dids"][1]["signals"][0]["bits"], "0..7")
+        self.assertNotIn("catalog_variant_id", saved.read_text(encoding="utf-8"))
         with self.assertRaises(FileExistsError):
             self.service.export_source_rows(saved)
         with self.assertRaisesRegex(ValueError, "imported: file-candidates"):
@@ -200,6 +205,26 @@ class SourceImportTests(ServiceTestCase):
         self.assertTrue(self.service.check().ok)
         with self.assertRaisesRegex(ValueError, "imported: file-candidates, file-other"):
             self.service.preview_remove_source("tis")
+
+
+class RowsDocumentTests(unittest.TestCase):
+    def test_grouping_is_lossless_and_hoists_only_shared_ecu_fields(self) -> None:
+        from toyota_telemetry.operator.sources import document_rows, format_rows_document, rows_document
+        rows = [
+            {"signal_ref": "7/0x0030/0..7", "name": "A", "tester_can_id": "0x750", "target_address": "0x2A",
+             "states": {"0": "OFF"}},
+            {"signal_ref": "7/0x0030/8..15", "name": "B", "tester_can_id": "0x750"},
+            {"signal_ref": "7/0x1075/0..15", "name": "C", "tester_can_id": "0x750", "formula": "raw / 10"},
+        ]
+        document = json.loads(format_rows_document(rows_document(rows)))
+        ecu = document["ecus"][0]
+        self.assertEqual((ecu["tester_can_id"], "target_address" in ecu), ("0x750", False))
+        self.assertEqual([did["did"] for did in ecu["dids"]], ["0x0030", "0x1075"])
+        back = document_rows(document)
+        key = lambda row: json.dumps(row, sort_keys=True)
+        self.assertEqual(sorted(map(key, back)), sorted(map(key, rows)))
+        with self.assertRaisesRegex(ValueError, "not supported"):
+            document_rows({**document, "schema_version": 9})
 
 
 class TreeAndSelectionTests(ServiceTestCase):

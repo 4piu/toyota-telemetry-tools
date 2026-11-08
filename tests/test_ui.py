@@ -141,7 +141,7 @@ def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, pro
     setup.choose_rows_path = lambda: str(saved)
     setup.export_rows_button.click()
     assert setup.preview_result.text() == "Saved 4 rows to saved-rows.json."
-    assert len(json.loads(saved.read_text(encoding="utf-8"))) == 4
+    assert json.loads(saved.read_text(encoding="utf-8"))["document_type"] == "telemetry.candidate-rows"
     # Importing the saved copy again changes nothing, and says so.
     setup.file_path.setText(str(saved))
     setup.preview_button.click()

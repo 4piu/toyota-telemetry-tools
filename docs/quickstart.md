@@ -125,8 +125,10 @@ and leaves out ECUs not on CAN; `--ecu KEY` limits it to chosen ECUs.
 Candidate rows
 never become reviewed authority by being imported.
 
-`source export` (Save rows on the Setup page) writes the imported rows as a
-row file that `source import file` reads back unchanged, for example to
+`source export` (Save rows on the Setup page) writes the candidate list as a
+grouped JSON file (`telemetry.candidate-rows`: each ECU's IDs once, then its
+DIDs, then one signal per line) that `source import file` reads back
+unchanged, for example to
 start another workspace on a computer without Techstream; `--source ID`
 saves one source only. Rows from Techstream carry its names and formulas:
 keep the file private, like the workspace.

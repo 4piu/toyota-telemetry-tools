@@ -87,8 +87,91 @@ def normalize_row(raw: Any) -> dict[str, Any]:
     return row
 
 
+ROWS_DOCUMENT_TYPE = "telemetry.candidate-rows"
+# Fields stated once per ECU when every one of its rows has the same value.
+_ECU_FIELDS = ("ecu_name", "tester_can_id", "response_can_id", "target_address")
+
+
+def rows_document(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    """Group candidate rows by ECU and DID, stating shared ECU fields once.
+
+    Lossless: ``document_rows`` gives the same rows back. A field moves to the
+    ECU only when all of that ECU's rows carry the same value.
+    """
+
+    by_ecu: dict[int, list[tuple[SignalRef, dict[str, Any]]]] = {}
+    for row in rows:
+        ref = SignalRef.parse(str(row["signal_ref"]))
+        by_ecu.setdefault(ref.ecu_key, []).append((ref, row))
+    ecus = []
+    for ecu_key, entries in sorted(by_ecu.items()):
+        first = entries[0][1]
+        shared = {
+            name: first[name] for name in _ECU_FIELDS
+            if name in first and all(name in row and row[name] == first[name] for _, row in entries)
+        }
+        dids: dict[int, list[dict[str, Any]]] = {}
+        for ref, row in entries:
+            signal = {"bits": f"{ref.first_bit}..{ref.last_bit}"}
+            signal.update(
+                (name, value) for name, value in sorted(row.items())
+                if name not in ("signal_ref", "catalog_variant_id") and name not in shared
+            )
+            dids.setdefault(ref.data_id, []).append(signal)
+        ecus.append({
+            "ecu_key": ecu_key, **shared,
+            "dids": [{"did": f"0x{did:04X}", "signals": signals} for did, signals in sorted(dids.items())],
+        })
+    return {"document_type": ROWS_DOCUMENT_TYPE, "schema_version": 1, "ecus": ecus}
+
+
+def document_rows(document: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flatten a grouped candidate-rows document back into rows."""
+
+    if document.get("schema_version") != 1:
+        raise ValueError(f"{ROWS_DOCUMENT_TYPE} schema {document.get('schema_version')!r} is not supported")
+    rows = []
+    for ecu in document.get("ecus", []):
+        try:
+            ecu_key = int(ecu["ecu_key"])
+            shared = {name: ecu[name] for name in _ECU_FIELDS if name in ecu}
+            for did in ecu["dids"]:
+                data_id = did["did"]
+                for signal in did["signals"]:
+                    row = {**shared, **{name: value for name, value in signal.items() if name != "bits"}}
+                    row["signal_ref"] = f"{ecu_key}/{data_id}/{signal['bits']}"
+                    rows.append(row)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"ECU {ecu.get('ecu_key')!r}: needs ecu_key, dids[].did, and signals[].bits") from exc
+    return rows
+
+
+def format_rows_document(document: dict[str, Any]) -> str:
+    """JSON text with one ECU header, one DID header, and one signal per line."""
+
+    def line(value: Any) -> str:
+        return json.dumps(value, ensure_ascii=False)
+
+    out = ["{", f' "document_type": {line(document["document_type"])},',
+           f' "schema_version": {document["schema_version"]},', ' "ecus": [']
+    for e_index, ecu in enumerate(document["ecus"]):
+        header = line({name: value for name, value in ecu.items() if name != "dids"})[:-1]
+        out.append(f"  {header}, \"dids\": [")
+        for d_index, did in enumerate(ecu["dids"]):
+            out.append(f'   {{"did": {line(did["did"])}, "signals": [')
+            signals = did["signals"]
+            out.extend(f"    {line(signal)}{',' if index < len(signals) - 1 else ''}"
+                       for index, signal in enumerate(signals))
+            out.append(f"   ]}}{',' if d_index < len(ecu['dids']) - 1 else ''}")
+        out.append(f"  ]}}{',' if e_index < len(document['ecus']) - 1 else ''}")
+    out += [" ]", "}", ""]
+    return "\n".join(out)
+
+
 class NormalizedFileSource:
-    """A JSON array of rows, or an object holding a ``rows``/``signals`` array."""
+    """Candidate rows from JSON: an array of rows, an object holding a
+    ``rows``/``signals`` array, or a grouped ``telemetry.candidate-rows``
+    document (what ``source export`` writes)."""
 
     kind = "file"
 
@@ -113,7 +196,9 @@ class NormalizedFileSource:
             document = json.loads(self.path.read_text(encoding="utf-8-sig"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ValueError(f"{self.path.name}: invalid JSON: {exc}") from exc
-        if isinstance(document, dict):
+        if isinstance(document, dict) and document.get("document_type") == ROWS_DOCUMENT_TYPE:
+            document = document_rows(document)
+        elif isinstance(document, dict):
             document = document.get("rows", document.get("signals"))
         if not isinstance(document, list):
             raise ValueError(f"{self.path.name}: expected a JSON array of rows")

@@ -84,7 +84,8 @@ unit updates the signal rather than adding another version of it.
   `ecu_key` is any number that groups one ECU's signals. For an ECU behind
   a gateway, add `"target_address": "0x2A"` (see
   [Gateways](#ecus-behind-a-gateway)). See [Decoding](#decoding) for bits,
-  formulas, and states.
+  formulas, and states. The grouped file that saving the candidate list
+  writes (`telemetry.candidate-rows`) is accepted as well.
 
 A database lists every variant it covers, so many candidates describe
 equipment your vehicle does not have. That is expected; verification sorts
