@@ -107,6 +107,17 @@ class TisSourceTests(unittest.TestCase):
                 self.assertEqual([row.get("target_address") for row in result.rows], [expected, expected])
                 self.assertEqual(result.rows[0]["tester_can_id"], "0x750")
 
+    def test_the_installed_database_is_found_in_the_standard_location(self) -> None:
+        program_files = Path(self.database).parent / "Program Files (x86)"
+        techstream = program_files / "Toyota Diagnostics" / "Techstream"
+        environment = {"ProgramFiles(x86)": str(program_files), "ProgramFiles": str(program_files)}
+        with mock.patch.dict(os.environ, environment), mock.patch.object(sources, "FALLBACK_PROGRAM_FILES", ()):
+            self.assertIsNone(sources.default_tis_database())
+            (techstream / "EU" / "DB").mkdir(parents=True)
+            self.assertEqual(sources.default_tis_database(), techstream / "EU")
+            (techstream / "NA" / "DB").mkdir(parents=True)
+            self.assertEqual(sources.default_tis_database(), techstream / "NA")
+
     def test_a_helper_failure_is_reported(self) -> None:
         source = TisDatabaseSource(self.database)
         failed = subprocess.CompletedProcess([], 1, stdout="", stderr="ERROR: Could not load KgpDataCtrl.dll")

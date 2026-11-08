@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 
 from toyota_telemetry.operator.connector import CONNECTOR_FIELDS, CONNECTOR_LABELS
 from toyota_telemetry.operator.inventory import ImportPreview
-from toyota_telemetry.operator.sources import NormalizedFileSource, TisDatabaseSource
+from toyota_telemetry.operator.sources import NormalizedFileSource, TisDatabaseSource, default_tis_database
 
 from .context import PageContext
 from .dialogs import parse_keys
@@ -262,6 +262,9 @@ class SetupPage(QWidget):
         tis_page = QWidget()
         tis_form = QFormLayout(tis_page)
         self.tis_directory = QLineEdit()
+        installed = default_tis_database()
+        if installed is not None:
+            self.tis_directory.setText(str(installed))
         self.tis_phases = QLineEdit("5")
         self.tis_ecus = QLineEdit()
         self.tis_ecus.setPlaceholderText("all installed ECUs")

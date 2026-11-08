@@ -122,6 +122,27 @@ class NormalizedFileSource:
         return SourceRows(self.source_id, self.kind, self.path.name, rows, rejections)
 
 
+TECHSTREAM_REGIONS = ("NA", "EU", "OT", "JP")
+FALLBACK_PROGRAM_FILES = ("C:\\Program Files (x86)",)
+
+
+def default_tis_database() -> Path | None:
+    """The installed Techstream database folder in the standard location, if any.
+
+    Techstream installs under Program Files (x86)\\Toyota Diagnostics\\Techstream
+    with one folder per region; NA is preferred, then EU, OT, and JP.
+    """
+
+    roots = [os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"), *FALLBACK_PROGRAM_FILES]
+    for root in dict.fromkeys(value for value in roots if value):
+        techstream = Path(root) / "Toyota Diagnostics" / "Techstream"
+        for region in TECHSTREAM_REGIONS:
+            folder = techstream / region
+            if (folder / "DB").is_dir():
+                return folder
+    return None
+
+
 class TisDatabaseSource:
     """Installed Techstream databases read through the bundled telemetry-tisdb helper.
 

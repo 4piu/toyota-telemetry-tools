@@ -27,7 +27,7 @@ from .operator.editing import (
 from .operator.collection import SLICES, STRATEGIES, Rotation
 from .operator.live import ConfirmationRefused, LiveBusy, record_preview, require_previewed
 from .operator.service import OperatorService, toolkit_commit
-from .operator.sources import NormalizedFileSource, TisDatabaseSource
+from .operator.sources import NormalizedFileSource, TisDatabaseSource, default_tis_database
 from .operator.verification import progress_text
 from .project import find_project_root
 from .states import state_text
@@ -127,7 +127,8 @@ def build_parser() -> argparse.ArgumentParser:
     import_kinds = source_import.add_subparsers(dest="source_kind", required=True)
     tis = command("tis", ("source.preview", "source.apply"), _source_import, "read installed TIS (Techstream) databases",
                   parent=import_kinds)
-    tis.add_argument("--database", type=Path, required=True, help="Techstream region folder containing DB/")
+    tis.add_argument("--database", type=Path,
+                     help="Techstream region folder containing DB/ (default: the installed NA, EU, OT, or JP folder)")
     tis.add_argument("--phase", type=int, action="append", default=[], help="database phase (default 5)")
     tis.add_argument("--ecu", type=int, action="append", default=[], help="only this ECU key")
     tis.add_argument("--techstream-bin", type=Path, help="Techstream bin folder")
@@ -352,8 +353,11 @@ def _connector_check(service: OperatorService, args: argparse.Namespace) -> int:
 
 def _source_import(service: OperatorService, args: argparse.Namespace) -> int:
     if args.source_kind == "tis":
+        database = args.database or default_tis_database()
+        if database is None:
+            raise ValueError("no installed Techstream database found; pass --database FOLDER")
         source = TisDatabaseSource(
-            args.database, phases=args.phase or (5,), ecu_keys=args.ecu,
+            database, phases=args.phase or (5,), ecu_keys=args.ecu,
             techstream_bin_directory=args.techstream_bin, text_code_page=args.code_page,
         )
     else:

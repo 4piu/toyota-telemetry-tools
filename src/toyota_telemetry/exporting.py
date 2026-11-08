@@ -299,7 +299,9 @@ def _reference_bytes(
         ecu_rows = by_ecu[ecu_key]
         endpoint = endpoint_by_ecu.get(ecu_key)
         address = (
-            f", request {endpoint['tester_can_id']}, response {endpoint['response_can_id']}" if endpoint else ""
+            f", request {endpoint['tester_can_id']}, response {endpoint['response_can_id']}"
+            + (f", address {endpoint['target_address']}" if endpoint.get("target_address") else "")
+            if endpoint else ""
         )
         lines += [
             "",
