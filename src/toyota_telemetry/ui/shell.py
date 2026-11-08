@@ -74,6 +74,9 @@ def step_states(status, dirty: bool) -> list[tuple[str, list[Part]]]:
     if targets:
         complete = status.targets_complete
         collect.append(Part("Targets met", DONE if complete == targets else PENDING, f"{complete}/{targets}"))
+    if dirty:
+        # Collection uses the saved settings; say so while Signals holds a draft.
+        collect.append(Part("Unsaved", ATTENTION, "not applied"))
     recordings = [Part("Recorded", DONE if status.runs else PENDING, "" if status.runs else "nothing yet")]
     if status.recoverable_runs:
         recordings.append(Part("Interrupted", ATTENTION, f"{len(status.recoverable_runs)}"))
@@ -141,6 +144,7 @@ class OperatorWindow(QMainWindow):
         self._build_status_bar()
         self.signals_page.dirty_changed.connect(self._update_title)
         self.signals_page.dirty_changed.connect(lambda _dirty: self._show_steps())
+        self.signals_page.dirty_changed.connect(self.collect_page.set_unsaved)
         self.context.project_changed.connect(self.refresh_status)
         self.context.data_changed.connect(self.refresh_status)
         self.context.busy_changed.connect(self._busy_changed)

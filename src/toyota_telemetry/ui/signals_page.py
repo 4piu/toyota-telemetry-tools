@@ -209,6 +209,7 @@ class SignalsPage(QWidget):
         self.job_log.setVisible(False)
         self.job_log.setAccessibleName("Verification progress")
         layout.addWidget(self.job_log)
+        self._unsaved: set[str] = set()
         self.job_progress = QProgressBar()
         self.job_progress.setFormat("%v of %m probes, %p%")
         self.job_progress.setToolTip("Endpoint probes and DID reads done so far")
@@ -476,11 +477,18 @@ class SignalsPage(QWidget):
             self.empty_label.setVisible(True)
 
         def work(service):
-            sessions = service.repository().transport["session_recipes"]
-            return service.tree(review=review, policy=policy), {row["id"]: session_label(row) for row in sessions}
+            repository = service.repository()
+            sessions = repository.transport["session_recipes"]
+            unsaved = unsaved_keys(repository.review, repository.policy, review, policy)
+            return (
+                service.tree(review=review, policy=policy),
+                {row["id"]: session_label(row) for row in sessions},
+                unsaved,
+            )
 
         def done(result) -> None:
             self._sessions = result[1]
+            self._unsaved = result[2]
             self._show_tree(result[0])
 
         self.context.run("signals.tree", work, done, failed)
@@ -529,6 +537,7 @@ class SignalsPage(QWidget):
     def _populate(self, data: InventoryTree) -> None:
         root = self.model.invisibleRootItem()
         dim = self.palette().color(QPalette.ColorRole.PlaceholderText)
+        accent = self.palette().color(QPalette.ColorRole.Link)
         for endpoint in data.endpoints:
             collected = sum(1 for did in endpoint.dids if did.settings and did.settings["included"])
             targeted = sum(1 for did in endpoint.dids for signal in did.signals if signal.target)
@@ -567,6 +576,8 @@ class SignalsPage(QWidget):
                         item.setForeground(dim)
                     if settings:
                         did_row[2].setToolTip("Not read during collection")
+                if did.acquisition_id in self._unsaved:
+                    mark_unsaved(did_row, accent)
                 row[0].appendRow(did_row)
                 for signal in did.signals:
                     unit = f"  {signal.unit}" if signal.unit else ""
@@ -581,6 +592,8 @@ class SignalsPage(QWidget):
                         signal_row[6].setToolTip(target + (". Already met." if met else ""))
                     if signal.states:
                         signal_row[0].setToolTip("States\n" + states_lines(signal.states))
+                    if signal.signal_ref in self._unsaved:
+                        mark_unsaved(signal_row, accent)
                     did_row[0].appendRow(signal_row)
 
     @staticmethod
@@ -1200,3 +1213,33 @@ def _status_tip(signal, did) -> str:
     if signal.status == "Refused":
         return "none; its DID was refused"
     return "nothing recorded yet"
+
+
+def unsaved_keys(saved_review, saved_policy, draft_review, draft_policy) -> set[str]:
+    """Signal references and acquisition IDs whose draft differs from the saved files."""
+
+    changed: set[str] = set()
+
+    def rows(document, section, key):
+        return {row[key]: row for row in (document or {}).get(section, [])}
+
+    if draft_policy is not None:
+        for section, key in (("targets", "signal_ref"), ("acquisitions", "acquisition_id")):
+            before, after = rows(saved_policy, section, key), rows(draft_policy, section, key)
+            changed |= {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
+    if draft_review is not None:
+        before, after = rows(saved_review, "signals", "signal_ref"), rows(draft_review, "signals", "signal_ref")
+        changed |= {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
+    return changed
+
+
+def mark_unsaved(row: list, color) -> None:
+    """Italic, accent-coloured cells: this row's edits are a draft until Save."""
+
+    for item in row:
+        font = item.font()
+        font.setItalic(True)
+        item.setFont(font)
+        item.setForeground(color)
+        tip = item.toolTip()
+        item.setToolTip((tip + "\n" if tip else "") + "Not saved yet")

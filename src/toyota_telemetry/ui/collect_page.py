@@ -34,7 +34,7 @@ from .context import PageContext
 from .dialogs import LiveConfirmDialog
 from .jobs import LiveJob
 from .names import count, endpoint_label, still_needed, target_summary
-from .widgets import LIVE_TIP, Disclosure, button_row, mark_live, notice, page_title, set_enabled
+from .widgets import LIVE_TIP, Disclosure, button_row, mark_live, notice, page_title, set_enabled, show_notice
 
 ENDPOINT = Qt.ItemDataRole.UserRole
 SLICE_MINUTES = (2, 5, 10, 15)
@@ -63,6 +63,8 @@ class CollectPage(QWidget):
             "Collect",
             "Run collection; target progress",
         ))
+        self.unsaved_notice = notice()
+        layout.addWidget(self.unsaved_notice)
 
         readiness_group = QGroupBox("Readiness")
         readiness_layout = QVBoxLayout(readiness_group)
@@ -191,6 +193,15 @@ class CollectPage(QWidget):
         super().showEvent(event)
         if self._stale and not self.running:
             self.check_readiness()
+
+    def set_unsaved(self, dirty: bool) -> None:
+        """Say that this page shows saved settings while Signals holds a draft."""
+
+        show_notice(
+            self.unsaved_notice,
+            "Signals has unsaved changes. This page uses the saved settings until you save them."
+            if dirty else "",
+        )
 
     def check_readiness(self) -> None:
         """Recompute readiness in the background; nothing is transmitted."""

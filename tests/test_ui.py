@@ -19,7 +19,7 @@ from tests.operator_fixture import (
 from tests.test_operator_service import FakeWorker
 from toyota_telemetry.operator import OPERATION_IDS, bounded_minmax
 from toyota_telemetry.ui.recordings_page import signal_entries
-from toyota_telemetry.ui.shell import OperatorWindow
+from toyota_telemetry.ui.shell import OperatorWindow, step_states
 from toyota_telemetry.ui.widgets.metric_plot import MetricPlot, RunSpan
 from toyota_telemetry.ui.signals_page import ROLE
 
@@ -228,11 +228,36 @@ def test_target_batch_edit_is_a_draft_until_saved(qtbot, project) -> None:
     assert window.draft_status.text() == "Unsaved changes"
     assert policy_path.read_bytes() == before
     assert page.tree_data.find_signal("372/0x1003/0..7")[2].target["requirements"] == {"minimum_samples": 25}
+    # Unsaved edits show on their rows, on the Collect page, and on the Collect step.
+    edited = model_item(page, ("signal", "372/0x1003/0..7"))
+    assert edited.font().italic() and "Not saved yet" in edited.toolTip()
+    assert not model_item(page, ("signal", "372/0x1002/0..15")).font().italic()
+    assert not window.collect_page.unsaved_notice.isHidden()
+    assert any(part.label == "Unsaved" for part in step_states(window._status, True)[2][1])
     page.save_button.click()
     settle(qtbot, window)
     saved = json.loads(policy_path.read_text())
     assert [row["signal_ref"] for row in saved["targets"]] == ["372/0x1003/0..7", "372/0x1003/8..15"]
     assert not page.dirty
+    assert not model_item(page, ("signal", "372/0x1003/0..7")).font().italic()
+    assert window.collect_page.unsaved_notice.isHidden()
+
+
+def model_item(page, identity):
+    """The first-column item of a Signals row, by its (kind, key) identity."""
+
+    from PySide6.QtCore import QModelIndex
+
+    model = page.model
+    pending = [QModelIndex()]
+    while pending:
+        parent = pending.pop()
+        for row in range(model.rowCount(parent)):
+            index = model.index(row, 0, parent)
+            if index.data(ROLE) == identity:
+                return model.itemFromIndex(index)
+            pending.append(index)
+    raise AssertionError(f"no row {identity}")
 
 
 def test_external_edit_blocks_save_of_a_stale_draft(qtbot, project) -> None:
