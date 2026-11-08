@@ -1,4 +1,4 @@
-# Toyota diagnostic telemetry tools
+# <img src="src/toyota_telemetry/ui/assets/icon.svg" width="32" height="32" alt=""> Toyota diagnostic telemetry tools
 
 Find, verify, and record the diagnostic signals a vehicle reports over its
 OBD-II CAN bus: which DIDs answer, which bits hold a value, and whether the

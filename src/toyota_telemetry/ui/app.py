@@ -10,6 +10,19 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QApplication
 
 from toyota_telemetry.ui.shell import OperatorWindow
+from toyota_telemetry.ui.widgets.icons import app_icon
+
+
+def _use_own_taskbar_icon() -> None:
+    """Group the window under its own taskbar entry and icon, not python.exe's."""
+
+    if sys.platform == "win32":
+        import ctypes
+
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("toyota-telemetry-tools.telemetry-ui")
+        except (AttributeError, OSError):
+            pass
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -24,6 +37,8 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication.instance() or QApplication(["telemetry-ui"])
     QCoreApplication.setOrganizationName("toyota-telemetry-tools")
     QCoreApplication.setApplicationName("Telemetry Operator")
+    _use_own_taskbar_icon()
+    app.setWindowIcon(app_icon())
     window = OperatorWindow(args.project, restore_settings=not args.smoke_test)
     window.show()
     if args.smoke_test:

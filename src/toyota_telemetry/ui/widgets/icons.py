@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
+from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap, QPolygonF
 from PySide6.QtWidgets import QApplication
 
 
@@ -18,6 +20,27 @@ def _icon(draw) -> QIcon:
     draw(painter)
     painter.end()
     return QIcon(pixmap)
+
+
+ASSETS = Path(__file__).resolve().parent.parent / "assets"
+
+
+def app_icon() -> QIcon:
+    """The application icon at the sizes Windows asks for; heavier strokes when small."""
+
+    from PySide6.QtSvg import QSvgRenderer
+
+    icon = QIcon()
+    for size in (16, 20, 24, 32, 40, 48, 64, 128, 256):
+        renderer = QSvgRenderer(str(ASSETS / ("icon-small.svg" if size <= 24 else "icon.svg")))
+        image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
+        image.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(image)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        renderer.render(painter)
+        painter.end()
+        icon.addPixmap(QPixmap.fromImage(image))
+    return icon
 
 
 def filter_icon() -> QIcon:
