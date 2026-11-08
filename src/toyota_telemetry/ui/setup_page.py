@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QRadioButton,
     QSpinBox,
@@ -22,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from toyota_telemetry.operator.connector import CONNECTOR_FIELDS, CONNECTOR_LABELS
-from toyota_telemetry.operator.inventory import ImportPreview
+from toyota_telemetry.operator.inventory import ImportPreview, describe_import, describe_removal
 from toyota_telemetry.operator.sources import NormalizedFileSource, TisDatabaseSource, default_tis_database
 
 from .context import PageContext
@@ -36,6 +37,9 @@ class SetupPage(QWidget):
         self.context = context
         self._preview: ImportPreview | None = None
         self._load_connector_pending = False
+        self.confirm_removal = lambda text: QMessageBox.question(
+            self, "Remove source", text,
+        ) == QMessageBox.StandardButton.Yes
         self.choose_rows_path = lambda: QFileDialog.getSaveFileName(
             self, "Save candidate rows", "candidate-rows.json", "JSON files (*.json)"
         )[0]
@@ -120,6 +124,10 @@ class SetupPage(QWidget):
                 "profile_id": repository.profile_id,
                 "endpoints": len(repository.transport["endpoints"]),
                 "sources": [source["label"] for source in inventory["sources"]],
+                "source_rows": [
+                    (source["source_id"], source["label"], source["row_count"])
+                    for source in inventory["sources"]
+                ],
                 "rows": len(inventory["rows"]),
                 "connector": repository.local_settings,
             }
@@ -131,6 +139,10 @@ class SetupPage(QWidget):
                 f"{summary['endpoints']} confirmed endpoint(s). Candidate sources: {sources} "
                 f"({summary['rows']} rows)."
             )
+            self.imported_sources.clear()
+            for source_id, label, count in summary["source_rows"]:
+                self.imported_sources.addItem(f"{label} ({count:,})", source_id)
+            set_enabled(self.remove_source_button, bool(summary["source_rows"]), "No source imported yet.")
             if self._load_connector_pending:
                 self._load_connector_pending = False
                 self.load_connector(summary["connector"])
@@ -305,6 +317,18 @@ class SetupPage(QWidget):
         self.apply_button.clicked.connect(self.apply_source)
         self.export_rows_button.clicked.connect(self.export_rows)
         layout.addLayout(button_row(self.preview_button, self.apply_button, self.export_rows_button))
+        imported = QFormLayout()
+        self.imported_sources = QComboBox()
+        self.imported_sources.setToolTip("Sources in the candidate list")
+        self.remove_source_button = QPushButton("Remove")
+        self.context.register(
+            "source.remove", self.remove_source_button,
+            "Remove this source; signals in use stay",
+        )
+        set_enabled(self.remove_source_button, False, "No source imported yet.")
+        self.remove_source_button.clicked.connect(self.remove_source)
+        imported.addRow("Imported", button_row(self.imported_sources, self.remove_source_button))
+        layout.addLayout(imported)
         self.preview_result = notice()
         layout.addWidget(self.preview_result)
         return group
@@ -349,15 +373,7 @@ class SetupPage(QWidget):
 
         def done(preview) -> None:
             self.preview_button.setEnabled(True)
-            counts = preview.counts
-            lines = [
-                f"{preview.label}: {counts.get('rows', 0)} rows, {counts.get('signals', 0)} signals, "
-                f"{counts.get('dids', 0)} DIDs, {counts.get('ecus', 0)} ECUs, "
-                f"{counts.get('endpoint_candidates', 0)} endpoint candidates.",
-                f"Compared with the current list: {counts.get('added', 0)} added, "
-                f"{counts.get('removed', 0)} removed, {counts.get('unchanged', 0)} unchanged; "
-                f"{counts.get('conflicts', 0)} conflicting signal(s); {counts.get('rejected', 0)} rejected.",
-            ]
+            lines = describe_import(preview)
             lines += [f"Rejected {where}: {reason}" for where, reason in preview.rejections[:5]]
             if preview.blocking_problem:
                 lines.append(f"Cannot use this list: {preview.blocking_problem}")
@@ -394,6 +410,30 @@ class SetupPage(QWidget):
         show_notice(self.preview_result, f"Applying {preview.label}…")
         set_enabled(self.apply_button, False, "Applying…")
         self.context.run("setup.apply", lambda service: service.apply_source(preview), done, failed)
+
+    def remove_source(self) -> None:
+        source_id = self.imported_sources.currentData()
+        if self.context.service is None or source_id is None:
+            return
+        try:
+            preview = self.context.service.preview_remove_source(source_id)
+        except (OSError, ValueError) as exc:
+            show_notice(self.preview_result, f"Not removed: {exc}")
+            return
+        text = "\n".join(describe_removal(preview))
+        if not self.confirm_removal(text):
+            return
+
+        def done(_result) -> None:
+            show_notice(self.preview_result, f"Removed {preview.label}.")
+            self.context.changed()
+
+        def failed(detail: str) -> None:
+            self.remove_source_button.setEnabled(True)
+            self.context.error("Source not removed", _first(detail))
+
+        set_enabled(self.remove_source_button, False, "Removing…")
+        self.context.run("setup.remove", lambda service: service.remove_source(preview), done, failed)
 
     # Refresh ----------------------------------------------------------------
 

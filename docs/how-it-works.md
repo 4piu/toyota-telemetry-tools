@@ -63,7 +63,9 @@ control (`10`) and tester present (`3E`) are accepted:
 ```
 
 **Candidate list.** Import it from one or more sources. Importing previews
-first, showing counts, conflicts, and rejected rows, then applies.
+first, showing which signals it adds and updates, then applies exactly that.
+It merges into one list and never removes a signal; correcting a name or
+unit updates the signal rather than adding another version of it.
 
 - *Techstream* (Windows): reads the installed databases through Techstream's
   own library. It takes each Data List item's name, DID, bit range, formula,

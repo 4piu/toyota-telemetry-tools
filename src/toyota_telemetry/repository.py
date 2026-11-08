@@ -971,6 +971,17 @@ class ProjectRepository:
         )
 
 
+def catalog_variant_id(row: Mapping[str, Any]) -> str:
+    """A signal definition's version: its location and formula, nothing else.
+
+    Descriptive fields (name, unit, states, addresses, source item ids) can be
+    corrected without creating a new version; a different formula is one.
+    """
+
+    seed = [str(SignalRef.parse(str(row["signal_ref"]))), row.get("formula") or "raw"]
+    return _sha256(_canonical_json(seed).encode("utf-8"))[:16]
+
+
 def _normalized_catalog_rows(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     seen: dict[str, str] = {}
@@ -983,8 +994,7 @@ def _normalized_catalog_rows(rows: Iterable[Mapping[str, Any]]) -> list[dict[str
         document["signal_ref"] = signal_ref
         variant = document.get("catalog_variant_id")
         if variant is None:
-            seed = {key: value for key, value in document.items() if key != "catalog_variant_id"}
-            variant = _sha256(_canonical_json(seed).encode("utf-8"))[:16]
+            variant = catalog_variant_id(document)
         if not isinstance(variant, str) or not variant:
             raise ValueError(f"catalog row {index} has invalid catalog_variant_id")
         document["catalog_variant_id"] = variant

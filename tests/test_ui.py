@@ -142,6 +142,17 @@ def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, pro
     setup.export_rows_button.click()
     assert setup.preview_result.text() == "Saved 4 rows to saved-rows.json."
     assert len(json.loads(saved.read_text(encoding="utf-8"))) == 4
+    # Importing the saved copy again changes nothing, and says so.
+    setup.file_path.setText(str(saved))
+    setup.preview_button.click()
+    settle(qtbot, window)
+    assert "To add 0 signals; to update 0; unchanged 4." in setup.preview_result.text()
+    assert setup.imported_sources.count() == 1
+    asked = []
+    setup.confirm_removal = lambda text: asked.append(text) or False
+    setup.remove_source_button.click()
+    assert asked and "1 signals stay because they are reviewed" in asked[0]
+    assert json.loads((root / "config/catalog-manifest.json").read_text())["catalog_row_count"] == 4
     setup.connector_kind.setCurrentIndex(setup.connector_kind.findData("slcan"))
     setup.connector_fields["slcan"]["port"].setText("COM7")
     setup.executable.setText("")

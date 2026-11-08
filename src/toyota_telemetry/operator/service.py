@@ -33,10 +33,13 @@ from .inventory import (
     InventoryTree,
     add_manual_endpoint,
     apply_import,
+    apply_remove_source,
     build_tree,
     cache_rows,
     load_inventory,
     preview_import,
+    preview_remove_source,
+    RemovePreview,
     source_rows,
     progress_by_signal,
     rebuild_cache,
@@ -79,6 +82,7 @@ OPERATIONS: tuple[Operation, ...] = (
     Operation("source.preview", "Preview a candidate source", "telemetry source import", "setup.source.preview"),
     Operation("source.apply", "Apply a candidate source", "telemetry source import --apply", "setup.source.apply"),
     Operation("source.export", "Save candidate rows to a file", "telemetry source export", "setup.source.export"),
+    Operation("source.remove", "Remove an imported source", "telemetry source remove", "setup.source.remove"),
     Operation("cache.rebuild", "Rebuild the derived cache", "telemetry cache rebuild", "setup.cache.rebuild"),
     Operation("signals.list", "List endpoints, DIDs, and signals", "telemetry signals", "signals.tree"),
     Operation("signals.show", "Show one DID or signal", "telemetry signals show", "signals.detail"),
@@ -353,6 +357,19 @@ class OperatorService:
     def apply_source(self, preview: ImportPreview) -> dict[str, Any]:
         repository = self.repository()
         return apply_import(repository, self.inventory(repository), preview)
+
+    def sources(self) -> list[dict[str, Any]]:
+        """Imported sources: id, kind, label, import time, and version count."""
+
+        return [dict(row) for row in self.inventory(self.repository())["sources"]]
+
+    def preview_remove_source(self, source_id: str) -> RemovePreview:
+        repository = self.repository()
+        return preview_remove_source(repository, self.inventory(repository), source_id)
+
+    def remove_source(self, preview: RemovePreview) -> dict[str, Any]:
+        repository = self.repository()
+        return apply_remove_source(repository, self.inventory(repository), preview)
 
     def export_source_rows(
         self, path: Path, *, source_id: str | None = None, overwrite: bool = False,

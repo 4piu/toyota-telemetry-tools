@@ -102,14 +102,20 @@ telemetry connector check
 telemetry source import file C:\private\catalog-rows.json            # preview
 telemetry source import file C:\private\catalog-rows.json --apply
 telemetry source import tis --apply
+telemetry source remove file-catalog-rows      # preview; --apply removes
 telemetry source export C:\private\candidate-rows.json   # Save rows
 ```
 
 `connector check` validates settings and runs the worker self-test without
-opening the device. `source import` previews first: counts, conflicts,
-rejected rows, and what changes compared with the current list; `--apply`
-replaces that source's rows, updates the catalog manifest, and
-rebuilds the cache. The TIS source needs Windows and installed Techstream
+opening the device. `source import` previews first: which signals it
+will add, which it will update (and which fields change), how many are
+unchanged, and rejected rows; `--apply` writes exactly that, updates the
+catalog manifest, and rebuilds the cache. A signal is its ECU key, DID, and
+bits, and its formula makes a version: a corrected name, unit, or state
+text updates the version in place, while a different formula from the
+same source replaces it. Importing never removes a signal;
+`source remove ID` (Remove on the Setup page) removes a source, keeping
+signals that are reviewed, targeted, or recorded. The TIS source needs Windows and installed Techstream
 databases; it finds them in the standard install folder (NA, then EU, OT,
 JP) unless `--database FOLDER` names one, and the desktop Setup page fills
 the same folder in. It reads every installed ECU database, current

@@ -25,6 +25,7 @@ from .operator.editing import (
     parse_duration,
 )
 from .operator.collection import SLICES, STRATEGIES, Rotation
+from .operator.inventory import describe_import, describe_removal
 from .operator.live import ConfirmationRefused, LiveBusy, record_preview, require_previewed
 from .operator.service import OperatorService, toolkit_commit
 from .operator.sources import NormalizedFileSource, TisDatabaseSource, default_tis_database
@@ -145,6 +146,12 @@ def build_parser() -> argparse.ArgumentParser:
     source_export.add_argument("path", type=Path, help="JSON file to write")
     source_export.add_argument("--source", help="only this source id (default: every imported source)")
     source_export.add_argument("--force", action="store_true", help="overwrite an existing file")
+    source_remove = command(
+        "remove", "source.remove", _source_remove,
+        "remove an imported source; signals in use stay", parent=source_commands,
+    )
+    source_remove.add_argument("source_id", help="source id, such as tis or file-catalog-rows (the import names it)")
+    source_remove.add_argument("--apply", action="store_true", help="remove after previewing")
 
     cache = commands.add_parser("cache", help="derived cache maintenance")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
@@ -358,6 +365,18 @@ def _connector_check(service: OperatorService, args: argparse.Namespace) -> int:
     return EXIT_OK if check.ok else EXIT_FAILED
 
 
+def _source_remove(service: OperatorService, args: argparse.Namespace) -> int:
+    preview = service.preview_remove_source(args.source_id)
+    if args.apply:
+        service.remove_source(preview)
+    if args.as_json:
+        return _emit({**preview.as_dict(), "applied": args.apply})
+    for line in describe_removal(preview):
+        print(line)
+    print("Applied: candidate list and cache updated." if args.apply else "Preview only. Re-run with --apply to use it.")
+    return EXIT_OK
+
+
 def _source_export(service: OperatorService, args: argparse.Namespace) -> int:
     count = service.export_source_rows(args.path, source_id=args.source, overwrite=args.force)
     if args.as_json:
@@ -384,17 +403,9 @@ def _source_import(service: OperatorService, args: argparse.Namespace) -> int:
         applied = True
     if args.as_json:
         return _emit({**preview.as_dict(), "applied": applied})
-    counts = preview.counts
-    print(f"Source {preview.label} ({preview.source_id})")
-    print(
-        f"  {counts.get('rows', 0)} rows: {counts.get('signals', 0)} signals, {counts.get('dids', 0)} DIDs, "
-        f"{counts.get('ecus', 0)} ECUs, {counts.get('endpoint_candidates', 0)} endpoint candidates"
-    )
-    print(
-        f"  versus the current list: {counts.get('added', 0)} added, {counts.get('removed', 0)} removed, "
-        f"{counts.get('unchanged', 0)} unchanged; {counts.get('conflicts', 0)} conflicting signal(s); "
-        f"{counts.get('rejected', 0)} rejected"
-    )
+    print(f"Source {preview.source_id}")
+    for line in describe_import(preview):
+        print(f"  {line}")
     for where, reason in preview.rejections[:5]:
         print(f"  rejected {where}: {reason}")
     if preview.blocking_problem:

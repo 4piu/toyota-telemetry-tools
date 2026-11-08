@@ -109,18 +109,97 @@ class SourceImportTests(ServiceTestCase):
         self.assertEqual(self.service.export_source_rows(saved, source_id="file-candidates", overwrite=True), 4)
         # Same file name, same source: re-importing changes nothing.
         again = self.service.preview_source(NormalizedFileSource(saved).read())
-        self.assertEqual((again.counts["added"], again.counts["removed"], again.counts["unchanged"]), (0, 0, 4))
+        self.assertEqual((again.counts["added"], again.counts["updated"], again.counts["unchanged"]), (0, 0, 4))
         self.assertEqual(again.rejections, ())
 
-    def test_reimport_that_drops_a_reviewed_signal_is_blocked(self) -> None:
+    def _reimport(self, rows: list[dict], name: str = "candidates.json"):
+        path = self.root.parent / name
+        path.write_text(json.dumps(rows), encoding="utf-8")
+        preview = self.service.preview_source(NormalizedFileSource(path).read())
+        self.service.apply_source(preview)
+        return preview
+
+    def _versions(self, signal_ref: str) -> list[dict]:
+        return [entry for entry in self.service.inventory()["rows"] if entry["row"]["signal_ref"] == signal_ref]
+
+    def test_a_reimport_that_leaves_out_a_signal_keeps_it(self) -> None:
         self.import_rows()
-        reduced = self.root / "state/candidates.json"
-        rows = json.loads(reduced.read_text())
-        reduced.write_text(json.dumps([row for row in rows if row.get("name") != "Battery voltage"]))
-        preview = self.service.preview_source(NormalizedFileSource(reduced).read())
-        self.assertIn("reviewed signals would no longer resolve", preview.blocking_problem)
-        with self.assertRaisesRegex(ValueError, "no longer resolve"):
+        rows = json.loads(self.rows.read_text())
+        preview = self._reimport([row for row in rows if row.get("name") != "Battery voltage"])
+        self.assertIsNone(preview.blocking_problem)
+        self.assertEqual((preview.counts["added"], preview.counts["updated"], preview.counts["kept"]), (0, 0, 1))
+        self.assertEqual(len(self._versions("372/0x1002/0..15")), 1)
+
+    def test_a_corrected_unit_or_name_updates_the_same_version(self) -> None:
+        self.import_rows()
+        before = self._versions("372/0x1003/8..15")[0]["row"]["catalog_variant_id"]
+        rows = json.loads(self.rows.read_text())
+        rows[2] = dict(rows[2], unit="°C", name="Coolant temp")
+        preview = self._reimport(rows)
+        self.assertEqual((preview.counts["added"], preview.counts["updated"], preview.counts["unchanged"]), (0, 1, 3))
+        self.assertEqual(preview.changed_fields, {"name": 1, "unit": 1})
+        self.assertEqual(preview.counts["conflicts"], 0)
+        versions = self._versions("372/0x1003/8..15")
+        self.assertEqual([entry["row"]["catalog_variant_id"] for entry in versions], [before])
+        self.assertEqual(versions[0]["row"]["unit"], "°C")
+
+    def test_a_new_formula_from_the_same_source_replaces_its_version(self) -> None:
+        self.import_rows()
+        rows = json.loads(self.rows.read_text())
+        rows[2] = dict(rows[2], formula="raw - 50")
+        preview = self._reimport(rows)
+        self.assertEqual(preview.counts["updated"], 1)
+        self.assertEqual(preview.changed_fields, {"formula": 1})
+        self.assertEqual([entry["row"]["formula"] for entry in self._versions("372/0x1003/8..15")], ["raw - 50"])
+
+    def test_another_source_with_the_same_rows_adds_nothing(self) -> None:
+        self.import_rows()
+        rows = json.loads(self.rows.read_text())
+        preview = self._reimport(rows, "other.json")
+        self.assertEqual((preview.counts["added"], preview.counts["updated"], preview.counts["unchanged"]), (0, 0, 4))
+        inventory = self.service.inventory()
+        self.assertEqual(len(inventory["rows"]), 4)
+        self.assertEqual(inventory["rows"][0]["sources"], ["file-candidates", "file-other"])
+        # A different formula from another source is a second version: a conflict.
+        rows[2] = dict(rows[2], formula="raw - 50")
+        preview = self._reimport(rows, "third.json")
+        self.assertEqual((preview.counts["updated"], preview.counts["conflicts"]), (1, 1))
+        self.assertEqual(len(self._versions("372/0x1003/8..15")), 2)
+
+    def test_repeated_rows_in_one_import_merge(self) -> None:
+        rows = json.loads(self.rows.read_text())
+        rows.append(dict(rows[1], name="Gear state (again)", internal_id="0x0009"))
+        preview = self._reimport(rows)
+        self.assertEqual((preview.counts["duplicates_merged"], preview.counts["added"]), (1, 4))
+        self.assertEqual(self._versions("372/0x1003/0..7")[0]["row"]["name"], "Gear state")
+
+    def test_apply_writes_the_preview_and_refuses_a_stale_one(self) -> None:
+        self.import_rows()
+        rows = json.loads(self.rows.read_text())
+        rows[2] = dict(rows[2], unit="K")
+        path = self.root.parent / "candidates.json"
+        path.write_text(json.dumps(rows), encoding="utf-8")
+        preview = self.service.preview_source(NormalizedFileSource(path).read())
+        self._reimport([dict(rows[0], unit="mV")], "other.json")
+        with self.assertRaisesRegex(ValueError, "changed since the preview"):
             self.service.apply_source(preview)
+
+    def test_removing_a_source_keeps_signals_in_use(self) -> None:
+        self.import_rows()
+        rows = json.loads(self.rows.read_text())
+        self._reimport([rows[1]], "other.json")
+        preview = self.service.preview_remove_source("file-candidates")
+        # Gear state is also in other.json; battery voltage is reviewed and targeted;
+        # coolant temperature and the brake switch go.
+        self.assertEqual(preview.counts, {"removed_signals": 2, "removed_versions": 2, "kept_in_use": 1})
+        self.service.remove_source(preview)
+        inventory = self.service.inventory()
+        self.assertEqual(sorted(entry["row"]["signal_ref"] for entry in inventory["rows"]),
+                         ["372/0x1002/0..15", "372/0x1003/0..7"])
+        self.assertEqual([source["source_id"] for source in inventory["sources"]], ["file-candidates", "file-other"])
+        self.assertTrue(self.service.check().ok)
+        with self.assertRaisesRegex(ValueError, "imported: file-candidates, file-other"):
+            self.service.preview_remove_source("tis")
 
 
 class TreeAndSelectionTests(ServiceTestCase):

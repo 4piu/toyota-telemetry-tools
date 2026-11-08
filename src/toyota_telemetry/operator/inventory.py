@@ -26,12 +26,16 @@ from ..repository import (
     _encoded_json,
     _exact_json,
     _normalized_catalog_rows,
+    catalog_variant_id,
     connect_cache,
 )
+from ..objectives import condition_refs
 from .sources import SourceRows, canonical_can_id
 
 
 INVENTORY_FILE = "inventory.json"
+# Schema 2: one merged list; each version names the sources that supply it.
+INVENTORY_SCHEMA_VERSION = 2
 
 VERIFIED = "Verified"
 NOT_VERIFIED = "Not verified"
@@ -90,7 +94,7 @@ def inventory_path(repository: ProjectRepository):
 def empty_inventory(project_id: str) -> dict[str, Any]:
     return {
         "document_type": "telemetry.candidate-inventory",
-        "schema_version": 1,
+        "schema_version": INVENTORY_SCHEMA_VERSION,
         "project_id": project_id,
         "sources": [],
         "rows": [],
@@ -113,15 +117,21 @@ def validate_inventory(document: Mapping[str, Any], project_id: str) -> None:
     }
     if set(document) != expected:
         raise ValueError(f"candidate inventory fields mismatch: {sorted(document)}")
-    if document["document_type"] != "telemetry.candidate-inventory" or document["schema_version"] != 1:
-        raise ValueError("candidate inventory must be telemetry.candidate-inventory schema 1")
+    if (document["document_type"] != "telemetry.candidate-inventory"
+            or document["schema_version"] != INVENTORY_SCHEMA_VERSION):
+        raise ValueError(f"candidate inventory must be telemetry.candidate-inventory schema {INVENTORY_SCHEMA_VERSION}")
     if document["project_id"] != project_id:
         raise ValueError("candidate inventory belongs to a different project")
     source_ids = {source["source_id"] for source in document["sources"]}
+    variants = set()
     for entry in document["rows"]:
-        if set(entry) != {"source_id", "row"} or entry["source_id"] not in source_ids:
+        if set(entry) != {"sources", "row"} or not entry["sources"] or set(entry["sources"]) - source_ids:
             raise ValueError("candidate inventory row has no known source")
         SignalRef.parse(entry["row"]["signal_ref"])
+        variant = entry["row"].get("catalog_variant_id")
+        if variant != catalog_variant_id(entry["row"]) or variant in variants:
+            raise ValueError(f"candidate inventory version id mismatch: {entry['row']['signal_ref']}")
+        variants.add(variant)
     for endpoint in document["manual_endpoints"]:
         fields = {"tester_can_id", "response_can_id", "session_recipe_id", "ecu_keys"}
         if set(endpoint) - {"target_address"} != fields:
@@ -156,23 +166,6 @@ def cache_rows(repository: ProjectRepository, inventory: Mapping[str, Any]) -> l
     return _normalized_catalog_rows(rows)
 
 
-def source_rows(inventory: Mapping[str, Any], source_id: str | None = None) -> list[dict[str, Any]]:
-    """Imported rows as a row file holds them (all sources, or one).
-
-    The workspace-assigned catalog_variant_id is left out, so importing the
-    rows again yields the same signals.
-    """
-
-    if source_id is not None and source_id not in {entry["source_id"] for entry in inventory["rows"]}:
-        known = sorted({entry["source_id"] for entry in inventory["rows"]})
-        raise ValueError(f"no imported source {source_id!r}; imported: {', '.join(known) or 'none'}")
-    return [
-        {name: value for name, value in entry["row"].items() if name != "catalog_variant_id"}
-        for entry in inventory["rows"]
-        if source_id is None or entry["source_id"] == source_id
-    ]
-
-
 def refresh_cache(repository: ProjectRepository, inventory: Mapping[str, Any]) -> bool:
     return repository.refresh_cache(cache_rows(repository, inventory), repository.paths.captures)
 
@@ -181,8 +174,27 @@ def rebuild_cache(repository: ProjectRepository, inventory: Mapping[str, Any]) -
     repository.rebuild_cache(cache_rows(repository, inventory), repository.paths.captures)
 
 
+def source_rows(inventory: Mapping[str, Any], source_id: str | None = None) -> list[dict[str, Any]]:
+    """Candidate rows as a row file holds them (every version, or one source's).
+
+    The workspace-assigned catalog_variant_id is left out, so importing the
+    rows again yields the same signals.
+    """
+
+    if source_id is not None and source_id not in {source["source_id"] for source in inventory["sources"]}:
+        known = sorted(source["source_id"] for source in inventory["sources"])
+        raise ValueError(f"no imported source {source_id!r}; imported: {', '.join(known) or 'none'}")
+    return [
+        {name: value for name, value in entry["row"].items() if name != "catalog_variant_id"}
+        for entry in inventory["rows"]
+        if source_id is None or source_id in entry["sources"]
+    ]
+
+
 @dataclass(frozen=True)
 class ImportPreview:
+    """What applying a source will do, computed by the same plan that applies it."""
+
     source_id: str
     kind: str
     label: str
@@ -191,6 +203,9 @@ class ImportPreview:
     counts: dict[str, int]
     conflicts: tuple[str, ...]
     blocking_problem: str | None
+    changed_fields: dict[str, int] = field(default_factory=dict)
+    document: Mapping[str, Any] | None = None
+    base_sha256: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -198,6 +213,7 @@ class ImportPreview:
             "kind": self.kind,
             "label": self.label,
             "counts": dict(self.counts),
+            "changed_fields": dict(self.changed_fields),
             "conflicts": list(self.conflicts),
             "rejections": [
                 {"where": where, "reason": reason} for where, reason in self.rejections[:50]
@@ -207,10 +223,31 @@ class ImportPreview:
         }
 
 
+@dataclass(frozen=True)
+class RemovePreview:
+    """What removing a source will do; applying writes exactly this document."""
+
+    source_id: str
+    label: str
+    counts: dict[str, int]
+    document: Mapping[str, Any]
+    base_sha256: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"source_id": self.source_id, "label": self.label, "counts": dict(self.counts)}
+
+
 def preview_import(
     repository: ProjectRepository, inventory: Mapping[str, Any], source: SourceRows
 ) -> ImportPreview:
-    """Reconcile source rows against the inventory without writing anything."""
+    """Plan merging a source into the candidate list, without writing anything.
+
+    A signal is its ECU key, DID, and bits; a version of it is that plus its
+    formula. Importing adds new signals and versions, updates the descriptive
+    fields (name, unit, states, addresses) of existing versions, and replaces
+    a version this source alone supplied when the source now gives the signal
+    another formula. Signals missing from the import are kept.
+    """
 
     did_min = int(repository.transport["safety"]["did_min"], 16)
     did_max = int(repository.transport["safety"]["did_max"], 16)
@@ -222,76 +259,272 @@ def preview_import(
             rejections.append((str(ref), "DID is outside the transport safety range"))
             continue
         accepted.append(row)
+    incoming, duplicates = _merge_versions(accepted)
     try:
-        normalized = _normalized_catalog_rows(accepted)
+        incoming = _normalized_catalog_rows(incoming)
     except ValueError as exc:
         return _blocked(source, rejections, str(exc))
 
-    previous = {
-        _row_key(entry["row"]) for entry in inventory["rows"] if entry["source_id"] == source.source_id
+    pinned = {
+        review["catalog_variant_id"] for review in repository.review["signals"] if review["catalog_variant_id"]
     }
-    incoming = {_row_key(row) for row in normalized}
-    others = [
-        {"source_id": entry["source_id"], "row": entry["row"]}
-        for entry in inventory["rows"] if entry["source_id"] != source.source_id
-    ]
-    merged = [entry["row"] for entry in others] + list(normalized)
-    conflicts = _conflicting_signals(merged)
-    endpoints = {_row_endpoint(row) for row in normalized} - {None}
+    touched = {row["signal_ref"] for row in incoming}
+    before: dict[str, list[dict[str, Any]]] = {}
+    entries: list[dict[str, Any]] = []
+    by_variant: dict[str, dict[str, Any]] = {}
+    for entry in inventory["rows"]:
+        row = entry["row"]
+        sources = [value for value in entry["sources"]
+                   if not (row["signal_ref"] in touched and value == source.source_id)]
+        copy = {"sources": sources, "row": row}
+        entries.append(copy)
+        by_variant[row["catalog_variant_id"]] = copy
+        if row["signal_ref"] in touched:
+            before.setdefault(row["signal_ref"], []).append(row)
+    for row in incoming:
+        existing = by_variant.get(row["catalog_variant_id"])
+        if existing is None:
+            entry = {"sources": [source.source_id], "row": row}
+            entries.append(entry)
+            by_variant[row["catalog_variant_id"]] = entry
+        else:
+            existing["row"] = row
+            existing["sources"] = sorted({*existing["sources"], source.source_id})
+    kept_pinned = 0
+    rows = []
+    for entry in entries:
+        if not entry["sources"]:
+            if entry["row"]["catalog_variant_id"] not in pinned:
+                continue  # replaced: this source now gives the signal another formula
+            entry["sources"] = [source.source_id]
+            kept_pinned += 1
+        rows.append(entry)
+    rows.sort(key=lambda entry: (SignalRef.parse(entry["row"]["signal_ref"]), entry["row"]["catalog_variant_id"]))
+
+    after: dict[str, list[dict[str, Any]]] = {}
+    for entry in rows:
+        if entry["row"]["signal_ref"] in touched:
+            after.setdefault(entry["row"]["signal_ref"], []).append(entry["row"])
+    added = updated = unchanged = 0
+    changed_fields: dict[str, int] = {}
+    for signal_ref in touched:
+        old = {row["catalog_variant_id"]: row for row in before.get(signal_ref, [])}
+        new = {row["catalog_variant_id"]: row for row in after.get(signal_ref, [])}
+        if not old:
+            added += 1
+            continue
+        if {key: _canonical_json(row) for key, row in old.items()} == {
+            key: _canonical_json(row) for key, row in new.items()
+        }:
+            unchanged += 1
+            continue
+        updated += 1
+        names: set[str] = set()
+        if set(old) != set(new):
+            names.add("formula")
+        for key in set(old) & set(new):
+            for name in set(old[key]) | set(new[key]):
+                if _canonical_json(old[key].get(name)) != _canonical_json(new[key].get(name)):
+                    names.add(name)
+        for name in names:
+            changed_fields[name] = changed_fields.get(name, 0) + 1
+    previously = {
+        entry["row"]["signal_ref"] for entry in inventory["rows"] if source.source_id in entry["sources"]
+    }
+    conflicts = sorted((ref for ref, values in after.items() if len(values) > 1), key=SignalRef.parse)
+    document = _with_sources(inventory, rows, {
+        "source_id": source.source_id, "kind": source.kind, "label": source.label,
+    })
+    endpoints = {_row_endpoint(row) for row in incoming} - {None}
     counts = {
-        "ecus": len({SignalRef.parse(row["signal_ref"]).ecu_key for row in normalized}),
+        "ecus": len({SignalRef.parse(row["signal_ref"]).ecu_key for row in incoming}),
         "endpoint_candidates": len(endpoints),
-        "dids": len({_did_identity(row) for row in normalized}),
-        "signals": len({row["signal_ref"] for row in normalized}),
-        "rows": len(normalized),
-        "added": len(incoming - previous),
-        "removed": len(previous - incoming),
-        "unchanged": len(incoming & previous),
+        "dids": len({_did_identity(row) for row in incoming}),
+        "signals": len(touched),
+        "rows": len(accepted),
+        "duplicates_merged": duplicates,
+        "added": added,
+        "updated": updated,
+        "unchanged": unchanged,
+        "kept": len(previously - touched),
+        "kept_reviewed": kept_pinned,
         "conflicts": len(conflicts),
         "rejected": len(rejections),
     }
     problem = None
-    candidate = {**inventory, "rows": others + [
-        {"source_id": source.source_id, "row": row} for row in normalized
-    ]}
     try:
-        repository._validate_catalog_rows(cache_rows(repository, candidate))
+        repository._validate_catalog_rows(cache_rows(repository, document))
     except ValueError as exc:
         problem = f"reviewed signals would no longer resolve: {exc}"
     return ImportPreview(
-        source.source_id, source.kind, source.label, tuple(normalized), tuple(rejections),
-        counts, tuple(conflicts), problem,
+        source.source_id, source.kind, source.label, tuple(incoming), tuple(rejections),
+        counts, tuple(conflicts), problem, dict(sorted(changed_fields.items())), document,
+        inventory_sha256(inventory),
     )
 
 
 def apply_import(
     repository: ProjectRepository, inventory: Mapping[str, Any], preview: ImportPreview
 ) -> dict[str, Any]:
-    """Replace this source's rows, update provenance, and rebuild the cache."""
+    """Write exactly the previewed candidate list, then rebuild the cache."""
 
     if preview.blocking_problem:
         raise ValueError(preview.blocking_problem)
-    sources = [row for row in inventory["sources"] if row["source_id"] != preview.source_id]
-    sources.append({
-        "source_id": preview.source_id,
-        "kind": preview.kind,
-        "label": preview.label,
-        "imported_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "row_count": len(preview.rows),
-    })
-    rows = [entry for entry in inventory["rows"] if entry["source_id"] != preview.source_id]
-    rows.extend({"source_id": preview.source_id, "row": row} for row in preview.rows)
-    rows.sort(key=lambda entry: (SignalRef.parse(entry["row"]["signal_ref"]), entry["source_id"]))
-    document = {
+    if preview.document is None or inventory_sha256(inventory) != preview.base_sha256:
+        raise ValueError("the candidate list changed since the preview; preview the source again")
+    stamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    document = {**preview.document, "sources": [
+        {**row, "imported_utc": stamp} if row["source_id"] == preview.source_id else row
+        for row in preview.document["sources"]
+    ]}
+    return _write(repository, document)
+
+
+def preview_remove_source(
+    repository: ProjectRepository, inventory: Mapping[str, Any], source_id: str
+) -> RemovePreview:
+    """Plan removing one source. Versions only it supplied go, unless their
+    signal is reviewed, targeted, or recorded; those stay under the source."""
+
+    labels = {row["source_id"]: row["label"] for row in inventory["sources"]}
+    if source_id not in labels:
+        raise ValueError(
+            f"no imported source {source_id!r}; imported: {', '.join(sorted(labels)) or 'none'}"
+        )
+    in_use = {row["signal_ref"] for row in repository.review["signals"]}
+    for target in repository.policy["targets"]:
+        in_use.add(target["signal_ref"])
+        if target["condition"] is not None:
+            in_use.update(condition_refs(target["condition"]))
+    try:
+        in_use.update(repository.signal_observation_summary())
+    except sqlite3.Error:
+        pass
+    rows = []
+    removed: set[str] = set()
+    kept: set[str] = set()
+    versions = 0
+    for entry in inventory["rows"]:
+        sources = [value for value in entry["sources"] if value != source_id]
+        if not sources:
+            if entry["row"]["signal_ref"] in in_use:
+                kept.add(entry["row"]["signal_ref"])
+                rows.append(entry)
+                continue
+            removed.add(entry["row"]["signal_ref"])
+            versions += 1
+            continue
+        rows.append({"sources": sources, "row": entry["row"]})
+    remaining = {entry["row"]["signal_ref"] for entry in rows}
+    source = next(row for row in inventory["sources"] if row["source_id"] == source_id)
+    document = _with_sources(inventory, rows, source if kept else None, drop=None if kept else source_id)
+    counts = {
+        "removed_signals": len(removed - remaining),
+        "removed_versions": versions,
+        "kept_in_use": len(kept),
+    }
+    return RemovePreview(source_id, labels[source_id], counts, document, inventory_sha256(inventory))
+
+
+def apply_remove_source(
+    repository: ProjectRepository, inventory: Mapping[str, Any], preview: RemovePreview
+) -> dict[str, Any]:
+    if inventory_sha256(inventory) != preview.base_sha256:
+        raise ValueError("the candidate list changed since the preview; preview the removal again")
+    return _write(repository, preview.document)
+
+
+def describe_import(preview: ImportPreview) -> list[str]:
+    """Plain lines saying what applying the preview will do (any interface)."""
+
+    counts = preview.counts
+    lines = [
+        f"{preview.label}: {counts.get('rows', 0):,} rows, {counts.get('signals', 0):,} signals, "
+        f"{counts.get('dids', 0):,} DIDs, {counts.get('ecus', 0):,} ECUs, "
+        f"{counts.get('endpoint_candidates', 0):,} endpoint candidates.",
+        f"To add {counts.get('added', 0):,} signals; to update {counts.get('updated', 0):,}; "
+        f"unchanged {counts.get('unchanged', 0):,}.",
+    ]
+    if preview.changed_fields:
+        lines.append("Updates change: " + ", ".join(
+            f"{name} {number:,}" for name, number in preview.changed_fields.items()
+        ) + ".")
+    if counts.get("kept"):
+        lines.append(f"{counts['kept']:,} signals from this source's last import are not in it; they are kept.")
+    if counts.get("kept_reviewed"):
+        lines.append(f"{counts['kept_reviewed']:,} replaced definitions are kept because a review uses them.")
+    if counts.get("duplicates_merged"):
+        lines.append(f"{counts['duplicates_merged']:,} repeated rows merged into an existing definition.")
+    if counts.get("conflicts"):
+        lines.append(f"{counts['conflicts']:,} of these signals have more than one formula.")
+    if counts.get("rejected"):
+        lines.append(f"{counts['rejected']:,} rows rejected.")
+    return lines
+
+
+def describe_removal(preview: RemovePreview) -> list[str]:
+    counts = preview.counts
+    lines = [
+        f"Remove {preview.label}: {counts['removed_signals']:,} signals and "
+        f"{counts['removed_versions']:,} definitions only it supplied go."
+    ]
+    if counts["kept_in_use"]:
+        lines.append(f"{counts['kept_in_use']:,} signals stay because they are reviewed, targeted, or recorded.")
+    return lines
+
+
+def inventory_sha256(inventory: Mapping[str, Any]) -> str:
+    return hashlib.sha256(_canonical_json(inventory).encode("utf-8")).hexdigest()
+
+
+def _merge_versions(rows: Iterable[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+    """One row per version (signal and formula); a repeated version keeps the
+    first row's descriptive fields. Returns the rows and how many merged."""
+
+    merged: dict[str, dict[str, Any]] = {}
+    duplicates = 0
+    for raw in rows:
+        row = {name: value for name, value in raw.items() if name != "catalog_variant_id"}
+        row["signal_ref"] = str(SignalRef.parse(str(row["signal_ref"])))
+        variant = catalog_variant_id(row)
+        if variant in merged:
+            duplicates += 1
+            continue
+        row["catalog_variant_id"] = variant
+        merged[variant] = row
+    return list(merged.values()), duplicates
+
+
+def _with_sources(
+    inventory: Mapping[str, Any],
+    rows: list[dict[str, Any]],
+    source: Mapping[str, Any] | None,
+    *,
+    drop: str | None = None,
+) -> dict[str, Any]:
+    """The inventory with these rows and each source's version count."""
+
+    sources = {row["source_id"]: dict(row) for row in inventory["sources"] if row["source_id"] != drop}
+    if source is not None:
+        sources[source["source_id"]] = {
+            "imported_utc": "", **sources.get(source["source_id"], {}), **source,
+        }
+    for row in sources.values():
+        row["row_count"] = sum(1 for entry in rows if row["source_id"] in entry["sources"])
+    return {
         **inventory,
-        "sources": sorted(sources, key=lambda row: row["source_id"]),
+        "schema_version": INVENTORY_SCHEMA_VERSION,
+        "sources": sorted(sources.values(), key=lambda row: row["source_id"]),
         "rows": rows,
     }
+
+
+def _write(repository: ProjectRepository, document: Mapping[str, Any]) -> dict[str, Any]:
     write_inventory(repository, document)
     _write_catalog_manifest(repository, document)
     refreshed = ProjectRepository(repository.root)
     rebuild_cache(refreshed, document)
-    return document
+    return dict(document)
 
 
 def add_manual_endpoint(
@@ -366,10 +599,6 @@ def _blocked(source: SourceRows, rejections: list, problem: str) -> ImportPrevie
     )
 
 
-def _row_key(row: Mapping[str, Any]) -> str:
-    return _canonical_json(row)
-
-
 def _did_identity(row: Mapping[str, Any]) -> tuple[int, int]:
     ref = SignalRef.parse(row["signal_ref"])
     return ref.ecu_key, ref.data_id
@@ -389,7 +618,7 @@ def _row_endpoint(row: Mapping[str, Any]) -> tuple[str, str, str | None] | None:
 
 
 def _decode_identity(row: Mapping[str, Any]) -> str:
-    return _canonical_json([row.get("name"), row.get("formula"), row.get("unit")])
+    return _canonical_json(row.get("formula") or "raw")
 
 
 def _conflicting_signals(rows: Iterable[Mapping[str, Any]]) -> list[str]:

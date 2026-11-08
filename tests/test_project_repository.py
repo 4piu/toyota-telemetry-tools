@@ -275,9 +275,10 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(len(repository.cache_snapshot()["catalog_variant"]), 1)
 
     def test_conflicting_catalog_variants_require_review_resolution(self) -> None:
+        # Two versions (formulas) of one reviewed signal that also disagree on the name.
         rows = [
-            {"signal_ref": "372/0x1002/0..15", "name": name, "unit": "V"}
-            for name in ("Battery voltage", "Supply voltage")
+            {"signal_ref": "372/0x1002/0..15", "name": name, "unit": "V", "formula": formula}
+            for name, formula in (("Battery voltage", "raw / 1000"), ("Supply voltage", "raw / 100"))
         ]
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
