@@ -382,6 +382,18 @@ def _conflicting_signals(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     return sorted((ref for ref, values in seen.items() if len(values) > 1), key=SignalRef.parse)
 
 
+def session_opened(result: Mapping[str, Any], recipe: Mapping[str, Any]) -> bool:
+    """Whether every session step of a probe succeeded, as the probe judges continuation."""
+
+    steps = result.get("session_steps") or []
+    if len(steps) != len(recipe["steps"]):
+        return False
+    return all(
+        step["outcome"] == "positive" or (step["outcome"] == "negative" and spec["tolerate_negative"])
+        for step, spec in zip(steps, recipe["steps"])
+    )
+
+
 def pair_key(tester_can_id: str, response_can_id: str, target_address: str | None = None) -> str:
     return (
         f"{tester_can_id[2:].lower()}-{response_can_id[2:].lower()}"
@@ -476,6 +488,8 @@ class EndpointItem:
     candidate_ids: list[str] = field(default_factory=list)
     dids: list[DidItem] = field(default_factory=list)
     target_address: str | None = None
+    # False when the ECU answered but no probe opened its whole session yet.
+    session_open: bool = True
 
     @property
     def label(self) -> str:
@@ -721,6 +735,7 @@ def _apply_verification(
     settings: Mapping[str, Mapping[str, Any]],
 ) -> None:
     discovery = repository.discovery_candidates()
+    recipes = {row["id"]: row for row in repository.transport["session_recipes"]}
     preflight = {
         f"{row['endpoint_id']}/{row['data_id']}": row for row in repository.did_preflight_facts()
     }
@@ -739,9 +754,19 @@ def _apply_verification(
             if not endpoint.confirmed and matching:
                 responded = [fact for fact in matching if fact["responded"]]
                 if responded:
+                    # Prefer the latest probe whose whole session opened; an
+                    # ECU that answered but refused every session is probed
+                    # again with the other recipes on the next verification.
+                    opened = [
+                        fact for fact in responded
+                        if fact["session_recipe_id"] in recipes
+                        and session_opened(fact["result"], recipes[fact["session_recipe_id"]])
+                    ]
+                    chosen = (opened or responded)[-1]
                     endpoint.state = "responded"
-                    endpoint.endpoint_id = responded[-1]["candidate_id"]
-                    endpoint.session_recipe_id = responded[-1]["session_recipe_id"]
+                    endpoint.session_open = bool(opened)
+                    endpoint.endpoint_id = chosen["candidate_id"]
+                    endpoint.session_recipe_id = chosen["session_recipe_id"]
                 else:
                     endpoint.state = "silent"
         ids = [endpoint.endpoint_id] if endpoint.endpoint_id else []

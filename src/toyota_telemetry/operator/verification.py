@@ -15,7 +15,7 @@ from typing import Any, Callable, Mapping
 from ..discovery import ProbeWorkerFactory, _candidate_id, discover_endpoints, preflight_dids
 from ..identity import canonical_did, within_read_range
 from ..repository import ProjectRepository
-from .inventory import InventoryTree
+from .inventory import InventoryTree, session_opened
 from .live import scope_hash
 from .selection import Selection
 
@@ -169,13 +169,15 @@ def _endpoint_probe(endpoint, recipe_order: list[str], session_recipe_id: str | 
             endpoint.session_recipe_id, endpoint.endpoint_id, False, "confirmed endpoint",
             target_address=endpoint.target_address,
         )
-    if endpoint.state == "responded":
+    if endpoint.state == "responded" and endpoint.session_open:
         return EndpointProbe(
             endpoint.key, endpoint.tester_can_id, endpoint.response_can_id,
             endpoint.session_recipe_id, endpoint.endpoint_id, False, "responded earlier",
             target_address=endpoint.target_address,
         )
-    recipe = session_recipe_id or endpoint.session_recipe_id
+    # An ECU that answered but whose session never opened is retried with
+    # every recipe rather than the one that failed.
+    recipe = session_recipe_id or (endpoint.session_recipe_id if endpoint.state != "responded" else None)
     fallbacks: list[str] = []
     if recipe is None:
         recipe, *fallbacks = recipe_order
@@ -299,18 +301,6 @@ def _probe_sessions(repository, row: EndpointProbe, utc_now, probe_worker_factor
         if fact["responded"] and answered is None:
             answered = fact
     return answered or fact
-
-
-def session_opened(result: Mapping[str, Any], recipe: Mapping[str, Any]) -> bool:
-    """Whether every session step succeeded, as the probe judges continuation."""
-
-    steps = result.get("session_steps") or []
-    if len(steps) != len(recipe["steps"]):
-        return False
-    return all(
-        step["outcome"] == "positive" or (step["outcome"] == "negative" and spec["tolerate_negative"])
-        for step, spec in zip(steps, recipe["steps"])
-    )
 
 
 def progress_text(event: Mapping[str, Any]) -> str:

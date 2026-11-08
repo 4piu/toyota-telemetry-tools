@@ -214,6 +214,21 @@ class VerificationTests(ServiceTestCase):
         )
         self.assertEqual(fixed.endpoints[0].fallback_recipes, [])
 
+        # An ECU that answered but never opened a session (verified earlier
+        # with a forced recipe that it refuses) is probed again with every recipe.
+        (self.root / "state/verification-facts.json").unlink()
+        tree = self.service.tree()
+        forced = self.service.verification_scope(
+            tree, self.service.select(tree, [UNCONFIRMED_KEY]), session_recipe_id="session-a1769d23a560"
+        )
+        self.service.verify(forced, probe_worker_factory=probes)
+        endpoint = self.service.tree().endpoint(UNCONFIRMED_KEY)
+        self.assertEqual((endpoint.state, endpoint.session_open), ("responded", False))
+        tree = self.service.tree()
+        again = self.service.verification_scope(tree, self.service.select(tree, [UNCONFIRMED_KEY])).endpoints[0]
+        self.assertTrue(again.probe_endpoint)
+        self.assertEqual([again.session_recipe_id, *again.fallback_recipes], ["session-a1769d23a560", "relaxed"])
+
     def test_events_count_up_to_the_scope_total_even_when_dids_are_skipped(self) -> None:
         from toyota_telemetry.operator.verification import progress_text
 
