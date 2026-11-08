@@ -22,7 +22,6 @@ from ..project import WORKERS
 
 # Techstream's database DLL is 32-bit, so a bundled 32-bit helper reads it.
 TISDB = "telemetry-tisdb.exe"
-_PHASE = re.compile(r"_P(\d)\.ddb$", re.IGNORECASE)
 _HEX = re.compile(r"(?:0x)?([0-9A-Fa-f]+)")
 _TIS_ROW_FIELDS = (
     "name", "unit", "formula", "formula_state", "value_type", "internal_id",
@@ -123,8 +122,6 @@ class NormalizedFileSource:
 
 
 TECHSTREAM_REGIONS = ("NA", "EU", "OT", "JP")
-# Database generations the import understands: 5 (22 DID) and 4 (21 LL).
-SUPPORTED_PHASES = (4, 5)
 FALLBACK_PROGRAM_FILES = ("C:\\Program Files (x86)",)
 
 
@@ -152,8 +149,9 @@ class TisDatabaseSource:
     one-byte local identifier) and stored with DID 0x00LL; items whose layout
     the helper does not understand are rejected rather than guessed.
 
-    Every installed database of a supported phase (5, then the older 4) is
-    read; an optional list of ECU keys narrows the selection.
+    Every installed ECU database is read; its generation comes from the data
+    list it holds, and ECUs without a CAN diagnostic address are left out.
+    An optional list of ECU keys narrows the selection.
     Database records are candidates; only verification establishes support.
     """
 
@@ -199,39 +197,59 @@ class TisDatabaseSource:
                 continue
             if self.ecu_keys and key not in self.ecu_keys:
                 continue
-            match = _PHASE.search(name)
-            if match is None or int(match.group(1)) not in SUPPORTED_PHASES:
-                continue
-            selected.setdefault(key, {"key": key, "name": record["Ecu"], "phase": int(match.group(1)) if match else 5})
+            selected.setdefault(key, {"key": key, "name": record["Ecu"]})
         if not selected:
             raise ValueError("no installed TIS database matches the ECU selection")
         raw_rows: list[dict[str, Any]] = []
+        skipped: list[tuple[str, str]] = []
+        imported = 0
         for key in sorted(selected):
-            raw_rows.extend(self._ecu_rows(selected[key]))
+            ecu_rows, problem = self._ecu_rows(selected[key])
+            if problem:
+                skipped.append((f"ECU {key}", problem))
+                continue
+            imported += 1
+            raw_rows.extend(ecu_rows)
         rows, rejections = _normalize_all(raw_rows)
-        label = f"TIS databases ({len(selected)} ECUs)"
-        return SourceRows(self.source_id, self.kind, label, rows, rejections)
+        label = f"TIS databases ({imported} ECUs)"
+        return SourceRows(self.source_id, self.kind, label, rows, tuple(skipped) + rejections)
 
-    def _ecu_rows(self, ecu: dict[str, Any]) -> list[dict[str, Any]]:
+    def _ecu_rows(self, ecu: dict[str, Any]) -> tuple[list[dict[str, Any]], str | None]:
+        """Rows of one ECU, or a reason the whole ECU is left out.
+
+        The database generation is taken from which data list the ECU has,
+        not from its file name (partner-built and variant files carry
+        suffixes such as _P5FHI or AdjustP4).
+        """
         key = ecu["key"]
-        phase4 = ecu.get("phase") == 4
+        protocols = [
+            row for row in self._query(["--keys", str(key), "--protocol"])
+            if row.get("Status") == "0x00000000" and int(row.get("Count", 0) or 0) > 0
+        ]
+        # An ECU may list several transports (e.g. K-line variants); use its CAN one.
+        protocol = next(
+            (row for row in protocols if row.get("Addressing") in (None, "normal", "extended")), None,
+        )
+        if protocol is None and protocols:
+            return [], f"not a CAN diagnostic address ({protocols[0].get('Addressing')})"
+        protocol = protocol or {}
         monitors = [
-            row for row in self._query(["--keys", str(key), "--p4-monitors" if phase4 else "--monitors"])
+            row for row in self._query(["--keys", str(key), "--monitors"])
             if row.get("Status") == "0x00000000" and row.get("Name")
         ]
+        phase4 = not monitors
         if phase4:
+            monitors = [
+                row for row in self._query(["--keys", str(key), "--p4-monitors"])
+                if row.get("Status") == "0x00000000" and row.get("Name")
+            ]
             for row in monitors:
                 # A local identifier LL is stored as DID 0x00LL and read with 21 LL.
                 row["DataId"] = f"0x{int(row['LocalId'], 16):04X}"
                 row["InternalId"] = row["LocalId"]
                 row["Acquisition"] = "direct DID" if row.get("Layout") == "local identifier" else "unknown layout"
-        protocol = next(
-            (
-                row for row in self._query(["--keys", str(key), "--protocol"])
-                if row.get("Status") == "0x00000000" and int(row.get("Count", 0) or 0) > 0
-            ),
-            {},
-        )
+        if not monitors:
+            return [], "no data list in a supported layout"
         groups = sorted({str(row["PhysicalGroup"]) for row in monitors if row.get("PhysicalGroup")})
         physical: dict[str, dict[str, Any]] = {}
         for chunk in _chunks(groups):
@@ -277,14 +295,12 @@ class TisDatabaseSource:
                 row["rejected"] = "phase-4 item layout not understood"
             elif monitor.get("Acquisition") != "direct DID":
                 row["rejected"] = "mapped or dynamic record, not a direct DID"
-            elif protocol.get("Addressing") not in (None, "normal", "extended"):
-                row["rejected"] = f"not a CAN diagnostic address ({protocol['Addressing']})"
             elif not phase4 and int(monitor["DataId"], 16) < 0x100:
                 # Phase-5 items below 0x0100 (seen: 0x0000 placeholders) would be
                 # read as local identifiers, which they are not.
                 row["rejected"] = "DID below 0x0100 is reserved (local identifiers)"
             rows.append(row)
-        return rows
+        return rows, None
 
     def _query(self, arguments: list[str]) -> list[dict[str, Any]]:
         command = [

@@ -107,6 +107,42 @@ class TisSourceTests(unittest.TestCase):
                 self.assertEqual([row.get("target_address") for row in result.rows], [expected, expected])
                 self.assertEqual(result.rows[0]["tester_can_id"], "0x750")
 
+    def test_the_generation_comes_from_the_tables_not_the_file_name(self) -> None:
+        # Partner-built and variant files (e.g. _P5FHI, AdjustP4) are read like any
+        # other; an ECU reachable only over K-line is left out as a whole.
+        for name in ("Engine_P5FHI.ddb", "Klin_P3.ddb"):
+            (self.database / "DB" / name).write_bytes(b"")
+        catalog = [
+            {"Index": 0, "Ecu": "Engine Control System", "File": "Engine_P5FHI.ddb", "Key": 600},
+            {"Index": 1, "Ecu": "Engine and ECT", "File": "Klin_P3.ddb", "Key": 1},
+        ]
+        kline = {"Key": 1, "Status": OK, "Count": 1, "Index": 0, "PhysicalRequestCanId": "0x013",
+                 "ResponseCanIdCandidate": "0x01B", "Addressing": "other 0x11", "TargetAddress": None}
+        can = {"Key": 600, "Status": OK, "Count": 1, "Index": 0, "PhysicalRequestCanId": "0x7E0",
+               "ResponseCanIdCandidate": "0x7E8", "Addressing": "normal", "TargetAddress": None}
+
+        def helper(command, **_kwargs):
+            self.commands.append(command)
+            mode = next(argument for argument in command if argument in ANSWERS)
+            if mode == "--catalog":
+                rows = catalog
+            elif mode == "--protocol":
+                rows = [kline] if command[command.index("--keys") + 1] == "1" else [can]
+            else:
+                rows = ANSWERS[mode]
+            stdout = "".join(json.dumps(row) + "\n" for row in rows)
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+        with mock.patch.object(TisDatabaseSource, "availability", return_value=None), \
+                mock.patch.object(sources.subprocess, "run", side_effect=helper):
+            result = TisDatabaseSource(self.database).read()
+        self.assertEqual({row["signal_ref"].split("/")[0] for row in result.rows}, {"600"})
+        self.assertEqual(result.rows[0]["tester_can_id"], "0x7E0")
+        self.assertIn(("ECU 1", "not a CAN diagnostic address (other 0x11)"), result.rejections)
+        self.assertEqual(result.label, "TIS databases (1 ECUs)")
+        # The K-line ECU's data list is never read.
+        self.assertNotIn(["--keys", "1", "--monitors"], [command[-3:] for command in self.commands])
+
     def test_a_phase5_item_below_0x0100_is_rejected(self) -> None:
         answers = {**ANSWERS, "--monitors": [dict(ANSWERS["--monitors"][0], DataId="0x0000",
                                                   ReadRequest="22 00 00")]}

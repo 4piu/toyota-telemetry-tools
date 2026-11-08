@@ -50,6 +50,8 @@ class Phase4SourceTests(unittest.TestCase):
             ok = "0x00000000"
             answers = {
                 "--catalog": [{"Index": 0, "Ecu": "Tire Pressure Monitor", "File": "Tire_P4.ddb", "Key": 203}],
+                # No phase-5 data list: the older (21 LL) one is read instead.
+                "--monitors": [{"Key": 203, "Status": "0x00000005", "Count": 0, "Index": None, "Name": None}],
                 "--p4-monitors": [
                     {"Key": 203, "Status": ok, "Count": 2, "Index": 0, "Name": "ID 1 Tire Inflation Pressure",
                      "Layout": "local identifier", "LocalId": "0x30", "LocalIdLength": 5,

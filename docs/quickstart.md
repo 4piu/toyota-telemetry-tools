@@ -111,9 +111,11 @@ replaces that source's rows, updates the catalog manifest, and
 rebuilds the cache. The TIS source needs Windows and installed Techstream
 databases; it finds them in the standard install folder (NA, then EU, OT,
 JP) unless `--database FOLDER` names one, and the desktop Setup page fills
-the same folder in. It reads both the current (phase 5) and older (phase 4)
-databases (see [how it works](how-it-works.md#older-ecus-local-identifiers));
-`--ecu KEY` limits it to chosen ECUs. Candidate rows
+the same folder in. It reads every installed ECU database, current
+(phase 5) and older (phase 4) alike, including models built by partner
+makers (see [how it works](how-it-works.md#older-ecus-local-identifiers)),
+and leaves out ECUs not on CAN; `--ecu KEY` limits it to chosen ECUs.
+Candidate rows
 never become reviewed authority by being imported.
 
 ## 2. Verify (Signals page, LIVE)
