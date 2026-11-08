@@ -150,6 +150,30 @@ class LocalIdentifierWorkflowTests(unittest.TestCase):
             bits = ProjectRepository(root).response_data_bits()
             self.assertEqual(bits[(TPMS, 0x30)], 5 * 8)
 
+    def test_a_target_past_this_ecus_reply_is_refused_at_planning(self) -> None:
+        # Database layouts cover every version of an ECU; this one answers 21 30
+        # with two data bytes, so an item at bits 16..23 is absent here.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "vehicle"
+            root.mkdir()
+            fixture_rows = make_operator_project(root)
+            rows = root / "state" / "p4.json"
+            rows.write_text(json.dumps(ROWS + [dict(ROWS[0], first_bit=16, last_bit=23, name="ID 3")]))
+            service = OperatorService(root)
+            for path in (fixture_rows, rows):
+                service.apply_source(service.preview_source(NormalizedFileSource(path).read()))
+            tree = service.tree()
+            scope = service.verification_scope(tree, service.select(tree, ["750-758-2a"]))
+            service.verify(scope, probe_worker_factory=ScriptedProbes())
+            service.confirm_endpoint(TPMS, [203], [])
+            tree = service.tree()
+            result = service.edit_targets(tree, ["203/0x0030/16..23"], requirements={"minimum_samples": 3})
+            service.save(policy=result.policy)
+            readiness = service.readiness(TPMS)
+            self.assertFalse(readiness.ready)
+            self.assertTrue(any("lies past the reply" in problem.message and "2 data bytes" in problem.message
+                                for problem in readiness.problems), readiness.problems)
+
 
 if __name__ == "__main__":
     unittest.main()

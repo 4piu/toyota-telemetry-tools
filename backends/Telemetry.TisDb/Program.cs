@@ -23,6 +23,7 @@ namespace Telemetry.TisDb
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --monitors [--table N]\n" +
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --protocol\n" +
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --p4-monitors\n" +
+            "  telemetry-tisdb --database DIR [options] --keys K[,K] --p4-local-ids\n" +
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --physical G[,G]\n" +
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --units U[,U]\n" +
             "  telemetry-tisdb --database DIR [options] --keys K[,K] --states S[,S]\n" +
@@ -99,6 +100,9 @@ namespace Telemetry.TisDb
                         break;
                     case "p4-monitors":
                         records.AddRange(Limit(database.Phase4Monitors(key, options.NamePattern, options.Raw), options.MaxItems));
+                        break;
+                    case "p4-local-ids":
+                        records.AddRange(Limit(database.Phase4LocalIds(key), options.MaxItems));
                         break;
                     case "physical":
                         foreach (uint group in options.Values)
@@ -229,6 +233,7 @@ namespace Telemetry.TisDb
                     case "--monitors": options.SetMode("monitors"); break;
                     case "--protocol": options.SetMode("protocol"); break;
                     case "--p4-monitors": options.SetMode("p4-monitors"); break;
+                    case "--p4-local-ids": options.SetMode("p4-local-ids"); break;
                     case "--physical": options.SetMode("physical"); options.Values = Numbers(Value(args, ref index)); break;
                     case "--units": options.SetMode("units"); options.Values = Numbers(Value(args, ref index)); break;
                     case "--states": options.SetMode("states"); options.Values = Numbers(Value(args, ref index)); break;

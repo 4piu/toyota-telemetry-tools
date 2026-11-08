@@ -262,6 +262,13 @@ the import does not understand are rejected rather than guessed. Such ECUs
 may accept no session change; a session recipe with only tester present
 (negative reply tolerated) opens them.
 
+The database's bit layout covers every version of an ECU, and the length it
+lists is not the reply length. Replies seen on a vehicle were both shorter
+and longer than listed, so the import keeps every item and verification
+records how long this ECU's reply really is. An item past that reply is
+absent on this vehicle: export marks it `beyond response`, and a target on
+it is refused at planning.
+
 ## Limits
 
 - Classical CAN with 11-bit identifiers, with normal or extended addressing.

@@ -15,7 +15,7 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-from .identity import read_request_hex, AcquisitionRef, SignalRef
+from .identity import read_request_hex, response_header_bytes, AcquisitionRef, SignalRef
 from .objectives import condition_leaves, condition_refs
 from .repository import ProjectRepository
 
@@ -261,6 +261,16 @@ def compile_plan(
         (load["session_utilization"] for load in load_by_endpoint.values()), default=0.0
     )
     decodes = _compile_decodes(repository, compiled_targets)
+    for decode in decodes:
+        # Reply lengths differ between versions of an ECU, and the database's
+        # bit layout covers all of them: a signal past this ECU's reply is absent.
+        ref = AcquisitionRef.parse(decode["acquisition_id"])
+        data_bytes = costs[decode["acquisition_id"]]["maximum_response_bytes"] - response_header_bytes(ref.data_id)
+        if decode["last_bit"] >= data_bytes * 8:
+            raise ValueError(
+                f"{decode['signal_ref']} lies past the reply: {decode['acquisition_id']} "
+                f"answers with {max(0, data_bytes)} data bytes"
+            )
     body = {
         "document_type": "telemetry.admitted-plan",
         "schema_version": 1,

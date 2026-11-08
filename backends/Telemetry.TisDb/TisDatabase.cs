@@ -175,14 +175,45 @@ namespace Telemetry.TisDb
         internal const short Phase4PidTable = 0x0206;
         internal const short Phase4DataListTable = 0x020a;
 
+        /// <summary>Phase-4 local identifier table (0x0206) of one ECU key, one record per entry.</summary>
+        internal IEnumerable<Record> Phase4LocalIds(uint key)
+        {
+            var records = new List<Record>();
+            WithRecord("CDbPidResRecords", delegate
+            {
+                var get = Native.Export<Native.GetDbRecord1>(
+                    module, "?GetDbRecord@CDiagToolDb@@QAEKFPAVCDbResRecordsBase@@K@Z");
+                uint status = get(DiagToolDb, Phase4PidTable, record, key);
+                int count = Count();
+                if (status != 0 || count <= 0)
+                {
+                    records.Add(Missing(key, status, count).Add("Index", null));
+                    return;
+                }
+                for (int index = 0; index < count; index++)
+                {
+                    byte[] item = Item(index, 8);
+                    records.Add(new Record()
+                        .Add("Key", (long)key).Add("Status", Status(status)).Add("Count", count).Add("Index", index)
+                        .Add("LocalId", string.Format(CultureInfo.InvariantCulture, "0x{0:X2}", item[2]))
+                        .Add("Length", (long)item[3])
+                        .Add("Raw", Hex(item)));
+                }
+            });
+            return records;
+        }
+
         /// <summary>
         /// Phase-4 data list of one ECU key: each item is read with service 0x21
         /// (local identifier) rather than 0x22. Observed layout: the local
-        /// identifier table (0x0206) lists each identifier and its data length;
+        /// identifier table (0x0206) lists each identifier and a length;
         /// a data-list item (table 0x020A, 84 bytes) holds the physical group
         /// at 0x38, first/last bit at 0x3E/0x40, and the local identifier at
-        /// 0x4F. Items whose bits do not fit the identifier's length use a
-        /// layout not understood yet and are reported with "Layout": "unknown".
+        /// 0x4F. The listed length is not the reply length: replies observed
+        /// on a vehicle were both shorter and longer, and items run past it
+        /// where an ECU version answers with more. So an item counts as a
+        /// local identifier read when its identifier is listed and its bit
+        /// range is valid; otherwise "Layout" is "unknown".
         /// </summary>
         internal IEnumerable<Record> Phase4Monitors(uint key, Regex namePattern, bool raw)
         {
@@ -226,8 +257,7 @@ namespace Telemetry.TisDb
                     int localId = item[0x4f];
                     int first = BitConverter.ToUInt16(item, 0x3e);
                     int last = BitConverter.ToUInt16(item, 0x40);
-                    int length;
-                    bool known = lengths.TryGetValue(localId, out length) && first <= last && last < length * 8;
+                    bool known = lengths.ContainsKey(localId) && first <= last;
                     var result = new Record()
                         .Add("Key", (long)key).Add("Status", Status(status)).Add("Count", count)
                         .Add("Index", index).Add("Name", name)
