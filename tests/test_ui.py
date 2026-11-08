@@ -942,29 +942,33 @@ def test_the_next_step_shows_on_its_step(qtbot, project, probes) -> None:
     assert page.confirm_button.isEnabled()
 
 
-def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot) -> None:
-    from toyota_telemetry.ui.dialogs import EndpointAddDialog, EndpointConfirmDialog
+def test_manual_tab_adds_several_endpoints_without_a_session(qtbot, project) -> None:
+    from toyota_telemetry.ui.import_dialog import MANUAL_TAB
 
-    add = EndpointAddDialog([{"id": "session-a1", "steps": [{"label": "extended", "request_hex": "10 03"}]}])
-    qtbot.addWidget(add)
-    # Sessions are named by what they do; the ID stays out of sight.
-    assert add.recipe.currentText() == "Extended (10 03)" and add.recipe.currentData() == "session-a1"
-    add.tester.setText("0x7D0")
-    add.response.setText("0x7D8")
-    add.accept()
-    assert add.result() != add.DialogCode.Accepted
-    assert add.error.text() == "Enter at least one ECU key."
-    assert add.tester.text() == "0x7D0"
-    # An ECU behind a gateway is reached through an address byte; it is optional.
-    add.ecus.setText("452")
-    add.address.setText("0x12A")
-    add.accept()
-    assert add.result() != add.DialogCode.Accepted
-    assert "one hexadecimal byte" in add.error.text()
-    add.address.setText("2a")
-    assert add.values() == ("0x7D0", "0x7D8", "session-a1", [452], "0x2A")
-    add.address.setText("")
-    assert add.values()[-1] is None
+    root, _rows = project
+    window = open_window(qtbot, root)
+    dialog = window.signals_page.import_dialog
+    assert [dialog.tabs.tabText(index) for index in range(3)] == ["JSON file", "TIS database", "Manual"]
+    dialog.tabs.setCurrentIndex(MANUAL_TAB)
+    assert dialog.source_buttons.isHidden()
+    # A bad row is named by its table row; nothing is added.
+    dialog.set_manual_rows([("0x7D0", "", "", "452"), ("", "", "", ""), ("0x750", "0x758", "0x12A", "453")])
+    dialog.add_endpoints_button.click()
+    assert dialog.result.text().startswith("Not added. Row 3: the address must be one hexadecimal byte")
+    assert window.context.service.inventory()["manual_endpoints"] == []
+    dialog.set_manual_rows([("0x7D0", "", "", "452"), ("", "", "", ""), ("0x750", "0x758", "2a", "453, 454")])
+    dialog.add_endpoints_button.click()
+    assert dialog.result.text() == "Added 2 endpoint candidate(s). Select them and Verify."
+    assert window.context.service.inventory()["manual_endpoints"] == [
+        {"tester_can_id": "0x750", "response_can_id": "0x758", "target_address": "0x2A", "ecu_keys": [453, 454]},
+        {"tester_can_id": "0x7D0", "response_can_id": "0x7D8", "ecu_keys": [452]},
+    ]
+    assert dialog.manual.rowCount() == 1
+
+
+def test_endpoint_confirm_dialog_keeps_input_and_explains_problems(qtbot) -> None:
+    from toyota_telemetry.ui.dialogs import EndpointConfirmDialog
+
     confirm = EndpointConfirmDialog("Engine  7A1→7A9", [405])
     assert confirm.windowTitle() == "Confirm Engine  7A1→7A9"
     qtbot.addWidget(confirm)

@@ -20,7 +20,7 @@ ENDPOINT_READABLE = {
     "responded": ("Needs confirming", "Answered; confirm it to plan"),
     "silent": ("No answer", "Did not answer"),
     "not verified": ("Not checked", "Not probed yet"),
-    "address unknown": ("No address", "Address unknown; Add endpoint"),
+    "address unknown": ("No address", "Address unknown; add it under Add candidates"),
 }
 
 

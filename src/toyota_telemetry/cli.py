@@ -160,7 +160,8 @@ def build_parser() -> argparse.ArgumentParser:
     endpoint_commands = endpoint.add_subparsers(dest="endpoint_command", required=True)
     add = command("add", "endpoint.add", _endpoint_add, "add a manual endpoint candidate",
                   parent=endpoint_commands)
-    add.add_argument("address", metavar="TESTER:RESPONSE:RECIPE", help="e.g. 0x7E0:0x7E8:extended")
+    add.add_argument("address", metavar="TESTER[:RESPONSE]",
+                     help="request CAN ID, optionally with the response ID (default request + 8), e.g. 0x7E0")
     add.add_argument("--ecu", type=int, action="append", required=True, help="ECU key served here")
     add.add_argument("--address", dest="target_address",
                      help="extended-address byte for an ECU behind a gateway, e.g. 0x2A")
@@ -517,9 +518,9 @@ def _can_pair(endpoint: dict) -> str:
 
 def _endpoint_add(service: OperatorService, args: argparse.Namespace) -> int:
     parts = args.address.split(":")
-    if len(parts) != 3:
-        raise ValueError("address must be TESTER:RESPONSE:RECIPE, e.g. 0x7E0:0x7E8:extended")
-    service.add_endpoint(parts[0], parts[1], parts[2], args.ecu, args.target_address)
+    if len(parts) > 2:
+        raise ValueError("give TESTER or TESTER:RESPONSE, e.g. 0x7E0 or 0x7E0:0x7E8; no session is needed")
+    service.add_endpoint(parts[0], parts[1] if len(parts) == 2 else None, args.ecu, args.target_address)
     if args.as_json:
         return _emit({"added": args.address, "target_address": args.target_address, "ecu_keys": args.ecu})
     where = args.address + (f" address {args.target_address}" if args.target_address else "")

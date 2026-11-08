@@ -32,15 +32,12 @@ from toyota_telemetry.operator.editing import (
     parse_duration,
 )
 
-from toyota_telemetry.identity import canonical_target_address
-from toyota_telemetry.operator.sources import canonical_can_id
 
-from .names import count, session_label
+from .names import count
 from .widgets import Disclosure, mark_live
 
 
 EXPORT_FORMATS = {"csv": "CSV (spreadsheet)"}
-SESSION_TIP = "Mode the ECU is switched to before reading\ne.g. Extended (10 03) answers the most requests"
 # A short example per target field; the label already says what it is.
 TARGET_EXAMPLES = {
     "minimum_samples": "e.g. 500: at least 500 readings",
@@ -217,61 +214,6 @@ class _ValidatedDialog(QDialog):
             self.error.setVisible(True)
             return
         super().accept()
-
-
-class EndpointAddDialog(_ValidatedDialog):
-    def __init__(self, recipes: list[dict[str, Any]], parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Add endpoint candidate")
-        form = QFormLayout(self)
-        self.tester = QLineEdit()
-        self.tester.setPlaceholderText("e.g. 0x7E0")
-        self.response = QLineEdit()
-        self.response.setPlaceholderText("e.g. 0x7E8")
-        self.recipe = QComboBox()
-        for recipe in recipes:
-            self.recipe.addItem(session_label(recipe), recipe["id"])
-        self.ecus = QLineEdit()
-        self.ecus.setPlaceholderText("required, e.g. 372, 374")
-        self.address = QLineEdit()
-        self.address.setPlaceholderText("optional, e.g. 0x2A")
-        self.address.setToolTip("Address byte of an ECU behind a gateway")
-        form.addRow("Tester CAN ID", self.tester)
-        form.addRow("Response CAN ID", self.response)
-        form.addRow("Address", self.address)
-        form.addRow("Diagnostic session", self.recipe)
-        form.addRow("ECU keys", self.ecus)
-        self.setToolTip("Adds a candidate; nothing is transmitted")
-        self.recipe.setToolTip(SESSION_TIP)
-        self.ecus.setToolTip("ECU keys that answer here")
-        form.addRow(self._error_label())
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
-
-    def problem(self) -> str | None:
-        tester = canonical_can_id(self.tester.text())
-        response = canonical_can_id(self.response.text())
-        if tester is None or response is None:
-            return "Enter both CAN IDs as hexadecimal, e.g. 0x7E0 and 0x7E8."
-        if tester == response:
-            return "The tester and response CAN IDs must differ."
-        try:
-            canonical_target_address(self.address.text().strip() or None)
-        except ValueError:
-            return "Enter the address as one hexadecimal byte, e.g. 0x2A, or leave it empty."
-        if self.recipe.count() == 0:
-            return "The project has no diagnostic session set up yet (transport settings)."
-        if not parse_keys(self.ecus.text()):
-            return "Enter at least one ECU key."
-        return None
-
-    def values(self) -> tuple[str, str, str, list[int], str | None]:
-        return (
-            self.tester.text(), self.response.text(), self.recipe.currentData(), parse_keys(self.ecus.text()),
-            canonical_target_address(self.address.text().strip() or None),
-        )
 
 
 class EndpointConfirmDialog(_ValidatedDialog):

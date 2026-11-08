@@ -62,7 +62,7 @@ control (`10`) and tester present (`3E`) are accepted:
 }]
 ```
 
-**Candidate list.** Import it from one or more sources (Import candidates on
+**Candidate list.** Import it from one or more sources (Add candidates on
 the Signals page). Importing previews first, showing which signals it adds
 and updates, then applies exactly that. It merges into one list and never
 removes a signal; correcting a name or unit updates the signal rather than

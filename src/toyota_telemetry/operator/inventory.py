@@ -133,7 +133,7 @@ def validate_inventory(document: Mapping[str, Any], project_id: str) -> None:
             raise ValueError(f"candidate inventory version id mismatch: {entry['row']['signal_ref']}")
         variants.add(variant)
     for endpoint in document["manual_endpoints"]:
-        fields = {"tester_can_id", "response_can_id", "session_recipe_id", "ecu_keys"}
+        fields = {"tester_can_id", "response_can_id", "ecu_keys"}
         if set(endpoint) - {"target_address"} != fields:
             raise ValueError("candidate inventory manual endpoint fields mismatch")
         if "target_address" in endpoint and (
@@ -516,44 +516,63 @@ def _write(repository: ProjectRepository, document: Mapping[str, Any]) -> dict[s
     return dict(document)
 
 
-def add_manual_endpoint(
+def add_manual_endpoints(
     repository: ProjectRepository,
     inventory: Mapping[str, Any],
-    tester_can_id: str,
-    response_can_id: str,
-    session_recipe_id: str,
-    ecu_keys: Iterable[int],
-    target_address: str | None = None,
+    endpoints: Iterable[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    tester = canonical_can_id(tester_can_id)
-    response = canonical_can_id(response_can_id)
-    target = canonical_target_address(target_address)
-    if tester is None or response is None or tester == response:
-        raise ValueError("endpoint needs two different 11-bit CAN IDs such as 0x7E0 and 0x7E8")
-    recipes = {row["id"] for row in repository.transport["session_recipes"]}
-    if session_recipe_id not in recipes:
-        raise ValueError(
-            f"unknown session recipe {session_recipe_id!r}; reviewed recipes: {', '.join(sorted(recipes))}"
-        )
-    keys = sorted({int(key) for key in ecu_keys})
-    if not keys:
-        raise ValueError("a manual endpoint needs at least one ECU key")
+    """Add endpoint candidates by their CAN IDs, all or none.
+
+    Each entry has ``tester_can_id``, ``ecu_keys``, and optionally
+    ``response_can_id`` (default: tester + 8) and ``target_address`` (an ECU
+    behind a gateway). No session is chosen here: verification tries each
+    reviewed session until one opens, as for imported endpoints.
+    """
+
     confirmed = confirmed_ecus(repository)
-    if conflicting := [key for key in keys if key in confirmed]:
-        raise ValueError(f"ECU keys already belong to a confirmed endpoint: {conflicting}")
-    manual = [
-        row for row in inventory["manual_endpoints"]
-        if (row["tester_can_id"], row["response_can_id"], row.get("target_address"))
-        != (tester, response, target)
-        and not set(row["ecu_keys"]) & set(keys)
-    ]
-    manual.append({
-        "tester_can_id": tester,
-        "response_can_id": response,
-        **({} if target is None else {"target_address": target}),
-        "session_recipe_id": stable_slug(session_recipe_id, "session recipe id"),
-        "ecu_keys": keys,
-    })
+    added: list[dict[str, Any]] = []
+    for number, entry in enumerate(endpoints, start=1):
+        where = f"endpoint {number}"
+        tester = canonical_can_id(entry.get("tester_can_id"))
+        if tester is None:
+            raise ValueError(f"{where}: enter the request CAN ID as hexadecimal, e.g. 0x7E0")
+        response_text = entry.get("response_can_id")
+        response = canonical_can_id(response_text) if response_text not in (None, "") else (
+            canonical_can_id(int(tester, 16) + 8)
+        )
+        if response is None or response == tester:
+            raise ValueError(f"{where}: the response CAN ID must be an 11-bit ID other than the request ID")
+        try:
+            target = canonical_target_address(entry.get("target_address") or None)
+        except ValueError as exc:
+            raise ValueError(f"{where}: the address must be one hexadecimal byte, e.g. 0x2A") from exc
+        keys = sorted({int(key) for key in entry.get("ecu_keys") or ()})
+        if not keys:
+            raise ValueError(f"{where}: enter at least one ECU key")
+        if conflicting := [key for key in keys if key in confirmed]:
+            raise ValueError(f"{where}: ECU keys already belong to a confirmed endpoint: {conflicting}")
+        for other in added:
+            if (other["tester_can_id"], other["response_can_id"], other.get("target_address")) == (
+                tester, response, target,
+            ) or set(other["ecu_keys"]) & set(keys):
+                raise ValueError(f"{where}: repeats an endpoint or ECU key given above")
+        added.append({
+            "tester_can_id": tester,
+            "response_can_id": response,
+            **({} if target is None else {"target_address": target}),
+            "ecu_keys": keys,
+        })
+    if not added:
+        raise ValueError("enter at least one endpoint")
+    manual = list(inventory["manual_endpoints"])
+    for row in added:
+        manual = [
+            old for old in manual
+            if (old["tester_can_id"], old["response_can_id"], old.get("target_address"))
+            != (row["tester_can_id"], row["response_can_id"], row.get("target_address"))
+            and not set(old["ecu_keys"]) & set(row["ecu_keys"])
+        ]
+    manual.extend(added)
     manual.sort(key=lambda row: (row["tester_can_id"], row["response_can_id"], row.get("target_address") or ""))
     document = {**inventory, "manual_endpoints": manual}
     write_inventory(repository, document)
@@ -850,7 +869,6 @@ def build_tree(
             ecu_keys=list(row["ecu_keys"]),
             ecu_names=[],
             state="not verified",
-            session_recipe_id=row["session_recipe_id"],
             target_address=row.get("target_address"),
         ))
 

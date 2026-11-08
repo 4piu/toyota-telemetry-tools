@@ -42,7 +42,7 @@ from toyota_telemetry.operator.selection import Selection
 from toyota_telemetry.operator.verification import progress_text
 
 from .context import PageContext
-from .dialogs import EndpointAddDialog, EndpointConfirmDialog, LiveConfirmDialog, TargetEditDialog
+from .dialogs import EndpointConfirmDialog, LiveConfirmDialog, TargetEditDialog
 from .import_dialog import ImportDialog
 from .watch_window import WatchWindow
 from .jobs import LiveJob
@@ -265,10 +265,6 @@ class SignalsPage(QWidget):
         self.refresh_button.setToolTip("Reread project files")
         self.refresh_button.clicked.connect(self.refresh_from_disk)
         row.addWidget(self.refresh_button)
-        self.import_button = QPushButton("Import candidates")
-        self.import_button.setToolTip("Add or update candidate signals from a source")
-        self.import_button.clicked.connect(self.show_import)
-        row.addWidget(self.import_button)
         return row
 
     def _table_panel(self) -> QWidget:
@@ -421,7 +417,8 @@ class SignalsPage(QWidget):
         return scroll
 
     def _action_bar(self) -> QHBoxLayout:
-        self.add_endpoint_button = QPushButton("Add endpoint")
+        self.add_endpoint_button = QPushButton("Add candidates")
+        self.add_endpoint_button.setToolTip("From a JSON file, the TIS database, or by CAN IDs")
         self.confirm_button = QPushButton("Confirm endpoint")
         self.verify_button = mark_live(QPushButton("Verify"))
         self.stop_button = QPushButton("Stop")
@@ -432,15 +429,13 @@ class SignalsPage(QWidget):
         self.discard_button = QPushButton("Discard")
         self.discard_button.setToolTip("Drop your changes")
         for operation, button, tip in (
-            ("endpoint.add", self.add_endpoint_button,
-             "Add a candidate by its CAN IDs"),
             ("endpoint.confirm", self.confirm_button,
              "Record that an answering endpoint is this ECU\nNothing is sent; needed before planning"),
             ("verify", self.verify_button,
              f"Read the selected DIDs once to see which answer\n{LIVE_TIP}"),
         ):
             self.context.register(operation, button, tip)
-        self.add_endpoint_button.clicked.connect(self.add_endpoint)
+        self.add_endpoint_button.clicked.connect(self.show_import)
         self.confirm_button.clicked.connect(self.confirm_endpoint)
         self.verify_button.clicked.connect(self.verify_checked)
         self.stop_button.clicked.connect(self.stop_job)
@@ -965,7 +960,6 @@ class SignalsPage(QWidget):
         set_enabled(self.target_button, ready and bool(selection.signals), blocked or "Select signals first.")
         set_enabled(self.clear_button, ready and bool(selection.signals), blocked or "Select signals first.")
         set_enabled(self.save_button, self.dirty and not busy, blocked or "No unsaved changes.")
-        set_enabled(self.import_button, ready, blocked)
         live_free = ready and not self.context.live_job_running
         self.verify_action.setEnabled(live_free and bool(selection.dids))
         self.watch_action.setEnabled(live_free and self._current_did() is not None)
@@ -1075,20 +1069,6 @@ class SignalsPage(QWidget):
 
         self.context.run("signals.delete.preview", lambda service: service.preview_delete_signals(refs), confirm,
                          title="Signals not deleted")
-
-    def add_endpoint(self) -> None:
-        service = self.context.service
-        if service is None:
-            return
-        dialog = EndpointAddDialog(service.repository().transport["session_recipes"], self)
-        if not self.run_dialog(dialog):
-            return
-        try:
-            service.add_endpoint(*dialog.values())
-        except (OSError, ValueError) as exc:
-            self.context.error("Endpoint not added", exc)
-            return
-        self.rebuild()
 
     def confirm_endpoint(self) -> None:
         current = self._current()
@@ -1328,7 +1308,7 @@ def _target_state(signal) -> set[str]:
 
 def _endpoint_tip(endpoint, sessions: dict[str, str]) -> str:
     if endpoint.tester_can_id is None:
-        return "Address unknown; Add endpoint"
+        return "Address unknown; add it under Add candidates"
     recipe = endpoint.session_recipe_id
     return f"Session: {sessions.get(recipe, recipe)}" if recipe else ""
 

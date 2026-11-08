@@ -137,7 +137,7 @@ class GatewayWorkflowTests(unittest.TestCase):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err), mock.patch("sys.stdin", io.StringIO("")):
             code = cli.main([
-                "endpoint", "add", "0x750:0x758:" + RECIPE, "--ecu", "5000", "--address", "0x5F",
+                "endpoint", "add", "0x750:0x758", "--ecu", "5000", "--address", "0x5F",
                 "--project-root", str(self.root),
             ])
         self.assertEqual(code, 0, err.getvalue())
@@ -149,7 +149,7 @@ class GatewayWorkflowTests(unittest.TestCase):
         self.assertIn("0x750/0x758 address 0x5F", out.getvalue())
         with redirect_stdout(io.StringIO()), redirect_stderr(err):
             self.assertEqual(cli.main([
-                "endpoint", "add", "0x750:0x758:" + RECIPE, "--ecu", "5001", "--address", "0x1FF",
+                "endpoint", "add", "0x750:0x758", "--ecu", "5001", "--address", "0x1FF",
                 "--project-root", str(self.root),
             ]), cli.EXIT_FAILED)
 

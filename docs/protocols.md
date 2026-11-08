@@ -63,7 +63,7 @@ Several ECUs may answer on `0x758` at once; frames with another address
 byte belong to someone else and are ignored. The toolkit treats each address
 as its own endpoint (`750-758-2a` is address `0x2A`). Candidate files give
 the address as `target_address`, and `endpoint add ... --address 0x2A` (or
-Address in the desktop Add endpoint dialog) adds one by hand.
+the Address column of Add candidates > Manual) adds one by hand.
 
 ### Sessions
 

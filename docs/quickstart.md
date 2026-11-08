@@ -94,7 +94,7 @@ recipe to `config/transport.json` by hand (only diagnostic session control and
 tester present are accepted), then add or import endpoints. Back up the
 workspace yourself; it is the only copy of your review and recordings.
 
-## 1. Set up (Setup page, then Import candidates on the Signals page)
+## 1. Set up (Setup page, then Add candidates on the Signals page)
 
 ```powershell
 telemetry connector set pcan --channel PCAN_USBBUS1
@@ -108,7 +108,8 @@ telemetry source export C:\private\candidate-rows.json   # Project > Save candid
 The Setup page holds only the CAN adapter. `connector check` validates
 settings and runs the worker self-test without opening the device.
 
-Candidates are imported from the Signals page (Import candidates).
+Candidates are added from the Signals page (Add candidates: a JSON file,
+the TIS database, or endpoints typed in by CAN ID on the Manual tab).
 `source import` previews first: which signals it will add, which it will
 update (and which fields change), how many are unchanged, and rejected rows;
 `--apply` writes exactly that, updates the catalog manifest, and rebuilds the
@@ -157,7 +158,9 @@ are read only if it responds. Results (baseline bytes, latency, outcome) are
 kept in `state/verification-facts.json`. `endpoint confirm` writes a
 responding endpoint into the transport settings; `--note` keeps an optional
 remark with it. `endpoint add
-TESTER:RESPONSE:RECIPE --ecu KEY` adds an address the source did not provide;
+TESTER[:RESPONSE] --ecu KEY` (Add candidates > Manual, several at once) adds an
+address the source did not provide; the response ID defaults to request + 8,
+and no session is chosen, because verification tries each reviewed session;
 `--address 0x2A` adds an ECU behind a gateway (extended addressing).
 
 ### Live view (right-click a DID or signal > Live view, LIVE)

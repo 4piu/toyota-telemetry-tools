@@ -31,7 +31,7 @@ from .editing import UNSET, EditResult
 from .inventory import (
     ImportPreview,
     InventoryTree,
-    add_manual_endpoint,
+    add_manual_endpoints,
     apply_import,
     apply_delete_signals,
     build_tree,
@@ -442,17 +442,22 @@ class OperatorService:
     def select(tree: InventoryTree, tokens: Iterable[str] = (), **filters: Any) -> Selection:
         return resolve_selection(tree, tokens, **filters)
 
-    def add_endpoint(
-        self, tester_can_id: str, response_can_id: str, session_recipe_id: str, ecu_keys: Iterable[int],
-        target_address: str | None = None,
-    ) -> dict[str, Any]:
-        """Add a manual endpoint candidate; a target address means extended addressing."""
+    def add_endpoints(self, endpoints: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+        """Add endpoint candidates by CAN IDs (all or none); see add_manual_endpoints."""
 
         repository = self.repository()
-        return add_manual_endpoint(
-            repository, self.inventory(repository), tester_can_id, response_can_id,
-            session_recipe_id, ecu_keys, target_address,
-        )
+        return add_manual_endpoints(repository, self.inventory(repository), endpoints)
+
+    def add_endpoint(
+        self, tester_can_id: str, response_can_id: str | None, ecu_keys: Iterable[int],
+        target_address: str | None = None,
+    ) -> dict[str, Any]:
+        """Add one endpoint candidate; a target address means extended addressing."""
+
+        return self.add_endpoints([{
+            "tester_can_id": tester_can_id, "response_can_id": response_can_id,
+            "ecu_keys": list(ecu_keys), "target_address": target_address,
+        }])
 
     def confirm_endpoint(
         self,
