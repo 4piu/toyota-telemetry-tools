@@ -9,6 +9,7 @@ from typing import Any
 from PySide6.QtCore import QObject, QSettings, Signal
 from PySide6.QtWidgets import QMessageBox, QWidget
 
+from toyota_telemetry.i18n import _
 from toyota_telemetry.operator import OPERATIONS, OperatorService
 
 from .worker import ServiceWorker
@@ -65,7 +66,7 @@ class PageContext(QObject):
         done: Callable[[Any], None],
         failed: Callable[[str], None] | None = None,
         *,
-        title: str = "Operation failed",
+        title: str | None = None,
     ) -> None:
         """Run ``work(service)`` off the UI thread; ``done`` gets the result."""
 
@@ -77,7 +78,7 @@ class PageContext(QObject):
             if failed is not None:
                 failed(detail)
             else:
-                self.error(title, detail.split("\n\n", 1)[0])
+                self.error(title or _("Operation failed"), detail.split("\n\n", 1)[0])
 
         self.worker.submit(key, lambda: work(service), done, report)
 

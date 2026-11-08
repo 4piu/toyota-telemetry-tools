@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from ..i18n import _
 from ..identity import stable_slug
 from ..project import PROJECT_MARKER
 from ..repository import ProjectPaths, ProjectRepository, _encoded_json
@@ -49,7 +50,7 @@ def create_workspace(root: Path, project_id: str | None = None, profile_id: str 
 
     root = Path(root).resolve()
     if root.exists() and (not root.is_dir() or any(root.iterdir())):
-        raise ValueError(f"{root.name} is not an empty folder")
+        raise ValueError(_("{name} is not an empty folder").format(name=root.name))
     project_id = stable_slug(project_id or slug_from_name(root.name), "project_id")
     profile_id = stable_slug(profile_id or project_id, "profile_id")
     paths = ProjectPaths.for_root(root)

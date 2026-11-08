@@ -15,6 +15,7 @@ import re
 from typing import Any, Iterable, Mapping
 
 from ..decoding import evaluate_formula
+from ..i18n import _, N_
 from ..identity import SignalRef
 from ..repository import ProjectRepository
 from ..schemas import validate_condition, validate_target
@@ -31,13 +32,13 @@ UNSET: Any = _Unset()
 DEFAULT_SETTINGS = {"priority": 50, "target_interval_ms": 1000, "maximum_interval_ms": 5000}
 DEFAULT_CONDITION_AGE_MS = 2000
 REQUIREMENT_LABELS = {
-    "minimum_samples": "Minimum samples",
-    "minimum_runs": "Minimum runs",
-    "minimum_span_seconds": "Minimum span",
-    "required_states": "Required states",
-    "minimum_transitions": "Minimum transitions",
-    "minimum_changes": "Minimum changes",
-    "minimum_applicable_seconds": "Minimum applicable time",
+    "minimum_samples": N_("Minimum samples"),
+    "minimum_runs": N_("Minimum runs"),
+    "minimum_span_seconds": N_("Minimum span"),
+    "required_states": N_("Required states"),
+    "minimum_transitions": N_("Minimum transitions"),
+    "minimum_changes": N_("Minimum changes"),
+    "minimum_applicable_seconds": N_("Minimum applicable time"),
 }
 _OPERATORS = {"==": "eq", "!=": "ne", "<": "lt", "<=": "lte", ">": "gt", ">=": "gte", "in": "in"}
 _SYMBOLS = {value: key for key, value in _OPERATORS.items()}
@@ -70,7 +71,7 @@ def parse_duration(text: str) -> float:
 
     match = _DURATION.fullmatch(str(text))
     if match is None:
-        raise ValueError(f"invalid duration {text!r}; use seconds or a suffix such as 30s, 10m, 2h")
+        raise ValueError(_("invalid duration {text!r}; use seconds or a suffix such as 30s, 10m, 2h").format(text=text))
     value = float(match.group(1)) * {"": 1, "s": 1, "m": 60, "h": 3600}[match.group(2)]
     return value
 
@@ -90,7 +91,7 @@ def parse_condition(text: str | None, maximum_age_ms: int = DEFAULT_CONDITION_AG
         return None
     lowered = f" {text.lower()} "
     if " and " in lowered and " or " in lowered:
-        raise ValueError("a condition may combine clauses with 'and' or with 'or', not both")
+        raise ValueError(_("a condition may combine clauses with 'and' or with 'or', not both"))
     connective = "any" if " or " in lowered else "all"
     parts = re.split(r"\s+(?:and|or)\s+", text.strip(), flags=re.IGNORECASE)
     clauses = [_parse_clause(part, maximum_age_ms) for part in parts]
@@ -124,14 +125,16 @@ def condition_age_ms(node: Mapping[str, Any] | None) -> int | None:
 def _parse_clause(text: str, maximum_age_ms: int) -> dict[str, Any]:
     match = _CLAUSE.match(text)
     if match is None:
-        raise ValueError(f"invalid condition clause {text!r}; expected SIGNAL OP VALUE, e.g. 372/0x1002/0..15 > 10")
+        raise ValueError(
+            _("invalid condition clause {text!r}; expected SIGNAL OP VALUE, e.g. 372/0x1002/0..15 > 10").format(text=text)
+        )
     reference, symbol, raw = match.groups()
     signal_ref = str(SignalRef.parse(reference))
     operator = _OPERATORS[symbol]
     if operator == "in":
         value: Any = [_scalar(item) for item in raw.split(",") if item.strip()]
         if not value:
-            raise ValueError(f"'in' needs a comma-separated list in {text!r}")
+            raise ValueError(_("'in' needs a comma-separated list in {text!r}").format(text=text))
     else:
         value = _scalar(raw)
     return {
@@ -155,7 +158,7 @@ def _scalar(text: str) -> Any:
     try:
         number = float(text)
     except ValueError as exc:
-        raise ValueError(f"condition value must be a number or true/false, got {text!r}") from exc
+        raise ValueError(_("condition value must be a number or true/false, got {text!r}").format(text=text)) from exc
     return int(number) if number.is_integer() and "." not in text else number
 
 
@@ -165,16 +168,23 @@ def _render(value: Any) -> str:
     return f"{value:g}" if isinstance(value, float) else str(value)
 
 
+_NEEDS_CONFIRMED = {
+    "review": N_("Reviewing a signal needs a confirmed endpoint; {endpoint} is {state}. "
+                 "Verify it, then confirm the endpoint."),
+    "target": N_("A collection target needs a confirmed endpoint; {endpoint} is {state}. "
+                 "Verify it, then confirm the endpoint."),
+}
+
+
 def _confirmed_signal(tree: InventoryTree, signal_ref: str, action: str):
+    """The signal's tree entries; ``action`` is "review" or "target"."""
+
     found = tree.find_signal(signal_ref)
     if found is None:
-        raise ValueError(f"signal is not in the candidate list: {signal_ref}")
+        raise ValueError(_("signal is not in the candidate list: {signal}").format(signal=signal_ref))
     endpoint, did, signal = found
     if not endpoint.confirmed:
-        raise ValueError(
-            f"{action} needs a confirmed endpoint; {endpoint.key} is {endpoint.state}. "
-            "Verify it, then confirm the endpoint."
-        )
+        raise ValueError(_(_NEEDS_CONFIRMED[action]).format(endpoint=endpoint.key, state=endpoint.state))
     return endpoint, did, signal
 
 
@@ -196,10 +206,10 @@ def edit_signals(
     if formula is not UNSET and formula:
         _check_formula(formula)
     for signal_ref in signal_refs:
-        _confirmed_signal(tree, signal_ref, "Reviewing a signal")
+        _confirmed_signal(tree, signal_ref, "review")
         rows = [row for row in document["signals"] if row["signal_ref"] == signal_ref]
         if len(rows) > 1:
-            raise ValueError(f"{signal_ref} has several review rows; edit review/signals.json directly")
+            raise ValueError(_("{signal} has several review rows; edit review/signals.json directly").format(signal=signal_ref))
         if rows:
             row = rows[0]
         else:
@@ -229,7 +239,7 @@ def edit_signals(
                 row[field_name] = new_value
         if evidence_state is not UNSET:
             if not evidence_state:
-                raise ValueError("evidence state must not be empty")
+                raise ValueError(_("evidence state must not be empty"))
             if row["evidence_state"] != evidence_state:
                 result.changes.append(f"{signal_ref}: evidence_state -> {evidence_state!r}")
                 row["evidence_state"] = evidence_state
@@ -261,10 +271,12 @@ def edit_did_settings(
     for key in did_keys:
         found = tree.find_did(key)
         if found is None:
-            raise ValueError(f"DID is not in the candidate list: {key}")
+            raise ValueError(_("DID is not in the candidate list: {did}").format(did=key))
         endpoint, did = found
         if not endpoint.confirmed:
-            raise ValueError(f"DID settings need a confirmed endpoint; {endpoint.key} is {endpoint.state}")
+            raise ValueError(_("DID settings need a confirmed endpoint; {endpoint} is {state}").format(
+                endpoint=endpoint.key, state=endpoint.state,
+            ))
         acquisition_id = f"{endpoint.endpoint_id}/{did.data_id}"
         rule = rules.get(acquisition_id)
         if rule is None:
@@ -281,7 +293,7 @@ def edit_did_settings(
                 result.changes.append(f"{acquisition_id}: {field_name} {rule[field_name]} -> {value}")
                 rule[field_name] = value
         if rule["target_interval_ms"] > rule["maximum_interval_ms"]:
-            raise ValueError(f"{acquisition_id}: interval must not exceed the maximum interval")
+            raise ValueError(_("{did}: interval must not exceed the maximum interval").format(did=acquisition_id))
         result.dids.append(acquisition_id)
         result.siblings.extend(
             signal.signal_ref for signal in did.signals if signal.signal_ref not in selected
@@ -313,7 +325,7 @@ def edit_targets(
             raise ValueError(f"unknown requirement {name!r}")
     result = EditResult()
     for signal_ref in signal_refs:
-        endpoint, did, _signal = _confirmed_signal(tree, signal_ref, "A collection target")
+        endpoint, did, _signal = _confirmed_signal(tree, signal_ref, "target")
         target = targets.get(signal_ref)
         if target is None:
             target = {"signal_ref": signal_ref, "included": True, "condition": None, "requirements": {}}
@@ -338,14 +350,14 @@ def edit_targets(
         if "minimum_changes" not in target["requirements"]:
             target.pop("minimum_difference", None)
         elif "minimum_difference" not in target:
-            raise ValueError(f"{signal_ref}: minimum changes needs a minimum difference")
+            raise ValueError(_("{signal}: minimum changes needs a minimum difference").format(signal=signal_ref))
         if condition is not UNSET:
             target["condition"] = condition
             result.changes.append(f"{signal_ref}: condition = {format_condition(condition) or 'always'}")
         if included is not UNSET:
             target["included"] = bool(included)
         if not target["requirements"]:
-            raise ValueError(f"{signal_ref}: a target needs at least one completion requirement")
+            raise ValueError(_("{signal}: a target needs at least one completion requirement").format(signal=signal_ref))
         validate_target(target, signal_ref)
         acquisition_id = f"{endpoint.endpoint_id}/{did.data_id}"
         if acquisition_id not in rules:
@@ -401,4 +413,4 @@ def _check_formula(formula: str) -> None:
     except ZeroDivisionError:
         pass
     except (SyntaxError, ValueError) as exc:
-        raise ValueError(f"invalid formula {formula!r}: {exc}") from exc
+        raise ValueError(_("invalid formula {formula!r}: {error}").format(formula=formula, error=exc)) from exc

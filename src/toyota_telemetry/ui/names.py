@@ -9,21 +9,33 @@ from __future__ import annotations
 
 from typing import Any
 
-from toyota_telemetry.i18n import ngettext
+from toyota_telemetry.i18n import N_, _, ngettext
 
-from toyota_telemetry.operator.editing import REQUIREMENT_LABELS, format_condition, format_duration
+from toyota_telemetry.operator.editing import format_condition, format_duration
 from toyota_telemetry.operator.inventory import ENDPOINT_SILENT, FAILED, VERIFIED, EndpointItem
 
 
-READABLE = "✓ Readable"
-NOT_CHECKED = "? Not checked"
-NO_ANSWER = "– No answer"
-REFUSED = "✕ Refused"
+# DID verification labels; did_readable() shows them after a one-character mark.
+READABLE = N_("Readable")
+NOT_CHECKED = N_("Not checked")
+NO_ANSWER = N_("No answer")
+REFUSED = N_("Refused")
+# Endpoint state -> (label, tooltip), English; pages show them through _().
 ENDPOINT_READABLE = {
-    "responded": ("Needs confirming", "Answered; confirm it to plan"),
-    "silent": ("No answer", "Did not answer"),
-    "not verified": ("Not checked", "Not probed yet"),
-    "address unknown": ("No address", "Address unknown; add it under Add candidates"),
+    "responded": (N_("Needs confirming"), N_("Answered; confirm it to plan")),
+    "silent": (N_("No answer"), N_("Did not answer")),
+    "not verified": (N_("Not checked"), N_("Not probed yet")),
+    "address unknown": (N_("No address"), N_("Address unknown; add it under Add candidates")),
+}
+# Requirement key -> (form label, short lower-case name used in summaries).
+REQUIREMENT_NAMES = {
+    "minimum_samples": (N_("Minimum samples"), N_("samples")),
+    "minimum_runs": (N_("Minimum runs"), N_("runs")),
+    "minimum_span_seconds": (N_("Minimum span"), N_("span")),
+    "required_states": (N_("Required states"), N_("required states")),
+    "minimum_transitions": (N_("Minimum transitions"), N_("transitions")),
+    "minimum_changes": (N_("Minimum changes"), N_("changes")),
+    "minimum_applicable_seconds": (N_("Minimum applicable time"), N_("applicable time")),
 }
 
 
@@ -34,8 +46,9 @@ def endpoint_name(endpoint: EndpointItem) -> str:
     if names:
         return ", ".join(names[:2]) + (f" +{len(names) - 2}" if len(names) > 2 else "")
     if endpoint.ecu_keys:
-        return "ECU " + ", ".join(map(str, endpoint.ecu_keys[:3])) + ("…" if len(endpoint.ecu_keys) > 3 else "")
-    return "Unnamed ECU"
+        keys = ", ".join(map(str, endpoint.ecu_keys[:3])) + ("…" if len(endpoint.ecu_keys) > 3 else "")
+        return _("ECU {keys}").format(keys=keys)
+    return _("Unnamed ECU")
 
 
 def endpoint_address(endpoint: EndpointItem) -> str:
@@ -52,7 +65,21 @@ def endpoint_label(endpoint: EndpointItem) -> str:
 
 
 def did_readable(state: str) -> str:
-    return {VERIFIED: READABLE, FAILED: REFUSED, ENDPOINT_SILENT: NO_ANSWER}.get(state, NOT_CHECKED)
+    """A DID's verification state as a mark and a word, e.g. "✓ Readable".
+
+    Callers strip the mark with ``[2:]``, so it stays one character and a space.
+    """
+
+    mark, label = {
+        VERIFIED: ("✓", READABLE), FAILED: ("✕", REFUSED), ENDPOINT_SILENT: ("–", NO_ANSWER),
+    }.get(state, ("?", NOT_CHECKED))
+    return f"{mark} {_(label)}"
+
+
+def requirement_label(name: str) -> str:
+    """A requirement's form label, e.g. "Minimum samples"."""
+
+    return _(REQUIREMENT_NAMES[name][0])
 
 
 def count(number: int, noun: str) -> str:
@@ -71,7 +98,7 @@ def count(number: int, noun: str) -> str:
 def requirement_names(names) -> str:
     """Requirement keys as a short phrase, e.g. "Runs, samples"."""
 
-    text = ", ".join(REQUIREMENT_LABELS[name].lower().replace("minimum ", "") for name in names)
+    text = ", ".join(_(REQUIREMENT_NAMES[name][1]) for name in names)
     return text[:1].upper() + text[1:]
 
 
@@ -80,8 +107,10 @@ def session_label(recipe: dict[str, Any]) -> str:
 
     steps = recipe.get("steps") or []
     if not steps:
-        return recipe.get("id", "Session")
-    text = " then ".join(step["label"] for step in steps)
+        return recipe.get("id") or _("Session")
+    text = steps[0]["label"]
+    for step in steps[1:]:
+        text = _("{first} then {next}").format(first=text, next=step["label"])
     return f"{text[:1].upper()}{text[1:]} ({steps[-1]['request_hex'].upper()})"
 
 
@@ -95,12 +124,12 @@ def still_needed(
     """What a target still lacks; unseen required states by name, e.g. "State ON"."""
 
     if "required_states" not in missing:
-        return requirement_names(missing) or "Everything"
+        return requirement_names(missing) or _("Everything")
     seen = set(counters.get("states") or ())
     unseen = [raw for raw in target["requirements"]["required_states"] if raw not in seen]
-    others = requirement_names([name for name in missing if name != "required_states"])
-    text = "State " + ", ".join(states.get(str(raw)) or str(raw) for raw in unseen)
-    return text + (f"; {others.lower()}" if others else "")
+    text = _("State {states}").format(states=", ".join(states.get(str(raw)) or str(raw) for raw in unseen))
+    others = ", ".join(_(REQUIREMENT_NAMES[name][1]) for name in missing if name != "required_states")
+    return f"{text}; {others}" if others else text
 
 
 def states_lines(states: dict[str, str], width: int = 60) -> str:
@@ -122,7 +151,7 @@ def target_summary(target: dict[str, Any] | None, states: dict[str, str] | None 
         return ""
     parts = []
     for name, value in target["requirements"].items():
-        label = REQUIREMENT_LABELS[name].lower().replace("minimum ", "")
+        label = _(REQUIREMENT_NAMES[name][1])
         if name.endswith("_seconds"):
             value = format_duration(value)
         elif isinstance(value, list):
@@ -130,8 +159,8 @@ def target_summary(target: dict[str, Any] | None, states: dict[str, str] | None 
             value = ", ".join(
                 (states or {}).get(str(raw)) or str(raw) for raw in value
             )
-        parts.append(f"{label} {value}")
+        parts.append(_("{requirement} {value}").format(requirement=label, value=value))
     if target.get("condition"):
-        parts.append(f"when {format_condition(target['condition'])}")
+        parts.append(_("when {condition}").format(condition=format_condition(target["condition"])))
     text = "; ".join(parts)
-    return text if target["included"] else f"{text} (paused)"
+    return text if target["included"] else _("{summary} (paused)").format(summary=text)

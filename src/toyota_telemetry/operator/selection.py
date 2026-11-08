@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 import re
 from typing import Iterable
 
+from ..i18n import _
 from ..identity import SignalRef, canonical_did
 from .inventory import (
     ENDPOINT_NOT_VERIFIED,
@@ -67,9 +68,9 @@ def resolve_selection(
     for state in state_filter:
         if state not in STATE_FILTERS and state not in SIGNAL_FILTERS:
             choices = ", ".join(sorted([*STATE_FILTERS, *SIGNAL_FILTERS]))
-            raise ValueError(f"unknown state filter {state!r}; choose from {choices}")
+            raise ValueError(_("unknown state filter {state!r}; choose from {choices}").format(state=state, choices=choices))
     if require and not tokens and not ecu_filter and not state_filter and not search:
-        raise ValueError("nothing selected: name an endpoint, DID, or signal, or use a filter")
+        raise ValueError(_("nothing selected: name an endpoint, DID, or signal, or use a filter"))
 
     picked: list[tuple[EndpointItem, DidItem, list[str] | None]] = []
     manual: list[str] = []
@@ -106,7 +107,7 @@ def resolve_selection(
                 seen_signals.add(signal.signal_ref)
                 selection.signals.append(signal.signal_ref)
     if require and selection.empty:
-        raise ValueError("the selection matched nothing in the candidate list")
+        raise ValueError(_("the selection matched nothing in the candidate list"))
     return selection
 
 
@@ -118,24 +119,24 @@ def _resolve_token(
         signal_ref = str(SignalRef.parse(token))
         found = tree.find_signal(signal_ref)
         if found is None:
-            raise ValueError(f"signal is not in the candidate list: {signal_ref}")
-        endpoint, did, _ = found
+            raise ValueError(_("signal is not in the candidate list: {signal}").format(signal=signal_ref))
+        endpoint, did, _signal = found
         return [(endpoint, did, [signal_ref])]
     endpoint = tree.endpoint(parts[0])
     if endpoint is None:
-        raise ValueError(f"unknown endpoint {parts[0]!r}")
+        raise ValueError(_("unknown endpoint {endpoint!r}").format(endpoint=parts[0]))
     if len(parts) == 1:
         return [(endpoint, did, None) for did in endpoint.dids]
     if len(parts) > 3:
-        raise ValueError(f"invalid selector {token!r}")
+        raise ValueError(_("invalid selector {token!r}").format(token=token))
     try:
         data_id = canonical_did(parts[1] if parts[1].lower().startswith("0x") else f"0x{parts[1]}")
     except ValueError as exc:
-        raise ValueError(f"invalid DID in selector {token!r}") from exc
+        raise ValueError(_("invalid DID in selector {token!r}").format(token=token)) from exc
     did = next((row for row in endpoint.dids if row.data_id == data_id), None)
     if did is None:
         if len(parts) == 3:
-            raise ValueError(f"DID {data_id} is not in the candidate list for {endpoint.key}")
+            raise ValueError(_("DID {did} is not in the candidate list for {endpoint}").format(did=data_id, endpoint=endpoint.key))
         did = DidItem(endpoint.key, data_id, state=(
             NOT_VERIFIED if endpoint.confirmed or endpoint.state == "responded" else ENDPOINT_NOT_VERIFIED
         ), manual=True)
@@ -145,11 +146,11 @@ def _resolve_token(
     if len(parts) == 2:
         return [(endpoint, did, None)]
     if _BITS.fullmatch(parts[2]) is None:
-        raise ValueError(f"invalid signal bits in selector {token!r}")
+        raise ValueError(_("invalid signal bits in selector {token!r}").format(token=token))
     ecu = endpoint.ecu_keys[0] if len(endpoint.ecu_keys) == 1 else _ecu_for(did, parts[2])
     signal_ref = str(SignalRef.parse(f"{ecu}/{data_id}/{parts[2]}"))
     if not any(signal.signal_ref == signal_ref for signal in did.signals):
-        raise ValueError(f"signal is not in the candidate list: {token}")
+        raise ValueError(_("signal is not in the candidate list: {signal}").format(signal=token))
     return [(endpoint, did, [signal_ref])]
 
 
@@ -157,7 +158,9 @@ def _ecu_for(did: DidItem, bits: str) -> int:
     matches = [signal.ecu_key for signal in did.signals if signal.signal_ref.endswith(f"/{bits}")]
     if len(set(matches)) != 1:
         raise ValueError(
-            f"bits {bits} are ambiguous on {did.key}; use the full signal reference ECU/DID/BITS"
+            _("bits {bits} are ambiguous on {did}; use the full signal reference ECU/DID/BITS").format(
+                bits=bits, did=did.key,
+            )
         )
     return matches[0]
 

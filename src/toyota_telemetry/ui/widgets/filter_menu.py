@@ -25,6 +25,8 @@ from PySide6.QtWidgets import (
     QWidgetAction,
 )
 
+from toyota_telemetry.i18n import _
+
 from .icons import filter_icon
 
 # Groups with more options than this scroll; the box shows about this many rows.
@@ -41,8 +43,8 @@ class FilterButton(QToolButton):
         self.setIcon(filter_icon())
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.setAccessibleName("Filter")
-        self.setToolTip("Filter rows; tick any number of options")
+        self.setAccessibleName(_("Filter"))
+        self.setToolTip(_("Filter rows; tick any number of options"))
         self.menu_ = QMenu(self)
         self.setMenu(self.menu_)
         self.groups: dict[str, list[tuple[str, str, str]]] = {}
@@ -134,12 +136,12 @@ class FilterButton(QToolButton):
                 scroll.setFixedHeight(row * VISIBLE_ROWS + layout.contentsMargins().bottom())
                 bar = scroll.style().pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent)
                 scroll.setMinimumWidth(container.sizeHint().width() + bar)
-                scroll.setAccessibleName(f"{title} options")
+                scroll.setAccessibleName(_("{title} options").format(title=title))
                 self._add_widget(scroll)
             else:
                 self._add_widget(container)
         self.menu_.addSeparator()
-        clear = self.menu_.addAction("Clear filters")
+        clear = self.menu_.addAction(_("Clear filters"))
         clear.triggered.connect(self.clear)
         self.actions_ = boxes
         self._update_text()
@@ -154,7 +156,7 @@ class FilterButton(QToolButton):
 
     def _update_text(self) -> None:
         count = self.count()
-        self.setText(f"Filter ({count})" if count else "Filter")
+        self.setText(_("Filter ({count})").format(count=count) if count else _("Filter"))
 
     def _changed(self) -> None:
         self._update_text()

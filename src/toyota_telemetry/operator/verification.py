@@ -13,6 +13,7 @@ import threading
 from typing import Any, Callable, Mapping
 
 from ..discovery import ProbeWorkerFactory, _candidate_id, discover_endpoints, preflight_dids
+from ..i18n import _
 from ..identity import canonical_did, within_read_range
 from ..repository import ProjectRepository
 from .inventory import InventoryTree, session_opened
@@ -40,9 +41,9 @@ class EndpointProbe:
         """The session used, or the automatic order for an endpoint never verified."""
 
         if not self.fallback_recipes:
-            return f"session {self.session_recipe_id}"
-        order = ", then ".join([self.session_recipe_id, *self.fallback_recipes])
-        return f"session automatic (tries {order})"
+            return _("session {recipe}").format(recipe=self.session_recipe_id)
+        order = _(", then ").join([self.session_recipe_id, *self.fallback_recipes])
+        return _("session automatic (tries {order})").format(order=order)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -77,10 +78,12 @@ class VerificationScope:
         return sum(1 for row in self.endpoints if row.probe_endpoint)
 
     def summary(self) -> str:
-        return (
-            f"LIVE verification of {len(self.endpoints)} endpoint(s) "
-            f"({self.endpoint_probe_count} to probe) and {self.did_count} DID(s) "
-            f"on {self.connector_kind} {_device(self.connector_settings)}"
+        return _(
+            "LIVE verification of {endpoints} endpoint(s) ({probes} to probe) and {dids} DID(s) "
+            "on {connector} {device}"
+        ).format(
+            endpoints=len(self.endpoints), probes=self.endpoint_probe_count, dids=self.did_count,
+            connector=self.connector_kind, device=_device(self.connector_settings),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -102,14 +105,14 @@ def build_verification_scope(
     session_recipe_id: str | None = None,
 ) -> VerificationScope:
     if repository.local_settings is None:
-        raise ValueError("no connector is configured")
+        raise ValueError(_("no connector is configured"))
     if not selection.dids:
-        raise ValueError("verification needs at least one selected DID")
+        raise ValueError(_("verification needs at least one selected DID"))
     recipes = {row["id"]: row for row in repository.transport["session_recipes"]}
     if session_recipe_id is not None and session_recipe_id not in recipes:
-        raise ValueError(f"unknown session recipe {session_recipe_id!r}")
+        raise ValueError(_("unknown session recipe {recipe!r}").format(recipe=session_recipe_id))
     if not recipes:
-        raise ValueError("the transport settings have no session recipe yet")
+        raise ValueError(_("the transport settings have no session recipe yet"))
     # Automatic order: the recipe most confirmed endpoints use comes first.
     usage = {recipe: 0 for recipe in recipes}
     for row in repository.transport["endpoints"]:
@@ -121,15 +124,15 @@ def build_verification_scope(
 
     grouped: dict[str, EndpointProbe] = {}
     for key in selection.dids:
-        endpoint_key, _, data_id = key.rpartition("/")
+        endpoint_key, _slash, data_id = key.rpartition("/")
         endpoint = tree.endpoint(endpoint_key)
         if endpoint is None:
-            raise ValueError(f"unknown endpoint in selection: {endpoint_key}")
+            raise ValueError(_("unknown endpoint in selection: {endpoint}").format(endpoint=endpoint_key))
         data_id = canonical_did(data_id)
         if not within_read_range(int(data_id, 16), did_min, did_max):
-            raise ValueError(
-                f"{key} is outside the transport DID safety range {safety['did_min']}..{safety['did_max']}"
-            )
+            raise ValueError(_("{did} is outside the transport DID safety range {low}..{high}").format(
+                did=key, low=safety["did_min"], high=safety["did_max"],
+            ))
         probe = grouped.get(endpoint.key)
         if probe is None:
             probe = _endpoint_probe(endpoint, recipe_order, session_recipe_id)
@@ -159,10 +162,9 @@ def build_verification_scope(
 
 def _endpoint_probe(endpoint, recipe_order: list[str], session_recipe_id: str | None) -> EndpointProbe:
     if endpoint.tester_can_id is None or endpoint.response_can_id is None:
-        raise ValueError(
-            f"{endpoint.key} has no known CAN IDs; add a manual endpoint with its tester and "
-            "response CAN IDs"
-        )
+        raise ValueError(_(
+            "{endpoint} has no known CAN IDs; add a manual endpoint with its tester and response CAN IDs"
+        ).format(endpoint=endpoint.key))
     if endpoint.confirmed:
         return EndpointProbe(
             endpoint.key, endpoint.tester_can_id, endpoint.response_can_id,
@@ -257,7 +259,7 @@ def run_verification(
                 result.stopped = True
                 break
             if not responded:
-                event = {"event": "did", "key": did_key, "outcome": "skipped", "detail": "endpoint did not respond"}
+                event = {"event": "did", "key": did_key, "outcome": "skipped", "detail": _("endpoint did not respond")}
             else:
                 fact = preflight_dids(
                     repository, root, target_id, [data_id],

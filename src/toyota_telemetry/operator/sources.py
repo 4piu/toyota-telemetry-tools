@@ -16,6 +16,7 @@ import re
 import subprocess
 from typing import Any, Iterable
 
+from ..i18n import _
 from ..identity import SignalRef, canonical_target_address, stable_slug
 from ..project import WORKERS
 
@@ -108,7 +109,7 @@ def rows_document(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
         first = entries[0][1]
         shared = {
             name: first[name] for name in _ECU_FIELDS
-            if name in first and all(name in row and row[name] == first[name] for _, row in entries)
+            if name in first and all(name in row and row[name] == first[name] for _ref, row in entries)
         }
         dids: dict[int, list[dict[str, Any]]] = {}
         for ref, row in entries:
@@ -185,7 +186,7 @@ class NormalizedFileSource:
 
     def availability(self) -> str | None:
         if not self.path.is_file():
-            return f"file not found: {self.path.name}"
+            return _("file not found: {name}").format(name=self.path.name)
         return None
 
     def read(self) -> SourceRows:
@@ -195,13 +196,13 @@ class NormalizedFileSource:
         try:
             document = json.loads(self.path.read_text(encoding="utf-8-sig"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise ValueError(f"{self.path.name}: invalid JSON: {exc}") from exc
+            raise ValueError(_("{name}: invalid JSON: {error}").format(name=self.path.name, error=exc)) from exc
         if isinstance(document, dict) and document.get("document_type") == ROWS_DOCUMENT_TYPE:
             document = document_rows(document)
         elif isinstance(document, dict):
             document = document.get("rows", document.get("signals"))
         if not isinstance(document, list):
-            raise ValueError(f"{self.path.name}: expected a JSON array of rows")
+            raise ValueError(_("{name}: expected a JSON array of rows").format(name=self.path.name))
         rows, rejections = _normalize_all(document)
         return SourceRows(self.source_id, self.kind, self.path.name, rows, rejections)
 
@@ -258,11 +259,11 @@ class TisDatabaseSource:
 
     def availability(self) -> str | None:
         if os.name != "nt":
-            return "the TIS database reader needs Windows (32-bit Techstream libraries)"
+            return _("the TIS database reader needs Windows (32-bit Techstream libraries)")
         if not (WORKERS / TISDB).is_file():
-            return f"{TISDB} is missing from this installation; build it with backends\\build.ps1"
+            return _("{name} is missing from this installation; build it with backends\\build.ps1").format(name=TISDB)
         if not (self.database_directory / "DB").is_dir():
-            return f"no DB folder under the database directory {self.database_directory.name}"
+            return _("no DB folder under the database directory {name}").format(name=self.database_directory.name)
         return None
 
     def read(self) -> SourceRows:
@@ -284,7 +285,7 @@ class TisDatabaseSource:
                 continue
             selected.setdefault(key, {"key": key, "name": record["Ecu"]})
         if not selected:
-            raise ValueError("no installed TIS database matches the ECU selection")
+            raise ValueError(_("no installed TIS database matches the ECU selection"))
         raw_rows: list[dict[str, Any]] = []
         skipped: list[tuple[str, str]] = []
         imported = 0
@@ -316,7 +317,7 @@ class TisDatabaseSource:
             (row for row in protocols if row.get("Addressing") in (None, "normal", "extended")), None,
         )
         if protocol is None and protocols:
-            return [], f"not a CAN diagnostic address ({protocols[0].get('Addressing')})"
+            return [], _("not a CAN diagnostic address ({addressing})").format(addressing=protocols[0].get("Addressing"))
         protocol = protocol or {}
         monitors = [
             row for row in self._query(["--keys", str(key), "--monitors"])

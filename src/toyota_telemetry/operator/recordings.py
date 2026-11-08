@@ -15,6 +15,7 @@ from typing import Any, Iterable, Mapping, TextIO
 
 from .. import system_trash
 from ..capture_writer import recover_incomplete_segment
+from ..i18n import _, N_
 from ..identity import SignalRef, canonical_run_id
 from ..repository import ProjectRepository
 from ..states import raw_number, state_label
@@ -22,16 +23,17 @@ from .inventory import refresh_cache, signal_states
 from .live import LiveBusy, LiveLock
 
 
-COMPLETE = "complete"
-NEEDS_RECOVERY = "needs recovery"
-UNREADABLE = "unreadable"
+# Run states: compared in code; marked so the interface can translate them.
+COMPLETE = N_("complete")
+NEEDS_RECOVERY = N_("needs recovery")
+UNREADABLE = N_("unreadable")
 END_REASONS = {
-    "plan_complete": "targets complete",
-    "slice_end": "handed over to the next ECU",
-    "operator_stop": "stopped",
-    "transport_lost": "connection lost",
-    "size_limit": "storage limit reached",
-    "recovered_prefix": "recovered after interruption",
+    "plan_complete": N_("targets complete"),
+    "slice_end": N_("handed over to the next ECU"),
+    "operator_stop": N_("stopped"),
+    "transport_lost": N_("connection lost"),
+    "size_limit": N_("storage limit reached"),
+    "recovered_prefix": N_("recovered after interruption"),
 }
 CSV_COLUMNS = (
     "signal_ref", "run_id", "sequence", "response_utc", "elapsed_ms",
@@ -59,7 +61,9 @@ class RunSummary:
 
     @property
     def end_label(self) -> str | None:
-        return END_REASONS.get(self.end_reason, self.end_reason) if self.end_reason else None
+        if not self.end_reason:
+            return None
+        return _(END_REASONS[self.end_reason]) if self.end_reason in END_REASONS else self.end_reason
 
     def as_dict(self, *, segments: bool = False) -> dict[str, Any]:
         value = {
@@ -91,9 +95,9 @@ def trash_runs(repository: ProjectRepository, run_ids: Iterable[str]) -> list[Ru
         with LiveLock(repository):
             system_trash.send_to_trash([_run_directory(repository, run.run_id) for run in runs])
     except LiveBusy as exc:
-        raise ValueError("a live job is running; delete after it stops") from exc
+        raise ValueError(_("a live job is running; delete after it stops")) from exc
     except system_trash.TrashError as exc:
-        raise ValueError(f"not moved to the trash: {exc}") from exc
+        raise ValueError(_("not moved to the trash: {error}").format(error=exc)) from exc
     return runs
 
 
@@ -147,17 +151,17 @@ def recover_run(repository: ProjectRepository, run_id: str) -> Path:
 
     directory = _run_directory(repository, run_id)
     if (directory / "run-end.json").is_file():
-        raise ValueError(f"run {run_id} is already complete")
+        raise ValueError(_("run {run} is already complete").format(run=run_id))
     try:
         with LiveLock(repository):
             for partial in sorted(directory.glob("*.segment.partial.jsonl")):
                 os.replace(partial, partial.with_name(partial.name.replace(".partial.", ".incomplete.")))
             incomplete = sorted(directory.glob("*.segment.incomplete.jsonl"))
             if not incomplete:
-                raise ValueError(f"run {run_id} has no interrupted segment to recover")
+                raise ValueError(_("run {run} has no interrupted segment to recover").format(run=run_id))
             return recover_incomplete_segment(incomplete[-1])
     except LiveBusy as exc:
-        raise ValueError("a live job is running; recover after it stops") from exc
+        raise ValueError(_("a live job is running; recover after it stops")) from exc
 
 
 def export_observations(
@@ -200,7 +204,7 @@ def _run_directory(repository: ProjectRepository, run_id: str) -> Path:
     canonical = canonical_run_id(run_id)
     directory = repository.paths.captures / canonical
     if not directory.is_dir():
-        raise ValueError(f"no recorded run {canonical}")
+        raise ValueError(_("no recorded run {run}").format(run=canonical))
     return directory
 
 
@@ -208,13 +212,13 @@ def _summarize(directory: Path) -> RunSummary:
     try:
         run_id = canonical_run_id(directory.name)
     except ValueError:
-        return RunSummary(directory.name, UNREADABLE, detail="directory name is not a run id")
+        return RunSummary(directory.name, UNREADABLE, detail=_("directory name is not a run id"))
     summary = RunSummary(run_id, COMPLETE)
     try:
         start = json.loads((directory / "run-start.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         summary.state = UNREADABLE
-        summary.detail = f"run-start is unreadable: {exc}"
+        summary.detail = _("run-start is unreadable: {error}").format(error=exc)
         return summary
     summary.origin = start.get("origin")
     summary.created_utc = start.get("created_utc")
@@ -268,8 +272,10 @@ def _summarize(directory: Path) -> RunSummary:
             summary.end_reason = json.loads(end_path.read_text(encoding="utf-8")).get("reason")
         except (OSError, json.JSONDecodeError) as exc:
             summary.state = UNREADABLE
-            summary.detail = f"run-end is unreadable: {exc}"
+            summary.detail = _("run-end is unreadable: {error}").format(error=exc)
     else:
         summary.state = NEEDS_RECOVERY
-        summary.detail = "interrupted: recover it to keep the reads saved before the interruption, or move it to the trash"
+        summary.detail = _(
+            "interrupted: recover it to keep the reads saved before the interruption, or move it to the trash"
+        )
     return summary

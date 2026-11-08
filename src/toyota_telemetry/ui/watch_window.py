@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from toyota_telemetry.i18n import _
 from toyota_telemetry.operator.watch import WatchScope
 
 from .context import PageContext
@@ -32,15 +33,17 @@ class WatchWindow(QDialog):
         self.job: LiveJob | None = None
         self._closing = False
         self._reads = 0
-        self.setWindowTitle(f"Live view: {title}")
+        self.setWindowTitle(_("Live view: {title}").format(title=title))
         self.setMinimumSize(560, 320)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         layout = QVBoxLayout(self)
-        heading = QLabel(f"{title}, read every {scope.interval_ms} ms. Nothing is recorded.")
+        heading = QLabel(
+            _("{title}, read every {interval} ms. Nothing is recorded.").format(title=title, interval=scope.interval_ms)
+        )
         heading.setWordWrap(True)
         layout.addWidget(heading)
         self.table = QTableWidget(len(scope.signals), 3)
-        self.table.setHorizontalHeaderLabels(["Signal", "Value", "Raw"])
+        self.table.setHorizontalHeaderLabels([_("Signal"), _("Value"), _("Raw")])
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -53,13 +56,13 @@ class WatchWindow(QDialog):
             self.table.setItem(row, 1, QTableWidgetItem(""))
             self.table.setItem(row, 2, QTableWidgetItem(""))
         layout.addWidget(self.table, 1)
-        self.status = QLabel("Starting…")
+        self.status = QLabel(_("Starting…"))
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
-        self.pause_button = mark_live(QPushButton("Pause"))
-        self.pause_button.setToolTip("Pause stops sending; Resume starts again")
-        self.stop_button = QPushButton("Stop")
-        self.stop_button.setToolTip("Stop reading and close")
+        self.pause_button = mark_live(QPushButton(_("Pause")))
+        self.pause_button.setToolTip(_("Pause stops sending; Resume starts again"))
+        self.stop_button = QPushButton(_("Stop"))
+        self.stop_button.setToolTip(_("Stop reading and close"))
         self.pause_button.clicked.connect(self.toggle_pause)
         self.stop_button.clicked.connect(self.stop)
         layout.addLayout(button_row(self.pause_button, self.stop_button, stretch_first=True))
@@ -80,14 +83,14 @@ class WatchWindow(QDialog):
         self.job.finished.connect(self._finished)
         self.job.failed.connect(self._failed)
         self.context.set_live(True)
-        self.pause_button.setText("Pause")
-        self.status.setText("Opening the session…")
+        self.pause_button.setText(_("Pause"))
+        self.status.setText(_("Opening the session…"))
         self.job.start()
 
     def toggle_pause(self) -> None:
         if self.job is not None:
             self.pause_button.setEnabled(False)
-            self.status.setText("Pausing after the current read…")
+            self.status.setText(_("Pausing after the current read…"))
             self.job.request_stop()
         else:
             self.start()
@@ -95,24 +98,32 @@ class WatchWindow(QDialog):
     def stop(self) -> None:
         self._closing = True
         if self.job is not None:
-            self.status.setText("Stopping after the current read…")
+            self.status.setText(_("Stopping after the current read…"))
             self.job.request_stop()
         else:
             self.close()
 
     def _event(self, event: dict) -> None:
         if event["event"] == "started":
-            self.status.setText(f"Reading every {event['interval_ms']} ms.")
+            self.status.setText(_("Reading every {interval} ms.").format(interval=event["interval_ms"]))
             return
         if event["event"] != "read":
             return
         self._reads += 1
         if event["outcome"] != "positive":
-            detail = f" (code {event['nrc']})" if event.get("nrc") else ""
-            self.status.setText(f"Read {self._reads}: {event['outcome']}{detail}.")
+            if event.get("nrc"):
+                text = _("Read {number}: {outcome} (code {code}).").format(
+                    number=self._reads, outcome=event["outcome"], code=event["nrc"],
+                )
+            else:
+                text = _("Read {number}: {outcome}.").format(number=self._reads, outcome=event["outcome"])
+            self.status.setText(text)
             return
-        latency = f", {event['latency_ms']} ms" if event.get("latency_ms") is not None else ""
-        self.status.setText(f"Read {self._reads}{latency}.")
+        if event.get("latency_ms") is not None:
+            text = _("Read {number}, {latency} ms.").format(number=self._reads, latency=event["latency_ms"])
+        else:
+            text = _("Read {number}.").format(number=self._reads)
+        self.status.setText(text)
         units = {signal["signal_ref"]: signal["unit"] for signal in self.scope.signals}
         for value in event["values"]:
             row = self._rows[value["signal_ref"]]
@@ -120,16 +131,16 @@ class WatchWindow(QDialog):
             self.table.item(row, 2).setText("" if value["raw"] is None else str(value["raw"]))
 
     def _finished(self, reason: str) -> None:
-        self._ended("Paused; nothing is being sent." if reason == "stopped" else f"{reason.capitalize()}.")
+        self._ended(_("Paused; nothing is being sent.") if reason == "stopped" else f"{reason.capitalize()}.")
 
     def _failed(self, detail: str) -> None:
-        self._ended(f"Stopped: {detail.splitlines()[0]}")
+        self._ended(_("Stopped: {error}").format(error=detail.splitlines()[0]))
 
     def _ended(self, text: str) -> None:
         self.job = None
         self.context.set_live(False)
         self.status.setText(text)
-        self.pause_button.setText("Resume")
+        self.pause_button.setText(_("Resume"))
         self.pause_button.setEnabled(True)
         if self._closing:
             self.close()

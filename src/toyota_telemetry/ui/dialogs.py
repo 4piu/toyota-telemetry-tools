@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from toyota_telemetry.i18n import N_, _, ngettext
 from toyota_telemetry.operator.editing import (
     REQUIREMENT_LABELS,
     format_condition,
@@ -33,23 +34,23 @@ from toyota_telemetry.operator.editing import (
 )
 
 
-from .names import count
+from .names import count, requirement_label
 from .widgets import Disclosure, mark_live
 
 
-EXPORT_FORMATS = {"csv": "CSV (spreadsheet)"}
+EXPORT_FORMATS = {"csv": N_("CSV (spreadsheet)")}
 # A short example per target field; the label already says what it is.
 TARGET_EXAMPLES = {
-    "minimum_samples": "e.g. 500: at least 500 readings",
-    "minimum_runs": "e.g. 3: seen in at least 3 recordings",
-    "minimum_span_seconds": "e.g. 30m: first and last reading 30 min apart",
-    "required_states": "e.g. 0,1,2: each of these raw values seen",
-    "minimum_transitions": "e.g. 10: the raw value changed 10 times",
-    "minimum_changes": "e.g. 20: moved by the minimum difference 20 times",
-    "minimum_applicable_seconds": "e.g. 10m: 10 min recorded while Collect when holds",
-    "minimum_difference": "e.g. 0.5: smaller steps don't count as changes",
-    "condition": "e.g. 372/0x1002/0..15 > 10; empty means always",
-    "included": "Paused keeps the target but leaves it out of plans",
+    "minimum_samples": N_("e.g. 500: at least 500 readings"),
+    "minimum_runs": N_("e.g. 3: seen in at least 3 recordings"),
+    "minimum_span_seconds": N_("e.g. 30m: first and last reading 30 min apart"),
+    "required_states": N_("e.g. 0,1,2: each of these raw values seen"),
+    "minimum_transitions": N_("e.g. 10: the raw value changed 10 times"),
+    "minimum_changes": N_("e.g. 20: moved by the minimum difference 20 times"),
+    "minimum_applicable_seconds": N_("e.g. 10m: 10 min recorded while Collect when holds"),
+    "minimum_difference": N_("e.g. 0.5: smaller steps don't count as changes"),
+    "condition": N_("e.g. 372/0x1002/0..15 > 10; empty means always"),
+    "included": N_("Paused keeps the target but leaves it out of plans"),
 }
 
 
@@ -73,7 +74,7 @@ class StatePicker(QWidget):
         self.boxes: dict[int, QCheckBox] = {}
         for index, raw in enumerate(sorted(states, key=int)):
             box = QCheckBox(states[raw])
-            box.setToolTip(f"Raw value {raw}")
+            box.setToolTip(_("Raw value {raw}").format(raw=raw))
             box.setChecked(int(raw) in chosen)
             box.toggled.connect(lambda _checked: self.textChanged.emit(self.text()))
             grid.addWidget(box, index // 4, index % 4)
@@ -100,27 +101,36 @@ class ExportDialog(QDialog):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Export samples")
+        self.setWindowTitle(_("Export samples"))
         self.setMinimumWidth(380)
         layout = QVBoxLayout(self)
         form = QFormLayout()
-        self.signals_selected = QRadioButton(f"Selected: {signal_name}" if signal_name else "Selected signal")
-        self.signals_all = QRadioButton(f"All {signal_count} signals")
+        self.signals_selected = QRadioButton(
+            _("Selected: {signal}").format(signal=signal_name) if signal_name else _("Selected signal")
+        )
+        self.signals_all = QRadioButton(
+            ngettext("All {count} signal", "All {count} signals", signal_count).format(count=signal_count)
+        )
         self.signals_selected.setEnabled(signal_name is not None)
         (self.signals_selected if signal_name else self.signals_all).setChecked(True)
-        form.addRow("Signals", _stack(self.signals_selected, self.signals_all))
-        self.runs_selected = QRadioButton(f"Selected {count(selected_runs, 'run')}" if selected_runs else "Selected runs")
-        self.runs_all = QRadioButton(f"All {count(run_count, 'run')}")
+        form.addRow(_("Signals"), _stack(self.signals_selected, self.signals_all))
+        self.runs_selected = QRadioButton(
+            ngettext("Selected {count} run", "Selected {count} runs", selected_runs).format(count=f"{selected_runs:,}")
+            if selected_runs else _("Selected runs")
+        )
+        self.runs_all = QRadioButton(
+            ngettext("All {count} run", "All {count} runs", run_count).format(count=f"{run_count:,}")
+        )
         self.runs_selected.setEnabled(selected_runs > 0)
         (self.runs_selected if selected_runs else self.runs_all).setChecked(True)
-        form.addRow("Runs", _stack(self.runs_selected, self.runs_all))
+        form.addRow(_("Runs"), _stack(self.runs_selected, self.runs_all))
         self.format = QComboBox()
         for key, label in EXPORT_FORMATS.items():
-            self.format.addItem(label, key)
-        form.addRow("Format", self.format)
+            self.format.addItem(_(label), key)
+        form.addRow(_("Format"), self.format)
         layout.addLayout(form)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
-        self.export_button = buttons.addButton("Export", QDialogButtonBox.ButtonRole.AcceptRole)
+        self.export_button = buttons.addButton(_("Export"), QDialogButtonBox.ButtonRole.AcceptRole)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -166,22 +176,22 @@ class LiveConfirmDialog(QDialog):
         layout.addWidget(heading)
         text = QPlainTextEdit("\n".join(details))
         text.setReadOnly(True)
-        text.setAccessibleName("Exact live scope")
+        text.setAccessibleName(_("Exact live scope"))
         layout.addWidget(text, 1)
         technical = list(technical)
         if technical:
             raw = QPlainTextEdit("\n".join(technical))
             raw.setReadOnly(True)
-            raw.setAccessibleName("Technical scope details")
-            toggle = Disclosure("Technical details", raw)
-            toggle.setToolTip("Request bytes and session steps")
+            raw.setAccessibleName(_("Technical scope details"))
+            toggle = Disclosure(_("Technical details"), raw)
+            toggle.setToolTip(_("Request bytes and session steps"))
             layout.addWidget(toggle)
             layout.addWidget(raw)
         buttons = QDialogButtonBox()
         self.cancel_button = buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
-        self.start_button = mark_live(QPushButton("Start"))
+        self.start_button = mark_live(QPushButton(_("Start")))
         self.start_button.setToolTip(
-            "Read-only requests. Never operate while driving."
+            _("Read-only requests. Never operate while driving.")
         )
         buttons.addButton(self.start_button, QDialogButtonBox.ButtonRole.AcceptRole)
         self.cancel_button.setDefault(True)
@@ -219,17 +229,17 @@ class _ValidatedDialog(QDialog):
 class EndpointConfirmDialog(_ValidatedDialog):
     def __init__(self, name: str, ecu_keys: list[int], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(f"Confirm {name}")
+        self.setWindowTitle(_("Confirm {name}").format(name=name))
         form = QFormLayout(self)
-        form.addRow(QLabel("Nothing is sent. This records that the endpoint\n"
-                           "which answered is this ECU."))
+        form.addRow(QLabel(_("Nothing is sent. This records that the endpoint\n"
+                             "which answered is this ECU.")))
         self.ecus = QLineEdit(", ".join(str(key) for key in ecu_keys))
-        self.ecus.setToolTip("Which ECUs answer at this endpoint")
+        self.ecus.setToolTip(_("Which ECUs answer at this endpoint"))
         self.note = QLineEdit()
-        self.note.setPlaceholderText("optional")
-        self.note.setToolTip("How it was confirmed, for your own records")
-        form.addRow("ECU keys", self.ecus)
-        form.addRow("Note", self.note)
+        self.note.setPlaceholderText(_("optional"))
+        self.note.setToolTip(_("How it was confirmed, for your own records"))
+        form.addRow(_("ECU keys"), self.ecus)
+        form.addRow(_("Note"), self.note)
         form.addRow(self._error_label())
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
@@ -238,7 +248,7 @@ class EndpointConfirmDialog(_ValidatedDialog):
 
     def problem(self) -> str | None:
         if not parse_keys(self.ecus.text()):
-            return "Enter at least one ECU key."
+            return _("Enter at least one ECU key.")
         return None
 
     def values(self) -> tuple[list[int], list[str]]:
@@ -264,27 +274,28 @@ class TargetEditDialog(QDialog):
         """``states`` are the selected signals' shared state text, if any."""
 
         super().__init__(parent)
-        self.setWindowTitle("Batch edit collection targets" if signal_count > 1 else "Edit collection target")
+        self.setWindowTitle(_("Batch edit collection targets") if signal_count > 1 else _("Edit collection target"))
         self.setMinimumWidth(620)
         self._preview = preview
         layout = QVBoxLayout(self)
         intro = QLabel(count(signal_count, "signal"))
-        intro.setToolTip("0 or empty removes a requirement")
+        intro.setToolTip(_("0 or empty removes a requirement"))
         layout.addWidget(intro)
         grid = QGridLayout()
         self.enabled: dict[str, QCheckBox] = {}
         self.editors: dict[str, QWidget] = {}
         requirements = (current or {}).get("requirements", {})
         row = 0
-        for name, label in REQUIREMENT_LABELS.items():
+        for name in REQUIREMENT_LABELS:
+            label = requirement_label(name)
             if name in self.INTEGER_FIELDS:
                 editor = QSpinBox()
                 editor.setRange(0, 10_000_000)
-                editor.setSpecialValueText("none")
+                editor.setSpecialValueText(_("none"))
                 editor.setValue(int(requirements.get(name, 0)))
             elif name in self.DURATION_FIELDS:
                 editor = QLineEdit(format_duration(requirements[name]) if name in requirements else "")
-                editor.setPlaceholderText("e.g. 30m or 2h; empty removes")
+                editor.setPlaceholderText(_("e.g. 30m or 2h; empty removes"))
             else:
                 current_states = requirements.get(name, [])
                 if (states and len(states) <= STATE_PICKER_LIMIT
@@ -292,36 +303,36 @@ class TargetEditDialog(QDialog):
                     editor = StatePicker(states, current_states)
                 else:
                     editor = QLineEdit(",".join(str(value) for value in current_states))
-                    editor.setPlaceholderText("raw states, e.g. 0,1,2; empty removes")
+                    editor.setPlaceholderText(_("raw states, e.g. 0,1,2; empty removes"))
             self._add_row(grid, row, name, label, editor)
             if isinstance(editor, StatePicker):
-                self.enabled[name].setToolTip("Each checked state must be seen")
+                self.enabled[name].setToolTip(_("Each checked state must be seen"))
             row += 1
         difference = QDoubleSpinBox()
         difference.setDecimals(4)
         difference.setRange(0, 1e9)
-        difference.setSpecialValueText("none")
+        difference.setSpecialValueText(_("none"))
         difference.setValue(float((current or {}).get("minimum_difference") or 0))
-        self._add_row(grid, row, "minimum_difference", "Minimum difference", difference)
+        self._add_row(grid, row, "minimum_difference", _("Minimum difference"), difference)
         row += 1
         condition = QLineEdit(format_condition((current or {}).get("condition")))
-        condition.setPlaceholderText("372/0x1002/0..15 > 10 and ...; empty means always")
-        self._add_row(grid, row, "condition", "Collect when", condition)
+        condition.setPlaceholderText(_("372/0x1002/0..15 > 10 and ...; empty means always"))
+        self._add_row(grid, row, "condition", _("Collect when"), condition)
         row += 1
         status = QComboBox()
-        status.addItem("Active", True)
-        status.addItem("Paused", False)
+        status.addItem(_("Active"), True)
+        status.addItem(_("Paused"), False)
         status.setCurrentIndex(0 if (current or {}).get("included", True) else 1)
-        self._add_row(grid, row, "included", "Status", status)
+        self._add_row(grid, row, "included", _("Status"), status)
         layout.addLayout(grid)
         self.impact = QLabel()
         self.impact.setWordWrap(True)
-        self.impact.setAccessibleName("Batch impact preview")
+        self.impact.setAccessibleName(_("Batch impact preview"))
         layout.addWidget(self.impact)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        self.ok_button.setText("Apply")
-        self.ok_button.setToolTip("Saved with Save on Signals")
+        self.ok_button.setText(_("Apply"))
+        self.ok_button.setToolTip(_("Saved with Save on Signals"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -329,9 +340,9 @@ class TargetEditDialog(QDialog):
 
     def _add_row(self, grid: QGridLayout, row: int, name: str, label: str, editor: QWidget) -> None:
         change = QCheckBox(label)
-        change.setAccessibleName(f"Change {label}")
-        change.setToolTip(TARGET_EXAMPLES[name])
-        editor.setToolTip(TARGET_EXAMPLES[name])
+        change.setAccessibleName(_("Change {field}").format(field=label))
+        change.setToolTip(_(TARGET_EXAMPLES[name]))
+        editor.setToolTip(_(TARGET_EXAMPLES[name]))
         editor.setEnabled(False)
         change.toggled.connect(editor.setEnabled)
         change.toggled.connect(lambda _checked: self.refresh_preview())
@@ -385,13 +396,13 @@ class TargetEditDialog(QDialog):
         try:
             fields = self.fields()
             if not fields["requirements"] and len(fields) == 1:
-                self.impact.setText("Check at least one field to change.")
+                self.impact.setText(_("Check at least one field to change."))
                 self.ok_button.setEnabled(False)
                 return
             self.impact.setText(self._preview(fields))
             self.ok_button.setEnabled(True)
         except ValueError as exc:
-            self.impact.setText(f"Cannot apply: {exc}")
+            self.impact.setText(_("Cannot apply: {error}").format(error=exc))
             self.ok_button.setEnabled(False)
 
 
@@ -401,6 +412,6 @@ def parse_keys(text: str) -> list[int]:
         part = part.strip()
         if part:
             if not part.isdigit():
-                raise ValueError(f"ECU key must be a number: {part!r}")
+                raise ValueError(_("ECU key must be a number: {value}").format(value=repr(part)))
             keys.append(int(part))
     return keys

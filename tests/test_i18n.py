@@ -104,3 +104,20 @@ class ShippedCatalogTests(unittest.TestCase):
                 self.assertTrue(i18n._("Save"))
         finally:
             i18n.set_language("en")
+
+
+class SourceTests(unittest.TestCase):
+    def test_no_module_that_translates_rebinds_the_underscore(self) -> None:
+        # `for _, x in ...` or `a, _ = ...` would hide _() and fail at run time.
+        import ast
+
+        problems = []
+        for path in sorted((ROOT / "src" / "toyota_telemetry").rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            if not any(isinstance(node, ast.ImportFrom) and any(alias.name == "_" for alias in node.names)
+                       for node in ast.walk(tree)):
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name) and node.id == "_" and isinstance(node.ctx, ast.Store):
+                    problems.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+        self.assertEqual(problems, [])

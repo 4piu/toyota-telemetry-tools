@@ -16,6 +16,7 @@ import json
 import sqlite3
 from typing import Any, Iterable, Mapping
 
+from ..i18n import _, N_, ngettext
 from ..identity import (
     SignalRef, address_suffix, canonical_did, canonical_target_address, stable_slug, within_read_range,
 )
@@ -37,58 +38,61 @@ INVENTORY_FILE = "inventory.json"
 # Schema 2: one merged list; each version names the sources that supply it.
 INVENTORY_SCHEMA_VERSION = 2
 
-VERIFIED = "Verified"
-NOT_VERIFIED = "Not verified"
-FAILED = "Failed"
-ENDPOINT_NOT_VERIFIED = "Endpoint not verified"
+# DID states: compared in code; marked so the interface can translate them.
+VERIFIED = N_("Verified")
+NOT_VERIFIED = N_("Not verified")
+FAILED = N_("Failed")
+ENDPOINT_NOT_VERIFIED = N_("Endpoint not verified")
 # The endpoint was probed and did not answer, so its DIDs were not read.
-ENDPOINT_SILENT = "ECU did not answer"
+ENDPOINT_SILENT = N_("ECU did not answer")
 
 # One status ladder per signal, from least to most established.
-SIGNAL_NOT_CHECKED = "Not checked"
-SIGNAL_NO_ANSWER = "No answer"
-SIGNAL_FAILED = "Refused"
-SIGNAL_RESPONDS = "Responds"
-SIGNAL_RECORDED = "Recorded"
-SIGNAL_REVIEWED = "Reviewed"
+SIGNAL_NOT_CHECKED = N_("Not checked")
+SIGNAL_NO_ANSWER = N_("No answer")
+SIGNAL_FAILED = N_("Refused")
+SIGNAL_RESPONDS = N_("Responds")
+SIGNAL_RECORDED = N_("Recorded")
+SIGNAL_REVIEWED = N_("Reviewed")
 SIGNAL_STATUSES = (
     SIGNAL_NOT_CHECKED, SIGNAL_NO_ANSWER, SIGNAL_FAILED, SIGNAL_RESPONDS, SIGNAL_RECORDED, SIGNAL_REVIEWED,
 )
 
 # Review evidence states from the project method; a review in any state other
-# than Candidate counts as Reviewed.
+# than Candidate counts as Reviewed. Stored in the review file as written.
 EVIDENCE_STATES = (
-    "Candidate", "Observed", "Correlated", "Validated",
-    "Observed and replayed", "Correlated and replayed", "Validated and replayed",
+    N_("Candidate"), N_("Observed"), N_("Correlated"), N_("Validated"),
+    N_("Observed and replayed"), N_("Correlated and replayed"), N_("Validated and replayed"),
 )
 
 OUTCOME_TEXT = {
-    "negative": "refused",
-    "timeout": "no answer",
-    "transport_error": "connection error",
-    "session_unavailable": "session could not be opened",
+    "negative": N_("refused"),
+    "timeout": N_("no answer"),
+    "transport_error": N_("connection error"),
+    "session_unavailable": N_("session could not be opened"),
 }
 # Common UDS negative response codes in plain words.
 NRC_TEXT = {
-    "0x10": "general reject",
-    "0x11": "service not supported",
-    "0x12": "sub-function not supported",
-    "0x13": "wrong message length",
-    "0x14": "response too long",
-    "0x22": "conditions not correct",
-    "0x31": "request out of range",
-    "0x33": "security access required",
-    "0x72": "general programming failure",
-    "0x7E": "not supported in this session",
-    "0x7F": "service not supported in this session",
+    "0x10": N_("general reject"),
+    "0x11": N_("service not supported"),
+    "0x12": N_("sub-function not supported"),
+    "0x13": N_("wrong message length"),
+    "0x14": N_("response too long"),
+    "0x22": N_("conditions not correct"),
+    "0x31": N_("request out of range"),
+    "0x33": N_("security access required"),
+    "0x72": N_("general programming failure"),
+    "0x7E": N_("not supported in this session"),
+    "0x7F": N_("service not supported in this session"),
 }
 
 
 def outcome_text(outcome: str, nrc: str | None = None) -> str:
-    text = OUTCOME_TEXT.get(outcome, outcome)
+    text = _(OUTCOME_TEXT[outcome]) if outcome in OUTCOME_TEXT else outcome
     if nrc:
         meaning = NRC_TEXT.get(nrc.upper().replace("0X", "0x"))
-        text += f": {meaning} (code {nrc})" if meaning else f" (code {nrc})"
+        if meaning:
+            return _("{outcome}: {meaning} (code {code})").format(outcome=text, meaning=_(meaning), code=nrc)
+        return _("{outcome} (code {code})").format(outcome=text, code=nrc)
     return text
 
 
@@ -111,7 +115,7 @@ def load_inventory(repository: ProjectRepository) -> dict[str, Any]:
     path = inventory_path(repository)
     if not path.is_file():
         return empty_inventory(repository.project_id)
-    document, _ = _exact_json(path)
+    document, _raw = _exact_json(path)
     validate_inventory(document, repository.project_id)
     return document
 
@@ -188,7 +192,9 @@ def source_rows(inventory: Mapping[str, Any], source_id: str | None = None) -> l
 
     if source_id is not None and source_id not in {source["source_id"] for source in inventory["sources"]}:
         known = sorted(source["source_id"] for source in inventory["sources"])
-        raise ValueError(f"no imported source {source_id!r}; imported: {', '.join(known) or 'none'}")
+        raise ValueError(_("no imported source {source!r}; imported: {known}").format(
+            source=source_id, known=", ".join(known) or _("none"),
+        ))
     return [
         {name: value for name, value in entry["row"].items() if name != "catalog_variant_id"}
         for entry in inventory["rows"]
@@ -260,7 +266,7 @@ def preview_import(
     for row in source.rows:
         ref = SignalRef.parse(row["signal_ref"])
         if not within_read_range(ref.data_id, did_min, did_max):
-            rejections.append((str(ref), "DID is outside the transport safety range"))
+            rejections.append((str(ref), _("DID is outside the transport safety range")))
             continue
         accepted.append(row)
     incoming, duplicates = _merge_versions(accepted)
@@ -359,7 +365,7 @@ def preview_import(
     try:
         repository._validate_catalog_rows(cache_rows(repository, document))
     except ValueError as exc:
-        problem = f"reviewed signals would no longer resolve: {exc}"
+        problem = _("reviewed signals would no longer resolve: {error}").format(error=exc)
     return ImportPreview(
         source.source_id, source.kind, source.label, tuple(incoming), tuple(rejections),
         counts, tuple(conflicts), problem, dict(sorted(changed_fields.items())), document,
@@ -375,7 +381,7 @@ def apply_import(
     if preview.blocking_problem:
         raise ValueError(preview.blocking_problem)
     if preview.document is None or inventory_sha256(inventory) != preview.base_sha256:
-        raise ValueError("the candidate list changed since the preview; preview the source again")
+        raise ValueError(_("the candidate list changed since the preview; preview the source again"))
     stamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     document = {**preview.document, "sources": [
         {**row, "imported_utc": stamp} if row["source_id"] == preview.source_id else row
@@ -398,17 +404,17 @@ def preview_delete_signals(
     present = {entry["row"]["signal_ref"] for entry in inventory["rows"]}
     reasons: dict[str, str] = {}
     for ref in wanted - present:
-        reasons[ref] = "not in the candidate list"
+        reasons[ref] = N_("not in the candidate list")
     for review in repository.review["signals"]:
-        reasons.setdefault(review["signal_ref"], "reviewed")
+        reasons.setdefault(review["signal_ref"], N_("reviewed"))
     for target in repository.policy["targets"]:
-        reasons.setdefault(target["signal_ref"], "has a target")
+        reasons.setdefault(target["signal_ref"], N_("has a target"))
         if target["condition"] is not None:
             for ref in condition_refs(target["condition"]):
-                reasons.setdefault(ref, "used in a target condition")
+                reasons.setdefault(ref, N_("used in a target condition"))
     try:
         for ref in repository.signal_observation_summary():
-            reasons.setdefault(ref, "recorded")
+            reasons.setdefault(ref, N_("recorded"))
     except sqlite3.Error:
         pass
     refused = {ref: reasons[ref] for ref in sorted(wanted, key=SignalRef.parse) if ref in reasons}
@@ -422,9 +428,9 @@ def apply_delete_signals(
     repository: ProjectRepository, inventory: Mapping[str, Any], preview: DeletePreview
 ) -> dict[str, Any]:
     if inventory_sha256(inventory) != preview.base_sha256:
-        raise ValueError("the candidate list changed since the preview; select the signals again")
+        raise ValueError(_("the candidate list changed since the preview; select the signals again"))
     if not preview.deleted:
-        raise ValueError("none of the selected signals can be deleted")
+        raise ValueError(_("none of the selected signals can be deleted"))
     return _write(repository, preview.document)
 
 
@@ -433,39 +439,65 @@ def describe_import(preview: ImportPreview) -> list[str]:
 
     counts = preview.counts
     lines = [
-        f"{preview.label}: {counts.get('rows', 0):,} rows, {counts.get('signals', 0):,} signals, "
-        f"{counts.get('dids', 0):,} DIDs, {counts.get('ecus', 0):,} ECUs, "
-        f"{counts.get('endpoint_candidates', 0):,} endpoint candidates.",
-        f"To add {counts.get('added', 0):,} signals; to update {counts.get('updated', 0):,}; "
-        f"unchanged {counts.get('unchanged', 0):,}.",
+        _(
+            "{label}: {rows} rows, {signals} signals, {dids} DIDs, {ecus} ECUs, "
+            "{endpoints} endpoint candidates."
+        ).format(
+            label=preview.label, rows=f"{counts.get('rows', 0):,}", signals=f"{counts.get('signals', 0):,}",
+            dids=f"{counts.get('dids', 0):,}", ecus=f"{counts.get('ecus', 0):,}",
+            endpoints=f"{counts.get('endpoint_candidates', 0):,}",
+        ),
+        _("To add {added} signals; to update {updated}; unchanged {unchanged}.").format(
+            added=f"{counts.get('added', 0):,}", updated=f"{counts.get('updated', 0):,}",
+            unchanged=f"{counts.get('unchanged', 0):,}",
+        ),
     ]
     if preview.changed_fields:
-        lines.append("Updates change: " + ", ".join(
+        # Field names are the row file's own keys and stay as they are.
+        lines.append(_("Updates change: {fields}.").format(fields=", ".join(
             f"{name} {number:,}" for name, number in preview.changed_fields.items()
-        ) + ".")
-    if counts.get("kept"):
-        lines.append(f"{counts['kept']:,} signals from this source's last import are not in it; they are kept.")
-    if counts.get("kept_reviewed"):
-        lines.append(f"{counts['kept_reviewed']:,} replaced definitions are kept because a review uses them.")
-    if counts.get("duplicates_merged"):
-        lines.append(f"{counts['duplicates_merged']:,} repeated rows merged into an existing definition.")
-    if counts.get("conflicts"):
-        lines.append(f"{counts['conflicts']:,} of these signals have more than one formula.")
-    if counts.get("rejected"):
-        lines.append(f"{counts['rejected']:,} rows rejected.")
+        )))
+    if n := counts.get("kept"):
+        lines.append(ngettext(
+            "{count} signal from this source's last import is not in it; it is kept.",
+            "{count} signals from this source's last import are not in it; they are kept.", n,
+        ).format(count=f"{n:,}"))
+    if n := counts.get("kept_reviewed"):
+        lines.append(ngettext(
+            "{count} replaced definition is kept because a review uses it.",
+            "{count} replaced definitions are kept because a review uses them.", n,
+        ).format(count=f"{n:,}"))
+    if n := counts.get("duplicates_merged"):
+        lines.append(ngettext(
+            "{count} repeated row merged into an existing definition.",
+            "{count} repeated rows merged into an existing definition.", n,
+        ).format(count=f"{n:,}"))
+    if n := counts.get("conflicts"):
+        lines.append(ngettext(
+            "{count} of these signals has more than one formula.",
+            "{count} of these signals have more than one formula.", n,
+        ).format(count=f"{n:,}"))
+    if n := counts.get("rejected"):
+        lines.append(ngettext("{count} row rejected.", "{count} rows rejected.", n).format(count=f"{n:,}"))
     return lines
 
 
 def describe_deletion(preview: DeletePreview) -> list[str]:
+    count = len(preview.deleted)
     lines = [
-        f"Delete {len(preview.deleted):,} signals from the candidate list. "
-        "Importing their source again adds them back."
-    ] if preview.deleted else ["Nothing to delete."]
+        ngettext(
+            "Delete {count} signal from the candidate list. Importing its source again adds it back.",
+            "Delete {count} signals from the candidate list. Importing their source again adds them back.",
+            count,
+        ).format(count=f"{count:,}")
+    ] if preview.deleted else [_("Nothing to delete.")]
     reasons: dict[str, int] = {}
     for reason in preview.refused.values():
         reasons[reason] = reasons.get(reason, 0) + 1
     if reasons:
-        lines.append("Kept: " + ", ".join(f"{number:,} {reason}" for reason, number in sorted(reasons.items())) + ".")
+        lines.append(_("Kept: {reasons}.").format(reasons=", ".join(
+            f"{number:,} {_(reason)}" for reason, number in sorted(reasons.items())
+        )))
     return lines
 
 
@@ -537,30 +569,35 @@ def add_manual_endpoints(
     confirmed = confirmed_ecus(repository)
     added: list[dict[str, Any]] = []
     for number, entry in enumerate(endpoints, start=1):
-        where = f"endpoint {number}"
         tester = canonical_can_id(entry.get("tester_can_id"))
         if tester is None:
-            raise ValueError(f"{where}: enter the request CAN ID as hexadecimal, e.g. 0x7E0")
+            raise ValueError(_("endpoint {number}: enter the request CAN ID as hexadecimal, e.g. 0x7E0").format(number=number))
         response_text = entry.get("response_can_id")
         response = canonical_can_id(response_text) if response_text not in (None, "") else (
             canonical_can_id(int(tester, 16) + 8)
         )
         if response is None or response == tester:
-            raise ValueError(f"{where}: the response CAN ID must be an 11-bit ID other than the request ID")
+            raise ValueError(_(
+                "endpoint {number}: the response CAN ID must be an 11-bit ID other than the request ID"
+            ).format(number=number))
         try:
             target = canonical_target_address(entry.get("target_address") or None)
         except ValueError as exc:
-            raise ValueError(f"{where}: the address must be one hexadecimal byte, e.g. 0x2A") from exc
+            raise ValueError(
+                _("endpoint {number}: the address must be one hexadecimal byte, e.g. 0x2A").format(number=number)
+            ) from exc
         keys = sorted({int(key) for key in entry.get("ecu_keys") or ()})
         if not keys:
-            raise ValueError(f"{where}: enter at least one ECU key")
+            raise ValueError(_("endpoint {number}: enter at least one ECU key").format(number=number))
         if conflicting := [key for key in keys if key in confirmed]:
-            raise ValueError(f"{where}: ECU keys already belong to a confirmed endpoint: {conflicting}")
+            raise ValueError(_("endpoint {number}: ECU keys already belong to a confirmed endpoint: {keys}").format(
+                number=number, keys=conflicting,
+            ))
         for other in added:
             if (other["tester_can_id"], other["response_can_id"], other.get("target_address")) == (
                 tester, response, target,
             ) or set(other["ecu_keys"]) & set(keys):
-                raise ValueError(f"{where}: repeats an endpoint or ECU key given above")
+                raise ValueError(_("endpoint {number}: repeats an endpoint or ECU key given above").format(number=number))
         added.append({
             "tester_can_id": tester,
             "response_can_id": response,
@@ -568,7 +605,7 @@ def add_manual_endpoints(
             "ecu_keys": keys,
         })
     if not added:
-        raise ValueError("enter at least one endpoint")
+        raise ValueError(_("enter at least one endpoint"))
     manual = list(inventory["manual_endpoints"])
     for row in added:
         manual = [
@@ -752,7 +789,7 @@ class EndpointItem:
 
     @property
     def label(self) -> str:
-        names = ", ".join(self.ecu_names) or "unnamed ECU"
+        names = ", ".join(self.ecu_names) or _("unnamed ECU")
         return f"{self.key} ({names})"
 
     def as_dict(self) -> dict[str, Any]:
@@ -794,7 +831,7 @@ class InventoryTree:
                     yield endpoint, did, signal
 
     def find_did(self, key: str) -> tuple[EndpointItem, DidItem] | None:
-        endpoint_key, _, data_id = key.rpartition("/")
+        endpoint_key, _slash, data_id = key.rpartition("/")
         endpoint = self.endpoint(endpoint_key)
         if endpoint is None:
             return None
@@ -819,7 +856,7 @@ class InventoryTree:
             "verified_dids": sum(1 for row in dids if row.state == VERIFIED),
             "failed_dids": sum(1 for row in dids if row.state == FAILED),
             "signals": sum(len(row.signals) for row in dids),
-            "targets": sum(1 for _, _, signal in self.signals() if signal.target is not None),
+            "targets": sum(1 for _endpoint, _did, signal in self.signals() if signal.target is not None),
         }
 
     def as_dict(self) -> dict[str, Any]:
@@ -916,7 +953,7 @@ def build_tree(
             endpoint.dids.append(did)
         review = reviews.get(signal_ref)
         chosen = _chosen_row(rows, review)
-        name = (review or {}).get("display_name_override") or chosen.get("name") or "(not in candidate list)"
+        name = (review or {}).get("display_name_override") or chosen.get("name") or _("(not in candidate list)")
         unit = (review or {}).get("unit_override") or chosen.get("unit") or ""
         formula = (review or {}).get("formula_override") or chosen.get("formula") or "raw"
         did.signals.append(SignalItem(
@@ -1044,22 +1081,32 @@ def _apply_verification(
                 did.baseline_hex = read.get("response_hex")
                 if fact["outcome"] == "positive":
                     did.state = VERIFIED
-                    did.detail = "responded during verification"
+                    did.detail = _("responded during verification")
                 else:
                     did.state = FAILED
                     did.detail = outcome_text(fact["outcome"], read.get("nrc"))
                 continue
             if endpoint.confirmed and recorded.get((endpoint.endpoint_id, did.data_id)) == "supported":
                 did.state = VERIFIED
-                did.detail = "responded in recorded runs"
+                did.detail = _("responded in recorded runs")
             elif not endpoint.confirmed and endpoint.state == "silent":
                 did.state = ENDPOINT_SILENT
-                did.detail = "the ECU did not answer when verified, so this DID was not read"
+                did.detail = _("the ECU did not answer when verified, so this DID was not read")
             elif not endpoint.confirmed and endpoint.state != "responded":
                 did.state = ENDPOINT_NOT_VERIFIED
-                did.detail = f"endpoint is {endpoint.state}"
+                did.detail = (
+                    _(_ENDPOINT_DETAIL[endpoint.state]) if endpoint.state in _ENDPOINT_DETAIL
+                    else _("endpoint is {state}").format(state=endpoint.state)
+                )
             else:
                 did.state = NOT_VERIFIED
+
+
+# Why a DID was not read, by its unverified endpoint's state (a stored value).
+_ENDPOINT_DETAIL = {
+    "not verified": N_("endpoint is not verified"),
+    "address unknown": N_("endpoint is address unknown"),
+}
 
 
 def _recorded_did_status(repository: ProjectRepository) -> dict[tuple[str, str], str]:

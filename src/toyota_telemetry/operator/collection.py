@@ -10,6 +10,7 @@ import threading
 from typing import Any, Callable, Mapping
 
 from ..admission import ALL_COMPLETE, compile_plan
+from ..i18n import _, N_
 from ..collection_service import run_collection
 from ..keep_awake import keep_awake
 from ..repository import ProjectRepository
@@ -39,8 +40,8 @@ SEQUENTIAL = "sequential"
 # strategy only decides each turn's time limit (and, later, the next
 # endpoint); confirmation and the per-turn scope check are shared.
 STRATEGIES = {
-    SLICES: "Switch every few minutes",
-    SEQUENTIAL: "One after another, each until done",
+    SLICES: N_("Switch every few minutes"),
+    SEQUENTIAL: N_("One after another, each until done"),
 }
 MIN_SLICE_SECONDS = 60
 
@@ -102,7 +103,7 @@ def collection_readiness(
     readiness = CollectionReadiness(False)
     if repository.local_settings is None:
         readiness.problems.append(Problem(
-            "no connector is configured", "Configure the connector",
+            _("no connector is configured"), _("Configure the connector"),
             "telemetry connector set KIND ...", "setup",
         ))
     refresh_cache(repository, inventory)
@@ -117,10 +118,12 @@ def collection_readiness(
             output=repository.paths.plans / PLAN_FILE,
         )
     except ValueError as exc:
-        if ALL_COMPLETE in str(exc):
+        # Admission refusals carry their English text, which the hints match.
+        english = getattr(exc, "english", str(exc))
+        if ALL_COMPLETE in english:
             readiness.complete = True
         else:
-            readiness.problems.append(_problem_for(str(exc)))
+            readiness.problems.append(_problem_for(str(exc), english))
         return readiness
 
     readiness.endpoints = [row["endpoint_id"] for row in plan["endpoint_sessions"]]
@@ -130,13 +133,15 @@ def collection_readiness(
         endpoint_id = readiness.endpoints[0]
     if endpoint_id is None:
         readiness.problems.append(Problem(
-            f"targets span {len(readiness.endpoints)} endpoints; one run collects one endpoint",
-            "Choose the endpoint, or take them in turn", "telemetry collect --endpoint ENDPOINT", "collect",
+            _("targets span {count} endpoints; one run collects one endpoint").format(
+                count=len(readiness.endpoints),
+            ),
+            _("Choose the endpoint, or take them in turn"), "telemetry collect --endpoint ENDPOINT", "collect",
         ))
     elif endpoint_id not in readiness.endpoints:
         readiness.problems.append(Problem(
-            f"{endpoint_id} has no unfinished targets ready to collect",
-            "Choose one of: " + ", ".join(readiness.endpoints),
+            _("{endpoint} has no unfinished targets ready to collect").format(endpoint=endpoint_id),
+            _("Choose one of: {endpoints}").format(endpoints=", ".join(readiness.endpoints)),
             "telemetry collect --endpoint " + readiness.endpoints[0], "collect",
         ))
         endpoint_id = None
@@ -182,20 +187,23 @@ def _rotation_readiness(
     for endpoint_id in order:
         if endpoint_id not in readiness.endpoints:
             readiness.problems.append(Problem(
-                f"{endpoint_id} has no unfinished targets ready to collect",
-                "Leave it out", "telemetry collect --rotate --endpoint ENDPOINT ...", "collect",
+                _("{endpoint} has no unfinished targets ready to collect").format(endpoint=endpoint_id),
+                _("Leave it out"), "telemetry collect --rotate --endpoint ENDPOINT ...", "collect",
             ))
     order = [endpoint_id for endpoint_id in order if endpoint_id in readiness.endpoints]
     if rotation.strategy not in STRATEGIES:
         readiness.problems.append(Problem(
-            f"unknown strategy {rotation.strategy!r}", "Choose " + " or ".join(STRATEGIES),
+            _("unknown strategy {strategy!r}").format(strategy=rotation.strategy),
+            _("Choose {first} or {second}").format(first=SLICES, second=SEQUENTIAL),
             "telemetry collect --rotate --strategy " + SLICES, "collect",
         ))
     slice_seconds = rotation.slice_seconds if rotation.strategy == SLICES else None
     if rotation.strategy == SLICES and (slice_seconds or 0) < MIN_SLICE_SECONDS:
         readiness.problems.append(Problem(
-            f"a time slice of {slice_seconds or 0} s is shorter than {MIN_SLICE_SECONDS} s",
-            "Switch ECUs less often", "telemetry collect --rotate --slice 5m", "collect",
+            _("a time slice of {seconds} s is shorter than {minimum} s").format(
+                seconds=slice_seconds or 0, minimum=MIN_SLICE_SECONDS,
+            ),
+            _("Switch ECUs less often"), "telemetry collect --rotate --slice 5m", "collect",
         ))
     readiness.rotation = {"strategy": rotation.strategy, "slice_seconds": slice_seconds, "order": order}
     acquisitions = [row for row in plan["acquisitions"] if row["endpoint_id"] in order]
@@ -274,7 +282,7 @@ def start_collection(
     if readiness.ready and readiness.rotation is not None:
         return _rotate(repository, inventory, readiness, note=note, event_sink=event_sink, stop_event=stop_event)
     if not readiness.ready or readiness.endpoint_id is None:
-        raise ValueError("collection is not ready; resolve the readiness problems first")
+        raise ValueError(_("collection is not ready; resolve the readiness problems first"))
     with LiveLock(repository), keep_awake():
         reason = run_collection(
             repository.root,
@@ -318,7 +326,9 @@ def _rotate(
                 if current.complete or endpoint_id not in current.endpoints:
                     continue
                 if not current.ready:
-                    raise ValueError(f"{endpoint_id} is no longer ready: {current.problems[0].message}")
+                    raise ValueError(_("{endpoint} is no longer ready: {problem}").format(
+                        endpoint=endpoint_id, problem=current.problems[0].message,
+                    ))
                 _require_confirmed(current.scope, readiness.scope["connector"], confirmed[endpoint_id])
                 reason = run_collection(
                     repository.root,
@@ -346,30 +356,37 @@ def _require_confirmed(current: Mapping[str, Any], connector: Mapping[str, Any],
     sends = {(row["acquisition_id"], row["request_hex"]) for row in current["acquisitions"]}
     if current["connector"] != connector or current["endpoint"] != confirmed["endpoint"] or not sends <= allowed:
         raise ValueError(
-            f"the scope of {confirmed['endpoint']['endpoint_id']} changed since it was confirmed; "
-            "check readiness and start again"
+            _("the scope of {endpoint} changed since it was confirmed; check readiness and start again").format(
+                endpoint=confirmed["endpoint"]["endpoint_id"],
+            )
         )
 
 
+# Patterns match the English refusal text; hints are shown translated.
 _FIXES = (
-    (re.compile(r"verify (\S+) first"), "Verify {0}", "telemetry verify {0}", "signals"),
-    (re.compile(r"needs (\S+/0x[0-9A-F]{4})"), "Include the DID settings for {0}",
+    (re.compile(r"verify (\S+) first"), N_("Verify {item}"), "telemetry verify {0}", "signals"),
+    (re.compile(r"needs (\S+/0x[0-9A-F]{4})"), N_("Include the DID settings for {item}"),
      "telemetry did set {0} --include", "signals"),
-    (re.compile(r"no included targets"), "Set collection targets",
+    (re.compile(r"no included targets"), N_("Set collection targets"),
      "telemetry target set SELECTOR --min-samples N", "signals"),
-    (re.compile(r"insufficient disk"), "Free disk space", "telemetry status", "setup"),
-    (re.compile(r"endpoint (\S+) .*exceeds tracked limit"), "Lengthen DID intervals on {0}",
+    (re.compile(r"insufficient disk"), N_("Free disk space"), "telemetry status", "setup"),
+    (re.compile(r"endpoint (\S+) .*exceeds tracked limit"), N_("Lengthen DID intervals on {item}"),
      "telemetry did set {0} --interval MS", "signals"),
-    (re.compile(r"request-start floor"), "Lengthen DID intervals",
+    (re.compile(r"request-start floor"), N_("Lengthen DID intervals"),
      "telemetry did set SELECTOR --interval MS", "signals"),
     (re.compile(r"(?:formula is ambiguous|does not resolve catalog signal): (\S+)"),
-     "Choose a formula for {0}", "telemetry signal set {0} --formula EXPR", "signals"),
+     N_("Choose a formula for {item}"), "telemetry signal set {0} --formula EXPR", "signals"),
 )
 
 
-def _problem_for(message: str) -> Problem:
+def _problem_for(message: str, english: str | None = None) -> Problem:
+    """A problem for a refusal; ``english`` is its untranslated text, which the patterns match."""
+
     for pattern, hint, command, page in _FIXES:
-        match = pattern.search(message)
+        match = pattern.search(english if english is not None else message)
         if match:
-            return Problem(message, hint.format(*match.groups()), command.format(*match.groups()), page)
-    return Problem(message, "Check the project files", "telemetry check", "setup")
+            groups = match.groups()
+            return Problem(
+                message, _(hint).format(item=groups[0] if groups else ""), command.format(*groups), page,
+            )
+    return Problem(message, _("Check the project files"), "telemetry check", "setup")

@@ -15,11 +15,24 @@ from pathlib import Path
 import tempfile
 from typing import Any, Mapping
 
+from .i18n import _, N_
 from .identity import read_request_hex, response_header_bytes, AcquisitionRef, SignalRef
 from .objectives import condition_leaves, condition_refs
 from .repository import ProjectRepository
 
-ALL_COMPLETE = "all included collection targets are already complete"
+ALL_COMPLETE = N_("all included collection targets are already complete")
+
+
+class AdmissionError(ValueError):
+    """A refusal shown to the user; ``english`` keeps the untranslated text.
+
+    ``str()`` is the text in the current language. Code that recognises a
+    refusal (the readiness hints) matches ``english``, which never changes.
+    """
+
+    def __init__(self, message: str, **values: Any) -> None:
+        super().__init__(_(message).format(**values))
+        self.english = message.format(**values)
 
 
 def _json_bytes(value: Any) -> bytes:
@@ -56,12 +69,13 @@ def compile_plan(
     policy = repository.policy
     transport = repository.transport
     if not any(row["included"] for row in policy["targets"]):
-        raise ValueError("collection policy has no included targets")
+        raise AdmissionError(N_("collection policy has no included targets"))
     storage = policy["storage"]
     required_disk = storage["disk_reserve_mib"] + storage["segment_max_mib"]
     if available_disk_mib < required_disk:
-        raise ValueError(
-            f"insufficient disk budget: {available_disk_mib} MiB available, {required_disk} MiB required"
+        raise AdmissionError(
+            N_("insufficient disk budget: {available} MiB available, {required} MiB required"),
+            available=available_disk_mib, required=required_disk,
         )
     endpoint_by_ecu = {
         int(ecu): endpoint
@@ -85,9 +99,9 @@ def compile_plan(
         endpoint = endpoint_by_ecu[signal.ecu_key]
         acquisition_id = f"{endpoint['id']}/0x{signal.data_id:04X}"
         if acquisition_id not in acquisition_rules:
-            raise ValueError(
-                f"target has no included DID settings: {authored['signal_ref']} "
-                f"needs {acquisition_id}"
+            raise AdmissionError(
+                N_("target has no included DID settings: {signal} needs {did}"),
+                signal=authored["signal_ref"], did=acquisition_id,
             )
         condition = authored["condition"]
         compiled = {
@@ -108,9 +122,9 @@ def compile_plan(
                 dependency_endpoint = endpoint_by_ecu[dependency.ecu_key]
                 dependency_id = f"{dependency_endpoint['id']}/0x{dependency.data_id:04X}"
                 if dependency_id not in acquisition_rules:
-                    raise ValueError(
-                        f"condition signal has no included DID settings: {dependency_ref} "
-                        f"needs {dependency_id}"
+                    raise AdmissionError(
+                        N_("condition signal has no included DID settings: {signal} needs {did}"),
+                        signal=dependency_ref, did=dependency_id,
                     )
                 dependency_by_acquisition.setdefault(dependency_id, []).append(
                     {
@@ -121,14 +135,14 @@ def compile_plan(
                 )
 
     if not compiled_targets:
-        raise ValueError(ALL_COMPLETE)
+        raise AdmissionError(ALL_COMPLETE)
 
     costs = repository.acquisition_cost_facts()
     safety = transport["safety"]
     floor = int(safety["request_start_floor_ms"])
     maximum_rate = float(safety["maximum_request_rate_hz"])
     if 1000 / floor > maximum_rate:
-        raise ValueError("request-start floor exceeds the tracked maximum request rate")
+        raise AdmissionError(N_("request-start floor exceeds the tracked maximum request rate"))
     endpoint_rows = {row["id"]: row for row in transport["endpoints"]}
     acquisitions = []
     load_by_endpoint: dict[str, dict[str, float]] = {}
@@ -139,8 +153,8 @@ def compile_plan(
             continue
         facts = costs.get(acquisition_id)
         if facts is None or facts["sample_count"] < 1 or facts["maximum_response_bytes"] < 1:
-            raise ValueError(
-                f"missing latency/response-size facts: verify {acquisition_id} first"
+            raise AdmissionError(
+                N_("missing latency/response-size facts: verify {did} first"), did=acquisition_id,
             )
         target = min(
             [rule["target_interval_ms"]]
@@ -151,7 +165,7 @@ def compile_plan(
             + [row["maximum_age_ms"] for row in dependency_rows]
         )
         if target < floor or maximum < floor:
-            raise ValueError(f"acquisition interval violates request-start floor: {acquisition_id}")
+            raise AdmissionError(N_("acquisition interval violates request-start floor: {did}"), did=acquisition_id)
         ref = AcquisitionRef.parse(acquisition_id)
         # An extended-address byte leaves six data bytes per frame instead of seven.
         per_frame = 6 if endpoint_rows[ref.endpoint_id].get("target_address") else 7
@@ -192,20 +206,21 @@ def compile_plan(
         )
     for endpoint_id, load in sorted(load_by_endpoint.items()):
         if load["request_rate_hz"] > maximum_rate:
-            raise ValueError(
-                f"endpoint {endpoint_id} request rate {load['request_rate_hz']:.3f} Hz "
-                f"exceeds tracked limit {maximum_rate:.3f} Hz"
+            raise AdmissionError(
+                N_("endpoint {endpoint} request rate {rate:.3f} Hz exceeds tracked limit {limit:.3f} Hz"),
+                endpoint=endpoint_id, rate=load["request_rate_hz"], limit=maximum_rate,
             )
         if load["bus_utilization"] > float(safety["maximum_estimated_bus_utilization"]):
-            raise ValueError(
-                f"endpoint {endpoint_id} estimated bus utilization {load['bus_utilization']:.6f} "
-                f"exceeds tracked limit {safety['maximum_estimated_bus_utilization']:.6f}"
+            raise AdmissionError(
+                N_("endpoint {endpoint} estimated bus utilization {value:.6f} exceeds tracked limit {limit:.6f}"),
+                endpoint=endpoint_id, value=load["bus_utilization"],
+                limit=safety["maximum_estimated_bus_utilization"],
             )
         if load["session_utilization"] > float(safety["maximum_nominal_session_utilization"]):
-            raise ValueError(
-                f"endpoint {endpoint_id} nominal session utilization "
-                f"{load['session_utilization']:.6f} exceeds tracked limit "
-                f"{safety['maximum_nominal_session_utilization']:.6f}"
+            raise AdmissionError(
+                N_("endpoint {endpoint} nominal session utilization {value:.6f} exceeds tracked limit {limit:.6f}"),
+                endpoint=endpoint_id, value=load["session_utilization"],
+                limit=safety["maximum_nominal_session_utilization"],
             )
 
     endpoint_sessions = [
@@ -237,9 +252,9 @@ def compile_plan(
         ref = AcquisitionRef.parse(decode["acquisition_id"])
         data_bytes = costs[decode["acquisition_id"]]["maximum_response_bytes"] - response_header_bytes(ref.data_id)
         if decode["last_bit"] >= data_bytes * 8:
-            raise ValueError(
-                f"{decode['signal_ref']} lies past the reply: {decode['acquisition_id']} "
-                f"answers with {max(0, data_bytes)} data bytes"
+            raise AdmissionError(
+                N_("{signal} lies past the reply: {did} answers with {count} data bytes"),
+                signal=decode["signal_ref"], did=decode["acquisition_id"], count=max(0, data_bytes),
             )
     body = {
         "document_type": "telemetry.admitted-plan",
@@ -323,7 +338,7 @@ def _compile_decodes(
     for signal_ref in sorted(required, key=SignalRef.parse):
         variants = by_signal.get(signal_ref, [])
         if not variants:
-            raise ValueError(f"collection decode does not resolve catalog signal: {signal_ref}")
+            raise AdmissionError(N_("collection decode does not resolve catalog signal: {signal}"), signal=signal_ref)
         review = reviews.get(signal_ref)
         selected = None
         if review is not None and review["catalog_variant_id"] is not None:
@@ -334,7 +349,7 @@ def _compile_decodes(
         if selected is None:
             formulas = {row.get("formula", "raw") for row in variants}
             if len(formulas) != 1 and not (review and review["formula_override"] is not None):
-                raise ValueError(f"collection decode formula is ambiguous: {signal_ref}")
+                raise AdmissionError(N_("collection decode formula is ambiguous: {signal}"), signal=signal_ref)
             selected = min(variants, key=lambda row: row["catalog_variant_id"])
         ref = SignalRef.parse(signal_ref)
         formula = (

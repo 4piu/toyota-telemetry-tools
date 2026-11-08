@@ -19,8 +19,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from toyota_telemetry.i18n import N_, _
 
-LIVE_TIP = "Transmits to the vehicle; you confirm first."
+# Marked only: every display site passes it through _().
+LIVE_TIP = N_("Transmits to the vehicle; you confirm first.")
 
 
 def page_title(title: str, description: str) -> QWidget:
@@ -61,7 +63,9 @@ def set_enabled(widget: QWidget, enabled: bool, reason: str = "") -> None:
     base = widget.property("baseToolTip") or widget.toolTip()
     if widget.property("baseToolTip") is None:
         widget.setProperty("baseToolTip", base)
-    widget.setToolTip(base if enabled or not reason else f"{base}\n\nUnavailable: {reason}")
+    widget.setToolTip(
+        base if enabled or not reason else _("{tip}\n\nUnavailable: {reason}").format(tip=base, reason=reason)
+    )
 
 
 def notice(text: str = "") -> QLabel:
@@ -84,15 +88,15 @@ def path_field(field: QLineEdit, caption: str, *, directory: bool = False) -> QW
     layout = QHBoxLayout(container)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.addWidget(field, 1)
-    browse = QPushButton("Browse")
+    browse = QPushButton(_("Browse"))
     browse.setToolTip(caption)
-    browse.setAccessibleName(f"Browse for {caption}")
+    browse.setAccessibleName(_("Browse for {caption}").format(caption=caption))
 
     def choose() -> None:
         if directory:
             selected = QFileDialog.getExistingDirectory(container, caption, field.text())
         else:
-            selected, _ = QFileDialog.getOpenFileName(container, caption, field.text())
+            selected, _filter = QFileDialog.getOpenFileName(container, caption, field.text())
         if selected:
             field.setText(selected)
 

@@ -22,6 +22,7 @@ from typing import Any, Callable, Iterable, Mapping, TextIO
 from .. import __version__
 from ..discovery import ProbeWorkerFactory, promote_confirmed_endpoint
 from ..exporting import check_destination, export_project
+from ..i18n import _, N_
 from ..project import PROJECT_MARKER
 from ..repository import ProjectPaths, ProjectRepository
 from . import editing
@@ -74,35 +75,35 @@ class Operation:
 
 
 OPERATIONS: tuple[Operation, ...] = (
-    Operation("init", "Create a project workspace", "telemetry init", "project.new"),
-    Operation("status", "Show readiness and the next action", "telemetry status", "steps"),
-    Operation("check", "Validate project files", "telemetry check", "menu.project.check"),
-    Operation("connector.show", "Show connector settings", "telemetry connector show", "setup.connector.form"),
-    Operation("connector.set", "Save connector settings", "telemetry connector set", "setup.connector.save"),
-    Operation("connector.check", "Check connector offline", "telemetry connector check", "setup.connector.check"),
-    Operation("source.preview", "Preview a candidate source", "telemetry source import", "signals.import.preview"),
-    Operation("source.apply", "Apply a candidate source", "telemetry source import --apply", "signals.import.apply"),
-    Operation("source.export", "Save candidate rows to a file", "telemetry source export", "menu.project.save-candidates"),
-    Operation("cache.rebuild", "Rebuild the derived cache", "telemetry cache rebuild", "menu.project.rebuild-cache"),
-    Operation("signals.list", "List endpoints, DIDs, and signals", "telemetry signals", "signals.tree"),
-    Operation("signals.show", "Show one DID or signal", "telemetry signals show", "signals.detail"),
-    Operation("endpoint.add", "Add a manual endpoint candidate", "telemetry endpoint add", "signals.endpoint.add"),
-    Operation("endpoint.confirm", "Confirm a responding endpoint", "telemetry endpoint confirm", "signals.endpoint.confirm"),
-    Operation("verify", "Verify endpoints and DIDs", "telemetry verify", "signals.verify", live=True),
-    Operation("watch", "Watch one DID's signals live", "telemetry watch", "signals.menu.watch", live=True),
-    Operation("signal.delete", "Delete candidate signals", "telemetry signal delete", "signals.menu.delete"),
-    Operation("signal.set", "Edit a signal definition", "telemetry signal set", "signals.definition.apply"),
-    Operation("did.set", "Edit shared DID settings", "telemetry did set", "signals.did.apply"),
-    Operation("target.set", "Set collection targets", "telemetry target set", "signals.target.edit"),
-    Operation("target.clear", "Remove collection targets", "telemetry target clear", "signals.target.clear"),
-    Operation("collect.readiness", "Check collection readiness", "telemetry collect --dry-run", "collect.readiness"),
-    Operation("collect", "Collect data", "telemetry collect", "collect.start", live=True),
-    Operation("recordings.list", "List recorded runs", "telemetry recordings", "recordings.runs"),
-    Operation("recordings.show", "Show one run", "telemetry recordings show", "recordings.run.detail"),
-    Operation("recordings.recover", "Recover an interrupted run", "telemetry recordings recover", "recordings.recover"),
-    Operation("recordings.trash", "Move a run to the system trash", "telemetry recordings trash", "recordings.trash"),
-    Operation("recordings.export", "Export recorded samples", "telemetry recordings export", "recordings.export"),
-    Operation("export", "Export the result to a folder", "telemetry export", "menu.project.export"),
+    Operation("init", N_("Create a project workspace"), "telemetry init", "project.new"),
+    Operation("status", N_("Show readiness and the next action"), "telemetry status", "steps"),
+    Operation("check", N_("Validate project files"), "telemetry check", "menu.project.check"),
+    Operation("connector.show", N_("Show connector settings"), "telemetry connector show", "setup.connector.form"),
+    Operation("connector.set", N_("Save connector settings"), "telemetry connector set", "setup.connector.save"),
+    Operation("connector.check", N_("Check connector offline"), "telemetry connector check", "setup.connector.check"),
+    Operation("source.preview", N_("Preview a candidate source"), "telemetry source import", "signals.import.preview"),
+    Operation("source.apply", N_("Apply a candidate source"), "telemetry source import --apply", "signals.import.apply"),
+    Operation("source.export", N_("Save candidate rows to a file"), "telemetry source export", "menu.project.save-candidates"),
+    Operation("cache.rebuild", N_("Rebuild the derived cache"), "telemetry cache rebuild", "menu.project.rebuild-cache"),
+    Operation("signals.list", N_("List endpoints, DIDs, and signals"), "telemetry signals", "signals.tree"),
+    Operation("signals.show", N_("Show one DID or signal"), "telemetry signals show", "signals.detail"),
+    Operation("endpoint.add", N_("Add a manual endpoint candidate"), "telemetry endpoint add", "signals.endpoint.add"),
+    Operation("endpoint.confirm", N_("Confirm a responding endpoint"), "telemetry endpoint confirm", "signals.endpoint.confirm"),
+    Operation("verify", N_("Verify endpoints and DIDs"), "telemetry verify", "signals.verify", live=True),
+    Operation("watch", N_("Watch one DID's signals live"), "telemetry watch", "signals.menu.watch", live=True),
+    Operation("signal.delete", N_("Delete candidate signals"), "telemetry signal delete", "signals.menu.delete"),
+    Operation("signal.set", N_("Edit a signal definition"), "telemetry signal set", "signals.definition.apply"),
+    Operation("did.set", N_("Edit shared DID settings"), "telemetry did set", "signals.did.apply"),
+    Operation("target.set", N_("Set collection targets"), "telemetry target set", "signals.target.edit"),
+    Operation("target.clear", N_("Remove collection targets"), "telemetry target clear", "signals.target.clear"),
+    Operation("collect.readiness", N_("Check collection readiness"), "telemetry collect --dry-run", "collect.readiness"),
+    Operation("collect", N_("Collect data"), "telemetry collect", "collect.start", live=True),
+    Operation("recordings.list", N_("List recorded runs"), "telemetry recordings", "recordings.runs"),
+    Operation("recordings.show", N_("Show one run"), "telemetry recordings show", "recordings.run.detail"),
+    Operation("recordings.recover", N_("Recover an interrupted run"), "telemetry recordings recover", "recordings.recover"),
+    Operation("recordings.trash", N_("Move a run to the system trash"), "telemetry recordings trash", "recordings.trash"),
+    Operation("recordings.export", N_("Export recorded samples"), "telemetry recordings export", "recordings.export"),
+    Operation("export", N_("Export the result to a folder"), "telemetry export", "menu.project.export"),
 )
 OPERATION_IDS = frozenset(operation.id for operation in OPERATIONS)
 
@@ -215,7 +216,7 @@ class OperatorService:
         except (OSError, ValueError) as exc:
             status.valid = False
             status.error = str(exc)
-            status.next_action = NextAction("Fix the project files", "telemetry check", "setup")
+            status.next_action = NextAction(_("Fix the project files"), "telemetry check", "setup")
             return status
         status.project_id = repository.project_id
         status.profile_id = repository.profile_id
@@ -239,8 +240,8 @@ class OperatorService:
             progress = progress_by_signal(repository)
         except (OSError, ValueError) as exc:
             status.valid = False
-            status.error = f"cache could not be refreshed: {exc}"
-            status.next_action = NextAction("Fix the project files", "telemetry check", "setup")
+            status.error = _("cache could not be refreshed: {error}").format(error=exc)
+            status.next_action = NextAction(_("Fix the project files"), "telemetry check", "setup")
             return status
         tree = build_tree(repository, inventory, progress=progress)
         status.counts = tree.counts()
@@ -262,21 +263,21 @@ class OperatorService:
         if status.recoverable_runs:
             run_id = status.recoverable_runs[0]
             return NextAction(
-                "Recover the interrupted run", f"telemetry recordings recover {run_id}",
+                _("Recover the interrupted run"), f"telemetry recordings recover {run_id}",
                 "recordings", ("run", run_id),
             )
         if status.connector is None:
-            return NextAction("Configure the connector", "telemetry connector set KIND ...", "setup")
+            return NextAction(_("Configure the connector"), "telemetry connector set KIND ...", "setup")
         if not status.candidate_rows:
             return NextAction(
-                "Import a candidate signal list", "telemetry source import file PATH --apply", "signals",
+                _("Import a candidate signal list"), "telemetry source import file PATH --apply", "signals",
             )
         responded = [row for row in tree.endpoints if row.state == "responded"]
         if responded:
             row = responded[0]
             ecus = " ".join(f"--ecu {key}" for key in row.ecu_keys) or "--ecu KEY"
             return NextAction(
-                "Confirm the responding endpoint",
+                _("Confirm the responding endpoint"),
                 f"telemetry endpoint confirm {row.endpoint_id} {ecus}",
                 "signals", ("endpoint", row.key),
             )
@@ -286,20 +287,20 @@ class OperatorService:
             )
             selector = pending.key if pending else "ENDPOINT"
             return NextAction(
-                "Verify endpoints and DIDs with the vehicle",
+                _("Verify endpoints and DIDs with the vehicle"),
                 f"telemetry verify {selector} --dry-run", "signals",
                 ("endpoint", pending.key) if pending else None,
             )
         if not status.counts.get("targets"):
             return NextAction(
-                "Set collection targets", "telemetry target set SELECTOR --min-samples N", "signals",
+                _("Set collection targets"), "telemetry target set SELECTOR --min-samples N", "signals",
             )
         if status.collection is not None and status.collection["problems"]:
             problem = status.collection["problems"][0]
             return NextAction(problem["hint"], problem["command"], problem["page"])
         if status.collection is not None and status.collection["ready"]:
-            return NextAction("Collect data", "telemetry collect --dry-run", "collect")
-        return NextAction("Analyze recordings", "telemetry recordings", "recordings")
+            return NextAction(_("Collect data"), "telemetry collect --dry-run", "collect")
+        return NextAction(_("Analyze recordings"), "telemetry recordings", "recordings")
 
     def check(self) -> CheckResult:
         result = CheckResult()
@@ -309,23 +310,25 @@ class OperatorService:
             result.problems.append(str(exc))
             return result
         result.notes.append(
-            f"project {repository.project_id} profile {repository.profile_id}: workspace files are valid"
+            _("project {project} profile {profile}: workspace files are valid").format(
+                project=repository.project_id, profile=repository.profile_id,
+            )
         )
         try:
             inventory = self.inventory(repository)
         except (OSError, ValueError) as exc:
-            result.problems.append(f"candidate inventory: {exc}")
+            result.problems.append(_("candidate inventory: {error}").format(error=exc))
             return result
         try:
             repository.discovery_candidates()
         except (OSError, ValueError) as exc:
-            result.problems.append(f"verification facts: {exc}")
+            result.problems.append(_("verification facts: {error}").format(error=exc))
         try:
             repository._validate_catalog_rows(cache_rows(repository, inventory))
         except ValueError as exc:
-            result.problems.append(f"candidate list: {exc}")
+            result.problems.append(_("candidate list: {error}").format(error=exc))
         if repository.local_settings is None:
-            result.notes.append("no connector configured yet")
+            result.notes.append(_("no connector configured yet"))
         return result
 
     # Connector -------------------------------------------------------------
@@ -380,10 +383,10 @@ class OperatorService:
         repository = self.repository()
         rows = source_rows(self.inventory(repository), source_id)
         if not rows:
-            raise ValueError("no candidate rows imported yet")
+            raise ValueError(_("no candidate rows imported yet"))
         path = Path(path)
         if path.exists() and not overwrite:
-            raise FileExistsError(f"{path.name} exists; choose another name or overwrite it")
+            raise FileExistsError(_("{name} exists; choose another name or overwrite it").format(name=path.name))
         text = format_rows_document(rows_document(rows))
         temporary = path.with_name(path.name + ".tmp")
         temporary.write_text(text, encoding="utf-8", newline="\n")
@@ -472,7 +475,7 @@ class OperatorService:
         candidate = candidates.get(candidate_id)
         if candidate is None:
             raise ValueError(
-                f"{candidate_id} has no verification result; verify it before confirming"
+                _("{candidate} has no verification result; verify it before confirming").format(candidate=candidate_id)
             )
         document = promote_confirmed_endpoint(
             repository.transport, candidate, sorted(set(ecu_keys)), list(provenance)

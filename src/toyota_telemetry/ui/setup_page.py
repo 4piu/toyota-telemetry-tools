@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from toyota_telemetry.i18n import _
 from toyota_telemetry.operator.connector import CONNECTOR_FIELDS, CONNECTOR_LABELS
 
 from .context import PageContext
@@ -25,8 +26,8 @@ class SetupPage(QWidget):
         self.context = context
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
-            "Setup",
-            "The CAN adapter on this computer; nothing here transmits",
+            _("Setup"),
+            _("The CAN adapter on this computer; nothing here transmits"),
         ))
         layout.addWidget(self._connector_group())
         layout.addStretch(1)
@@ -36,14 +37,14 @@ class SetupPage(QWidget):
     # Connector --------------------------------------------------------------
 
     def _connector_group(self) -> QGroupBox:
-        group = QGroupBox("Connector")
-        group.setToolTip("CAN adapter on this computer; never exported")
+        group = QGroupBox(_("Connector"))
+        group.setToolTip(_("CAN adapter on this computer; never exported"))
         layout = QVBoxLayout(group)
         form = QFormLayout()
         self.connector_kind = QComboBox()
         for kind, label in CONNECTOR_LABELS.items():
             self.connector_kind.addItem(label, kind)
-        form.addRow("Connector", self.connector_kind)
+        form.addRow(_("Connector"), self.connector_kind)
         self.connector_fields: dict[str, dict[str, QLineEdit]] = {}
         self.connector_stack = QStackedWidget()
         for kind, fields in CONNECTOR_FIELDS.items():
@@ -52,6 +53,8 @@ class SetupPage(QWidget):
             page_form.setContentsMargins(0, 0, 0, 0)
             editors = {}
             for name, label, _required in fields:
+                # Field labels are English constants of the connector module.
+                label = _(label)
                 editor = QLineEdit()
                 editor.setAccessibleName(label)
                 editors[name] = editor
@@ -60,19 +63,19 @@ class SetupPage(QWidget):
             self.connector_stack.addWidget(page)
         form.addRow(self.connector_stack)
         self.executable = QLineEdit()
-        self.executable.setPlaceholderText("default")
-        self.executable.setToolTip("Empty uses the bundled worker")
-        form.addRow("Worker executable", self.executable)
+        self.executable.setPlaceholderText(_("default"))
+        self.executable.setToolTip(_("Empty uses the bundled worker"))
+        form.addRow(_("Worker executable"), self.executable)
         layout.addLayout(form)
-        self.context.register("connector.show", self.connector_kind, "Adapter type")
+        self.context.register("connector.show", self.connector_kind, _("Adapter type"))
         self.connector_kind.currentIndexChanged.connect(self.connector_stack.setCurrentIndex)
-        self.connector_check_button = QPushButton("Check")
-        self.connector_save_button = QPushButton("Save")
+        self.connector_check_button = QPushButton(_("Check"))
+        self.connector_save_button = QPushButton(_("Save"))
         self.context.register(
             "connector.check", self.connector_check_button,
-            "Self-test; the adapter is not opened",
+            _("Self-test; the adapter is not opened"),
         )
-        self.context.register("connector.set", self.connector_save_button, "Saved on this computer")
+        self.context.register("connector.set", self.connector_save_button, _("Saved on this computer"))
         self.connector_check_button.clicked.connect(self.check_connector)
         self.connector_save_button.clicked.connect(self.save_connector)
         layout.addLayout(button_row(self.connector_check_button, self.connector_save_button))
@@ -91,21 +94,22 @@ class SetupPage(QWidget):
         try:
             document = self._connector_document()
         except ValueError as exc:
-            show_notice(self.connector_result, f"Problem: {exc}")
+            show_notice(self.connector_result, _("Problem: {problem}").format(problem=exc))
             return
 
         def done(check) -> None:
             self.connector_check_button.setEnabled(True)
-            lines = [f"OK: {note}" for note in check.notes] + [f"Problem: {text}" for text in check.problems]
+            lines = [_("OK: {note}").format(note=note) for note in check.notes]
+            lines += [_("Problem: {problem}").format(problem=text) for text in check.problems]
             if check.ok:
-                lines.append("Settings are valid.")
+                lines.append(_("Settings are valid."))
             show_notice(self.connector_result, "\n".join(lines))
 
         def failed(detail: str) -> None:
             self.connector_check_button.setEnabled(True)
-            self.context.error("Connector check failed", _first(detail))
+            self.context.error(_("Connector check failed"), _first(detail))
 
-        show_notice(self.connector_result, "Checking…")
+        show_notice(self.connector_result, _("Checking…"))
         self.connector_check_button.setEnabled(False)
         self.context.run(
             "setup.connector.check", lambda service: service.check_connector(document), done, failed,
@@ -118,9 +122,9 @@ class SetupPage(QWidget):
             document = self._connector_document()
             self.context.service.save_connector(document)
         except (OSError, ValueError) as exc:
-            show_notice(self.connector_result, f"Not saved: {exc}")
+            show_notice(self.connector_result, _("Not saved: {error}").format(error=exc))
             return
-        show_notice(self.connector_result, "Saved.")
+        show_notice(self.connector_result, _("Saved."))
         self.context.changed()
 
     def load_connector(self, document) -> None:
@@ -141,7 +145,7 @@ class SetupPage(QWidget):
     def refresh(self) -> None:
         has_project = self.context.service is not None
         for widget in (self.connector_check_button, self.connector_save_button):
-            set_enabled(widget, has_project, "Open a project first.")
+            set_enabled(widget, has_project, _("Open a project first."))
         show_notice(self.connector_result, "")
         self.load_connector(None)
         if has_project:

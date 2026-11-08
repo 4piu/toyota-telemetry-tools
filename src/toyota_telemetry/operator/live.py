@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from ..i18n import _
 from ..repository import ProjectRepository, _atomic_write, _encoded_json
 
 
@@ -49,7 +50,7 @@ class LiveLock:
             _lock(handle)
         except OSError as exc:
             handle.close()
-            raise LiveBusy("another live operation is running for this project") from exc
+            raise LiveBusy(_("another live operation is running for this project")) from exc
         self._handle = handle
         return self
 

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from toyota_telemetry import i18n
-from toyota_telemetry.i18n import _
+from toyota_telemetry.i18n import N_, _, ngettext
 from toyota_telemetry.operator import OperatorService
 
 from .app import LANGUAGE_KEY
@@ -34,14 +34,14 @@ from .widgets.step_bar import ATTENTION, DONE, NEXT, PENDING, Part, StepBar
 
 
 PAGES = ("setup", "signals", "collect", "recordings")
-TITLES = {"setup": "Setup", "signals": "Signals", "collect": "Collect", "recordings": "Recordings"}
+TITLES = {"setup": N_("Setup"), "signals": N_("Signals"), "collect": N_("Collect"), "recordings": N_("Recordings")}
 RECENT_KEY = "recent/projects"
 RECENT_LIMIT = 8
 DESCRIPTIONS = {
-    "setup": "The CAN adapter on this computer",
-    "signals": "Candidates, what to collect, and how often",
-    "collect": "Run collection; target progress",
-    "recordings": "Runs, plots, and export",
+    "setup": N_("The CAN adapter on this computer"),
+    "signals": N_("Candidates, what to collect, and how often"),
+    "collect": N_("Run collection; target progress"),
+    "recordings": N_("Runs, plots, and export"),
 }
 
 
@@ -49,43 +49,46 @@ def step_states(status, dirty: bool) -> list[tuple[str, list[Part]]]:
     """Each page's state and status lines, from one readiness snapshot."""
 
     if status is None:
-        return [(NEXT, [Part("Open or create a project", NEXT)])] + [(PENDING, [])] * 3
+        return [(NEXT, [Part(_("Open or create a project"), NEXT)])] + [(PENDING, [])] * 3
     if not status.valid:
-        return [(ATTENTION, [Part("Project files", ATTENTION, "invalid")])] + [(PENDING, [])] * 3
+        return [(ATTENTION, [Part(_("Project files"), ATTENTION, _("invalid"))])] + [(PENDING, [])] * 3
     counts = status.counts
     setup = [
-        Part("Connector", DONE if status.connector else PENDING, (status.connector or "").split(" ")[0]),
+        Part(_("Connector"), DONE if status.connector else PENDING, (status.connector or "").split(" ")[0]),
     ]
     verified, dids, targets = counts.get("verified_dids", 0), counts.get("dids", 0), counts.get("targets", 0)
     signals = [
-        Part("Candidates", DONE if status.candidate_rows else PENDING,
+        Part(_("Candidates"), DONE if status.candidate_rows else PENDING,
              f"{status.candidate_rows}" if status.candidate_rows else ""),
-        Part("Readable", DONE if verified else PENDING, f"{verified}/{dids} DIDs" if dids else ""),
-        Part("Targets", DONE if targets else PENDING, f"{targets} set" if targets else ""),
+        Part(_("Readable"), DONE if verified else PENDING,
+             _("{verified}/{total} DIDs").format(verified=verified, total=dids) if dids else ""),
+        Part(_("Targets"), DONE if targets else PENDING,
+             ngettext("{count} set", "{count} set", targets).format(count=targets) if targets else ""),
     ]
     if dirty:
-        signals.append(Part("Unsaved", ATTENTION, "changes"))
+        signals.append(Part(_("Unsaved"), ATTENTION, _("changes")))
     collection = status.collection
     if status.live_busy:
-        collect = [Part("Running", ATTENTION)]
+        collect = [Part(_("Running"), ATTENTION)]
     elif collection is None:
-        collect = [Part("Ready", PENDING, "no targets")]
+        collect = [Part(_("Ready"), PENDING, _("no targets"))]
     elif collection["ready"]:
-        collect = [Part("Ready", DONE)]
+        collect = [Part(_("Ready"), DONE)]
     elif collection["complete"] and not collection["problems"]:
-        collect = [Part("Complete", DONE)]
+        collect = [Part(_("Complete"), DONE)]
     else:
         problems = len(collection["problems"])
-        collect = [Part("Not ready", ATTENTION, f"{problems} problem" + ("s" if problems != 1 else ""))]
+        collect = [Part(_("Not ready"), ATTENTION,
+                        ngettext("{count} problem", "{count} problems", problems).format(count=problems))]
     if targets:
         complete = status.targets_complete
-        collect.append(Part("Targets met", DONE if complete == targets else PENDING, f"{complete}/{targets}"))
+        collect.append(Part(_("Targets met"), DONE if complete == targets else PENDING, f"{complete}/{targets}"))
     if dirty:
         # Collection uses the saved settings; say so while Signals holds a draft.
-        collect.append(Part("Unsaved", ATTENTION, "not applied"))
-    recordings = [Part("Recorded", DONE if status.runs else PENDING, "" if status.runs else "nothing yet")]
+        collect.append(Part(_("Unsaved"), ATTENTION, _("not applied")))
+    recordings = [Part(_("Recorded"), DONE if status.runs else PENDING, "" if status.runs else _("nothing yet"))]
     if status.recoverable_runs:
-        recordings.append(Part("Interrupted", ATTENTION, f"{len(status.recoverable_runs)}"))
+        recordings.append(Part(_("Interrupted"), ATTENTION, f"{len(status.recoverable_runs)}"))
     next_page = status.next_action.page if status.next_action else None
     result = []
     for page, parts in zip(PAGES, (setup, signals, collect, recordings)):
@@ -105,7 +108,7 @@ class OperatorWindow(QMainWindow):
     def __init__(self, project_path: Path | None = None, *, restore_settings: bool = True) -> None:
         super().__init__()
         self.setObjectName("operator-window")
-        self.setWindowTitle("Telemetry Operator")
+        self.setWindowTitle(_("Telemetry Operator"))
         self.resize(1360, 880)
         self.setMinimumSize(1024, 700)
         self._settings = QSettings("toyota-telemetry-tools", "TelemetryOperator")
@@ -114,18 +117,18 @@ class OperatorWindow(QMainWindow):
         self._recent_memory: list[str] = []
         self.show_report = lambda title, text: QMessageBox.information(self, title, text)
         self.choose_rows_path = lambda: QFileDialog.getSaveFileName(
-            self, "Save candidate list", "candidate-rows.json", "JSON files (*.json)"
+            self, _("Save candidate list"), "candidate-rows.json", _("JSON files (*.json)")
         )[0]
 
         self.context = PageContext(self, self.navigate)
         self.context.settings = self._settings if restore_settings else None
         self.context.message = lambda text: self.statusBar().showMessage(text, 8000)
 
-        self.navigation = StepBar([TITLES[page] for page in PAGES])
+        self.navigation = StepBar([_(TITLES[page]) for page in PAGES])
         self._status = None
-        self.next_action = "Open or create a project"
-        self.context.register("status", self.navigation, "Progress; click a step to open it")
-        self.choose_result_folder = lambda start: QFileDialog.getExistingDirectory(self, "Export folder", start)
+        self.next_action = _("Open or create a project")
+        self.context.register("status", self.navigation, _("Progress; click a step to open it"))
+        self.choose_result_folder = lambda start: QFileDialog.getExistingDirectory(self, _("Export folder"), start)
         self.setup_page = SetupPage(self.context)
         self.signals_page = SignalsPage(self.context)
         self.collect_page = CollectPage(self.context)
@@ -189,51 +192,51 @@ class OperatorWindow(QMainWindow):
     # Construction -----------------------------------------------------------
 
     def _build_menu(self) -> None:
-        project_menu = self.menuBar().addMenu("&Project")
-        new_action = QAction("New project", self)
+        project_menu = self.menuBar().addMenu(_("&Project"))
+        new_action = QAction(_("New project"), self)
         new_action.setShortcut(QKeySequence.StandardKey.New)
         new_action.triggered.connect(self.new_project)
-        self.context.register("init", new_action, "Create a workspace in an empty folder")
+        self.context.register("init", new_action, _("Create a workspace in an empty folder"))
         project_menu.addAction(new_action)
-        open_action = QAction("Open project", self)
+        open_action = QAction(_("Open project"), self)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.choose_project)
         project_menu.addAction(open_action)
-        self.close_project_action = QAction("Close project", self)
+        self.close_project_action = QAction(_("Close project"), self)
         self.close_project_action.triggered.connect(self.close_project)
         project_menu.addAction(self.close_project_action)
         project_menu.addSeparator()
-        self.check_action = QAction("Check project", self)
+        self.check_action = QAction(_("Check project"), self)
         self.check_action.triggered.connect(self.check_project)
-        self.context.register("check", self.check_action, "Validate project files")
+        self.context.register("check", self.check_action, _("Validate project files"))
         project_menu.addAction(self.check_action)
-        self.rebuild_action = QAction("Rebuild cache", self)
+        self.rebuild_action = QAction(_("Rebuild cache"), self)
         self.rebuild_action.triggered.connect(self.rebuild_cache)
-        self.context.register("cache.rebuild", self.rebuild_action, "Rebuild the sample cache from recordings")
+        self.context.register("cache.rebuild", self.rebuild_action, _("Rebuild the sample cache from recordings"))
         project_menu.addAction(self.rebuild_action)
-        self.save_candidates_action = QAction("Save candidate list", self)
+        self.save_candidates_action = QAction(_("Save candidate list"), self)
         self.save_candidates_action.triggered.connect(self.save_candidates)
         self.context.register(
-            "source.export", self.save_candidates_action, "Save the candidate list as a JSON file; keep it private",
+            "source.export", self.save_candidates_action, _("Save the candidate list as a JSON file; keep it private"),
         )
         project_menu.addAction(self.save_candidates_action)
-        self.export_result_action = QAction("Export result", self)
+        self.export_result_action = QAction(_("Export result"), self)
         self.export_result_action.triggered.connect(self.export_result)
-        self.context.register("export", self.export_result_action, "Write the signal list to a folder for publishing")
+        self.context.register("export", self.export_result_action, _("Write the signal list to a folder for publishing"))
         project_menu.addAction(self.export_result_action)
         project_menu.setToolTipsVisible(True)
-        refresh = QAction("Refresh", self)
+        refresh = QAction(_("Refresh"), self)
         refresh.setShortcut(QKeySequence.StandardKey.Refresh)
         refresh.triggered.connect(self.context.changed)
         project_menu.addAction(refresh)
         project_menu.addSeparator()
-        close_action = QAction("Exit", self)
+        close_action = QAction(_("Exit"), self)
         close_action.setShortcut(QKeySequence.StandardKey.Quit)
         close_action.triggered.connect(self.close)
         project_menu.addAction(close_action)
         self._build_language_menu()
-        help_menu = self.menuBar().addMenu("&Help")
-        concepts = QAction("Concepts and workflow", self)
+        help_menu = self.menuBar().addMenu(_("&Help"))
+        concepts = QAction(_("Concepts and workflow"), self)
         concepts.setShortcut(QKeySequence.StandardKey.HelpContents)
         concepts.triggered.connect(self.show_help)
         help_menu.addAction(concepts)
@@ -265,12 +268,12 @@ class OperatorWindow(QMainWindow):
     def _build_status_bar(self) -> None:
         status = QStatusBar()
         self.setStatusBar(status)
-        self.work_status = BusyIndicator("Loading…")
-        self.work_status.setToolTip("Reading project data")
-        self.project_status = QLabel("No project open")
-        self.connector_status = QLabel("No connector")
-        self.adapter_status = QLabel("Adapter closed")
-        self.draft_status = QLabel("Saved")
+        self.work_status = BusyIndicator(_("Loading…"))
+        self.work_status.setToolTip(_("Reading project data"))
+        self.project_status = QLabel(_("No project open"))
+        self.connector_status = QLabel(_("No connector"))
+        self.adapter_status = QLabel(_("Adapter closed"))
+        self.draft_status = QLabel(_("Saved"))
         for widget in (
             self.work_status, self.project_status, self.connector_status, self.adapter_status, self.draft_status,
         ):
@@ -282,7 +285,7 @@ class OperatorWindow(QMainWindow):
     # Project and status ----------------------------------------------------
 
     def choose_project(self) -> None:
-        selected = QFileDialog.getExistingDirectory(self, "Open project workspace")
+        selected = QFileDialog.getExistingDirectory(self, _("Open project workspace"))
         if selected:
             self.open_project(Path(selected))
 
@@ -293,23 +296,23 @@ class OperatorWindow(QMainWindow):
         try:
             OperatorService.create(Path(selected))
         except (OSError, ValueError) as exc:
-            self.context.error("Project not created", str(exc))
+            self.context.error(_("Project not created"), str(exc))
             return
         self.open_project(Path(selected))
 
     def choose_new_folder(self) -> str:
-        return QFileDialog.getExistingDirectory(self, "Empty folder for the new project")
+        return QFileDialog.getExistingDirectory(self, _("Empty folder for the new project"))
 
     def open_project(self, path: Path) -> bool:
         if self.context.live_job_running:
-            self.statusBar().showMessage("Stop the live job before opening another project.", 8000)
+            self.statusBar().showMessage(_("Stop the live job before opening another project."), 8000)
             return False
         if not self.signals_page.prompt_unsaved():
             return False
         try:
             self.context.open(Path(path))
         except (OSError, ValueError) as exc:
-            self.statusBar().showMessage(f"Not a telemetry project: {exc}", 10000)
+            self.statusBar().showMessage(_("Not a telemetry project: {error}").format(error=exc), 10000)
             return False
         self._remember_project(self.context.service.root)
         self._update_title()
@@ -319,7 +322,7 @@ class OperatorWindow(QMainWindow):
         if self.context.service is None:
             return True
         if self.context.live_job_running:
-            self.statusBar().showMessage("Stop the live job before closing the project.", 8000)
+            self.statusBar().showMessage(_("Stop the live job before closing the project."), 8000)
             return False
         if not self.signals_page.prompt_unsaved():
             return False
@@ -352,17 +355,18 @@ class OperatorWindow(QMainWindow):
 
     def check_project(self) -> None:
         def done(result) -> None:
-            lines = [f"OK: {note}" for note in result.notes] + [f"Problem: {text}" for text in result.problems]
-            self.show_report("Project check", "\n".join(lines))
+            lines = [_("OK: {note}").format(note=note) for note in result.notes]
+            lines += [_("Problem: {problem}").format(problem=text) for text in result.problems]
+            self.show_report(_("Project check"), "\n".join(lines))
 
-        self.context.run("check", lambda service: service.check(), done, title="Check failed")
+        self.context.run("check", lambda service: service.check(), done, title=_("Check failed"))
 
     def rebuild_cache(self) -> None:
         def done(_result) -> None:
-            self.context.message("Cache rebuilt.")
+            self.context.message(_("Cache rebuilt."))
             self.context.changed()
 
-        self.context.run("cache.rebuild", lambda service: service.rebuild_cache(), done, title="Cache not rebuilt")
+        self.context.run("cache.rebuild", lambda service: service.rebuild_cache(), done, title=_("Cache not rebuilt"))
 
     def save_candidates(self) -> None:
         if self.context.service is None:
@@ -372,12 +376,16 @@ class OperatorWindow(QMainWindow):
             return
 
         def done(count: int) -> None:
-            self.context.message(f"Saved {count:,} candidate rows to {Path(path).name}.")
+            self.context.message(
+                ngettext(
+                    "Saved {count} candidate row to {name}.", "Saved {count} candidate rows to {name}.", count,
+                ).format(count=f"{count:,}", name=Path(path).name)
+            )
 
         # The save dialog has already asked before replacing a file.
         self.context.run(
             "source.export", lambda service: service.export_source_rows(Path(path), overwrite=True), done,
-            title="Candidate list not saved",
+            title=_("Candidate list not saved"),
         )
 
     @property
@@ -387,9 +395,9 @@ class OperatorWindow(QMainWindow):
     def refresh_status(self) -> None:
         service = self.context.service
         if service is None:
-            self.next_action = "Open or create a project"
-            self.project_status.setText("No project open")
-            self.connector_status.setText("No connector")
+            self.next_action = _("Open or create a project")
+            self.project_status.setText(_("No project open"))
+            self.connector_status.setText(_("No connector"))
             self._status = None
             self._show_steps()
             return
@@ -398,8 +406,8 @@ class OperatorWindow(QMainWindow):
 
     def _show_status(self, status) -> None:
         name = Path(status.project_root).name
-        self.project_status.setText(name if status.valid else f"{name}: invalid")
-        self.connector_status.setText(status.connector or "No connector")
+        self.project_status.setText(name if status.valid else _("{name}: invalid").format(name=name))
+        self.connector_status.setText(status.connector or _("No connector"))
         self.next_action = status.next_action.text
         self._status = status
         self._show_steps()
@@ -407,9 +415,9 @@ class OperatorWindow(QMainWindow):
     def _show_steps(self) -> None:
         dirty = self.signals_page.dirty
         for index, (page, (state, parts)) in enumerate(zip(PAGES, step_states(self._status, dirty))):
-            tip = f"{DESCRIPTIONS[page]} (Alt+{index + 1})"
+            tip = _("{description} (Alt+{number})").format(description=_(DESCRIPTIONS[page]), number=index + 1)
             if state == NEXT:
-                tip += f"\nNext: {self.next_action}"
+                tip += "\n" + _("Next: {action}").format(action=self.next_action)
             self.navigation.set_step(index, state, parts, tip)
 
     def navigate(self, page: str) -> None:
@@ -436,61 +444,67 @@ class OperatorWindow(QMainWindow):
 
         def done(manifest) -> None:
             self.context.remember(key, destination.as_posix())
+            signals = manifest["row_counts"]["signals"]
             self.context.message(
-                f"Exported the result ({manifest['row_counts']['signals']} signals) to {destination.name}."
+                ngettext(
+                    "Exported the result ({count} signal) to {name}.",
+                    "Exported the result ({count} signals) to {name}.",
+                    signals,
+                ).format(count=signals, name=destination.name)
             )
 
-        self.statusBar().showMessage("Exporting the result…")
+        self.statusBar().showMessage(_("Exporting the result…"))
         self.context.run(
-            "export", lambda service: service.export_result(destination), done, title="Result not exported",
+            "export", lambda service: service.export_result(destination), done, title=_("Result not exported"),
         )
 
     def _busy_changed(self, running: bool) -> None:
-        self.adapter_status.setText("LIVE - adapter open" if running else "Adapter closed")
+        self.adapter_status.setText(_("LIVE - adapter open") if running else _("Adapter closed"))
         if not running and self._closing_after_job:
             self.close()
 
     def _update_title(self, *_args) -> None:
         dirty = self.signals_page.dirty
-        self.draft_status.setText("Unsaved changes" if dirty else "Saved")
-        project = f" - {self.project_path.name}" if self.project_path else ""
-        self.setWindowTitle(f"Telemetry Operator{project}{' *' if dirty else ''}")
+        self.draft_status.setText(_("Unsaved changes") if dirty else _("Saved"))
+        title = _("Telemetry Operator")
+        if self.project_path:
+            title = _("Telemetry Operator - {project}").format(project=self.project_path.name)
+        self.setWindowTitle(title + (" *" if dirty else ""))
 
     def show_help(self) -> None:
-        QMessageBox.information(
-            self,
-            "Telemetry Operator concepts",
-            "Endpoint: one diagnostic route to an ECU (tester and response CAN IDs plus a reviewed session). "
-            "Confirmed endpoints are recorded in the project; others are candidates until they respond.\n\n"
-            "DID: one data request on an endpoint. A DID can carry several signals, so its interval is shared.\n\n"
-            "Signal: one interpreted value inside a DID response; it is what you review, target, and plot.\n\n"
-            "Target: the evidence still wanted for a signal, such as minimum samples or required states. "
-            "A transition is any change of raw value; a change counts only when the decoded value moves by at "
-            "least the minimum difference.\n\n"
-            "Signal status: Not checked, then Responds (its DID answered), Recorded (samples saved), and "
-            "Reviewed (its meaning confirmed). Refused means the ECU rejected the request. No answer "
-            "means its ECU did not answer when verified, so it was not read; verifying again later "
-            "(for example with the engine running) may reach it.\n\n"
-            "Diagnostic session: the mode an ECU is switched to before it is read. Most ECUs answer more "
-            "requests in the extended session (request 10 03) than in the default one. The choices are the "
-            "session steps reviewed in the project's transport settings.\n\n"
-            "Verify vs Confirm endpoint: Verify transmits read requests to see which DIDs answer. Confirm "
-            "endpoint transmits nothing; it records your review that an endpoint which answered is the ECU "
-            "you think it is, with where the evidence is written up. Collection needs both.\n\n"
-            "Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) "
-            "or 0x22 (conditions not correct); the app names common ones.\n\n"
-            "Run: one recording session, saved as one folder. Delete moves a run's folder to the system "
-            "trash; restore it from there to bring the run back.\n\n"
-            "Interrupted run: a recording that stopped without finishing. Recover keeps everything saved "
-            "up to the interruption.\n\n"
-            "Only actions with a warning icon (Verify, Live view, and Start) transmit to the vehicle, "
-            "and each shows its exact scope first. Live view reads one DID at its collection interval "
-            "and shows the values without recording them; Pause stops sending.\n\n"
-            "Hover over any control for a short explanation.\n\n"
-            "The steps across the top are the pages in workflow order. A tick means done, a dot marks "
-            "the next step (hover it to see what to do), and ! needs attention.\n\n"
-            "Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes.",
-        )
+        paragraphs = [
+            _("Endpoint: one diagnostic route to an ECU (tester and response CAN IDs plus a reviewed session). "
+              "Confirmed endpoints are recorded in the project; others are candidates until they respond."),
+            _("DID: one data request on an endpoint. A DID can carry several signals, so its interval is shared."),
+            _("Signal: one interpreted value inside a DID response; it is what you review, target, and plot."),
+            _("Target: the evidence still wanted for a signal, such as minimum samples or required states. "
+              "A transition is any change of raw value; a change counts only when the decoded value moves by at "
+              "least the minimum difference."),
+            _("Signal status: Not checked, then Responds (its DID answered), Recorded (samples saved), and "
+              "Reviewed (its meaning confirmed). Refused means the ECU rejected the request. No answer "
+              "means its ECU did not answer when verified, so it was not read; verifying again later "
+              "(for example with the engine running) may reach it."),
+            _("Diagnostic session: the mode an ECU is switched to before it is read. Most ECUs answer more "
+              "requests in the extended session (request 10 03) than in the default one. The choices are the "
+              "session steps reviewed in the project's transport settings."),
+            _("Verify vs Confirm endpoint: Verify transmits read requests to see which DIDs answer. Confirm "
+              "endpoint transmits nothing; it records your review that an endpoint which answered is the ECU "
+              "you think it is, with where the evidence is written up. Collection needs both."),
+            _("Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) "
+              "or 0x22 (conditions not correct); the app names common ones."),
+            _("Run: one recording session, saved as one folder. Delete moves a run's folder to the system "
+              "trash; restore it from there to bring the run back."),
+            _("Interrupted run: a recording that stopped without finishing. Recover keeps everything saved "
+              "up to the interruption."),
+            _("Only actions with a warning icon (Verify, Live view, and Start) transmit to the vehicle, "
+              "and each shows its exact scope first. Live view reads one DID at its collection interval "
+              "and shows the values without recording them; Pause stops sending."),
+            _("Hover over any control for a short explanation."),
+            _("The steps across the top are the pages in workflow order. A tick means done, a dot marks "
+              "the next step (hover it to see what to do), and ! needs attention."),
+            _("Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes."),
+        ]
+        QMessageBox.information(self, _("Telemetry Operator concepts"), "\n\n".join(paragraphs))
 
     # Events -----------------------------------------------------------------
 
@@ -508,7 +522,7 @@ class OperatorWindow(QMainWindow):
             watch = self.signals_page.watch_window
             if watch is not None and watch.running:
                 watch.stop()
-            self.statusBar().showMessage("Stopping the live job safely; the window closes when it finishes.")
+            self.statusBar().showMessage(_("Stopping the live job safely; the window closes when it finishes."))
             event.ignore()
             return
         if not self.signals_page.prompt_unsaved():

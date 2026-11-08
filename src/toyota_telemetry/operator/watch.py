@@ -19,6 +19,7 @@ from typing import Any, Callable
 from ..admission import endpoint_session_row
 from ..collector import JsonlWorkerClient, StoppedBeforeReady
 from ..decoding import evaluate_formula, extract_raw
+from ..i18n import _, ngettext
 from ..identity import SignalRef, read_request_hex, response_header_bytes
 from ..project import worker_executable
 from ..repository import ProjectRepository
@@ -51,8 +52,9 @@ class WatchScope:
         })
 
     def summary(self) -> str:
-        return (f"Read {self.data_id} on {self.endpoint_id} every {self.interval_ms} ms "
-                f"and show {len(self.signals)} signal(s); nothing is recorded")
+        return _(
+            "Read {did} on {endpoint} every {interval} ms and show {count} signal(s); nothing is recorded"
+        ).format(did=self.data_id, endpoint=self.endpoint_id, interval=self.interval_ms, count=len(self.signals))
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -70,23 +72,25 @@ def build_watch_scope(repository: ProjectRepository, tree: InventoryTree, did_ke
         ((endpoint, did) for endpoint in tree.endpoints for did in endpoint.dids if did.key == did_key), None,
     )
     if found is None:
-        raise ValueError(f"no DID {did_key} in the candidate list")
+        raise ValueError(_("no DID {did} in the candidate list").format(did=did_key))
     endpoint, did = found
     if not endpoint.confirmed or endpoint.endpoint_id is None:
-        raise ValueError("confirm the endpoint first")
+        raise ValueError(_("confirm the endpoint first"))
     if did.state != VERIFIED:
-        raise ValueError("verify this DID first; only DIDs that answered are watched")
+        raise ValueError(_("verify this DID first; only DIDs that answered are watched"))
     settings = did.settings or {}
     interval = settings.get("target_interval_ms")
     if not interval:
-        raise ValueError("set how often this DID is read first")
+        raise ValueError(_("set how often this DID is read first"))
     floor = int(repository.transport["safety"]["request_start_floor_ms"])
     if interval < floor:
-        raise ValueError(f"the DID's interval {interval} ms is below the {floor} ms request floor")
+        raise ValueError(_("the DID's interval {interval} ms is below the {floor} ms request floor").format(
+            interval=interval, floor=floor,
+        ))
     if repository.local_settings is None:
-        raise ValueError("configure the connector first")
+        raise ValueError(_("configure the connector first"))
     if not did.signals:
-        raise ValueError("this DID has no signals to show")
+        raise ValueError(_("this DID has no signals to show"))
     data_id = int(did.data_id, 16)
     acquisition_id = f"{endpoint.endpoint_id}/0x{data_id:04X}"
     signals = tuple(
@@ -149,7 +153,10 @@ def run_watch(
                 })
                 failures = 0 if positive else failures + 1
                 if failures >= FAILURE_LIMIT:
-                    return f"stopped after {FAILURE_LIMIT} failed reads in a row"
+                    return ngettext(
+                        "stopped after {count} failed read in a row", "stopped after {count} failed reads in a row",
+                        FAILURE_LIMIT,
+                    ).format(count=FAILURE_LIMIT)
                 remaining = scope.interval_ms / 1000 - (time.monotonic() - started)
                 if remaining > 0:
                     stop_event.wait(remaining)
@@ -163,7 +170,7 @@ def _decode(scope: WatchScope, data: bytes) -> list[dict[str, Any]]:
     for signal in scope.signals:
         row: dict[str, Any] = {"signal_ref": signal["signal_ref"], "raw": None, "value": None, "text": None}
         if signal["last_bit"] >= len(data) * 8:
-            row["text"] = "beyond the reply"
+            row["text"] = _("beyond the reply")
             values.append(row)
             continue
         raw = extract_raw(data, signal["first_bit"], signal["last_bit"])

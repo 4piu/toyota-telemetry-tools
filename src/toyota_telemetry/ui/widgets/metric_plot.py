@@ -18,6 +18,8 @@ from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QGraphicsRectItem
 
+from toyota_telemetry.i18n import _
+
 
 MIN_TIME_SPAN = 2.0  # seconds shown at most zoom, and around a lone sample
 
@@ -75,11 +77,11 @@ class TimeViewBox(pg.ViewBox):
             ev.ignore()
 
     def zoom_time(self, factor: float, center: float) -> None:
-        (low, high), _ = self.viewRange()
+        (low, high), _values = self.viewRange()
         self.setXRange(center - (center - low) * factor, center + (high - center) * factor, padding=0)
 
     def pan_time(self, fraction: float) -> None:
-        (low, high), _ = self.viewRange()
+        (low, high), _values = self.viewRange()
         shift = (high - low) * fraction
         self.setXRange(low + shift, high + shift, padding=0)
 
@@ -99,7 +101,7 @@ class TimeViewBox(pg.ViewBox):
             self._band.setPen(pg.mkPen(None))
             self._band.setZValue(1e9)
             self.addItem(self._band, ignoreBounds=True)
-        _, (bottom, top) = self.viewRange()
+        _x_range, (bottom, top) = self.viewRange()
         self._band.setRect(QRectF(min(start, current), bottom, abs(current - start), top - bottom))
         if ev.isFinish():
             self.removeItem(self._band)
@@ -127,14 +129,14 @@ class MetricPlot(pg.PlotWidget):
         super().__init__(
             parent=parent, viewBox=self._view, axisItems={"bottom": ElapsedTimeAxis(orientation="bottom")}
         )
-        self.setAccessibleName("Metric evidence plot")
+        self.setAccessibleName(_("Metric evidence plot"))
         self.setToolTip(
-            "Click pins a reading; drag zooms; double-click shows all"
+            _("Click pins a reading; drag zooms; double-click shows all")
         )
         self.setMinimumHeight(280)
         self.showGrid(x=True, y=True, alpha=0.18)
-        self.setLabel("bottom", "Run time, runs end to end (h:mm:ss)")
-        self.setLabel("left", "Value")
+        self.setLabel("bottom", _("Run time, runs end to end (h:mm:ss)"))
+        self.setLabel("left", _("Value"))
         item = self.getPlotItem()
         item.setMenuEnabled(False)
         item.hideButtons()
@@ -161,7 +163,7 @@ class MetricPlot(pg.PlotWidget):
         self.viewport().setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents)
         self.viewport().grabGesture(Qt.GestureType.PinchGesture)
         self._unit = ""
-        self._measurement = "Value"
+        self._measurement = _("Value")
         self._x = np.empty(0)
         self._y = np.empty(0)
         self._raw: list[int | None] = []
@@ -229,7 +231,11 @@ class MetricPlot(pg.PlotWidget):
                                  minXRange=MIN_TIME_SPAN / 2)
         if reset_view:
             self.show_all()
-        self.setAccessibleDescription(f"Signal plot of {len(self._x)} recorded samples across {len(self._runs)} run(s).")
+        self.setAccessibleDescription(
+            _("Signal plot of {samples} recorded samples across {runs} run(s).").format(
+                samples=len(self._x), runs=len(self._runs),
+            )
+        )
 
     def show_all(self) -> None:
         if len(self._x):
@@ -284,11 +290,11 @@ class MetricPlot(pg.PlotWidget):
         suffix = f" {self._unit}" if self._unit else ""
         where = clock(x - run.start if run else x)
         if run and run.label:
-            where += f" into {run.label}"
+            where = _("{time} into {run}").format(time=where, run=run.label)
         code = self._raw[index] if index < len(self._raw) else None
         label = self._states.get(str(code)) if code is not None else None
-        value = f"{label} (raw {code})" if label else f"{y:g}{suffix}"
-        return f"{self._measurement}: {value}\n{where}"
+        value = _("{state} (raw {code})").format(state=label, code=code) if label else f"{y:g}{suffix}"
+        return _("{measurement}: {value}\n{where}").format(measurement=self._measurement, value=value, where=where)
 
     def _hover(self, scene_position) -> None:
         inside = self._view.sceneBoundingRect().contains(scene_position)
@@ -319,7 +325,7 @@ class MetricPlot(pg.PlotWidget):
         self._pin_label.setPos(x, y)
         self._pin_marker.setVisible(True)
         self._pin_label.setVisible(True)
-        self.pinned_changed.emit("Pinned: " + text.replace("\n", " | "))
+        self.pinned_changed.emit(_("Pinned: {reading}").format(reading=text.replace("\n", " | ")))
 
     def _clear_pin(self) -> None:
         self._pin_marker.setVisible(False)
@@ -336,7 +342,7 @@ class MetricPlot(pg.PlotWidget):
         if event.type() == QEvent.Type.Gesture:
             pinch = event.gesture(Qt.GestureType.PinchGesture)
             if pinch is not None and pinch.scaleFactor() > 0:
-                (low, high), _ = self._view.viewRange()
+                (low, high), _values = self._view.viewRange()
                 self._view.zoom_time(1 / pinch.scaleFactor(), (low + high) / 2)
                 return True
         return super().viewportEvent(event)

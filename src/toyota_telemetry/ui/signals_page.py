@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from toyota_telemetry.i18n import N_, _, ngettext
 from toyota_telemetry.operator.editing import UNSET
 from toyota_telemetry.operator.inventory import (
     ENDPOINT_SILENT, EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree, describe_deletion,
@@ -75,32 +76,34 @@ from .widgets import (
 
 ROLE = Qt.ItemDataRole.UserRole
 SORT_ROLE = Qt.ItemDataRole.UserRole + 1
-COLUMNS = ("Name", "Readable", "Collect", "Every", "Late after", "Priority", "Target")
+COLUMNS = (N_("Name"), N_("Readable"), N_("Collect"), N_("Every"), N_("Late after"), N_("Priority"), N_("Target"))
 COLUMN_TIPS = (
-    "ECU → DID (one request) → signal",
-    "Whether the vehicle answers",
-    "Read during collection",
-    "How often the DID is read",
-    "Late after this long",
-    "0-100; higher goes first",
-    "What to collect; ✓ when met",
+    N_("ECU → DID (one request) → signal"),
+    N_("Whether the vehicle answers"),
+    N_("Read during collection"),
+    N_("How often the DID is read"),
+    N_("Late after this long"),
+    N_("0-100; higher goes first"),
+    N_("What to collect; ✓ when met"),
 )
 NUMERIC = {3, 4, 5}
+# Group titles and option labels/tips are marked here and translated where shown;
+# the option keys are filter identifiers and stay as they are.
 FILTER_GROUPS = {
-    "Readable": [
-        ("readable", "Readable", "DIDs that answered when verified"),
-        ("unchecked", "Not checked", "DIDs not read from the vehicle yet"),
-        ("no-answer", "No answer", "DIDs whose ECU did not answer"),
-        ("refused", "Refused", "DIDs the ECU refused"),
+    N_("Readable"): [
+        ("readable", N_("Readable"), N_("DIDs that answered when verified")),
+        ("unchecked", N_("Not checked"), N_("DIDs not read from the vehicle yet")),
+        ("no-answer", N_("No answer"), N_("DIDs whose ECU did not answer")),
+        ("refused", N_("Refused"), N_("DIDs the ECU refused")),
     ],
-    "Collect": [
-        ("collected", "Collected", "DIDs read during collection"),
-        ("not-collected", "Not collected", "DIDs not read during collection"),
+    N_("Collect"): [
+        ("collected", N_("Collected"), N_("DIDs read during collection")),
+        ("not-collected", N_("Not collected"), N_("DIDs not read during collection")),
     ],
-    "Target": [
-        ("targeted", "Has target", "Signals with a target"),
-        ("untargeted", "No target", "Signals without a target"),
-        ("unmet", "Not met", "Signals whose target is not met yet"),
+    N_("Target"): [
+        ("targeted", N_("Has target"), N_("Signals with a target")),
+        ("untargeted", N_("No target"), N_("Signals without a target")),
+        ("unmet", N_("Not met"), N_("Signals whose target is not met yet")),
     ],
 }
 DEFAULTS = {"target_interval_ms": 1000, "maximum_interval_ms": 5000, "priority": 50, "included": False}
@@ -126,7 +129,7 @@ class MixedSpinBox(QSpinBox):
         self.setRange(minimum, maximum)
         self.setSuffix(suffix)
         self.setAccelerated(True)
-        self.setSpecialValueText("mixed")
+        self.setSpecialValueText(_("mixed"))
         self.touched = False
         self._loading = False
         self.valueChanged.connect(self._changed)
@@ -195,15 +198,15 @@ class SignalsPage(QWidget):
         self.run_dialog = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
         self.run_menu = lambda menu, position: menu.exec(position)
         self.confirm_delete = lambda text: QMessageBox.question(
-            self, "Delete signals", text,
+            self, _("Delete signals"), text,
         ) == QMessageBox.StandardButton.Yes
         self.import_dialog = ImportDialog(context, self)
         self.watch_window: WatchWindow | None = None
 
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
-            "Signals",
-            "What to collect, and how often",
+            _("Signals"),
+            _("What to collect, and how often"),
         ))
         layout.addLayout(self._filter_bar())
         self.external_notice = notice()
@@ -220,12 +223,13 @@ class SignalsPage(QWidget):
         self.job_log.setMaximumBlockCount(500)
         self.job_log.setMaximumHeight(120)
         self.job_log.setVisible(False)
-        self.job_log.setAccessibleName("Verification progress")
+        self.job_log.setAccessibleName(_("Verification progress"))
         layout.addWidget(self.job_log)
         self._unsaved: set[str] = set()
         self.job_progress = QProgressBar()
-        self.job_progress.setFormat("%v of %m probes, %p%")
-        self.job_progress.setToolTip("Endpoint probes and DID reads done so far")
+        # %v, %m, and %p are Qt's progress placeholders (value, maximum, percent).
+        self.job_progress.setFormat(_("%v of %m probes, %p%"))
+        self.job_progress.setToolTip(_("Endpoint probes and DID reads done so far"))
         self.job_progress.setVisible(False)
         layout.addWidget(self.job_progress)
         layout.addLayout(self._action_bar())
@@ -247,39 +251,42 @@ class SignalsPage(QWidget):
     def _filter_bar(self) -> QHBoxLayout:
         row = QHBoxLayout()
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Search signal or DID")
-        self.search.setToolTip("Signal name or DID")
-        self.search.setAccessibleName("Search signals")
+        self.search.setPlaceholderText(_("Search signal or DID"))
+        self.search.setToolTip(_("Signal name or DID"))
+        self.search.setAccessibleName(_("Search signals"))
         self.search.setClearButtonEnabled(True)
         self.search.addAction(search_icon(), QLineEdit.ActionPosition.LeadingPosition)
         self.search.textChanged.connect(lambda _text: self._search_timer.start())
         row.addWidget(self.search, 1)
         self.filter_button = FilterButton()
+        # The group title is both shown and used to look the group up, so the
+        # translated title is used for both (see apply_filters).
         for title, options in FILTER_GROUPS.items():
-            self.filter_button.set_group(title, options)
+            self.filter_button.set_group(_(title), [(key, _(label), _(tip)) for key, label, tip in options])
         self.filter_button.changed.connect(self._filters_changed)
         row.addWidget(self.filter_button)
         row.addSpacing(12)
-        self.expand_button = QPushButton("Expand all")
-        self.expand_button.setToolTip("Show every row")
+        self._expanded = False
+        self.expand_button = QPushButton(_("Expand all"))
+        self.expand_button.setToolTip(_("Show every row"))
         self.expand_button.clicked.connect(self.toggle_expanded)
         row.addWidget(self.expand_button)
-        self.refresh_button = QPushButton("Refresh")
-        self.refresh_button.setToolTip("Reread project files")
+        self.refresh_button = QPushButton(_("Refresh"))
+        self.refresh_button.setToolTip(_("Reread project files"))
         self.refresh_button.clicked.connect(self.refresh_from_disk)
         row.addWidget(self.refresh_button)
         return row
 
     def _table_panel(self) -> QWidget:
         self.model = QStandardItemModel(0, len(COLUMNS), self)
-        self.model.setHorizontalHeaderLabels(list(COLUMNS))
+        self.model.setHorizontalHeaderLabels([_(name) for name in COLUMNS])
         for column, tip in enumerate(COLUMN_TIPS):
-            self.model.setHeaderData(column, Qt.Orientation.Horizontal, tip, Qt.ItemDataRole.ToolTipRole)
+            self.model.setHeaderData(column, Qt.Orientation.Horizontal, _(tip), Qt.ItemDataRole.ToolTipRole)
         self.proxy = SignalFilter(self)
         self.proxy.setSourceModel(self.model)
         self.view = QTreeView()
         self.view.setModel(self.proxy)
-        self.view.setAccessibleName("Endpoint, DID, and signal table")
+        self.view.setAccessibleName(_("Endpoint, DID, and signal table"))
         self.view.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -297,23 +304,23 @@ class SignalsPage(QWidget):
         self.view.selectionModel().selectionChanged.connect(lambda *_: self._selection_timer.start())
         self.view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.view.customContextMenuRequested.connect(self.show_context_menu)
-        self.verify_action = QAction("Verify", self)
+        self.verify_action = QAction(_("Verify"), self)
         self.verify_action.triggered.connect(self.verify_checked)
-        self.watch_action = QAction("Live view", self)
-        self.context.register("watch", self.watch_action, "Read this DID at its interval and show values")
+        self.watch_action = QAction(_("Live view"), self)
+        self.context.register("watch", self.watch_action, _("Read this DID at its interval and show values"))
         self.watch_action.triggered.connect(self.watch_current)
         warning = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning)
         for action in (self.verify_action, self.watch_action):
             action.setIcon(warning)  # these transmit, like the Verify button
-        self.delete_action = QAction("Delete", self)
-        self.context.register("signal.delete", self.delete_action, "Remove from the candidate list")
+        self.delete_action = QAction(_("Delete"), self)
+        self.context.register("signal.delete", self.delete_action, _("Remove from the candidate list"))
         self.delete_action.triggered.connect(self.delete_selected)
         self.context.register(
             "signals.list", self.view,
-            "Select rows to change their plan",
+            _("Select rows to change their plan"),
         )
         self.loading = LoadingOverlay(self.view)
-        self.empty_label = QLabel("No project open.")
+        self.empty_label = QLabel(_("No project open."))
         self.empty_label.setWordWrap(True)
         container = QWidget()
         layout = QVBoxLayout(container)
@@ -325,89 +332,91 @@ class SignalsPage(QWidget):
     def _selection_panel(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
-        self.selection_title = QLabel("Nothing selected")
+        self.selection_title = QLabel(_("Nothing selected"))
         font = self.selection_title.font()
         font.setBold(True)
         self.selection_title.setFont(font)
         layout.addWidget(self.selection_title)
         self.detail_text = QPlainTextEdit()
         self.detail_text.setReadOnly(True)
-        self.detail_text.setAccessibleName("Selected row details")
+        self.detail_text.setAccessibleName(_("Selected row details"))
         self.detail_text.setMaximumHeight(130)
-        self.context.register("signals.show", self.detail_text, "Details of the selected rows")
+        self.context.register("signals.show", self.detail_text, _("Details of the selected rows"))
         layout.addWidget(self.detail_text)
 
-        self.collection_group = QGroupBox("Collection")
-        self.collection_group.setToolTip("\"mixed\" fields stay as they are unless changed")
+        self.collection_group = QGroupBox(_("Collection"))
+        self.collection_group.setToolTip(_("\"mixed\" fields stay as they are unless changed"))
         form = QFormLayout(self.collection_group)
-        self.did_included = QCheckBox("Collect")
-        self.did_included.setToolTip("Read during collection")
+        self.did_included = QCheckBox(_("Collect"))
+        self.did_included.setToolTip(_("Read during collection"))
         self.did_included.clicked.connect(lambda _checked: self._included_clicked())
         self._included_touched = False
         self.did_interval = MixedSpinBox(1, 3_600_000, " ms")
-        self.did_interval.setToolTip("How often to read")
+        self.did_interval.setToolTip(_("How often to read"))
         self.did_maximum = MixedSpinBox(1, 3_600_000, " ms")
-        self.did_maximum.setToolTip("Late after this long")
+        self.did_maximum.setToolTip(_("Late after this long"))
         self.did_priority = MixedSpinBox(0, 100)
-        self.did_priority.setToolTip("0-100; higher goes first")
+        self.did_priority.setToolTip(_("0-100; higher goes first"))
         for spin in (self.did_interval, self.did_maximum, self.did_priority):
             spin.valueChanged.connect(lambda _value: self._update_apply())
         form.addRow(self.did_included)
-        form.addRow("Every", self.did_interval)
-        form.addRow("Late after", self.did_maximum)
-        form.addRow("Priority", self.did_priority)
-        self.did_apply = QPushButton("Apply")
+        form.addRow(_("Every"), self.did_interval)
+        form.addRow(_("Late after"), self.did_maximum)
+        form.addRow(_("Priority"), self.did_priority)
+        self.did_apply = QPushButton(_("Apply"))
         self.did_apply.clicked.connect(self.apply_did_settings)
         self.context.register(
             "did.set", self.did_apply,
-            "Applied to the draft until Save",
+            _("Applied to the draft until Save"),
         )
         form.addRow(self.did_apply)
         layout.addWidget(self.collection_group)
 
-        self.targets_group = QGroupBox("Targets")
-        self.targets_group.setToolTip("What to collect per signal")
+        self.targets_group = QGroupBox(_("Targets"))
+        self.targets_group.setToolTip(_("What to collect per signal"))
         targets_layout = QVBoxLayout(self.targets_group)
         self.targets_text = QLabel()
         self.targets_text.setWordWrap(True)
         targets_layout.addWidget(self.targets_text)
-        self.target_button = QPushButton("Edit targets")
-        self.clear_button = QPushButton("Remove targets")
-        self.context.register("target.set", self.target_button, "Set what to collect")
+        self.target_button = QPushButton(_("Edit targets"))
+        self.clear_button = QPushButton(_("Remove targets"))
+        self.context.register("target.set", self.target_button, _("Set what to collect"))
         self.context.register(
-            "target.clear", self.clear_button, "Recordings are kept"
+            "target.clear", self.clear_button, _("Recordings are kept")
         )
         self.target_button.clicked.connect(self.edit_targets)
         self.clear_button.clicked.connect(self.clear_targets)
         targets_layout.addLayout(button_row(self.target_button, self.clear_button))
         layout.addWidget(self.targets_group)
 
-        self.definition_group = QGroupBox("Definition")
-        self.definition_group.setToolTip("Name and decoding")
+        self.definition_group = QGroupBox(_("Definition"))
+        self.definition_group.setToolTip(_("Name and decoding"))
         definition = QFormLayout(self.definition_group)
         self.def_name = QLineEdit()
-        self.def_name.setToolTip("Empty uses the catalog name")
+        self.def_name.setToolTip(_("Empty uses the catalog name"))
         self.def_formula = QLineEdit()
-        self.def_formula.setToolTip("e.g. raw / 10 - 40; empty uses the catalog")
+        self.def_formula.setToolTip(_("e.g. raw / 10 - 40; empty uses the catalog"))
         self.def_unit = QLineEdit()
-        self.def_unit.setToolTip("Empty uses the catalog unit")
+        self.def_unit.setToolTip(_("Empty uses the catalog unit"))
         self.def_evidence = QComboBox()
-        self.def_evidence.addItems(EVIDENCE_STATES)
-        self.def_evidence.setToolTip("How well its meaning is established")
+        # Shown translated; the stored evidence state is the item data.
+        for state in EVIDENCE_STATES:
+            self.def_evidence.addItem(_(state), state)
+        self.def_evidence.setToolTip(_("How well its meaning is established"))
         self.def_notes = QLineEdit()
         self.def_states = QLabel()
         self.def_states.setWordWrap(True)
         self.def_states.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.def_states.setToolTip("Text the manufacturer tool shows")
-        definition.addRow("Name", self.def_name)
-        definition.addRow("Formula", self.def_formula)
-        definition.addRow("Unit", self.def_unit)
-        definition.addRow("States", self.def_states)
-        definition.addRow("Evidence", self.def_evidence)
-        definition.addRow("Notes", self.def_notes)
-        self.def_apply = QPushButton("Apply")
+        self.def_states.setToolTip(_("Text the manufacturer tool shows"))
+        definition.addRow(_("Name"), self.def_name)
+        definition.addRow(_("Formula"), self.def_formula)
+        definition.addRow(_("Unit"), self.def_unit)
+        definition.addRow(_("States"), self.def_states)
+        definition.addRow(_("Evidence"), self.def_evidence)
+        definition.addRow(_("Notes"), self.def_notes)
+        self.def_apply = QPushButton(_("Apply"))
         self.def_apply.clicked.connect(self.apply_definition)
-        self.context.register("signal.set", self.def_apply, "Applied to the draft until Save")
+        self.context.register("signal.set", self.def_apply, _("Applied to the draft until Save"))
         definition.addRow(self.def_apply)
         layout.addWidget(self.definition_group)
         layout.addStretch(1)
@@ -420,22 +429,22 @@ class SignalsPage(QWidget):
         return scroll
 
     def _action_bar(self) -> QHBoxLayout:
-        self.add_endpoint_button = QPushButton("Add candidates")
-        self.add_endpoint_button.setToolTip("From a JSON file, the TIS database, or by CAN IDs")
-        self.confirm_button = QPushButton("Confirm endpoint")
-        self.verify_button = mark_live(QPushButton("Verify"))
-        self.stop_button = QPushButton("Stop")
-        self.stop_button.setToolTip("Stops after the current probe")
+        self.add_endpoint_button = QPushButton(_("Add candidates"))
+        self.add_endpoint_button.setToolTip(_("From a JSON file, the TIS database, or by CAN IDs"))
+        self.confirm_button = QPushButton(_("Confirm endpoint"))
+        self.verify_button = mark_live(QPushButton(_("Verify")))
+        self.stop_button = QPushButton(_("Stop"))
+        self.stop_button.setToolTip(_("Stops after the current probe"))
         self.stop_button.setVisible(False)
-        self.save_button = QPushButton("Save")
-        self.save_button.setToolTip("Write your changes")
-        self.discard_button = QPushButton("Discard")
-        self.discard_button.setToolTip("Drop your changes")
+        self.save_button = QPushButton(_("Save"))
+        self.save_button.setToolTip(_("Write your changes"))
+        self.discard_button = QPushButton(_("Discard"))
+        self.discard_button.setToolTip(_("Drop your changes"))
         for operation, button, tip in (
             ("endpoint.confirm", self.confirm_button,
-             "Record that an answering endpoint is this ECU\nNothing is sent; needed before planning"),
+             _("Record that an answering endpoint is this ECU\nNothing is sent; needed before planning")),
             ("verify", self.verify_button,
-             f"Read the selected DIDs once to see which answer\n{LIVE_TIP}"),
+             _("Read the selected DIDs once to see which answer") + "\n" + _(LIVE_TIP)),
         ):
             self.context.register(operation, button, tip)
         self.add_endpoint_button.clicked.connect(self.show_import)
@@ -477,8 +486,8 @@ class SignalsPage(QWidget):
             except (OSError, ValueError):
                 changed = True
             if changed:
-                show_notice(self.external_notice, "Project files changed outside this window.")
-                self.external_notice.setToolTip("Discard reloads them")
+                show_notice(self.external_notice, _("Project files changed outside this window."))
+                self.external_notice.setToolTip(_("Discard reloads them"))
         self.rebuild()
 
     def rebuild(self, restore: tuple[str, str] | None = None) -> None:
@@ -493,12 +502,14 @@ class SignalsPage(QWidget):
         if service is None:
             self._show_tree(None)
             return
-        self.loading.start("Loading signals…")
+        self.loading.start(_("Loading signals…"))
         review, policy = self.draft_review, self.draft_policy
 
         def failed(detail: str) -> None:
             self.loading.stop()
-            self.empty_label.setText(f"Cannot read the project: {detail.split(chr(10) * 2, 1)[0]}")
+            self.empty_label.setText(
+                _("Cannot read the project: {detail}").format(detail=detail.split(chr(10) * 2, 1)[0])
+            )
             self.empty_label.setVisible(True)
 
         def work(service):
@@ -553,10 +564,10 @@ class SignalsPage(QWidget):
         has_rows = bool(data and data.endpoints)
         self.empty_label.setVisible(not has_rows)
         if self.context.service is None:
-            self.empty_label.setText("No project open.")
+            self.empty_label.setText(_("No project open."))
         elif not has_rows:
-            self.empty_label.setText("No candidates.")
-            self.empty_label.setToolTip("Import a candidate list in Setup.")
+            self.empty_label.setText(_("No candidates."))
+            self.empty_label.setToolTip(_("Import a candidate list in Setup."))
         self.show_details()
 
     def _populate(self, data: InventoryTree) -> None:
@@ -568,9 +579,11 @@ class SignalsPage(QWidget):
             targeted = sum(1 for did in endpoint.dids for signal in did.signals if signal.target)
             readable = sum(1 for did in endpoint.dids if did.state == VERIFIED)
             if endpoint.confirmed:
-                status, status_tip = f"{readable} of {len(endpoint.dids)}", "DIDs that answered when verified"
+                status = _("{done} of {total}").format(done=readable, total=len(endpoint.dids))
+                status_tip = _("DIDs that answered when verified")
             else:
                 status, status_tip = ENDPOINT_READABLE.get(endpoint.state, (endpoint.state.capitalize(), ""))
+                status, status_tip = _shown(status), _shown(status_tip)
             row = self._row(("endpoint", endpoint.key), [
                 endpoint_label(endpoint), status,
                 count(collected, "DID") if collected else "", "", "", "",
@@ -584,29 +597,35 @@ class SignalsPage(QWidget):
                 settings = did.settings or {}
                 included = bool(settings.get("included"))
                 did_targets = sum(1 for signal in did.signals if signal.target)
+                if len(did.signals) > 1:
+                    did_name = _("DID {did} · {signals}").format(
+                        did=did.data_id, signals=count(len(did.signals), "signal"),
+                    )
+                else:
+                    did_name = _("DID {did}").format(did=did.data_id)
                 did_row = self._row(("did", did.key), [
-                    f"DID {did.data_id}" + (f" · {len(did.signals)} signals" if len(did.signals) > 1 else ""),
-                    did_readable(did.state), "Yes" if included else "No",
+                    did_name,
+                    did_readable(did.state), _("Yes") if included else _("No"),
                     duration_text(settings.get("target_interval_ms")),
                     duration_text(settings.get("maximum_interval_ms")),
                     str(settings["priority"]) if settings else "",
-                    f"{did_targets} of {len(did.signals)}" if did_targets else "",
+                    _("{done} of {total}").format(done=did_targets, total=len(did.signals)) if did_targets else "",
                 ], sort=[did.data_id, {VERIFIED: 2, FAILED: 0}.get(did.state, 1), int(included),
                          settings.get("target_interval_ms", -1), settings.get("maximum_interval_ms", -1),
                          settings.get("priority", -1), did_targets])
-                did_row[1].setToolTip(did.detail or did.state)
+                did_row[1].setToolTip(did.detail or _shown(did.state))
                 if not included:
                     # Settings of DIDs that are not read stay visible but recede.
                     for item in did_row[2:6]:
                         item.setForeground(dim)
                     if settings:
-                        did_row[2].setToolTip("Not read during collection")
+                        did_row[2].setToolTip(_("Not read during collection"))
                 if did.acquisition_id in self._unsaved:
                     mark_unsaved(did_row, accent)
                 row[0].appendRow(did_row)
                 for signal in did.signals:
                     unit = f"  {signal.unit}" if signal.unit else ""
-                    conflict = "  (definitions disagree)" if signal.conflict else ""
+                    conflict = "  " + _("(definitions disagree)") if signal.conflict else ""
                     met = bool(signal.progress and signal.progress["complete"])
                     target = target_summary(signal.target, signal.states)
                     signal_row = self._row(("signal", signal.signal_ref), [
@@ -614,9 +633,11 @@ class SignalsPage(QWidget):
                         f"{target}  ✓" if target and met else target,
                     ])
                     if target:
-                        signal_row[6].setToolTip(target + (". Already met." if met else ""))
+                        signal_row[6].setToolTip(
+                            _("{target}. Already met.").format(target=target) if met else target
+                        )
                     if signal.states:
-                        signal_row[0].setToolTip("States\n" + states_lines(signal.states))
+                        signal_row[0].setToolTip(_("States") + "\n" + states_lines(signal.states))
                     if signal.signal_ref in self._unsaved:
                         mark_unsaved(signal_row, accent)
                     did_row[0].appendRow(signal_row)
@@ -643,8 +664,10 @@ class SignalsPage(QWidget):
             return
         search = self.search.text().strip().lower()
         button = self.filter_button
+        # Groups are registered under their translated titles (see _filter_bar).
         ecus, readable, collect, targets = (
-            button.active("ECU"), button.active("Readable"), button.active("Collect"), button.active("Target"),
+            button.active(_("ECU")), button.active(_("Readable")), button.active(_("Collect")),
+            button.active(_("Target")),
         )
         signal_level = bool(search) or bool(targets)
         if not (search or button.count()):
@@ -683,16 +706,17 @@ class SignalsPage(QWidget):
         self.apply_filters()
 
     def toggle_expanded(self) -> None:
-        if self.expand_button.text() == "Expand all":
+        if not self._expanded:
             self.view.expandAll()
-            self.expand_button.setText("Collapse")
+            self.expand_button.setText(_("Collapse"))
         else:
             self.view.collapseAll()
-            self.expand_button.setText("Expand all")
+            self.expand_button.setText(_("Expand all"))
+        self._expanded = not self._expanded
 
     def _update_ecu_filter(self, data: InventoryTree | None) -> None:
         endpoints = sorted(data.endpoints if data else [], key=lambda row: endpoint_name(row).lower())
-        self.filter_button.set_group("ECU", [
+        self.filter_button.set_group(_("ECU"), [
             (f"ecu:{endpoint.key}", endpoint_label(endpoint), _endpoint_tip(endpoint, self._sessions))
             for endpoint in endpoints
         ])
@@ -801,26 +825,34 @@ class SignalsPage(QWidget):
         data = self.tree_data
         keys = self._selected_keys()
         selection = self.selection()
-        kinds = [kind for kind, _ in keys]
+        kinds = [kind for kind, _key in keys]
         if not keys or data is None:
-            self.selection_title.setText("Nothing selected")
-            self.detail_text.setPlainText("Select rows to see and change their settings.")
+            self.selection_title.setText(_("Nothing selected"))
+            self.detail_text.setPlainText(_("Select rows to see and change their settings."))
         elif len(keys) == 1:
             kind, key = keys[0]
             if kind == "endpoint":
                 title = endpoint_name(data.endpoint(key))
             elif kind == "did":
-                title = f"DID {self._dids[key][1].data_id}"
+                title = _("DID {did}").format(did=self._dids[key][1].data_id)
             else:
                 title = self._signals[key][2].name
             self.selection_title.setText(title)
             self.detail_text.setPlainText("\n".join(self._detail_lines(kind, key)))
         else:
-            parts = [f"{kinds.count(kind)} {name}" for kind, name in
-                     (("endpoint", "endpoints"), ("did", "DIDs"), ("signal", "signals")) if kind in kinds]
-            self.selection_title.setText(", ".join(parts) + " selected")
+            parts = []
+            if "endpoint" in kinds:
+                number = kinds.count("endpoint")
+                parts.append(ngettext("{count} endpoint", "{count} endpoints", number).format(count=f"{number:,}"))
+            if "did" in kinds:
+                parts.append(count(kinds.count("did"), "DID"))
+            if "signal" in kinds:
+                parts.append(count(kinds.count("signal"), "signal"))
+            self.selection_title.setText(_("{items} selected").format(items=", ".join(parts)))
             self.detail_text.setPlainText(
-                f"{len(selection.dids)} DID(s) and {len(selection.signals)} signal(s) in the selection."
+                _("{dids} DID(s) and {signals} signal(s) in the selection.").format(
+                    dids=len(selection.dids), signals=len(selection.signals),
+                )
             )
         self._load_collection(selection)
         self._load_targets(selection)
@@ -835,37 +867,44 @@ class SignalsPage(QWidget):
         data = self.tree_data
         if kind == "endpoint":
             endpoint = data.endpoint(key)
-            state = "Confirmed" if endpoint.confirmed else ENDPOINT_READABLE.get(endpoint.state, (endpoint.state,))[0]
+            state = _("Confirmed") if endpoint.confirmed else _shown(
+                ENDPOINT_READABLE.get(endpoint.state, (endpoint.state,))[0]
+            )
             return [
-                f"{endpoint_name(endpoint)}: {state}",
-                f"Address: {endpoint_address(endpoint) or 'unknown'}",
-                f"ECU keys: {', '.join(map(str, endpoint.ecu_keys)) or '-'}",
-                "Diagnostic session: " + (
+                _("{endpoint}: {state}").format(endpoint=endpoint_name(endpoint), state=state),
+                _("Address: {address}").format(address=endpoint_address(endpoint) or _("unknown")),
+                _("ECU keys: {keys}").format(keys=", ".join(map(str, endpoint.ecu_keys)) or "-"),
+                _("Diagnostic session: {session}").format(session=(
                     self._sessions.get(endpoint.session_recipe_id, endpoint.session_recipe_id)
-                    if endpoint.session_recipe_id else "chosen when verified"
-                ),
-                f"DIDs: {len(endpoint.dids)}",
+                    if endpoint.session_recipe_id else _("chosen when verified")
+                )),
+                _("DIDs: {count}").format(count=len(endpoint.dids)),
             ]
         if kind == "did":
             endpoint, did = self._dids[key]
+            state = did_readable(did.state)[2:]
             return [
-                f"{did_readable(did.state)[2:]}" + (f": {did.detail}" if did.detail else ""),
-                f"On: {endpoint_label(endpoint)}",
-                f"Last answer: {did.baseline_hex or '-'}",
-                f"Latency: {did.latency_ms if did.latency_ms is not None else '-'} ms at {did.observed_utc or '-'}",
-                f"Signals: {len(did.signals)}",
+                _("{state}: {detail}").format(state=state, detail=did.detail) if did.detail else state,
+                _("On: {endpoint}").format(endpoint=endpoint_label(endpoint)),
+                _("Last answer: {answer}").format(answer=did.baseline_hex or "-"),
+                _("Latency: {latency} ms at {time}").format(
+                    latency=did.latency_ms if did.latency_ms is not None else "-", time=did.observed_utc or "-",
+                ),
+                _("Signals: {count}").format(count=len(did.signals)),
             ]
         endpoint, did, signal = self._signals[key]
         lines = [
-            f"Bits: {signal.signal_ref.rsplit('/', 1)[-1]} of DID {did.data_id}",
-            f"Unit: {signal.unit or '-'}   Formula: {signal.formula}",
-            f"DID {did.data_id} on {endpoint_name(endpoint)}: {did_readable(did.state)[2:]}",
-            f"Evidence: {_status_tip(signal, did)}",
+            _("Bits: {bits} of DID {did}").format(bits=signal.signal_ref.rsplit("/", 1)[-1], did=did.data_id),
+            _("Unit: {unit}   Formula: {formula}").format(unit=signal.unit or "-", formula=signal.formula),
+            _("DID {did} on {endpoint}: {state}").format(
+                did=did.data_id, endpoint=endpoint_name(endpoint), state=did_readable(did.state)[2:],
+            ),
+            _("Evidence: {evidence}").format(evidence=_status_tip(signal, did)),
         ]
         if signal.conflict:
-            lines.append(f"{signal.variants} catalog variants disagree; review the definition.")
+            lines.append(_("{count} catalog variants disagree; review the definition.").format(count=signal.variants))
         if signal.review and signal.review.get("notes"):
-            lines.append(f"Notes: {signal.review['notes']}")
+            lines.append(_("Notes: {notes}").format(notes=signal.review["notes"]))
         return lines
 
     def _selected_dids(self, selection: Selection):
@@ -886,10 +925,15 @@ class SignalsPage(QWidget):
             spin.load({row[name] for row in settings} or {DEFAULTS[name]})
         unconfirmed = next((endpoint for endpoint, _did in found if not endpoint.confirmed), None)
         enabled = bool(found) and unconfirmed is None
-        reason = "Select DIDs first." if not found else f"Confirm {endpoint_name(unconfirmed)} first." if unconfirmed else ""
+        if not found:
+            reason = _("Select DIDs first.")
+        elif unconfirmed:
+            reason = _("Confirm {endpoint} first.").format(endpoint=endpoint_name(unconfirmed))
+        else:
+            reason = ""
         for widget in (self.did_included, self.did_interval, self.did_maximum, self.did_priority):
             set_enabled(widget, enabled, reason)
-        title = "Collection" if len(found) <= 1 else f"Collection: {len(found)} DIDs"
+        title = _("Collection") if len(found) <= 1 else _("Collection: {dids}").format(dids=count(len(found), "DID"))
         self.collection_group.setTitle(title)
         self._update_apply()
 
@@ -904,26 +948,32 @@ class SignalsPage(QWidget):
         )
         enabled = self.did_interval.isEnabled()
         set_enabled(self.did_apply, enabled and touched,
-                    self.did_interval.toolTip() if not enabled else "Change a field first.")
+                    self.did_interval.toolTip() if not enabled else _("Change a field first."))
 
     def _load_targets(self, selection: Selection) -> None:
         found = [self._signals[ref][2] for ref in selection.signals]
         targeted = [signal for signal in found if signal.target]
         met = sum(1 for signal in targeted if signal.progress and signal.progress["complete"])
         if not found:
-            text = "Select signals, DIDs, or endpoints."
+            text = _("Select signals, DIDs, or endpoints.")
         elif len(found) == 1:
             signal = found[0]
-            text = f"Target: {target_summary(signal.target, signal.states) or 'none'}"
+            text = _("Target: {target}").format(target=target_summary(signal.target, signal.states) or _("none"))
             if signal.target and met:
-                text += "\nAlready met."
+                text += "\n" + _("Already met.")
         else:
             summaries = {target_summary(signal.target) for signal in targeted}
-            text = f"{len(found)} signals: {len(targeted)} with targets" + (f", {met} already met." if met else ".")
+            signals = count(len(found), "signal")
+            if met:
+                text = _("{signals}: {targeted} with targets, {met} already met.").format(
+                    signals=signals, targeted=len(targeted), met=met,
+                )
+            else:
+                text = _("{signals}: {targeted} with targets.").format(signals=signals, targeted=len(targeted))
             if len(summaries) == 1 and len(targeted) == len(found):
-                text += f"\nAll: {next(iter(summaries))}"
+                text += "\n" + _("All: {target}").format(target=next(iter(summaries)))
             elif targeted:
-                text += "\nTargets are mixed."
+                text += "\n" + _("Targets are mixed.")
         self.targets_text.setText(text)
 
     def _load_definition(self, endpoint, signal) -> None:
@@ -937,11 +987,11 @@ class SignalsPage(QWidget):
         self.def_states.setText(states_lines(signal.states))
         self.definition_group.layout().setRowVisible(self.def_states, bool(signal.states))
         state = review.get("evidence_state") or "Candidate"
-        if self.def_evidence.findText(state) < 0:
-            self.def_evidence.addItem(state)
-        self.def_evidence.setCurrentText(state)
+        if self.def_evidence.findData(state) < 0:
+            self.def_evidence.addItem(_(state), state)
+        self.def_evidence.setCurrentIndex(self.def_evidence.findData(state))
         self.def_notes.setText(review.get("notes") or "")
-        set_enabled(self.def_apply, endpoint.confirmed, "Confirm the endpoint first.")
+        set_enabled(self.def_apply, endpoint.confirmed, _("Confirm the endpoint first."))
 
     # Actions ----------------------------------------------------------------
 
@@ -953,21 +1003,21 @@ class SignalsPage(QWidget):
         responded = False
         if current and current[0] == "endpoint" and self.tree_data is not None:
             responded = self.tree_data.endpoint(current[1]).state == "responded"
-        blocked = "Open a project first." if not has_project else "Wait for verification to finish." if busy else ""
+        blocked = _("Open a project first.") if not has_project else _("Wait for verification to finish.") if busy else ""
         ready = has_project and not busy
         set_enabled(self.add_endpoint_button, ready, blocked)
         set_enabled(self.confirm_button, ready and responded,
-                    blocked or "Select an endpoint that responded during verification.")
+                    blocked or _("Select an endpoint that responded during verification."))
         set_enabled(self.verify_button, ready and bool(selection.dids),
-                    blocked or "Select DIDs, or endpoints with a known address, first.")
-        set_enabled(self.target_button, ready and bool(selection.signals), blocked or "Select signals first.")
-        set_enabled(self.clear_button, ready and bool(selection.signals), blocked or "Select signals first.")
-        set_enabled(self.save_button, self.dirty and not busy, blocked or "No unsaved changes.")
+                    blocked or _("Select DIDs, or endpoints with a known address, first."))
+        set_enabled(self.target_button, ready and bool(selection.signals), blocked or _("Select signals first."))
+        set_enabled(self.clear_button, ready and bool(selection.signals), blocked or _("Select signals first."))
+        set_enabled(self.save_button, self.dirty and not busy, blocked or _("No unsaved changes."))
         live_free = ready and not self.context.live_job_running
         self.verify_action.setEnabled(live_free and bool(selection.dids))
         self.watch_action.setEnabled(live_free and self._current_did() is not None)
         self.delete_action.setEnabled(ready and not self.dirty and bool(self._selected_signal_refs()))
-        set_enabled(self.discard_button, self.dirty and not busy, blocked or "No unsaved changes.")
+        set_enabled(self.discard_button, self.dirty and not busy, blocked or _("No unsaved changes."))
 
     def show_import(self) -> None:
         if self.context.service is None:
@@ -1005,23 +1055,27 @@ class SignalsPage(QWidget):
         if service is None or self.tree_data is None or did_key is None:
             return
         if self.watch_window is not None and self.watch_window.running:
-            self.context.error("Live view", "Stop the open live view first.")
+            self.context.error(_("Live view"), _("Stop the open live view first."))
             return
         try:
             scope = service.watch_scope(self.tree_data, did_key)
         except ValueError as exc:
-            self.context.error("Cannot show live values", exc)
+            self.context.error(_("Cannot show live values"), exc)
             return
         endpoint, _did = self._dids[did_key]
-        title = f"{endpoint_label(endpoint)} DID {scope.data_id}"
+        title = _("{endpoint} DID {did}").format(endpoint=endpoint_label(endpoint), did=scope.data_id)
         details = [f"{signal['name']}" for signal in scope.signals]
-        details.append(f"Every {scope.interval_ms} ms until you pause or stop. Nothing is recorded.")
+        details.append(
+            _("Every {interval} ms until you pause or stop. Nothing is recorded.").format(interval=scope.interval_ms)
+        )
         technical = [
-            f"{scope.endpoint_id}: request {scope.request_hex}",
-            "Session: " + ", ".join(step["request_hex"] for step in scope.session["session_setup"]),
-            f"Scope fingerprint: {scope.digest}",
+            _("{endpoint}: request {request}").format(endpoint=scope.endpoint_id, request=scope.request_hex),
+            _("Session: {steps}").format(
+                steps=", ".join(step["request_hex"] for step in scope.session["session_setup"]),
+            ),
+            _("Scope fingerprint: {digest}").format(digest=scope.digest),
         ]
-        dialog = LiveConfirmDialog("Live view", scope.summary() + "?", details, self, technical=technical)
+        dialog = LiveConfirmDialog(_("Live view"), scope.summary() + "?", details, self, technical=technical)
         if not self.confirm_live(dialog):
             return
         if self.watch_window is not None:
@@ -1053,25 +1107,25 @@ class SignalsPage(QWidget):
         if service is None or not refs:
             return
         if self.dirty:
-            self.context.error("Signals not deleted", "Save or discard your changes first.")
+            self.context.error(_("Signals not deleted"), _("Save or discard your changes first."))
             return
 
         def confirm(preview) -> None:
             if not preview.deleted:
-                self.context.error("Signals not deleted", "\n".join(describe_deletion(preview)))
+                self.context.error(_("Signals not deleted"), "\n".join(describe_deletion(preview)))
                 return
             if not self.confirm_delete("\n".join(describe_deletion(preview))):
                 return
 
             def done(_result) -> None:
-                self.context.message(f"Deleted {len(preview.deleted):,} signals.")
+                self.context.message(_("Deleted {signals}.").format(signals=count(len(preview.deleted), "signal")))
                 self.context.changed()
 
             self.context.run("signals.delete", lambda service: service.delete_signals(preview), done,
-                             title="Signals not deleted")
+                             title=_("Signals not deleted"))
 
         self.context.run("signals.delete.preview", lambda service: service.preview_delete_signals(refs), confirm,
-                         title="Signals not deleted")
+                         title=_("Signals not deleted"))
 
     def confirm_endpoint(self) -> None:
         current = self._current()
@@ -1085,9 +1139,9 @@ class SignalsPage(QWidget):
             ecu_keys, sources = dialog.values()
             self.context.service.confirm_endpoint(endpoint.endpoint_id, ecu_keys, sources)
         except (OSError, ValueError) as exc:
-            self.context.error("Endpoint not confirmed", exc)
+            self.context.error(_("Endpoint not confirmed"), exc)
             return
-        self.context.message(f"Confirmed {endpoint_label(endpoint)}.")
+        self.context.message(_("Confirmed {endpoint}.").format(endpoint=endpoint_label(endpoint)))
         self.context.changed()
 
     def verify_checked(self) -> None:
@@ -1100,23 +1154,31 @@ class SignalsPage(QWidget):
             # recipe is tried until one opens a session.
             scope = service.verification_scope(self.tree_data, selection)
         except ValueError as exc:
-            self.context.error("Cannot verify", exc)
+            self.context.error(_("Cannot verify"), exc)
             return
         details = []
         technical = []
         for row in scope.endpoints:
             endpoint = self.tree_data.endpoint(row.key)
             name = endpoint_label(endpoint) if endpoint else row.key
-            action = "probe, then read" if row.probe_endpoint else "read"
-            details.append(f"{name}: {action} {count(len(row.dids), 'DID')}")
+            dids = count(len(row.dids), "DID")
+            if row.probe_endpoint:
+                details.append(_("{endpoint}: probe, then read {dids}").format(endpoint=name, dids=dids))
+            else:
+                details.append(_("{endpoint}: read {dids}").format(endpoint=name, dids=dids))
             details.append("    " + ", ".join(did.rsplit("/", 1)[-1] for did in row.dids))
-            address = f" address {row.target_address}" if row.target_address else ""
-            technical.append(
-                f"{row.key}: {row.tester_can_id}/{row.response_can_id}{address}, {row.session_text}"
-            )
-        details.append(f"{scope.probe_count} probe(s), at most {scope.upper_bound_seconds:.0f} s.")
-        technical.append(f"Scope fingerprint: {scope.digest}")
-        dialog = LiveConfirmDialog("Verify", scope.summary() + "?", details, self, technical=technical)
+            if row.target_address:
+                technical.append(_("{key}: {tester}/{response} address {address}, {session}").format(
+                    key=row.key, tester=row.tester_can_id, response=row.response_can_id,
+                    address=row.target_address, session=row.session_text,
+                ))
+            else:
+                technical.append(f"{row.key}: {row.tester_can_id}/{row.response_can_id}, {row.session_text}")
+        details.append(_("{probes} probe(s), at most {seconds} s.").format(
+            probes=scope.probe_count, seconds=f"{scope.upper_bound_seconds:.0f}",
+        ))
+        technical.append(_("Scope fingerprint: {digest}").format(digest=scope.digest))
+        dialog = LiveConfirmDialog(_("Verify"), scope.summary() + "?", details, self, technical=technical)
         if not self.confirm_live(dialog):
             return
         self.job_log.clear()
@@ -1146,23 +1208,30 @@ class SignalsPage(QWidget):
         if event.get("done") is not None:
             self.job_progress.setValue(int(event["done"]))
         if event["event"] == "endpoint":
-            self.job_log.appendPlainText(
-                f"{progress} Endpoint {event['key']}: {'responded' if event['responded'] else 'no response'}"
-            )
+            if event["responded"]:
+                text = _("{progress} Endpoint {endpoint}: responded")
+            else:
+                text = _("{progress} Endpoint {endpoint}: no response")
+            self.job_log.appendPlainText(text.format(progress=progress, endpoint=event["key"]))
         else:
+            # The outcome and detail come from the verification service as they are.
             detail = f" {event['detail']}" if event.get("detail") else ""
             self.job_log.appendPlainText(f"{progress} {event['key']}: {event['outcome']}{detail}")
 
     def _job_finished(self, result) -> None:
         summary = result.as_dict()
-        outcomes = ", ".join(f"{count} {name}" for name, count in sorted(summary["outcomes"].items()))
-        self.job_log.appendPlainText(("Stopped early: " if result.stopped else "Finished: ") + (outcomes or "no DIDs read"))
+        outcomes = ", ".join(f"{number} {name}" for name, number in sorted(summary["outcomes"].items()))
+        outcomes = outcomes or _("no DIDs read")
+        if result.stopped:
+            self.job_log.appendPlainText(_("Stopped early: {outcomes}").format(outcomes=outcomes))
+        else:
+            self.job_log.appendPlainText(_("Finished: {outcomes}").format(outcomes=outcomes))
         self._job_done()
 
     def _job_failed(self, detail: str) -> None:
-        self.job_log.appendPlainText(f"Failed: {detail.splitlines()[0]}")
+        self.job_log.appendPlainText(_("Failed: {detail}").format(detail=detail.splitlines()[0]))
         self._job_done()
-        self.context.error("Verification failed", detail.splitlines()[0])
+        self.context.error(_("Verification failed"), detail.splitlines()[0])
 
     def _job_done(self) -> None:
         self.stop_button.setVisible(False)
@@ -1174,7 +1243,7 @@ class SignalsPage(QWidget):
     def stop_job(self) -> None:
         if self.job is not None:
             self.job.request_stop()
-            self.job_log.appendPlainText("Stopping after the current probe…")
+            self.job_log.appendPlainText(_("Stopping after the current probe…"))
 
     def edit_targets(self) -> None:
         service = self.context.service
@@ -1202,7 +1271,7 @@ class SignalsPage(QWidget):
                 self.tree_data, selection.signals, policy=self.draft_policy, **dialog.fields()
             )
         except ValueError as exc:
-            self.context.error("Targets not changed", exc)
+            self.context.error(_("Targets not changed"), exc)
             return
         self._set_draft(policy=result.policy)
 
@@ -1222,10 +1291,10 @@ class SignalsPage(QWidget):
             result = self.context.service.edit_signals(
                 self.tree_data, [current[1]], review=self.draft_review,
                 name=self.def_name.text(), formula=self.def_formula.text(), unit=self.def_unit.text(),
-                evidence_state=self.def_evidence.currentText(), notes=self.def_notes.text(),
+                evidence_state=self.def_evidence.currentData(), notes=self.def_notes.text(),
             )
         except ValueError as exc:
-            self.context.error("Definition not applied", exc)
+            self.context.error(_("Definition not applied"), exc)
             return
         self._set_draft(review=result.review)
 
@@ -1245,11 +1314,13 @@ class SignalsPage(QWidget):
                 policy=self.draft_policy, **fields,
             )
         except ValueError as exc:
-            self.context.error("Collection settings not applied", exc)
+            self.context.error(_("Collection settings not applied"), exc)
             return
         siblings = result.impact()["unselected_siblings"]
         if siblings:
-            self.context.message(f"Settings also apply to {len(siblings)} other signal(s) on the same DIDs.")
+            self.context.message(
+                _("Settings also apply to {count} other signal(s) on the same DIDs.").format(count=len(siblings))
+            )
         self._set_draft(policy=result.policy)
 
     def _set_draft(self, *, review=None, policy=None) -> None:
@@ -1267,16 +1338,16 @@ class SignalsPage(QWidget):
         if service is None or not self.dirty:
             return True
         if self._base_bytes is not None and service.authority_bytes() != self._base_bytes:
-            show_notice(self.external_notice, "Not saved: project files changed outside this window.")
-            self.external_notice.setToolTip("Discard, then edit again")
+            show_notice(self.external_notice, _("Not saved: project files changed outside this window."))
+            self.external_notice.setToolTip(_("Discard, then edit again"))
             return False
         try:
             service.save(review=self.draft_review, policy=self.draft_policy)
         except (OSError, ValueError) as exc:
-            self.context.error("Not saved", exc)
+            self.context.error(_("Not saved"), exc)
             return False
         self.reload()
-        self.context.message("Saved review and collection settings.")
+        self.context.message(_("Saved review and collection settings."))
         self.context.changed()
         return True
 
@@ -1289,7 +1360,7 @@ class SignalsPage(QWidget):
         if not self.dirty:
             return True
         answer = QMessageBox.question(
-            self, "Unsaved changes", "Save changes to signal review and collection settings?",
+            self, _("Unsaved changes"), _("Save changes to signal review and collection settings?"),
             QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
@@ -1311,27 +1382,37 @@ def _target_state(signal) -> set[str]:
 
 def _endpoint_tip(endpoint, sessions: dict[str, str]) -> str:
     if endpoint.tester_can_id is None:
-        return "Address unknown; add it under Add candidates"
+        return _("Address unknown; add it under Add candidates")
     recipe = endpoint.session_recipe_id
-    return f"Session: {sessions.get(recipe, recipe)}" if recipe else ""
+    return _("Session: {steps}").format(steps=sessions.get(recipe, recipe)) if recipe else ""
+
+
+def _shown(text: str) -> str:
+    """Translate a value for display; empty stays empty (gettext("") is the catalog header)."""
+
+    return _(text) if text else ""
 
 
 def _impact_text(impact: dict[str, Any], selected: int) -> str:
-    text = f"{selected} signal(s) on {len(impact['dids'])} DID(s) will change."
+    text = _("{selected} signal(s) on {dids} DID(s) will change.").format(
+        selected=selected, dids=len(impact["dids"]),
+    )
     created = len(impact["created_did_settings"])
     if created:
-        text += f" {created} DID(s) will start being read every 1 s (change this under Collection)."
+        text += " " + _("{created} DID(s) will start being read every 1 s (change this under Collection).").format(
+            created=created,
+        )
     return text
 
 
 def _status_tip(signal, did) -> str:
     if signal.status == "Reviewed":
-        return f"reviewed as {signal.review['evidence_state']}"
+        return _("reviewed as {state}").format(state=_shown(signal.review["evidence_state"]))
     if signal.status == "Recorded":
-        return f"{signal.observations} samples recorded across runs; meaning not reviewed yet"
+        return _("{count} samples recorded across runs; meaning not reviewed yet").format(count=signal.observations)
     if signal.status == "Refused":
-        return "none; its DID was refused"
-    return "nothing recorded yet"
+        return _("none; its DID was refused")
+    return _("nothing recorded yet")
 
 
 def unsaved_keys(saved_review, saved_policy, draft_review, draft_policy) -> set[str]:
@@ -1361,4 +1442,4 @@ def mark_unsaved(row: list, color) -> None:
         item.setFont(font)
         item.setForeground(color)
         tip = item.toolTip()
-        item.setToolTip((tip + "\n" if tip else "") + "Not saved yet")
+        item.setToolTip((tip + "\n" if tip else "") + _("Not saved yet"))

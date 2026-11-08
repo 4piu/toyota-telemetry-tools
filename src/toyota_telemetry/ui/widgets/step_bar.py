@@ -7,13 +7,16 @@ from dataclasses import dataclass
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
+from toyota_telemetry.i18n import N_, _
+
 
 DONE = "done"
 NEXT = "next"
 ATTENTION = "attention"
 PENDING = "pending"
 MARKS = {DONE: "✓", NEXT: "●", ATTENTION: "!", PENDING: "○"}
-STATE_WORDS = {DONE: "done", NEXT: "next step", ATTENTION: "needs attention", PENDING: "not started"}
+# Read out by screen readers; translated where they are used.
+STATE_WORDS = {DONE: N_("done"), NEXT: N_("next step"), ATTENTION: N_("needs attention"), PENDING: N_("not started")}
 
 
 @dataclass(frozen=True)
@@ -67,9 +70,13 @@ class StepButton(QPushButton):
         self.heading.setText(f"{self.number}  {self.title}  {MARKS[state]}")
         self.lines.setText("\n".join(part.text() for part in parts))
         self.setProperty("stepState", state)
-        summary = "; ".join(f"{part.label}{' ' + part.value if part.value else ''}: {STATE_WORDS[part.state]}"
-                            for part in parts)
-        self.setAccessibleDescription(f"{STATE_WORDS[state]}. {summary}")
+        summary = "; ".join(
+            _("{part}: {state}").format(
+                part=f"{part.label} {part.value}" if part.value else part.label, state=_(STATE_WORDS[part.state]),
+            )
+            for part in parts
+        )
+        self.setAccessibleDescription(_("{state}. {summary}").format(state=_(STATE_WORDS[state]), summary=summary))
         self.style().unpolish(self)
         self.style().polish(self)
 
@@ -87,7 +94,7 @@ class StepBar(QWidget):
 
     def __init__(self, titles: list[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setAccessibleName("Steps")
+        self.setAccessibleName(_("Steps"))
         self.setObjectName("step-bar")
         # As tall as the tallest step; every step fills that height.
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)

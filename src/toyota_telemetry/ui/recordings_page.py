@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from toyota_telemetry.i18n import N_, _
 from toyota_telemetry.operator.recordings import NEEDS_RECOVERY, UNREADABLE, RunSummary
 from toyota_telemetry.states import raw_number
 
@@ -45,8 +46,8 @@ from .widgets import LoadingOverlay, button_row, page_title, search_icon, set_en
 from .widgets.metric_plot import MetricPlot, RunSpan
 
 
-RUN_COLUMNS = ("Started", "Length", "ECU", "Samples", "Status", "Note")
-STATUS = {NEEDS_RECOVERY: "! Interrupted", UNREADABLE: "✕ Unreadable"}
+RUN_COLUMNS = (N_("Started"), N_("Length"), N_("ECU"), N_("Samples"), N_("Status"), N_("Note"))
+STATUS = {NEEDS_RECOVERY: N_("! Interrupted"), UNREADABLE: N_("✕ Unreadable")}
 KEY = Qt.ItemDataRole.UserRole
 SORT = Qt.ItemDataRole.UserRole + 1
 PREFIX = Qt.ItemDataRole.UserRole + 2
@@ -101,13 +102,13 @@ class RecordingsPage(QWidget):
         super().__init__()
         self.context = context
         self.choose_export_path = lambda: QFileDialog.getSaveFileName(
-            self, "Export samples", "samples.csv", "CSV files (*.csv)"
+            self, _("Export samples"), "samples.csv", _("CSV files (*.csv)")
         )[0]
         self.run_dialog = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
-            "Recordings",
-            "Select runs to see and plot their signals",
+            _("Recordings"),
+            _("Select runs to see and plot their signals"),
         ))
 
         splitter = QSplitter(Qt.Orientation.Vertical)
@@ -118,9 +119,9 @@ class RecordingsPage(QWidget):
         splitter.setSizes([380, 400])
         layout.addWidget(splitter, 1)
 
-        self.export_button = QPushButton("Export")
+        self.export_button = QPushButton(_("Export"))
         self.export_button.clicked.connect(self.export)
-        self.context.register("recordings.export", self.export_button, "Export recorded samples")
+        self.context.register("recordings.export", self.export_button, _("Export recorded samples"))
         layout.addLayout(button_row(self.export_button))
 
         self._runs: list[RunSummary] = []
@@ -143,25 +144,25 @@ class RecordingsPage(QWidget):
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
-        self.runs = self._table(RUN_COLUMNS, "Recorded runs")
+        self.runs = self._table([_(column) for column in RUN_COLUMNS], _("Recorded runs"))
         self.runs.setMinimumHeight(180)
         self.runs.itemSelectionChanged.connect(self._selection_changed)
         # Clicking below the last row, or Esc, goes back to all runs.
         self.runs.viewport().installEventFilter(self)
-        self.context.register("recordings.list", self.runs, "Select runs to narrow the signals")
+        self.context.register("recordings.list", self.runs, _("Select runs to narrow the signals"))
         self.runs_loading = LoadingOverlay(self.runs)
         layout.addWidget(self.runs, 1)
         self.run_detail = QLabel()
         self.run_detail.setWordWrap(True)
-        self.context.register("recordings.show", self.run_detail, "The selected runs")
-        self.all_button = QPushButton("Show all")
-        self.all_button.setToolTip("Clear the selection (Esc)")
+        self.context.register("recordings.show", self.run_detail, _("The selected runs"))
+        self.all_button = QPushButton(_("Show all"))
+        self.all_button.setToolTip(_("Clear the selection (Esc)"))
         self.all_button.clicked.connect(self.runs.clearSelection)
         QShortcut(QKeySequence(Qt.Key.Key_Escape), self.runs, self.runs.clearSelection)
-        self.recover_button = QPushButton("Recover")
-        self.trash_button = QPushButton("Delete")
-        self.context.register("recordings.recover", self.recover_button, "Keeps what was saved")
-        self.context.register("recordings.trash", self.trash_button, "Moves its files to the system trash")
+        self.recover_button = QPushButton(_("Recover"))
+        self.trash_button = QPushButton(_("Delete"))
+        self.context.register("recordings.recover", self.recover_button, _("Keeps what was saved"))
+        self.context.register("recordings.trash", self.trash_button, _("Moves its files to the system trash"))
         self.recover_button.clicked.connect(self.recover)
         self.trash_button.clicked.connect(self.trash)
         actions = button_row(self.all_button, self.recover_button, self.trash_button)
@@ -184,13 +185,13 @@ class RecordingsPage(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         left = QVBoxLayout()
         self.signal_search = QLineEdit()
-        self.signal_search.setPlaceholderText("Search signals")
+        self.signal_search.setPlaceholderText(_("Search signals"))
         self.signal_search.setClearButtonEnabled(True)
         self.signal_search.addAction(search_icon(), QLineEdit.ActionPosition.LeadingPosition)
         self.signal_search.textChanged.connect(self._filter_signals)
         self.signals = QListWidget()
-        self.signals.setAccessibleName("Recorded signals")
-        self.signals.setToolTip("Select one to plot it")
+        self.signals.setAccessibleName(_("Recorded signals"))
+        self.signals.setToolTip(_("Select one to plot it"))
         self.signals.setItemDelegate(PrefixDelegate(self.signals))
         # Per-item scrolling counts rows hidden by the search, so a click
         # in filtered results jumped to the end of the list.
@@ -207,7 +208,7 @@ class RecordingsPage(QWidget):
         self.pinned = QLabel()
         self.plot.cursor_changed.connect(self.cursor.setText)
         self.plot.pinned_changed.connect(self.pinned.setText)
-        self.plot_summary = QLabel("Select a signal to plot it.")
+        self.plot_summary = QLabel(_("Select a signal to plot it."))
         self.plot_summary.setWordWrap(True)
         right.addWidget(self.plot, 1)
         readings = QHBoxLayout()
@@ -267,11 +268,14 @@ class RecordingsPage(QWidget):
             return {
                 "runs": service.runs(),
                 "summary": service.observation_summary(),
-                "names": {signal.signal_ref: (signal.name, signal.unit) for _, _, signal in tree.signals()},
-                "states": {signal.signal_ref: signal.states for _, _, signal in tree.signals() if signal.states},
+                # Loop names other than "_", which is the translation function here.
+                "names": {signal.signal_ref: (signal.name, signal.unit) for _ecu, _did, signal in tree.signals()},
+                "states": {
+                    signal.signal_ref: signal.states for _ecu, _did, signal in tree.signals() if signal.states
+                },
                 "places": {
-                    signal.signal_ref: (signal.ecu_name or f"ECU {signal.ecu_key}", did.data_id)
-                    for _, did, signal in tree.signals()
+                    signal.signal_ref: (signal.ecu_name or _("ECU {key}").format(key=signal.ecu_key), did.data_id)
+                    for _ecu, did, signal in tree.signals()
                 },
                 "labels": {
                     endpoint.endpoint_id: endpoint_label(endpoint).split("  ")[0]
@@ -282,10 +286,12 @@ class RecordingsPage(QWidget):
         def failed(detail: str) -> None:
             self.runs_loading.stop()
             self.signals_loading.stop()
-            self.run_detail.setText(f"Cannot read recordings: {detail.split(chr(10) * 2, 1)[0]}")
+            self.run_detail.setText(
+                _("Cannot read recordings: {detail}").format(detail=detail.split(chr(10) * 2, 1)[0])
+            )
 
-        self.runs_loading.start("Loading runs…")
-        self.signals_loading.start("Loading signals…")
+        self.runs_loading.start(_("Loading runs…"))
+        self.signals_loading.start(_("Loading signals…"))
         self.context.run("recordings.list", work, self._show_listing, failed)
 
     def _show_listing(self, listing: dict | None) -> None:
@@ -318,7 +324,7 @@ class RecordingsPage(QWidget):
             if [run.run_id for run in self.selected_runs()] == run_ids:
                 self._show_signals(summary, keep)
 
-        self.signals_loading.start("Loading signals…")
+        self.signals_loading.start(_("Loading signals…"))
         self.context.run(
             "recordings.signals", lambda service: service.observation_summary(run_ids), done,
         )
@@ -355,9 +361,9 @@ class RecordingsPage(QWidget):
             values = [
                 (_local(run), start or 0.0),
                 (_length(run.duration_seconds), run.duration_seconds or 0.0),
-                (self._labels.get(run.endpoint_id, "Unknown ECU") if run.endpoint_id else "-", None),
+                (self._labels.get(run.endpoint_id, _("Unknown ECU")) if run.endpoint_id else "-", None),
                 (f"{run.observations:,}", run.observations),
-                (STATUS.get(run.state, ""), int(run.state in STATUS)),
+                (_(STATUS[run.state]) if run.state in STATUS else "", int(run.state in STATUS)),
                 (run.note or "", None),
             ]
             for column, (text, sort) in enumerate(values):
@@ -369,7 +375,7 @@ class RecordingsPage(QWidget):
                 table.setItem(row, column, item)
             if run.state in STATUS:
                 table.item(row, 4).setToolTip(
-                    "Stopped without finishing" if run.state == NEEDS_RECOVERY else "Cannot be read"
+                    _("Stopped without finishing") if run.state == NEEDS_RECOVERY else _("Cannot be read")
                 )
         table.setSortingEnabled(True)
         table.sortItems(0, Qt.SortOrder.DescendingOrder)
@@ -401,30 +407,36 @@ class RecordingsPage(QWidget):
     def _show_selection(self) -> None:
         runs = self.selected_runs()
         if not self._runs:
-            self.run_detail.setText("No recordings." if self.context.service else "")
+            self.run_detail.setText(_("No recordings.") if self.context.service else "")
         elif not runs:
             total = sum(run.observations for run in self._runs)
-            self.run_detail.setText(f"All {count(len(self._runs), 'run')}, {total:,} samples.")
+            self.run_detail.setText(
+                _("All {runs}, {samples} samples.").format(runs=count(len(self._runs), "run"), samples=f"{total:,}")
+            )
         else:
             seconds = sum(run.duration_seconds or 0 for run in runs)
             samples = sum(run.observations for run in runs)
             failed = sum(run.failed for run in runs)
-            text = f"{count(len(runs), 'run')} selected: {_length(seconds)}, {samples:,} samples"
+            values = {"runs": count(len(runs), "run"), "length": _length(seconds), "samples": f"{samples:,}"}
             if failed:
-                text += f", {failed:,} failed reads"
-            self.run_detail.setText(text + ".")
+                text = _("{runs} selected: {length}, {samples} samples, {failed} failed reads.").format(
+                    failed=f"{failed:,}", **values,
+                )
+            else:
+                text = _("{runs} selected: {length}, {samples} samples.").format(**values)
+            self.run_detail.setText(text)
         self._update_buttons()
 
     def _update_buttons(self) -> None:
         has = self.context.service is not None
         live = self.context.live_job_running
-        blocked = "Open a project first." if not has else "Wait for the live job to finish." if live else ""
+        blocked = _("Open a project first.") if not has else _("Wait for the live job to finish.") if live else ""
         runs = self.selected_runs()
         set_enabled(self.recover_button, has and not live and any(run.state == NEEDS_RECOVERY for run in runs),
-                    blocked or "Select an interrupted run.")
-        set_enabled(self.trash_button, has and not live and bool(runs), blocked or "Select runs first.")
+                    blocked or _("Select an interrupted run."))
+        set_enabled(self.trash_button, has and not live and bool(runs), blocked or _("Select runs first."))
         self.all_button.setVisible(bool(runs))
-        set_enabled(self.export_button, has and self.signals.count() > 0, blocked or "Nothing recorded yet.")
+        set_enabled(self.export_button, has and self.signals.count() > 0, blocked or _("Nothing recorded yet."))
 
     def _filter_signals(self, text: str) -> None:
         needle = text.lower()
@@ -453,7 +465,7 @@ class RecordingsPage(QWidget):
             self._shown = signal_ref
             self._redraw(reset_view=True)
             return
-        self.plot_loading.start(f"Loading {item.text().rsplit('  (', 1)[0]}…")
+        self.plot_loading.start(_("Loading {signal}…").format(signal=item.text().rsplit("  (", 1)[0]))
 
         def done(rows: list[dict]) -> None:
             self.plot_loading.stop()
@@ -465,7 +477,7 @@ class RecordingsPage(QWidget):
 
         def failed(detail: str) -> None:
             self.plot_loading.stop()
-            self.context.error("Cannot plot", detail.split("\n\n", 1)[0])
+            self.context.error(_("Cannot plot"), detail.split("\n\n", 1)[0])
 
         self.context.run("recordings.series", lambda service: service.series(signal_ref), done, failed)
 
@@ -482,28 +494,44 @@ class RecordingsPage(QWidget):
         self.plot.set_measurement(name, unit)
         finite = data["finite"]
         where = count(data["runs"], "run")
+        samples = f"{data['samples']:,}"
         if not data["samples"]:
-            self.plot_summary.setText("No samples of this signal in the selected runs.")
+            self.plot_summary.setText(_("No samples of this signal in the selected runs."))
         elif self.plot.state_mode:
-            self.plot_summary.setText(f"{data['samples']:,} samples in {where}. " + state_summary(data["raw"], states))
+            self.plot_summary.setText(_("{samples} samples in {runs}. {states}").format(
+                samples=samples, runs=where, states=state_summary(data["raw"], states),
+            ))
         elif finite:
             minimum, maximum, last = finite
+            values = (
+                _("Constant {last}.").format(last=f"{last:g}") if minimum == maximum
+                else _("Min {minimum}, max {maximum}, last {last}.").format(
+                    minimum=f"{minimum:g}", maximum=f"{maximum:g}", last=f"{last:g}",
+                )
+            )
             self.plot_summary.setText(
-                f"{data['samples']:,} samples in {where}. "
-                + (f"Constant {last:g}." if minimum == maximum else f"Min {minimum:g}, max {maximum:g}, last {last:g}.")
+                _("{samples} samples in {runs}. {values}").format(samples=samples, runs=where, values=values)
             )
         else:
-            self.plot_summary.setText(f"{data['samples']:,} samples in {where}; no decoded values.")
+            self.plot_summary.setText(
+                _("{samples} samples in {runs}; no decoded values.").format(samples=samples, runs=where)
+            )
 
     # Actions ----------------------------------------------------------------
 
     def recover(self) -> None:
         run_ids = [run.run_id for run in self.selected_runs() if run.state == NEEDS_RECOVERY]
-        self._each(run_ids, "recover", "Not recovered", lambda n: f"Recovered {count(n, 'run')}.")
+        self._each(
+            run_ids, "recover", _("Not recovered"),
+            lambda n: _("Recovered {runs}.").format(runs=count(n, "run")),
+        )
 
     def trash(self) -> None:
         run_ids = [run.run_id for run in self.selected_runs()]
-        self._each(run_ids, "trash", "Not deleted", lambda n: f"Moved {count(n, 'run')} to the system trash.")
+        self._each(
+            run_ids, "trash", _("Not deleted"),
+            lambda n: _("Moved {runs} to the system trash.").format(runs=count(n, "run")),
+        )
 
     def _each(self, run_ids: list[str], method: str, title: str, message) -> None:
         if self.context.service is None or not run_ids:
@@ -530,7 +558,7 @@ class RecordingsPage(QWidget):
 
         for button in (self.recover_button, self.trash_button):
             button.setEnabled(False)
-        self.runs_loading.start("Recovering…" if method == "recover" else "Deleting…")
+        self.runs_loading.start(_("Recovering…") if method == "recover" else _("Deleting…"))
         self.context.run(f"recordings.{method}", work, done, failed)
 
     def export(self) -> None:
@@ -560,11 +588,13 @@ class RecordingsPage(QWidget):
 
         def done(number: int) -> None:
             self.export_button.setEnabled(True)
-            self.context.message(f"Exported {number:,} samples to {Path(path).name}.")
+            self.context.message(
+                _("Exported {samples} samples to {name}.").format(samples=f"{number:,}", name=Path(path).name)
+            )
 
         def failed(detail: str) -> None:
             self.export_button.setEnabled(True)
-            self.context.error("Export failed", detail.split("\n\n", 1)[0])
+            self.context.error(_("Export failed"), detail.split("\n\n", 1)[0])
 
         self.export_button.setEnabled(False)
         self.context.run("recordings.export", work, done, failed)
@@ -583,7 +613,7 @@ def signal_entries(
         return names.get(ref, (ref, ""))[0]
 
     def place(ref: str) -> tuple[str, str]:
-        return places.get(ref, ("Unknown ECU", ref))
+        return places.get(ref, (_("Unknown ECU"), ref))
 
     by_name = Counter(name(ref).lower() for ref in summary)
     by_ecu = Counter((name(ref).lower(), place(ref)[0]) for ref in summary)
@@ -593,7 +623,10 @@ def signal_entries(
         prefix = ""
         if by_name[name(ref).lower()] > 1:
             prefix = f"{ecu} {did}" if by_ecu[(name(ref).lower(), ecu)] > 1 else ecu
-        entries.append((ref, prefix, f"{name(ref)}  ({summary[ref]['observations']:,})", f"{ecu}\nDID {did}"))
+        entries.append((
+            ref, prefix, f"{name(ref)}  ({summary[ref]['observations']:,})",
+            _("{ecu}\nDID {did}").format(ecu=ecu, did=did),
+        ))
     return entries
 
 
@@ -607,8 +640,10 @@ def state_summary(raws: list[int | None], states: dict[str, str]) -> str:
     names = ", ".join(states.get(str(raw), str(raw)) for raw in reached)
     last = states.get(str(seen[-1]), str(seen[-1]))
     if len(reached) == 1:
-        return f"Always {last} ({len(states) - 1} other state(s) not seen)."
-    return f"Seen {names} ({len(reached)} of {len(states)} states). Last {last}."
+        return _("Always {last} ({others} other state(s) not seen).").format(last=last, others=len(states) - 1)
+    return _("Seen {names} ({reached} of {total} states). Last {last}.").format(
+        names=names, reached=len(reached), total=len(states), last=last,
+    )
 
 
 def series_data(rows: list[dict], runs: list[RunSummary]) -> dict:
@@ -666,12 +701,12 @@ def _utc(value) -> float | None:
 
 
 def _span_label(run: RunSummary) -> str:
-    return f"the run of {_local(run)}" if run.created_utc else "a run without a start time"
+    return _("the run of {time}").format(time=_local(run)) if run.created_utc else _("a run without a start time")
 
 
 def _local(run: RunSummary) -> str:
     start = _utc(run.created_utc)
-    return datetime.fromtimestamp(start).strftime("%Y-%m-%d %H:%M:%S") if start is not None else "Unknown time"
+    return datetime.fromtimestamp(start).strftime("%Y-%m-%d %H:%M:%S") if start is not None else _("Unknown time")
 
 
 def _length(seconds: float | None) -> str:

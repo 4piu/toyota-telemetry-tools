@@ -9,6 +9,8 @@ from PySide6.QtCore import QEvent, QObject, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QPainter, QPalette, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from toyota_telemetry.i18n import _
+
 
 SHOW_DELAY_MS = 150
 
@@ -53,12 +55,12 @@ class Spinner(QWidget):
 class BusyIndicator(QWidget):
     """Spinner and text for a status bar; shown while ``set_busy(True)``."""
 
-    def __init__(self, text: str = "Loading…", parent: QWidget | None = None) -> None:
+    def __init__(self, text: str | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 6, 0)
         self.spinner = Spinner(14)
-        self.label = QLabel(text)
+        self.label = QLabel(_("Loading…") if text is None else text)
         row.addWidget(self.spinner)
         row.addWidget(self.label)
         self._delay = QTimer(self)
@@ -86,7 +88,7 @@ class LoadingOverlay(QWidget):
         column = QVBoxLayout(self)
         column.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.spinner = Spinner(28)
-        self.label = QLabel("Loading…")
+        self.label = QLabel(_("Loading…"))
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         column.addWidget(self.spinner, 0, Qt.AlignmentFlag.AlignHCenter)
         column.addWidget(self.label, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -98,8 +100,8 @@ class LoadingOverlay(QWidget):
         target.installEventFilter(self)
         self.hide()
 
-    def start(self, text: str = "Loading…") -> None:
-        self.label.setText(text)
+    def start(self, text: str | None = None) -> None:
+        self.label.setText(_("Loading…") if text is None else text)
         self.active = True
         if not self.isVisible():
             self._delay.start()
