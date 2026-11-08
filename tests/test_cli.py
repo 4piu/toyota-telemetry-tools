@@ -47,7 +47,7 @@ class CliTests(unittest.TestCase):
 
     def test_status_and_signals_report_json(self) -> None:
         status = self.json_cli("status")
-        self.assertEqual(status["next_action"]["page"], "setup")
+        self.assertEqual(status["next_action"]["page"], "signals")
         self.assertEqual(self.run_cli("source", "import", "file", str(self.rows), "--apply")[0], 0)
         listing = self.json_cli("signals", "--ecu", "405")
         self.assertEqual([row["key"] for row in listing["endpoints"]], [UNCONFIRMED_KEY])

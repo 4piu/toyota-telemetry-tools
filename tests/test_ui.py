@@ -67,12 +67,12 @@ def open_window(qtbot, root: Path | None = None) -> OperatorWindow:
 
 
 def import_rows(qtbot, window: OperatorWindow, rows: Path) -> None:
-    setup = window.setup_page
-    setup.file_path.setText(str(rows))
-    setup.preview_button.click()
+    dialog = window.signals_page.import_dialog
+    dialog.file_path.setText(str(rows))
+    dialog.preview_button.click()
     settle(qtbot, window)
-    assert setup.apply_button.isEnabled(), setup.preview_result.text()
-    setup.apply_button.click()
+    assert dialog.apply_button.isEnabled(), dialog.result.text()
+    dialog.apply_button.click()
     settle(qtbot, window)
 
 
@@ -128,31 +128,36 @@ def test_gui_shows_no_command_line_text_and_short_buttons(qtbot, project, probes
     assert page.verify_button.sizeHint().height() == page.add_endpoint_button.sizeHint().height()
 
 
-def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, project) -> None:
+def test_import_dialog_and_project_menu_save_the_candidate_list(qtbot, project) -> None:
     root, rows = project
     window = open_window(qtbot, root)
     assert window.project_path == root.resolve()
     assert window.next_action == "Import a candidate signal list"
     import_rows(qtbot, window, rows)
-    assert window.setup_page.preview_result.text() == "Applied candidates.json."
+    dialog = window.signals_page.import_dialog
+    assert dialog.result.text() == "Applied candidates.json."
     assert json.loads((root / "config/catalog-manifest.json").read_text())["catalog_row_count"] == 4
-    setup = window.setup_page
     saved = root.parent / "saved-rows.json"
-    setup.choose_rows_path = lambda: str(saved)
-    setup.export_rows_button.click()
-    assert setup.preview_result.text() == "Saved 4 rows to saved-rows.json."
+    window.choose_rows_path = lambda: str(saved)
+    window.save_candidates_action.trigger()
+    settle(qtbot, window)
     assert json.loads(saved.read_text(encoding="utf-8"))["document_type"] == "telemetry.candidate-rows"
     # Importing the saved copy again changes nothing, and says so.
-    setup.file_path.setText(str(saved))
-    setup.preview_button.click()
+    dialog.file_path.setText(str(saved))
+    dialog.preview_button.click()
     settle(qtbot, window)
-    assert "To add 0 signals; to update 0; unchanged 4." in setup.preview_result.text()
-    assert setup.imported_sources.count() == 1
-    asked = []
-    setup.confirm_removal = lambda text: asked.append(text) or False
-    setup.remove_source_button.click()
-    assert asked and "1 signals stay because they are reviewed" in asked[0]
-    assert json.loads((root / "config/catalog-manifest.json").read_text())["catalog_row_count"] == 4
+    assert "To add 0 signals; to update 0; unchanged 4." in dialog.result.text()
+    reports = []
+    window.show_report = lambda title, text: reports.append(text)
+    window.check_action.trigger()
+    settle(qtbot, window)
+    assert reports and "workspace files are valid" in reports[0]
+
+
+def test_setup_saves_the_connector_without_opening_it(qtbot, project) -> None:
+    root, _rows = project
+    window = open_window(qtbot, root)
+    setup = window.setup_page
     setup.connector_kind.setCurrentIndex(setup.connector_kind.findData("slcan"))
     setup.connector_fields["slcan"]["port"].setText("COM7")
     setup.executable.setText("")
@@ -162,6 +167,47 @@ def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, pro
         "kind": "slcan", "executable": None, "settings": {"port": "COM7"},
     }
     assert window.adapter_status.text() == "Adapter closed"
+    window.close_project()
+    window.open_project(root)
+    settle(qtbot, window)
+    assert setup.connector_fields["slcan"]["port"].text() == "COM7"
+
+
+def test_start_screen_shows_until_a_project_is_open(qtbot, project) -> None:
+    root, _rows = project
+    window = open_window(qtbot)
+    assert window.root_stack.currentWidget() is window.start_page
+    assert not window.close_project_action.isEnabled()
+    window.open_project(root)
+    settle(qtbot, window)
+    assert window.root_stack.currentIndex() == 1
+    assert window.recent_projects() == [root.resolve()]
+    assert window.close_project()
+    assert window.root_stack.currentWidget() is window.start_page
+    assert window.start_page.recent.count() == 1
+    window.start_page.recent.itemActivated.emit(window.start_page.recent.item(0))
+    settle(qtbot, window)
+    assert window.project_path == root.resolve()
+
+
+def test_context_menu_deletes_candidate_signals_but_keeps_used_ones(qtbot, project) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    page = window.signals_page
+    page.select("did", next(key for key in page._dids if key.endswith("/0x1003")))
+    page.select("signal", "372/0x1002/0..15", add=True)
+    menus = []
+    page.run_menu = lambda menu, _position: menus.append([action.text() for action in menu.actions()])
+    page.show_context_menu(page.view.visualRect(page.view.currentIndex()).center())
+    assert menus == [["Verify", "", "Delete"]]
+    asked = []
+    page.confirm_delete = lambda text: asked.append(text) or True
+    page.delete_action.trigger()
+    settle(qtbot, window)
+    assert "Delete 2 signals" in asked[0] and "Kept: 1 reviewed" in asked[0]
+    refs = {entry["row"]["signal_ref"] for entry in window.context.service.inventory()["rows"]}
+    assert refs == {"372/0x1002/0..15", "405/0x2001/0..7"}
 
 
 def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, probes) -> None:
@@ -749,7 +795,8 @@ def test_step_bar_shows_progress_and_unsaved_changes(qtbot, project) -> None:
     settle(qtbot, window)
     steps = window.navigation.steps
     assert steps[0].state == DONE
-    assert [part.label for part in steps[0].parts] == ["Connector", "Candidates"]
+    assert [part.label for part in steps[0].parts] == ["Connector"]
+    assert [part.label for part in steps[1].parts][:2] == ["Candidates", "Readable"]
     assert steps[1].state in ("next", "pending")
     steps[3].click()
     assert window.pages.currentWidget() is window.recordings_page

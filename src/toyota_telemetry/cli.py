@@ -25,7 +25,7 @@ from .operator.editing import (
     parse_duration,
 )
 from .operator.collection import SLICES, STRATEGIES, Rotation
-from .operator.inventory import describe_import, describe_removal
+from .operator.inventory import describe_deletion, describe_import
 from .operator.live import ConfirmationRefused, LiveBusy, record_preview, require_previewed
 from .operator.service import OperatorService, toolkit_commit
 from .operator.sources import NormalizedFileSource, TisDatabaseSource, default_tis_database
@@ -146,12 +146,6 @@ def build_parser() -> argparse.ArgumentParser:
     source_export.add_argument("path", type=Path, help="JSON file to write")
     source_export.add_argument("--source", help="only this source id (default: every imported source)")
     source_export.add_argument("--force", action="store_true", help="overwrite an existing file")
-    source_remove = command(
-        "remove", "source.remove", _source_remove,
-        "remove an imported source; signals in use stay", parent=source_commands,
-    )
-    source_remove.add_argument("source_id", help="source id, such as tis or file-catalog-rows (the import names it)")
-    source_remove.add_argument("--apply", action="store_true", help="remove after previewing")
 
     cache = commands.add_parser("cache", help="derived cache maintenance")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
@@ -193,6 +187,9 @@ def build_parser() -> argparse.ArgumentParser:
     signal_set.add_argument("--evidence", dest="evidence_state", help="evidence state, e.g. 'Observed and replayed'")
     signal_set.add_argument("--note", help="review note")
     signal_set.add_argument("--variant", help="catalog variant id to use ('' clears)")
+    command("delete", "signal.delete", _signal_delete,
+            "delete candidate signals; reviewed, targeted, or recorded ones are kept", [selector, dry],
+            parent=signal_commands)
 
     did = commands.add_parser("did", help="shared endpoint+DID acquisition settings")
     did_commands = did.add_subparsers(dest="did_command", required=True)
@@ -363,18 +360,6 @@ def _connector_check(service: OperatorService, args: argparse.Namespace) -> int:
         if check.ok:
             print("Connector settings are valid. The adapter was not opened.")
     return EXIT_OK if check.ok else EXIT_FAILED
-
-
-def _source_remove(service: OperatorService, args: argparse.Namespace) -> int:
-    preview = service.preview_remove_source(args.source_id)
-    if args.apply:
-        service.remove_source(preview)
-    if args.as_json:
-        return _emit({**preview.as_dict(), "applied": args.apply})
-    for line in describe_removal(preview):
-        print(line)
-    print("Applied: candidate list and cache updated." if args.apply else "Preview only. Re-run with --apply to use it.")
-    return EXIT_OK
 
 
 def _source_export(service: OperatorService, args: argparse.Namespace) -> int:
@@ -625,6 +610,21 @@ def _signal_set(service: OperatorService, args: argparse.Namespace) -> int:
     if not fields:
         raise ValueError("nothing to change: give --name, --formula, --unit, --evidence, --note, or --variant")
     return _edit_and_save(service, args, service.edit_signals(tree, selection.signals, **fields))
+
+
+def _signal_delete(service: OperatorService, args: argparse.Namespace) -> int:
+    tree = service.tree()
+    selection = service.select(tree, args.selectors, ecus=args.ecu, states=args.states, search=args.search)
+    preview = service.preview_delete_signals(selection.signals)
+    if not args.dry_run and preview.deleted:
+        service.delete_signals(preview)
+    if args.as_json:
+        return _emit({**preview.as_dict(), "applied": not args.dry_run and bool(preview.deleted)})
+    for line in describe_deletion(preview):
+        print(line)
+    if args.dry_run:
+        print("Dry run; nothing changed.")
+    return EXIT_OK
 
 
 def _did_set(service: OperatorService, args: argparse.Namespace) -> int:

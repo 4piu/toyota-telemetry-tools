@@ -94,7 +94,7 @@ recipe to `config/transport.json` by hand (only diagnostic session control and
 tester present are accepted), then add or import endpoints. Back up the
 workspace yourself; it is the only copy of your review and recordings.
 
-## 1. Set up (Setup page)
+## 1. Set up (Setup page, then Import candidates on the Signals page)
 
 ```powershell
 telemetry connector set pcan --channel PCAN_USBBUS1
@@ -102,36 +102,43 @@ telemetry connector check
 telemetry source import file C:\private\catalog-rows.json            # preview
 telemetry source import file C:\private\catalog-rows.json --apply
 telemetry source import tis --apply
-telemetry source remove file-catalog-rows      # preview; --apply removes
-telemetry source export C:\private\candidate-rows.json   # Save rows
+telemetry source export C:\private\candidate-rows.json   # Project > Save candidate list
 ```
 
-`connector check` validates settings and runs the worker self-test without
-opening the device. `source import` previews first: which signals it
-will add, which it will update (and which fields change), how many are
-unchanged, and rejected rows; `--apply` writes exactly that, updates the
-catalog manifest, and rebuilds the cache. A signal is its ECU key, DID, and
-bits, and its formula makes a version: a corrected name, unit, or state
-text updates the version in place, while a different formula from the
-same source replaces it. Importing never removes a signal;
-`source remove ID` (Remove on the Setup page) removes a source, keeping
-signals that are reviewed, targeted, or recorded. The TIS source needs Windows and installed Techstream
-databases; it finds them in the standard install folder (NA, then EU, OT,
-JP) unless `--database FOLDER` names one, and the desktop Setup page fills
-the same folder in. It reads every installed ECU database, current
-(phase 5) and older (phase 4) alike, including models built by partner
-makers (see [protocols](protocols.md#techstreams-databases)),
-and leaves out ECUs not on CAN; `--ecu KEY` limits it to chosen ECUs.
-Candidate rows
-never become reviewed authority by being imported.
+The Setup page holds only the CAN adapter. `connector check` validates
+settings and runs the worker self-test without opening the device.
 
-`source export` (Save rows on the Setup page) writes the candidate list as a
-grouped JSON file (`telemetry.candidate-rows`: each ECU's IDs once, then its
-DIDs, then one signal per line) that `source import file` reads back
-unchanged, for example to
-start another workspace on a computer without Techstream; `--source ID`
-saves one source only. Rows from Techstream carry its names and formulas:
-keep the file private, like the workspace.
+Candidates are imported from the Signals page (Import candidates).
+`source import` previews first: which signals it will add, which it will
+update (and which fields change), how many are unchanged, and rejected rows;
+`--apply` writes exactly that, updates the catalog manifest, and rebuilds the
+cache. A signal is its ECU key, DID, and bits, and its formula makes a
+version: a corrected name, unit, or state text updates the version in place,
+while a different formula from the same source replaces it. Importing never
+removes a signal; delete unwanted candidates with `signal delete SELECTOR`
+(Delete in the Signals table's right-click menu), which keeps signals that
+are reviewed, targeted, or recorded. Importing their source again adds
+deleted signals back.
+
+The TIS source needs Windows and installed Techstream databases; it finds
+them in the standard install folder (NA, then EU, OT, JP) unless
+`--database FOLDER` names one, and the import dialog fills the same folder
+in. It reads every installed ECU database, current (phase 5) and older
+(phase 4) alike, including models built by partner makers (see
+[protocols](protocols.md#techstreams-databases)), and leaves out ECUs not on
+CAN; `--ecu KEY` limits it to chosen ECUs. Candidate rows never become
+reviewed authority by being imported.
+
+`source export` (Project > Save candidate list) writes the candidate list as
+a grouped JSON file (`telemetry.candidate-rows`: each ECU's IDs once, then
+its DIDs, then one signal per line) that `source import file` reads back
+unchanged, for example to start another workspace on a computer without
+Techstream; `--source ID` saves one source only. Rows from Techstream carry
+its names and formulas: keep the file private, like the workspace.
+
+Project > Check project and Rebuild cache match `telemetry check` and
+`telemetry cache rebuild`. With no project open, the application shows a
+start screen with recent projects; it reopens the last project on start.
 
 ## 2. Verify (Signals page, LIVE)
 

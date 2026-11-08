@@ -189,22 +189,24 @@ class SourceImportTests(ServiceTestCase):
         with self.assertRaisesRegex(ValueError, "changed since the preview"):
             self.service.apply_source(preview)
 
-    def test_removing_a_source_keeps_signals_in_use(self) -> None:
+    def test_deleting_signals_keeps_reviewed_targeted_and_recorded_ones(self) -> None:
         self.import_rows()
-        rows = json.loads(self.rows.read_text())
-        self._reimport([rows[1]], "other.json")
-        preview = self.service.preview_remove_source("file-candidates")
-        # Gear state is also in other.json; battery voltage is reviewed and targeted;
-        # coolant temperature and the brake switch go.
-        self.assertEqual(preview.counts, {"removed_signals": 2, "removed_versions": 2, "kept_in_use": 1})
-        self.service.remove_source(preview)
-        inventory = self.service.inventory()
-        self.assertEqual(sorted(entry["row"]["signal_ref"] for entry in inventory["rows"]),
-                         ["372/0x1002/0..15", "372/0x1003/0..7"])
-        self.assertEqual([source["source_id"] for source in inventory["sources"]], ["file-candidates", "file-other"])
+        preview = self.service.preview_delete_signals(
+            ["372/0x1002/0..15", "372/0x1003/8..15", "405/0x2001/0..7", "372/0x9999/0..7"],
+        )
+        self.assertEqual(preview.deleted, ("372/0x1003/8..15", "405/0x2001/0..7"))
+        self.assertEqual(preview.refused, {
+            "372/0x1002/0..15": "reviewed", "372/0x9999/0..7": "not in the candidate list",
+        })
+        self.service.delete_signals(preview)
+        refs = sorted(entry["row"]["signal_ref"] for entry in self.service.inventory()["rows"])
+        self.assertEqual(refs, ["372/0x1002/0..15", "372/0x1003/0..7"])
         self.assertTrue(self.service.check().ok)
-        with self.assertRaisesRegex(ValueError, "imported: file-candidates, file-other"):
-            self.service.preview_remove_source("tis")
+        with self.assertRaisesRegex(ValueError, "changed since the preview"):
+            self.service.delete_signals(preview)
+        # Importing the source again adds them back.
+        again = self.service.preview_source(NormalizedFileSource(self.rows).read())
+        self.assertEqual((again.counts["added"], again.counts["unchanged"]), (2, 2))
 
 
 class RowsDocumentTests(unittest.TestCase):
@@ -788,7 +790,7 @@ class RecordingsTests(ServiceTestCase):
 
 class StatusTests(ServiceTestCase):
     def test_next_action_follows_the_workflow(self) -> None:
-        self.assertEqual(self.service.status().next_action.page, "setup")
+        self.assertEqual(self.service.status().next_action.page, "signals")
         self.assertIn("source import", self.service.status().next_action.command)
         self.import_rows()
         self.assertIn("telemetry target set", self.service.status().next_action.command)

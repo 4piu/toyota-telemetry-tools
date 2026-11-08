@@ -25,15 +25,18 @@ from .context import PageContext
 from .recordings_page import RecordingsPage
 from .setup_page import SetupPage
 from .signals_page import SignalsPage
+from .start_page import StartPage
 from .widgets import BusyIndicator
 from .widgets.step_bar import ATTENTION, DONE, NEXT, PENDING, Part, StepBar
 
 
 PAGES = ("setup", "signals", "collect", "recordings")
 TITLES = {"setup": "Setup", "signals": "Signals", "collect": "Collect", "recordings": "Recordings"}
+RECENT_KEY = "recent/projects"
+RECENT_LIMIT = 8
 DESCRIPTIONS = {
-    "setup": "Connector and candidate signals",
-    "signals": "What to collect, and how often",
+    "setup": "The CAN adapter on this computer",
+    "signals": "Candidates, what to collect, and how often",
     "collect": "Run collection; target progress",
     "recordings": "Runs, plots, and export",
 }
@@ -49,11 +52,11 @@ def step_states(status, dirty: bool) -> list[tuple[str, list[Part]]]:
     counts = status.counts
     setup = [
         Part("Connector", DONE if status.connector else PENDING, (status.connector or "").split(" ")[0]),
-        Part("Candidates", DONE if status.candidate_rows else PENDING,
-             f"{status.candidate_rows}" if status.candidate_rows else ""),
     ]
     verified, dids, targets = counts.get("verified_dids", 0), counts.get("dids", 0), counts.get("targets", 0)
     signals = [
+        Part("Candidates", DONE if status.candidate_rows else PENDING,
+             f"{status.candidate_rows}" if status.candidate_rows else ""),
         Part("Readable", DONE if verified else PENDING, f"{verified}/{dids} DIDs" if dids else ""),
         Part("Targets", DONE if targets else PENDING, f"{targets} set" if targets else ""),
     ]
@@ -105,6 +108,11 @@ class OperatorWindow(QMainWindow):
         self._settings = QSettings("toyota-telemetry-tools", "TelemetryOperator")
         self._restore_settings = restore_settings
         self._closing_after_job = False
+        self._recent_memory: list[str] = []
+        self.show_report = lambda title, text: QMessageBox.information(self, title, text)
+        self.choose_rows_path = lambda: QFileDialog.getSaveFileName(
+            self, "Save candidate list", "candidate-rows.json", "JSON files (*.json)"
+        )[0]
 
         self.context = PageContext(self, self.navigate)
         self.context.settings = self._settings if restore_settings else None
@@ -136,7 +144,14 @@ class OperatorWindow(QMainWindow):
         content_layout.setSpacing(0)
         content_layout.addWidget(self.navigation)
         content_layout.addWidget(self.pages, 1)
-        self.setCentralWidget(content)
+        self.start_page = StartPage()
+        self.start_page.new_button.clicked.connect(self.new_project)
+        self.start_page.open_button.clicked.connect(self.choose_project)
+        self.start_page.open_requested.connect(self.open_project)
+        self.root_stack = QStackedWidget()
+        self.root_stack.addWidget(self.start_page)
+        self.root_stack.addWidget(content)
+        self.setCentralWidget(self.root_stack)
         self.navigation.current_changed.connect(self.pages.setCurrentIndex)
         self.navigation.setCurrentRow(0)
 
@@ -149,9 +164,15 @@ class OperatorWindow(QMainWindow):
         self.context.data_changed.connect(self.refresh_status)
         self.context.busy_changed.connect(self._busy_changed)
         self.context.project_changed.connect(self._update_actions)
+        self.context.project_changed.connect(self._show_start_or_pages)
         self.context.busy_changed.connect(lambda _busy: self._update_actions())
         self._update_actions()
 
+        self._show_start_or_pages()
+        if project_path is None and restore_settings:
+            # Reopen the last project, as long as its folder is still there.
+            last = next(iter(self.recent_projects()), None)
+            project_path = last if last is not None and last.is_dir() else None
         if project_path is not None:
             self.open_project(project_path)
         else:
@@ -175,7 +196,24 @@ class OperatorWindow(QMainWindow):
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.choose_project)
         project_menu.addAction(open_action)
+        self.close_project_action = QAction("Close project", self)
+        self.close_project_action.triggered.connect(self.close_project)
+        project_menu.addAction(self.close_project_action)
         project_menu.addSeparator()
+        self.check_action = QAction("Check project", self)
+        self.check_action.triggered.connect(self.check_project)
+        self.context.register("check", self.check_action, "Validate project files")
+        project_menu.addAction(self.check_action)
+        self.rebuild_action = QAction("Rebuild cache", self)
+        self.rebuild_action.triggered.connect(self.rebuild_cache)
+        self.context.register("cache.rebuild", self.rebuild_action, "Rebuild the sample cache from recordings")
+        project_menu.addAction(self.rebuild_action)
+        self.save_candidates_action = QAction("Save candidate list", self)
+        self.save_candidates_action.triggered.connect(self.save_candidates)
+        self.context.register(
+            "source.export", self.save_candidates_action, "Save the candidate list as a JSON file; keep it private",
+        )
+        project_menu.addAction(self.save_candidates_action)
         self.export_result_action = QAction("Export result", self)
         self.export_result_action.triggered.connect(self.export_result)
         self.context.register("export", self.export_result_action, "Write the signal list to a folder for publishing")
@@ -248,8 +286,74 @@ class OperatorWindow(QMainWindow):
         except (OSError, ValueError) as exc:
             self.statusBar().showMessage(f"Not a telemetry project: {exc}", 10000)
             return False
+        self._remember_project(self.context.service.root)
         self._update_title()
         return True
+
+    def close_project(self) -> bool:
+        if self.context.service is None:
+            return True
+        if self.context.live_job_running:
+            self.statusBar().showMessage("Stop the live job before closing the project.", 8000)
+            return False
+        if not self.signals_page.prompt_unsaved():
+            return False
+        self.context.close()
+        self._update_title()
+        return True
+
+    def recent_projects(self) -> list[Path]:
+        if self._restore_settings:
+            stored = self._settings.value(RECENT_KEY, []) or []
+            values = [stored] if isinstance(stored, str) else list(stored)
+        else:
+            values = self._recent_memory
+        return [Path(value) for value in values if value]
+
+    def _remember_project(self, root: Path) -> None:
+        values = [str(root)] + [str(path) for path in self.recent_projects() if path != root]
+        values = values[:RECENT_LIMIT]
+        if self._restore_settings:
+            self._settings.setValue(RECENT_KEY, values)
+        else:
+            self._recent_memory = values
+
+    def _show_start_or_pages(self) -> None:
+        if self.context.service is None:
+            self.start_page.set_recent([path for path in self.recent_projects() if path.is_dir()])
+            self.root_stack.setCurrentWidget(self.start_page)
+        else:
+            self.root_stack.setCurrentIndex(1)
+
+    def check_project(self) -> None:
+        def done(result) -> None:
+            lines = [f"OK: {note}" for note in result.notes] + [f"Problem: {text}" for text in result.problems]
+            self.show_report("Project check", "\n".join(lines))
+
+        self.context.run("check", lambda service: service.check(), done, title="Check failed")
+
+    def rebuild_cache(self) -> None:
+        def done(_result) -> None:
+            self.context.message("Cache rebuilt.")
+            self.context.changed()
+
+        self.context.run("cache.rebuild", lambda service: service.rebuild_cache(), done, title="Cache not rebuilt")
+
+    def save_candidates(self) -> None:
+        if self.context.service is None:
+            return
+        path = self.choose_rows_path()
+        if not path:
+            return
+
+        def done(count: int) -> None:
+            self.context.message(f"Saved {count:,} candidate rows to {Path(path).name}.")
+
+        # The save dialog has already asked before replacing a file.
+        self.context.run(
+            "source.export", lambda service: service.export_source_rows(Path(path), overwrite=True), done,
+            title="Candidate list not saved",
+        )
 
     @property
     def project_path(self) -> Path | None:
@@ -289,7 +393,11 @@ class OperatorWindow(QMainWindow):
 
     def _update_actions(self) -> None:
         enabled = self.context.service is not None and not self.context.live_job_running
-        self.export_result_action.setEnabled(enabled)
+        for action in (
+            self.export_result_action, self.close_project_action, self.check_action, self.rebuild_action,
+            self.save_candidates_action,
+        ):
+            action.setEnabled(enabled)
 
     def export_result(self) -> None:
         service = self.context.service

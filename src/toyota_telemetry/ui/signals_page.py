@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt, QTimer, Signal
-from PySide6.QtGui import QPalette, QStandardItem, QStandardItemModel
+from PySide6.QtGui import QAction, QPalette, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
@@ -35,12 +36,13 @@ from PySide6.QtWidgets import (
 )
 
 from toyota_telemetry.operator.editing import UNSET
-from toyota_telemetry.operator.inventory import EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree
+from toyota_telemetry.operator.inventory import EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree, describe_deletion
 from toyota_telemetry.operator.selection import Selection
 from toyota_telemetry.operator.verification import progress_text
 
 from .context import PageContext
 from .dialogs import EndpointAddDialog, EndpointConfirmDialog, LiveConfirmDialog, TargetEditDialog
+from .import_dialog import ImportDialog
 from .jobs import LiveJob
 from .names import (
     ENDPOINT_READABLE,
@@ -186,6 +188,11 @@ class SignalsPage(QWidget):
         self.job: LiveJob | None = None
         self.confirm_live = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
         self.run_dialog = lambda dialog: dialog.exec() == QDialog.DialogCode.Accepted
+        self.run_menu = lambda menu, position: menu.exec(position)
+        self.confirm_delete = lambda text: QMessageBox.question(
+            self, "Delete signals", text,
+        ) == QMessageBox.StandardButton.Yes
+        self.import_dialog = ImportDialog(context, self)
 
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
@@ -255,6 +262,10 @@ class SignalsPage(QWidget):
         self.refresh_button.setToolTip("Reread project files")
         self.refresh_button.clicked.connect(self.refresh_from_disk)
         row.addWidget(self.refresh_button)
+        self.import_button = QPushButton("Import candidates")
+        self.import_button.setToolTip("Add or update candidate signals from a source")
+        self.import_button.clicked.connect(self.show_import)
+        row.addWidget(self.import_button)
         return row
 
     def _table_panel(self) -> QWidget:
@@ -282,6 +293,13 @@ class SignalsPage(QWidget):
         for column, width in enumerate((340, 130, 70, 75, 80, 65, 200)):
             header.resizeSection(column, width)
         self.view.selectionModel().selectionChanged.connect(lambda *_: self._selection_timer.start())
+        self.view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.view.customContextMenuRequested.connect(self.show_context_menu)
+        self.verify_action = QAction("Verify", self)
+        self.verify_action.triggered.connect(self.verify_checked)
+        self.delete_action = QAction("Delete", self)
+        self.context.register("signal.delete", self.delete_action, "Remove from the candidate list")
+        self.delete_action.triggered.connect(self.delete_selected)
         self.context.register(
             "signals.list", self.view,
             "Select rows to change their plan",
@@ -938,7 +956,69 @@ class SignalsPage(QWidget):
         set_enabled(self.target_button, ready and bool(selection.signals), blocked or "Select signals first.")
         set_enabled(self.clear_button, ready and bool(selection.signals), blocked or "Select signals first.")
         set_enabled(self.save_button, self.dirty and not busy, blocked or "No unsaved changes.")
+        set_enabled(self.import_button, ready, blocked)
+        self.verify_action.setEnabled(ready and bool(selection.dids))
+        self.delete_action.setEnabled(ready and not self.dirty and bool(self._selected_signal_refs()))
         set_enabled(self.discard_button, self.dirty and not busy, blocked or "No unsaved changes.")
+
+    def show_import(self) -> None:
+        if self.context.service is None:
+            return
+        self.import_dialog.refresh()
+        self.import_dialog.open()
+
+    def show_context_menu(self, position) -> None:
+        if self.context.service is None or not self.view.indexAt(position).isValid():
+            return
+        self.update_actions()
+        menu = QMenu(self)
+        menu.addAction(self.verify_action)
+        menu.addSeparator()
+        menu.addAction(self.delete_action)
+        self.run_menu(menu, self.view.viewport().mapToGlobal(position))
+
+    def _selected_signal_refs(self) -> list[str]:
+        """Signals under the selected rows, whatever their endpoint's address."""
+
+        refs: dict[str, None] = {}
+
+        def collect(index: QModelIndex) -> None:
+            kind, key = index.data(ROLE)
+            if kind == "signal":
+                refs[key] = None
+                return
+            for row in range(self.proxy.rowCount(index)):
+                collect(self.proxy.index(row, 0, index))
+
+        for index in self._selected_indexes():
+            collect(index)
+        return list(refs)
+
+    def delete_selected(self) -> None:
+        service = self.context.service
+        refs = self._selected_signal_refs()
+        if service is None or not refs:
+            return
+        if self.dirty:
+            self.context.error("Signals not deleted", "Save or discard your changes first.")
+            return
+
+        def confirm(preview) -> None:
+            if not preview.deleted:
+                self.context.error("Signals not deleted", "\n".join(describe_deletion(preview)))
+                return
+            if not self.confirm_delete("\n".join(describe_deletion(preview))):
+                return
+
+            def done(_result) -> None:
+                self.context.message(f"Deleted {len(preview.deleted):,} signals.")
+                self.context.changed()
+
+            self.context.run("signals.delete", lambda service: service.delete_signals(preview), done,
+                             title="Signals not deleted")
+
+        self.context.run("signals.delete.preview", lambda service: service.preview_delete_signals(refs), confirm,
+                         title="Signals not deleted")
 
     def add_endpoint(self) -> None:
         service = self.context.service

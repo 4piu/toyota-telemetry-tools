@@ -33,13 +33,13 @@ from .inventory import (
     InventoryTree,
     add_manual_endpoint,
     apply_import,
-    apply_remove_source,
+    apply_delete_signals,
     build_tree,
     cache_rows,
     load_inventory,
     preview_import,
-    preview_remove_source,
-    RemovePreview,
+    preview_delete_signals,
+    DeletePreview,
     source_rows,
     progress_by_signal,
     rebuild_cache,
@@ -75,20 +75,20 @@ class Operation:
 OPERATIONS: tuple[Operation, ...] = (
     Operation("init", "Create a project workspace", "telemetry init", "project.new"),
     Operation("status", "Show readiness and the next action", "telemetry status", "steps"),
-    Operation("check", "Validate project files", "telemetry check", "setup.check"),
+    Operation("check", "Validate project files", "telemetry check", "menu.project.check"),
     Operation("connector.show", "Show connector settings", "telemetry connector show", "setup.connector.form"),
     Operation("connector.set", "Save connector settings", "telemetry connector set", "setup.connector.save"),
     Operation("connector.check", "Check connector offline", "telemetry connector check", "setup.connector.check"),
-    Operation("source.preview", "Preview a candidate source", "telemetry source import", "setup.source.preview"),
-    Operation("source.apply", "Apply a candidate source", "telemetry source import --apply", "setup.source.apply"),
-    Operation("source.export", "Save candidate rows to a file", "telemetry source export", "setup.source.export"),
-    Operation("source.remove", "Remove an imported source", "telemetry source remove", "setup.source.remove"),
-    Operation("cache.rebuild", "Rebuild the derived cache", "telemetry cache rebuild", "setup.cache.rebuild"),
+    Operation("source.preview", "Preview a candidate source", "telemetry source import", "signals.import.preview"),
+    Operation("source.apply", "Apply a candidate source", "telemetry source import --apply", "signals.import.apply"),
+    Operation("source.export", "Save candidate rows to a file", "telemetry source export", "menu.project.save-candidates"),
+    Operation("cache.rebuild", "Rebuild the derived cache", "telemetry cache rebuild", "menu.project.rebuild-cache"),
     Operation("signals.list", "List endpoints, DIDs, and signals", "telemetry signals", "signals.tree"),
     Operation("signals.show", "Show one DID or signal", "telemetry signals show", "signals.detail"),
     Operation("endpoint.add", "Add a manual endpoint candidate", "telemetry endpoint add", "signals.endpoint.add"),
     Operation("endpoint.confirm", "Confirm a responding endpoint", "telemetry endpoint confirm", "signals.endpoint.confirm"),
     Operation("verify", "Verify endpoints and DIDs", "telemetry verify", "signals.verify", live=True),
+    Operation("signal.delete", "Delete candidate signals", "telemetry signal delete", "signals.menu.delete"),
     Operation("signal.set", "Edit a signal definition", "telemetry signal set", "signals.definition.apply"),
     Operation("did.set", "Edit shared DID settings", "telemetry did set", "signals.did.apply"),
     Operation("target.set", "Set collection targets", "telemetry target set", "signals.target.edit"),
@@ -267,7 +267,7 @@ class OperatorService:
             return NextAction("Configure the connector", "telemetry connector set KIND ...", "setup")
         if not status.candidate_rows:
             return NextAction(
-                "Import a candidate signal list", "telemetry source import file PATH --apply", "setup",
+                "Import a candidate signal list", "telemetry source import file PATH --apply", "signals",
             )
         responded = [row for row in tree.endpoints if row.state == "responded"]
         if responded:
@@ -358,18 +358,13 @@ class OperatorService:
         repository = self.repository()
         return apply_import(repository, self.inventory(repository), preview)
 
-    def sources(self) -> list[dict[str, Any]]:
-        """Imported sources: id, kind, label, import time, and version count."""
-
-        return [dict(row) for row in self.inventory(self.repository())["sources"]]
-
-    def preview_remove_source(self, source_id: str) -> RemovePreview:
+    def preview_delete_signals(self, signal_refs: Iterable[str]) -> DeletePreview:
         repository = self.repository()
-        return preview_remove_source(repository, self.inventory(repository), source_id)
+        return preview_delete_signals(repository, self.inventory(repository), signal_refs)
 
-    def remove_source(self, preview: RemovePreview) -> dict[str, Any]:
+    def delete_signals(self, preview: DeletePreview) -> dict[str, Any]:
         repository = self.repository()
-        return apply_remove_source(repository, self.inventory(repository), preview)
+        return apply_delete_signals(repository, self.inventory(repository), preview)
 
     def export_source_rows(
         self, path: Path, *, source_id: str | None = None, overwrite: bool = False,

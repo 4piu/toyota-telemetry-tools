@@ -62,10 +62,12 @@ control (`10`) and tester present (`3E`) are accepted:
 }]
 ```
 
-**Candidate list.** Import it from one or more sources. Importing previews
-first, showing which signals it adds and updates, then applies exactly that.
-It merges into one list and never removes a signal; correcting a name or
-unit updates the signal rather than adding another version of it.
+**Candidate list.** Import it from one or more sources (Import candidates on
+the Signals page). Importing previews first, showing which signals it adds
+and updates, then applies exactly that. It merges into one list and never
+removes a signal; correcting a name or unit updates the signal rather than
+adding another version of it. Delete unwanted candidates from the Signals
+table's right-click menu.
 
 - *Techstream* (Windows): reads the installed databases through Techstream's
   own library. It takes each Data List item's name, DID, bit range, formula,

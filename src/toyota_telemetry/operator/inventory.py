@@ -224,17 +224,16 @@ class ImportPreview:
 
 
 @dataclass(frozen=True)
-class RemovePreview:
-    """What removing a source will do; applying writes exactly this document."""
+class DeletePreview:
+    """What deleting candidate signals will do; applying writes exactly this."""
 
-    source_id: str
-    label: str
-    counts: dict[str, int]
+    deleted: tuple[str, ...]
+    refused: dict[str, str]
     document: Mapping[str, Any]
     base_sha256: str
 
     def as_dict(self) -> dict[str, Any]:
-        return {"source_id": self.source_id, "label": self.label, "counts": dict(self.counts)}
+        return {"deleted": list(self.deleted), "refused": dict(self.refused)}
 
 
 def preview_import(
@@ -380,57 +379,47 @@ def apply_import(
     return _write(repository, document)
 
 
-def preview_remove_source(
-    repository: ProjectRepository, inventory: Mapping[str, Any], source_id: str
-) -> RemovePreview:
-    """Plan removing one source. Versions only it supplied go, unless their
-    signal is reviewed, targeted, or recorded; those stay under the source."""
+def preview_delete_signals(
+    repository: ProjectRepository, inventory: Mapping[str, Any], signal_refs: Iterable[str]
+) -> DeletePreview:
+    """Plan deleting signals (every version) from the candidate list.
 
-    labels = {row["source_id"]: row["label"] for row in inventory["sources"]}
-    if source_id not in labels:
-        raise ValueError(
-            f"no imported source {source_id!r}; imported: {', '.join(sorted(labels)) or 'none'}"
-        )
-    in_use = {row["signal_ref"] for row in repository.review["signals"]}
+    Signals that are reviewed, targeted, used in a target condition, or
+    recorded are refused, with the reason. A later import of a deleted
+    signal's source adds it again.
+    """
+
+    wanted = {str(SignalRef.parse(str(ref))) for ref in signal_refs}
+    present = {entry["row"]["signal_ref"] for entry in inventory["rows"]}
+    reasons: dict[str, str] = {}
+    for ref in wanted - present:
+        reasons[ref] = "not in the candidate list"
+    for review in repository.review["signals"]:
+        reasons.setdefault(review["signal_ref"], "reviewed")
     for target in repository.policy["targets"]:
-        in_use.add(target["signal_ref"])
+        reasons.setdefault(target["signal_ref"], "has a target")
         if target["condition"] is not None:
-            in_use.update(condition_refs(target["condition"]))
+            for ref in condition_refs(target["condition"]):
+                reasons.setdefault(ref, "used in a target condition")
     try:
-        in_use.update(repository.signal_observation_summary())
+        for ref in repository.signal_observation_summary():
+            reasons.setdefault(ref, "recorded")
     except sqlite3.Error:
         pass
-    rows = []
-    removed: set[str] = set()
-    kept: set[str] = set()
-    versions = 0
-    for entry in inventory["rows"]:
-        sources = [value for value in entry["sources"] if value != source_id]
-        if not sources:
-            if entry["row"]["signal_ref"] in in_use:
-                kept.add(entry["row"]["signal_ref"])
-                rows.append(entry)
-                continue
-            removed.add(entry["row"]["signal_ref"])
-            versions += 1
-            continue
-        rows.append({"sources": sources, "row": entry["row"]})
-    remaining = {entry["row"]["signal_ref"] for entry in rows}
-    source = next(row for row in inventory["sources"] if row["source_id"] == source_id)
-    document = _with_sources(inventory, rows, source if kept else None, drop=None if kept else source_id)
-    counts = {
-        "removed_signals": len(removed - remaining),
-        "removed_versions": versions,
-        "kept_in_use": len(kept),
-    }
-    return RemovePreview(source_id, labels[source_id], counts, document, inventory_sha256(inventory))
+    refused = {ref: reasons[ref] for ref in sorted(wanted, key=SignalRef.parse) if ref in reasons}
+    deleted = tuple(sorted(wanted - refused.keys(), key=SignalRef.parse))
+    gone = set(deleted)
+    rows = [entry for entry in inventory["rows"] if entry["row"]["signal_ref"] not in gone]
+    return DeletePreview(deleted, refused, _with_sources(inventory, rows, None), inventory_sha256(inventory))
 
 
-def apply_remove_source(
-    repository: ProjectRepository, inventory: Mapping[str, Any], preview: RemovePreview
+def apply_delete_signals(
+    repository: ProjectRepository, inventory: Mapping[str, Any], preview: DeletePreview
 ) -> dict[str, Any]:
     if inventory_sha256(inventory) != preview.base_sha256:
-        raise ValueError("the candidate list changed since the preview; preview the removal again")
+        raise ValueError("the candidate list changed since the preview; select the signals again")
+    if not preview.deleted:
+        raise ValueError("none of the selected signals can be deleted")
     return _write(repository, preview.document)
 
 
@@ -462,14 +451,16 @@ def describe_import(preview: ImportPreview) -> list[str]:
     return lines
 
 
-def describe_removal(preview: RemovePreview) -> list[str]:
-    counts = preview.counts
+def describe_deletion(preview: DeletePreview) -> list[str]:
     lines = [
-        f"Remove {preview.label}: {counts['removed_signals']:,} signals and "
-        f"{counts['removed_versions']:,} definitions only it supplied go."
-    ]
-    if counts["kept_in_use"]:
-        lines.append(f"{counts['kept_in_use']:,} signals stay because they are reviewed, targeted, or recorded.")
+        f"Delete {len(preview.deleted):,} signals from the candidate list. "
+        "Importing their source again adds them back."
+    ] if preview.deleted else ["Nothing to delete."]
+    reasons: dict[str, int] = {}
+    for reason in preview.refused.values():
+        reasons[reason] = reasons.get(reason, 0) + 1
+    if reasons:
+        lines.append("Kept: " + ", ".join(f"{number:,} {reason}" for reason, number in sorted(reasons.items())) + ".")
     return lines
 
 
@@ -499,12 +490,10 @@ def _with_sources(
     inventory: Mapping[str, Any],
     rows: list[dict[str, Any]],
     source: Mapping[str, Any] | None,
-    *,
-    drop: str | None = None,
 ) -> dict[str, Any]:
     """The inventory with these rows and each source's version count."""
 
-    sources = {row["source_id"]: dict(row) for row in inventory["sources"] if row["source_id"] != drop}
+    sources = {row["source_id"]: dict(row) for row in inventory["sources"]}
     if source is not None:
         sources[source["source_id"]] = {
             "imported_utc": "", **sources.get(source["source_id"], {}), **source,
