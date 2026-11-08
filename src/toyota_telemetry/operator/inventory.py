@@ -156,6 +156,23 @@ def cache_rows(repository: ProjectRepository, inventory: Mapping[str, Any]) -> l
     return _normalized_catalog_rows(rows)
 
 
+def source_rows(inventory: Mapping[str, Any], source_id: str | None = None) -> list[dict[str, Any]]:
+    """Imported rows as a row file holds them (all sources, or one).
+
+    The workspace-assigned catalog_variant_id is left out, so importing the
+    rows again yields the same signals.
+    """
+
+    if source_id is not None and source_id not in {entry["source_id"] for entry in inventory["rows"]}:
+        known = sorted({entry["source_id"] for entry in inventory["rows"]})
+        raise ValueError(f"no imported source {source_id!r}; imported: {', '.join(known) or 'none'}")
+    return [
+        {name: value for name, value in entry["row"].items() if name != "catalog_variant_id"}
+        for entry in inventory["rows"]
+        if source_id is None or entry["source_id"] == source_id
+    ]
+
+
 def refresh_cache(repository: ProjectRepository, inventory: Mapping[str, Any]) -> bool:
     return repository.refresh_cache(cache_rows(repository, inventory), repository.paths.captures)
 

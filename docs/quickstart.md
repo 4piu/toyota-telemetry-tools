@@ -102,6 +102,7 @@ telemetry connector check
 telemetry source import file C:\private\catalog-rows.json            # preview
 telemetry source import file C:\private\catalog-rows.json --apply
 telemetry source import tis --apply
+telemetry source export C:\private\candidate-rows.json   # Save rows
 ```
 
 `connector check` validates settings and runs the worker self-test without
@@ -117,6 +118,12 @@ makers (see [protocols](protocols.md#techstreams-databases)),
 and leaves out ECUs not on CAN; `--ecu KEY` limits it to chosen ECUs.
 Candidate rows
 never become reviewed authority by being imported.
+
+`source export` (Save rows on the Setup page) writes the imported rows as a
+row file that `source import file` reads back unchanged, for example to
+start another workspace on a computer without Techstream; `--source ID`
+saves one source only. Rows from Techstream carry its names and formulas:
+keep the file private, like the workspace.
 
 ## 2. Verify (Signals page, LIVE)
 

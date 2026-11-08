@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from importlib import metadata
 import json
+import os
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -36,6 +37,7 @@ from .inventory import (
     cache_rows,
     load_inventory,
     preview_import,
+    source_rows,
     progress_by_signal,
     rebuild_cache,
     refresh_cache,
@@ -76,6 +78,7 @@ OPERATIONS: tuple[Operation, ...] = (
     Operation("connector.check", "Check connector offline", "telemetry connector check", "setup.connector.check"),
     Operation("source.preview", "Preview a candidate source", "telemetry source import", "setup.source.preview"),
     Operation("source.apply", "Apply a candidate source", "telemetry source import --apply", "setup.source.apply"),
+    Operation("source.export", "Save candidate rows to a file", "telemetry source export", "setup.source.export"),
     Operation("cache.rebuild", "Rebuild the derived cache", "telemetry cache rebuild", "setup.cache.rebuild"),
     Operation("signals.list", "List endpoints, DIDs, and signals", "telemetry signals", "signals.tree"),
     Operation("signals.show", "Show one DID or signal", "telemetry signals show", "signals.detail"),
@@ -350,6 +353,29 @@ class OperatorService:
     def apply_source(self, preview: ImportPreview) -> dict[str, Any]:
         repository = self.repository()
         return apply_import(repository, self.inventory(repository), preview)
+
+    def export_source_rows(
+        self, path: Path, *, source_id: str | None = None, overwrite: bool = False,
+    ) -> int:
+        """Write imported candidate rows as a row file the file source reads back.
+
+        The file holds the source's own rows (e.g. Techstream-derived names and
+        formulas): keep it private like the workspace.
+        """
+
+        repository = self.repository()
+        rows = source_rows(self.inventory(repository), source_id)
+        if not rows:
+            raise ValueError("no candidate rows imported yet")
+        path = Path(path)
+        if path.exists() and not overwrite:
+            raise FileExistsError(f"{path.name} exists; choose another name or overwrite it")
+        lines = (json.dumps(row, ensure_ascii=False, sort_keys=True) for row in rows)
+        text = "[\n" + ",\n".join(lines) + "\n]\n"
+        temporary = path.with_name(path.name + ".tmp")
+        temporary.write_text(text, encoding="utf-8", newline="\n")
+        os.replace(temporary, path)
+        return len(rows)
 
     def rebuild_cache(self) -> None:
         repository = self.repository()

@@ -54,6 +54,16 @@ class CliTests(unittest.TestCase):
         detail = self.json_cli("signals", "show", f"{ENDPOINT_ID}/0x1003")
         self.assertEqual(len(detail["signals"]), 2)
 
+    def test_source_export_saves_rows_and_refuses_to_overwrite(self) -> None:
+        self.run_cli("source", "import", "file", str(self.rows), "--apply")
+        saved = self.root.parent / "rows.json"
+        self.assertEqual(self.json_cli("source", "export", str(saved)), {"path": str(saved), "rows": 4})
+        code, _out, err = self.run_cli("source", "export", str(saved))
+        self.assertNotEqual(code, 0)
+        self.assertIn("exists", err)
+        code, out, _err = self.run_cli("source", "export", str(saved), "--force")
+        self.assertEqual((code, out.strip()), (0, f"Saved 4 candidate rows to {saved}"))
+
     def test_scripted_verify_needs_matching_preview(self) -> None:
         self.run_cli("source", "import", "file", str(self.rows), "--apply")
         code, _, err = self.run_cli("verify", UNCONFIRMED_KEY)

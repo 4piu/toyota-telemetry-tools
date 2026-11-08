@@ -137,6 +137,11 @@ def test_setup_imports_sources_and_saves_connector_without_opening_it(qtbot, pro
     assert window.setup_page.preview_result.text() == "Applied candidates.json."
     assert json.loads((root / "config/catalog-manifest.json").read_text())["catalog_row_count"] == 4
     setup = window.setup_page
+    saved = root.parent / "saved-rows.json"
+    setup.choose_rows_path = lambda: str(saved)
+    setup.export_rows_button.click()
+    assert setup.preview_result.text() == "Saved 4 rows to saved-rows.json."
+    assert len(json.loads(saved.read_text(encoding="utf-8"))) == 4
     setup.connector_kind.setCurrentIndex(setup.connector_kind.findData("slcan"))
     setup.connector_fields["slcan"]["port"].setText("COM7")
     setup.executable.setText("")

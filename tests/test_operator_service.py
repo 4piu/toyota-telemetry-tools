@@ -93,6 +93,25 @@ class SourceImportTests(ServiceTestCase):
         second = self.service.preview_source(NormalizedFileSource(self.rows).read())
         self.assertEqual((second.counts["added"], second.counts["unchanged"]), (0, 4))
 
+    def test_saved_rows_import_back_unchanged(self) -> None:
+        with self.assertRaisesRegex(ValueError, "no candidate rows"):
+            self.service.export_source_rows(self.root.parent / "none.json")
+        self.import_rows()
+        saved = self.root.parent / "backup" / "candidates.json"
+        saved.parent.mkdir()
+        self.assertEqual(self.service.export_source_rows(saved), 4)
+        rows = json.loads(saved.read_text(encoding="utf-8"))
+        self.assertFalse(any("catalog_variant_id" in row for row in rows))
+        with self.assertRaises(FileExistsError):
+            self.service.export_source_rows(saved)
+        with self.assertRaisesRegex(ValueError, "imported: file-candidates"):
+            self.service.export_source_rows(saved, source_id="tis", overwrite=True)
+        self.assertEqual(self.service.export_source_rows(saved, source_id="file-candidates", overwrite=True), 4)
+        # Same file name, same source: re-importing changes nothing.
+        again = self.service.preview_source(NormalizedFileSource(saved).read())
+        self.assertEqual((again.counts["added"], again.counts["removed"], again.counts["unchanged"]), (0, 0, 4))
+        self.assertEqual(again.rejections, ())
+
     def test_reimport_that_drops_a_reviewed_signal_is_blocked(self) -> None:
         self.import_rows()
         reduced = self.root / "state/candidates.json"

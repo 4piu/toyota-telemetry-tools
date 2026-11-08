@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QButtonGroup,
     QComboBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -35,6 +36,9 @@ class SetupPage(QWidget):
         self.context = context
         self._preview: ImportPreview | None = None
         self._load_connector_pending = False
+        self.choose_rows_path = lambda: QFileDialog.getSaveFileName(
+            self, "Save candidate rows", "candidate-rows.json", "JSON files (*.json)"
+        )[0]
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
             "Setup",
@@ -291,13 +295,33 @@ class SetupPage(QWidget):
             "source.apply", self.apply_button,
             "Use the previewed rows",
         )
+        self.export_rows_button = QPushButton("Save rows")
+        self.context.register(
+            "source.export", self.export_rows_button,
+            "Save imported rows as a JSON file; keep it private",
+        )
         set_enabled(self.apply_button, False, "Preview a source first.")
         self.preview_button.clicked.connect(self.preview_source)
         self.apply_button.clicked.connect(self.apply_source)
-        layout.addLayout(button_row(self.preview_button, self.apply_button))
+        self.export_rows_button.clicked.connect(self.export_rows)
+        layout.addLayout(button_row(self.preview_button, self.apply_button, self.export_rows_button))
         self.preview_result = notice()
         layout.addWidget(self.preview_result)
         return group
+
+    def export_rows(self) -> None:
+        if self.context.service is None:
+            return
+        path = self.choose_rows_path()
+        if not path:
+            return
+        try:
+            # The save dialog has already asked before replacing a file.
+            count = self.context.service.export_source_rows(Path(path), overwrite=True)
+        except (OSError, ValueError) as exc:
+            show_notice(self.preview_result, f"Not saved: {exc}")
+            return
+        show_notice(self.preview_result, f"Saved {count:,} rows to {Path(path).name}.")
 
     def _source(self):
         if self.source_file.isChecked():

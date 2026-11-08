@@ -137,6 +137,14 @@ def build_parser() -> argparse.ArgumentParser:
                          parent=import_kinds)
     normalized.add_argument("path", type=Path)
     normalized.add_argument("--apply", action="store_true", help="replace this source's rows after previewing")
+    source_export = command(
+        "export", "source.export", _source_export,
+        "save imported candidate rows as a row file that `source import file` reads; keep it private",
+        parent=source_commands,
+    )
+    source_export.add_argument("path", type=Path, help="JSON file to write")
+    source_export.add_argument("--source", help="only this source id (default: every imported source)")
+    source_export.add_argument("--force", action="store_true", help="overwrite an existing file")
 
     cache = commands.add_parser("cache", help="derived cache maintenance")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
@@ -348,6 +356,14 @@ def _connector_check(service: OperatorService, args: argparse.Namespace) -> int:
         if check.ok:
             print("Connector settings are valid. The adapter was not opened.")
     return EXIT_OK if check.ok else EXIT_FAILED
+
+
+def _source_export(service: OperatorService, args: argparse.Namespace) -> int:
+    count = service.export_source_rows(args.path, source_id=args.source, overwrite=args.force)
+    if args.as_json:
+        return _emit({"path": str(args.path), "rows": count})
+    print(f"Saved {count} candidate rows to {args.path}")
+    return EXIT_OK
 
 
 def _source_import(service: OperatorService, args: argparse.Namespace) -> int:
