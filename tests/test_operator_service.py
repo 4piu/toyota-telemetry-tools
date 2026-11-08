@@ -161,6 +161,22 @@ class VerificationTests(ServiceTestCase):
         self.assertEqual(result["dids"][0]["outcome"], "skipped")
         self.assertEqual(self.service.tree().endpoint(UNCONFIRMED_KEY).state, "silent")
 
+    def test_events_count_up_to_the_scope_total_even_when_dids_are_skipped(self) -> None:
+        from toyota_telemetry.operator.verification import progress_text
+
+        self.import_rows()
+        for responds in (True, False):
+            self.probes.endpoint_responds = responds
+            tree = self.service.tree()
+            scope = self.service.verification_scope(tree, self.service.select(tree, [UNCONFIRMED_KEY]))
+            events: list[dict] = []
+            self.service.verify(scope, on_event=events.append, probe_worker_factory=self.probes)
+            self.assertEqual([event["done"] for event in events], list(range(1, scope.probe_count + 1)))
+            self.assertEqual({event["total"] for event in events}, {scope.probe_count})
+            self.assertEqual(progress_text(events[-1]), f"({scope.probe_count}/{scope.probe_count} 100%)")
+        self.assertEqual(progress_text({"done": 1, "total": 3}), "(1/3 33%)")
+        self.assertEqual(progress_text({}), "")
+
     def test_negative_did_is_failed_and_facts_survive_confirmation_rebuild(self) -> None:
         self.import_rows()
         self.probes.did_outcome = "negative"

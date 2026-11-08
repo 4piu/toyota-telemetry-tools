@@ -71,7 +71,7 @@ class CliTests(unittest.TestCase):
         self.assertIn("changed since the last --dry-run", err)
         code, out, err = self.run_cli("verify", UNCONFIRMED_KEY, "--yes")
         self.assertEqual(code, 0, err)
-        self.assertIn("endpoint 7a1-7a9: responded", out)
+        self.assertIn("(1/2 50%) endpoint 7a1-7a9: responded", out)
         self.assertEqual(self.probes.transmissions, 2)
 
     def test_interactive_verify_asks_and_can_be_declined(self) -> None:

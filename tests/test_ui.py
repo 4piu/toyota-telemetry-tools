@@ -177,6 +177,10 @@ def test_signals_tree_verifies_checked_rows_after_confirmation(qtbot, project, p
     assert probes.transmissions == 2
     assert "1 endpoint(s) (1 to probe) and 1 DID(s)" in shown[0].findChild(QLabel).text()
     assert "Finished: 1 positive" in page.job_log.toPlainText()
+    # Each line says how far the run is; the bar showed the same and hides when done.
+    assert "(1/2 50%) Endpoint" in page.job_log.toPlainText()
+    assert "(2/2 100%)" in page.job_log.toPlainText()
+    assert page.job_progress.isHidden() and page.job_progress.maximum() == 2
     endpoint = page.tree_data.endpoint(UNCONFIRMED_KEY)
     assert endpoint.state == "responded"
     assert window.next_action == "Confirm the responding endpoint"

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -37,7 +38,7 @@ from PySide6.QtWidgets import (
 from toyota_telemetry.operator.editing import UNSET
 from toyota_telemetry.operator.inventory import EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree
 from toyota_telemetry.operator.selection import Selection
-from toyota_telemetry.operator.verification import RecipeRequired
+from toyota_telemetry.operator.verification import RecipeRequired, progress_text
 
 from .context import PageContext
 from .dialogs import EndpointAddDialog, EndpointConfirmDialog, LiveConfirmDialog, TargetEditDialog
@@ -209,6 +210,11 @@ class SignalsPage(QWidget):
         self.job_log.setVisible(False)
         self.job_log.setAccessibleName("Verification progress")
         layout.addWidget(self.job_log)
+        self.job_progress = QProgressBar()
+        self.job_progress.setFormat("%v of %m probes, %p%")
+        self.job_progress.setToolTip("Endpoint probes and DID reads done so far")
+        self.job_progress.setVisible(False)
+        layout.addWidget(self.job_progress)
         layout.addLayout(self._action_bar())
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
@@ -1000,6 +1006,9 @@ class SignalsPage(QWidget):
         self.job_log.clear()
         self.job_log.setVisible(True)
         self.job_log.appendPlainText(scope.summary())
+        self.job_progress.setRange(0, max(1, scope.probe_count))
+        self.job_progress.setValue(0)
+        self.job_progress.setVisible(True)
 
         def work(emit, stop):
             return service.verify(scope, on_event=emit, stop_event=stop)
@@ -1017,13 +1026,16 @@ class SignalsPage(QWidget):
         self.update_actions()
 
     def _job_event(self, event: dict) -> None:
+        progress = progress_text(event)
+        if event.get("done") is not None:
+            self.job_progress.setValue(int(event["done"]))
         if event["event"] == "endpoint":
             self.job_log.appendPlainText(
-                f"Endpoint {event['key']}: {'responded' if event['responded'] else 'no response'}"
+                f"{progress} Endpoint {event['key']}: {'responded' if event['responded'] else 'no response'}"
             )
         else:
             detail = f" {event['detail']}" if event.get("detail") else ""
-            self.job_log.appendPlainText(f"{event['key']}: {event['outcome']}{detail}")
+            self.job_log.appendPlainText(f"{progress} {event['key']}: {event['outcome']}{detail}")
 
     def _job_finished(self, result) -> None:
         summary = result.as_dict()
@@ -1038,6 +1050,7 @@ class SignalsPage(QWidget):
 
     def _job_done(self) -> None:
         self.stop_button.setVisible(False)
+        self.job_progress.setVisible(False)
         self.context.set_live(False)
         self.job = None
         self.context.changed()

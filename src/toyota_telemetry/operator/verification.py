@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import threading
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from ..discovery import ProbeWorkerFactory, _candidate_id, discover_endpoints, preflight_dids
 from ..identity import canonical_did
@@ -207,9 +207,20 @@ def run_verification(
 ) -> VerificationResult:
     """Run the fixed scope; stops between probes when stop_event is set."""
 
-    emit = on_event or (lambda event: None)
+    emit_event = on_event or (lambda event: None)
     stop = stop_event or threading.Event()
     result = VerificationResult()
+    done = 0
+
+    def emit(event: dict[str, Any]) -> None:
+        # Every endpoint probe and every DID (read or skipped) is one step of
+        # the scope's probe count, so done/total always reaches total.
+        nonlocal done
+        done += 1
+        event["done"] = done
+        event["total"] = scope.probe_count
+        emit_event(event)
+
     root = repository.root
     for row in scope.endpoints:
         if stop.is_set():
@@ -252,6 +263,15 @@ def run_verification(
         if result.stopped:
             break
     return result
+
+
+def progress_text(event: Mapping[str, Any]) -> str:
+    """``(done/total percent%)`` for a verification event, or "" without counts."""
+
+    done, total = event.get("done"), event.get("total")
+    if not isinstance(done, int) or not isinstance(total, int) or total <= 0:
+        return ""
+    return f"({done}/{total} {done * 100 // total}%)"
 
 
 def _device(settings: dict[str, str]) -> str:

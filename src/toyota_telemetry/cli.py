@@ -28,7 +28,7 @@ from .operator.collection import SLICES, STRATEGIES, Rotation
 from .operator.live import ConfirmationRefused, LiveBusy, record_preview, require_previewed
 from .operator.service import OperatorService, toolkit_commit
 from .operator.sources import NormalizedFileSource, TisDatabaseSource
-from .operator.verification import RecipeRequired
+from .operator.verification import RecipeRequired, progress_text
 from .project import find_project_root
 from .states import state_text
 
@@ -542,10 +542,11 @@ def _verify(service: OperatorService, args: argparse.Namespace) -> int:
         if args.as_json:
             print(json.dumps(event, sort_keys=True), flush=True)
         elif event["event"] == "endpoint":
-            print(f"  endpoint {event['key']}: {'responded' if event['responded'] else 'no response'}", flush=True)
+            print(f"  {progress_text(event)} endpoint {event['key']}: "
+                  f"{'responded' if event['responded'] else 'no response'}", flush=True)
         else:
             detail = f" {event['detail']}" if event.get("detail") else ""
-            print(f"  {event['key']}: {event['outcome']}{detail}", flush=True)
+            print(f"  {progress_text(event)} {event['key']}: {event['outcome']}{detail}", flush=True)
 
     with _safe_interrupt(stop, "Stopping after the current probe…"):
         result = service.verify(scope, on_event=show, stop_event=stop)
