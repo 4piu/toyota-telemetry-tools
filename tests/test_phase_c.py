@@ -449,11 +449,36 @@ class PlanningAndExportTests(unittest.TestCase):
             # Recordings appear as counts only: recorded values include readings.
             result = json.loads((generation / "signals.json").read_text(encoding="utf-8"))
             observation = result["signals"][0]["observation"]
-            self.assertEqual(sorted(observation), ["distinct_raw_values", "observations", "recorded"])
+            self.assertEqual(sorted(observation), ["distinct_raw_values", "observations", "read_check", "recorded"])
+            self.assertEqual(observation["read_check"], "not checked")
             self.assertNotIn("decoded", (generation / "signals.csv").read_text(encoding="utf-8"))
             reference = (generation / "signals.md").read_text(encoding="utf-8")
             self.assertIn("| DID | Bits | Name | Formula | Unit | States | Evidence | Recorded | Notes |", reference)
             self.assertIn(f"| {observation['recorded']} |", reference)
+
+    def test_read_checks_summarize_the_latest_verification_read(self) -> None:
+        from types import SimpleNamespace
+        from toyota_telemetry.exporting import _read_checks
+
+        def fact(data_id, outcome, observed, response=None):
+            read = {"outcome": outcome, "response_hex": response}
+            return {"endpoint_id": "e", "data_id": data_id, "outcome": outcome, "observed_utc": observed,
+                    "result": {"read": read if outcome != "session_unavailable" else None}}
+
+        repository = SimpleNamespace(did_preflight_facts=lambda: [
+            fact("0x1002", "negative", "2026-01-01T00:00:00Z"),
+            fact("0x1002", "positive", "2026-01-02T00:00:00Z", "62 10 02 12 34"),
+            fact("0x0030", "positive", "2026-01-01T00:00:00Z", "61 30 A8 A9 AA AB AC"),
+            fact("0x1003", "negative", "2026-01-01T00:00:00Z"),
+            fact("0x1004", "session_unavailable", "2026-01-01T00:00:00Z"),
+            fact("0x1005", "timeout", "2026-01-01T00:00:00Z"),
+        ])
+        checks = _read_checks(repository)
+        self.assertEqual(checks[("e", 0x1002)], ("answered", 16))
+        self.assertEqual(checks[("e", 0x0030)], ("answered", 40))
+        self.assertEqual(checks[("e", 0x1003)], ("refused", None))
+        self.assertEqual(checks[("e", 0x1004)], ("no session", None))
+        self.assertEqual(checks[("e", 0x1005)], ("no answer", None))
 
     def test_reference_formulas_read_as_scale_and_offset(self) -> None:
         self.assertEqual(readable_formula("((raw * 1 / 100) + 0) / (10 ** 0)"), "raw × 0.01")

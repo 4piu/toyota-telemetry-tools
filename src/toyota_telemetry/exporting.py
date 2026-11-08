@@ -17,15 +17,23 @@ import re
 import tempfile
 from typing import Any
 
-from .identity import SignalRef
+from .identity import SignalRef, response_header_bytes
 from .repository import ProjectRepository
 from .states import state_text
 
 
 CSV_FIELDS = [
     "signal_ref", "ecu", "name", "formula", "unit", "states", "evidence_state", "recorded",
-    "observations", "distinct_raw_values", "notes",
+    "read_check", "observations", "distinct_raw_values", "notes",
 ]
+# How the signal's DID answered when last verified (a single read, no value).
+READ_CHECK_MEANING = {
+    "answered": "the ECU answered the read",
+    "refused": "the ECU refused the read (negative response): not supported here",
+    "no session": "the ECU did not accept the session before the read",
+    "no answer": "the read timed out or failed in transport",
+    "not checked": "never verified",
+}
 # How a signal appears in the recordings. Exports carry counts, never values:
 # recorded values include readings such as the odometer.
 CHANGED = "changed"
@@ -127,6 +135,7 @@ def export_project(
         int(ecu): endpoint for endpoint in repository.transport["endpoints"] for ecu in endpoint["ecu_keys"]
     }
     progress_by_signal = {row["signal_ref"]: row for row in repository.replay_progress()}
+    checks = _read_checks(repository)
 
     rows = []
     json_rows = []
@@ -144,10 +153,15 @@ def export_project(
         ref = SignalRef.parse(signal_ref)
         endpoint = endpoint_by_ecu.get(ref.ecu_key)
         data_bits = response_bits.get((endpoint["id"], ref.data_id)) if endpoint else None
+        check, checked_bits = checks.get((endpoint["id"], ref.data_id), ("not checked", None)) if endpoint \
+            else ("not checked", None)
+        if checked_bits is not None:
+            data_bits = max(data_bits or 0, checked_bits)
         summary = {
             "observations": recorded["observations"] if recorded else 0,
             "distinct_raw_values": recorded["distinct_raw_values"] if recorded else 0,
             "recorded": _recorded(recorded, data_bits, ref.last_bit),
+            "read_check": check,
         }
         ecu = selected.get("ecu_name") or f"ECU {ref.ecu_key}"
         name = review["display_name_override"] if review and review["display_name_override"] is not None else selected.get("name", "")
@@ -192,6 +206,7 @@ def export_project(
             "project_id": repository.project_id,
             "profile_id": repository.profile_id,
             "recorded_meaning": RECORDED_MEANING,
+            "read_check_meaning": READ_CHECK_MEANING,
             "signals": json_rows,
         }
     )
@@ -238,6 +253,34 @@ def export_project(
     )
     _atomic_replace(target / "result" / "current.json", pointer)
     return manifest
+
+
+def _read_checks(repository: ProjectRepository) -> dict[tuple[str, int], tuple[str, int | None]]:
+    """Latest verification read per (endpoint, DID): its outcome and data length in bits."""
+
+    latest: dict[tuple[str, int], dict[str, Any]] = {}
+    for fact in repository.did_preflight_facts():
+        key = (fact["endpoint_id"], int(fact["data_id"], 16))
+        if key not in latest or fact["observed_utc"] >= latest[key]["observed_utc"]:
+            latest[key] = fact
+    result = {}
+    for (endpoint_id, data_id), fact in latest.items():
+        outcome = fact["outcome"]
+        read = fact["result"].get("read") or {}
+        bits = None
+        if outcome == "positive":
+            check = "answered"
+            if read.get("response_hex"):
+                payload = bytes.fromhex(read["response_hex"])
+                bits = max(0, (len(payload) - response_header_bytes(data_id)) * 8)
+        elif outcome == "negative":
+            check = "refused"
+        elif outcome == "session_unavailable":
+            check = "no session"
+        else:
+            check = "no answer"
+        result[(endpoint_id, data_id)] = (check, bits)
+    return result
 
 
 def _recorded(summary: dict[str, Any] | None, data_bits: int | None, last_bit: int) -> str:
