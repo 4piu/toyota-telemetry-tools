@@ -3,6 +3,12 @@
     python tools/i18n/messages.py extract   # messages.pot from _(), N_(), ngettext()
     python tools/i18n/messages.py update    # merge messages.pot into every <lang>.po
     python tools/i18n/messages.py check     # validate every <lang>.po; exit 1 on a problem
+    python tools/i18n/messages.py todo LANG OUT.json      # untranslated messages, as UTF-8 JSON
+    python tools/i18n/messages.py fill LANG IN.json ...   # merge translations from UTF-8 JSON
+
+A fill file is a JSON object mapping each English message (msgid) to its
+translation; a message with plural forms maps its singular msgid to a list
+with one string per plural form of the language.
 
 Every file is read and written as UTF-8 without a byte-order mark, with LF
 line ends, whatever the console's code page. Edit catalogs with an editor or
@@ -13,6 +19,7 @@ which on Windows may re-encode the text.
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 import re
 import sys
@@ -191,6 +198,55 @@ def coverage() -> dict[str, tuple[int, int]]:
     return result
 
 
+def _catalog(language: str) -> tuple[Path, list[PoEntry]]:
+    if language not in PLURAL_FORMS:
+        raise SystemExit(f"unknown language {language!r}; one of: {', '.join(PLURAL_FORMS)}")
+    path = LOCALE_DIR / f"{language}.po"
+    return path, parse_po(path.read_bytes())
+
+
+def todo(language: str, output: Path) -> int:
+    _path, entries = _catalog(language)
+    rows = [
+        {"msgid": entry.msgid, "plural": entry.plural, "where": entry.references[:2]}
+        for entry in entries if entry.msgid and not entry.translated
+    ]
+    output.write_bytes(json.dumps(rows, ensure_ascii=False, indent=1).encode("utf-8"))
+    return len(rows)
+
+
+def fill(language: str, sources: list[Path]) -> tuple[int, list[str]]:
+    """Merge JSON translations; returns how many were applied and the unknown msgids."""
+
+    path, entries = _catalog(language)
+    nplurals = int(PLURAL_FORMS[language].split(";")[0].split("=")[1])
+    by_id = {entry.msgid: entry for entry in entries if entry.msgid}
+    applied, unknown = 0, []
+    for source in sources:
+        data = source.read_bytes()
+        if data.startswith(b"\xef\xbb\xbf"):
+            raise SystemExit(f"{source}: remove the byte-order mark (save as UTF-8 without BOM)")
+        for msgid, text in json.loads(data.decode("utf-8")).items():
+            entry = by_id.get(msgid)
+            if entry is None:
+                unknown.append(msgid)
+                continue
+            if entry.plural is None:
+                if not isinstance(text, str):
+                    raise SystemExit(f"{source}: {msgid!r} takes one string")
+                entry.strings = {0: text}
+            else:
+                forms = [text] * nplurals if isinstance(text, str) else list(text)
+                if len(forms) != nplurals:
+                    raise SystemExit(f"{source}: {msgid!r} needs {nplurals} plural forms")
+                entry.strings = dict(enumerate(forms))
+            entry.fuzzy = False
+            applied += 1
+    header = next(entry for entry in entries if entry.msgid == "")
+    write_po(path, _header(language), [entry for entry in entries if entry is not header])
+    return applied, unknown
+
+
 def main(argv: list[str]) -> int:
     command = argv[0] if argv else ""
     if command == "extract":
@@ -207,6 +263,16 @@ def main(argv: list[str]) -> int:
         for language, (done, total) in coverage().items():
             print(f"{language}: {done}/{total} translated")
         return 1 if problems else 0
+    elif command == "todo" and len(argv) == 3:
+        count = todo(argv[1], Path(argv[2]))
+        print(f"{argv[1]}: {count} untranslated messages written to {argv[2]}")
+    elif command == "fill" and len(argv) >= 3:
+        applied, unknown = fill(argv[1], [Path(name) for name in argv[2:]])
+        print(f"{argv[1]}: {applied} translations applied")
+        for msgid in unknown:
+            print(f"  not in the catalog (ignored): {msgid[:70]!r}")
+        done, total = coverage()[argv[1]]
+        print(f"{argv[1]}: {done}/{total} translated")
     else:
         print(__doc__)
         return 2
