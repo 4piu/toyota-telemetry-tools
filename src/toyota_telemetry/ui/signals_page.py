@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSpinBox,
     QSplitter,
+    QStyle,
     QTreeView,
     QVBoxLayout,
     QWidget,
@@ -43,6 +44,7 @@ from toyota_telemetry.operator.verification import progress_text
 from .context import PageContext
 from .dialogs import EndpointAddDialog, EndpointConfirmDialog, LiveConfirmDialog, TargetEditDialog
 from .import_dialog import ImportDialog
+from .watch_window import WatchWindow
 from .jobs import LiveJob
 from .names import (
     ENDPOINT_READABLE,
@@ -193,6 +195,7 @@ class SignalsPage(QWidget):
             self, "Delete signals", text,
         ) == QMessageBox.StandardButton.Yes
         self.import_dialog = ImportDialog(context, self)
+        self.watch_window: WatchWindow | None = None
 
         layout = QVBoxLayout(self)
         layout.addWidget(page_title(
@@ -297,6 +300,12 @@ class SignalsPage(QWidget):
         self.view.customContextMenuRequested.connect(self.show_context_menu)
         self.verify_action = QAction("Verify", self)
         self.verify_action.triggered.connect(self.verify_checked)
+        self.watch_action = QAction("Live view", self)
+        self.context.register("watch", self.watch_action, "Read this DID at its interval and show values")
+        self.watch_action.triggered.connect(self.watch_current)
+        warning = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning)
+        for action in (self.verify_action, self.watch_action):
+            action.setIcon(warning)  # these transmit, like the Verify button
         self.delete_action = QAction("Delete", self)
         self.context.register("signal.delete", self.delete_action, "Remove from the candidate list")
         self.delete_action.triggered.connect(self.delete_selected)
@@ -957,7 +966,9 @@ class SignalsPage(QWidget):
         set_enabled(self.clear_button, ready and bool(selection.signals), blocked or "Select signals first.")
         set_enabled(self.save_button, self.dirty and not busy, blocked or "No unsaved changes.")
         set_enabled(self.import_button, ready, blocked)
-        self.verify_action.setEnabled(ready and bool(selection.dids))
+        live_free = ready and not self.context.live_job_running
+        self.verify_action.setEnabled(live_free and bool(selection.dids))
+        self.watch_action.setEnabled(live_free and self._current_did() is not None)
         self.delete_action.setEnabled(ready and not self.dirty and bool(self._selected_signal_refs()))
         set_enabled(self.discard_button, self.dirty and not busy, blocked or "No unsaved changes.")
 
@@ -973,9 +984,54 @@ class SignalsPage(QWidget):
         self.update_actions()
         menu = QMenu(self)
         menu.addAction(self.verify_action)
+        menu.addAction(self.watch_action)
         menu.addSeparator()
         menu.addAction(self.delete_action)
         self.run_menu(menu, self.view.viewport().mapToGlobal(position))
+
+    def _current_did(self) -> str | None:
+        """The DID of the single selected DID or signal row."""
+
+        current = self._current()
+        if current is None or len(self._selected_indexes()) != 1:
+            return None
+        kind, key = current
+        if kind == "did":
+            return key
+        if kind == "signal" and key in self._signals:
+            return self._signals[key][1].key
+        return None
+
+    def watch_current(self) -> None:
+        service = self.context.service
+        did_key = self._current_did()
+        if service is None or self.tree_data is None or did_key is None:
+            return
+        if self.watch_window is not None and self.watch_window.running:
+            self.context.error("Live view", "Stop the open live view first.")
+            return
+        try:
+            scope = service.watch_scope(self.tree_data, did_key)
+        except ValueError as exc:
+            self.context.error("Cannot show live values", exc)
+            return
+        endpoint, _did = self._dids[did_key]
+        title = f"{endpoint_label(endpoint)} DID {scope.data_id}"
+        details = [f"{signal['name']}" for signal in scope.signals]
+        details.append(f"Every {scope.interval_ms} ms until you pause or stop. Nothing is recorded.")
+        technical = [
+            f"{scope.endpoint_id}: request {scope.request_hex}",
+            "Session: " + ", ".join(step["request_hex"] for step in scope.session["session_setup"]),
+            f"Scope fingerprint: {scope.digest}",
+        ]
+        dialog = LiveConfirmDialog("Live view", scope.summary() + "?", details, self, technical=technical)
+        if not self.confirm_live(dialog):
+            return
+        if self.watch_window is not None:
+            self.watch_window.close()
+        self.watch_window = WatchWindow(self.context, scope, title, self)
+        self.watch_window.show()
+        self.watch_window.start()
 
     def _selected_signal_refs(self) -> list[str]:
         """Signals under the selected rows, whatever their endpoint's address."""

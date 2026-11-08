@@ -200,7 +200,7 @@ def test_context_menu_deletes_candidate_signals_but_keeps_used_ones(qtbot, proje
     menus = []
     page.run_menu = lambda menu, _position: menus.append([action.text() for action in menu.actions()])
     page.show_context_menu(page.view.visualRect(page.view.currentIndex()).center())
-    assert menus == [["Verify", "", "Delete"]]
+    assert menus == [["Verify", "Live view", "", "Delete"]]
     asked = []
     page.confirm_delete = lambda text: asked.append(text) or True
     page.delete_action.trigger()
@@ -1038,3 +1038,39 @@ def test_new_project_and_export_result(qtbot, tmp_path) -> None:
     window.export_result_action.trigger()
     settle(qtbot, window)
     assert starts == [str(tmp_path), exported.as_posix()]
+
+
+def test_live_view_pauses_resumes_and_stops(qtbot, project, probes) -> None:
+    root, rows = project
+    window = open_window(qtbot, root)
+    import_rows(qtbot, window, rows)
+    service = window.context.service
+    result = service.edit_targets(service.tree(), ["372/0x1003/0..7"], requirements={"minimum_samples": 1})
+    service.save(policy=result.policy)
+    page = window.signals_page
+    did = next(key for key in page._dids if key.endswith("/0x1003"))
+    page.focus("did", did)
+    page.select("did", did)
+    page.confirm_live = lambda dialog: True
+    page.verify_checked()
+    qtbot.waitUntil(lambda: page.job is None, timeout=10_000)
+    settle(qtbot, window)
+    page.select("signal", "372/0x1003/8..15")
+    page.update_actions()
+    assert page.watch_action.isEnabled()
+    with mock.patch("toyota_telemetry.operator.watch.JsonlWorkerClient", FakeWorker):
+        page.watch_action.trigger()
+        view = page.watch_window
+        qtbot.waitUntil(lambda: view.table.item(1, 1).text() == "-33 C", timeout=10_000)
+        assert window.context.live_job_running
+        assert view.table.item(1, 2).text() == "7"
+        view.pause_button.click()
+        qtbot.waitUntil(lambda: not view.running, timeout=10_000)
+        assert view.pause_button.text() == "Resume"
+        assert "nothing is being sent" in view.status.text()
+        assert not window.context.live_job_running
+        view.pause_button.click()
+        qtbot.waitUntil(lambda: view.running and view.status.text().startswith("Read"), timeout=10_000)
+        view.stop_button.click()
+        qtbot.waitUntil(lambda: not view.isVisible(), timeout=10_000)
+    assert not window.context.live_job_running

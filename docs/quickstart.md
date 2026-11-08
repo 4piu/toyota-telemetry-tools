@@ -160,10 +160,24 @@ remark with it. `endpoint add
 TESTER:RESPONSE:RECIPE --ecu KEY` adds an address the source did not provide;
 `--address 0x2A` adds an ECU behind a gateway (extended addressing).
 
+### Live view (right-click a DID or signal > Live view, LIVE)
+
+```powershell
+telemetry watch 7a1-7a9/0x1075 --dry-run
+telemetry watch 7a1-7a9/0x1075
+```
+
+Reads one confirmed, verified DID at its collection interval and shows its
+signals' decoded values; nothing is recorded. Set the DID's interval first
+(Collect settings). In the application, Pause stops sending (the adapter is
+released) and Resume opens the session again; Stop, or closing the window or
+the application, ends it. In a terminal, Ctrl+C stops. Reading stops by itself
+after three failed reads in a row.
+
 ### Live confirmation
 
-`verify` and `collect` are the only commands that transmit. Both print the
-exact scope first. In a terminal they ask you to type `yes`. In a script,
+`verify`, `watch`, and `collect` are the only commands that transmit. Each
+prints the exact scope first. In a terminal they ask you to type `yes`. In a script,
 `--yes` is accepted only when the scope is identical to the one last printed by
 `--dry-run` for that command; the preview is recorded automatically, so run
 `--dry-run`, review it, then repeat with `--yes`. Ctrl+C or the word `stop`

@@ -456,8 +456,9 @@ class OperatorWindow(QMainWindow):
             "trash; restore it from there to bring the run back.\n\n"
             "Interrupted run: a recording that stopped without finishing. Recover keeps everything saved "
             "up to the interruption.\n\n"
-            "Only the buttons with a warning icon (Verify and Start) transmit to the vehicle, and "
-            "each shows its exact scope first.\n\n"
+            "Only actions with a warning icon (Verify, Live view, and Start) transmit to the vehicle, "
+            "and each shows its exact scope first. Live view reads one DID at its collection interval "
+            "and shows the values without recording them; Pause stops sending.\n\n"
             "Hover over any control for a short explanation.\n\n"
             "The steps across the top are the pages in workflow order. A tick means done, a dot marks "
             "the next step (hover it to see what to do), and ! needs attention.\n\n"
@@ -477,6 +478,9 @@ class OperatorWindow(QMainWindow):
             for page in (self.signals_page, self.collect_page):
                 if page.job is not None:
                     page.job.request_stop()
+            watch = self.signals_page.watch_window
+            if watch is not None and watch.running:
+                watch.stop()
             self.statusBar().showMessage("Stopping the live job safely; the window closes when it finishes.")
             event.ignore()
             return

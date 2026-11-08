@@ -60,6 +60,7 @@ from .recordings import (
 from .selection import Selection, resolve_selection
 from .sources import SourceRows, format_rows_document, rows_document
 from .verification import VerificationResult, VerificationScope, build_verification_scope, run_verification
+from .watch import WatchScope, build_watch_scope, run_watch
 from .workspace import create_workspace
 
 
@@ -88,6 +89,7 @@ OPERATIONS: tuple[Operation, ...] = (
     Operation("endpoint.add", "Add a manual endpoint candidate", "telemetry endpoint add", "signals.endpoint.add"),
     Operation("endpoint.confirm", "Confirm a responding endpoint", "telemetry endpoint confirm", "signals.endpoint.confirm"),
     Operation("verify", "Verify endpoints and DIDs", "telemetry verify", "signals.verify", live=True),
+    Operation("watch", "Watch one DID's signals live", "telemetry watch", "signals.menu.watch", live=True),
     Operation("signal.delete", "Delete candidate signals", "telemetry signal delete", "signals.menu.delete"),
     Operation("signal.set", "Edit a signal definition", "telemetry signal set", "signals.definition.apply"),
     Operation("did.set", "Edit shared DID settings", "telemetry did set", "signals.did.apply"),
@@ -499,6 +501,24 @@ class OperatorService:
                 repository, scope, utc_now=utc_now, on_event=on_event,
                 stop_event=stop_event, probe_worker_factory=probe_worker_factory,
             )
+
+    def watch_scope(self, tree: InventoryTree, did_key: str) -> WatchScope:
+        return build_watch_scope(self.repository(), tree, did_key)
+
+    def watch(
+        self,
+        scope: WatchScope,
+        *,
+        on_event: Callable[[dict[str, Any]], None],
+        stop_event: threading.Event,
+        worker_factory: Any = None,
+    ) -> str:
+        """Read one DID at its interval until stopped; values are shown, not recorded."""
+
+        repository = self.repository()
+        extra = {} if worker_factory is None else {"worker_factory": worker_factory}
+        with LiveLock(repository), keep_awake():
+            return run_watch(repository, scope, on_event=on_event, stop_event=stop_event, **extra)
 
     # Review and targets ----------------------------------------------------
 

@@ -64,6 +64,34 @@ class CliTests(unittest.TestCase):
         code, out, _err = self.run_cli("source", "export", str(saved), "--force")
         self.assertEqual((code, out.strip()), (0, f"Saved 4 candidate rows to {saved}"))
 
+    def test_watch_needs_a_matching_preview_and_prints_reads(self) -> None:
+        from tests.test_operator_service import FakeWorker
+
+        self.run_cli("source", "import", "file", str(self.rows), "--apply")
+        self.run_cli("target", "set", "372/0x1003/0..7", "--min-samples", "1")
+        did = f"{ENDPOINT_ID}/0x1003"
+        self.run_cli("verify", did, "--dry-run")
+        self.assertEqual(self.run_cli("verify", did, "--yes")[0], 0)
+        code, _out, err = self.run_cli("watch", did, "--yes")
+        self.assertNotEqual(code, 0)
+        self.assertIn("--dry-run", err)
+        code, out, _err = self.run_cli("watch", did, "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("nothing is recorded", out)
+
+        class Refusing(FakeWorker):
+            def exchange(self, sequence, transaction_id, event_sink):
+                return {**super().exchange(sequence, transaction_id, event_sink),
+                        "outcome": "negative", "response_hex": "7F 22 22", "nrc": "0x22"}
+
+        with mock.patch("toyota_telemetry.operator.watch.JsonlWorkerClient", Refusing):
+            code, out, _err = self.run_cli("watch", did, "--yes")
+        self.assertEqual(code, 0)
+        self.assertIn("read 1: negative 0x22", out)
+        self.assertIn("Stopped after 3 failed reads in a row.", out)
+        code, _out, err = self.run_cli("watch", ENDPOINT_ID)
+        self.assertIn("exactly one DID", err)
+
     def test_scripted_verify_needs_matching_preview(self) -> None:
         self.run_cli("source", "import", "file", str(self.rows), "--apply")
         code, _, err = self.run_cli("verify", UNCONFIRMED_KEY)

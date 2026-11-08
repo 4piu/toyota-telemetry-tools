@@ -35,7 +35,33 @@ def build_worker_config(
     ]
     if len(sessions) != 1:
         raise ValueError(f"worker endpoint must resolve exactly once: {endpoint_id}")
-    session = sessions[0]
+    return _worker_document(
+        _text(admitted_plan.get("profile_id"), "plan profile_id"), endpoint_id, sessions[0],
+        admitted_plan.get("acquisitions", []), backend,
+    )
+
+
+def build_watch_config(
+    profile_id: str,
+    session: Mapping[str, Any],
+    acquisition: Mapping[str, Any],
+    backend: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Worker input for watching one DID: one endpoint, one allowed read."""
+
+    endpoint_id = _text(session.get("endpoint_id"), "watch endpoint")
+    if acquisition.get("endpoint_id") != endpoint_id:
+        raise ValueError("watched DID belongs to another endpoint")
+    return _worker_document(profile_id, endpoint_id, session, [acquisition], backend)
+
+
+def _worker_document(
+    profile_id: str,
+    endpoint_id: str,
+    session: Mapping[str, Any],
+    acquisitions: Any,
+    backend: Mapping[str, Any],
+) -> dict[str, Any]:
     expected_session = {
         "endpoint_id", "tester_can_id", "response_can_id", "session_recipe_id",
         "network", "request_start_floor_ms", "initial_response_timeout_ms",
@@ -55,7 +81,7 @@ def build_worker_config(
     settings = _object(backend["settings"], "local backend settings")
 
     transactions = []
-    for index, acquisition in enumerate(admitted_plan.get("acquisitions", [])):
+    for index, acquisition in enumerate(acquisitions):
         acquisition = _object(acquisition, f"acquisitions[{index}]")
         if acquisition.get("endpoint_id") != endpoint_id:
             continue
@@ -98,7 +124,7 @@ def build_worker_config(
     return {
         "document_type": "telemetry.adapter-worker",
         "schema_version": SCHEMA_VERSION,
-        "profile_id": _text(admitted_plan.get("profile_id"), "plan profile_id"),
+        "profile_id": _text(profile_id, "profile_id"),
         "endpoint_id": endpoint_id,
         "transport": {
             "network": network["type"],

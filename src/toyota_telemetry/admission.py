@@ -13,7 +13,7 @@ import math
 import os
 from pathlib import Path
 import tempfile
-from typing import Any
+from typing import Any, Mapping
 
 from .identity import read_request_hex, response_header_bytes, AcquisitionRef, SignalRef
 from .objectives import condition_leaves, condition_refs
@@ -130,7 +130,6 @@ def compile_plan(
     if 1000 / floor > maximum_rate:
         raise ValueError("request-start floor exceeds the tracked maximum request rate")
     endpoint_rows = {row["id"]: row for row in transport["endpoints"]}
-    recipe_rows = {row["id"]: row for row in transport["session_recipes"]}
     acquisitions = []
     load_by_endpoint: dict[str, dict[str, float]] = {}
     for acquisition_id, rule in sorted(acquisition_rules.items(), key=lambda item: AcquisitionRef.parse(item[0])):
@@ -209,39 +208,10 @@ def compile_plan(
                 f"{safety['maximum_nominal_session_utilization']:.6f}"
             )
 
-    endpoint_sessions = []
-    dynamic_by_endpoint: dict[str, list[dict[str, Any]]] = {}
-    for dynamic in transport["dynamic_dids"]:
-        dynamic_by_endpoint.setdefault(dynamic["endpoint_id"], []).append({
-            "request_hex": dynamic["definition_hex"],
-            "expected_prefix_hex": dynamic["expected_prefix_hex"],
-            "label": f"define dynamic DID {dynamic['target_did']}",
-            "tolerate_negative": False,
-        })
-    for endpoint_id in sorted({row["endpoint_id"] for row in acquisitions}):
-        endpoint = endpoint_rows[endpoint_id]
-        recipe = recipe_rows[endpoint["session_recipe_id"]]
-        endpoint_sessions.append(
-            {
-                "endpoint_id": endpoint_id,
-                "tester_can_id": endpoint["tester_can_id"],
-                "response_can_id": endpoint["response_can_id"],
-                **({} if endpoint.get("target_address") is None
-                   else {"target_address": endpoint["target_address"]}),
-                "session_recipe_id": recipe["id"],
-                "network": transport["network"],
-                "request_start_floor_ms": safety["request_start_floor_ms"],
-                "initial_response_timeout_ms": safety["initial_response_timeout_ms"],
-                "response_pending_budget_ms": safety["response_pending_budget_ms"],
-                "transport_retries": safety["transport_retries"],
-                "session_setup": [
-                    dict(step) for step in recipe["steps"]
-                ] + sorted(
-                    dynamic_by_endpoint.get(endpoint_id, []),
-                    key=lambda row: row["request_hex"],
-                ),
-            }
-        )
+    endpoint_sessions = [
+        endpoint_session_row(transport, endpoint_id)
+        for endpoint_id in sorted({row["endpoint_id"] for row in acquisitions})
+    ]
     stress = {
         "endpoint_loads": [
             {"endpoint_id": endpoint_id, **load}
@@ -299,6 +269,39 @@ def compile_plan(
     if output is not None:
         _atomic_write(output, encoded)
     return body, file_sha256
+
+
+def endpoint_session_row(transport: Mapping[str, Any], endpoint_id: str) -> dict[str, Any]:
+    """How a worker reaches one confirmed endpoint: IDs, session steps, limits."""
+
+    endpoint = next(row for row in transport["endpoints"] if row["id"] == endpoint_id)
+    recipe = next(row for row in transport["session_recipes"] if row["id"] == endpoint["session_recipe_id"])
+    safety = transport["safety"]
+    dynamic = sorted(
+        (
+            {
+                "request_hex": row["definition_hex"],
+                "expected_prefix_hex": row["expected_prefix_hex"],
+                "label": f"define dynamic DID {row['target_did']}",
+                "tolerate_negative": False,
+            }
+            for row in transport["dynamic_dids"] if row["endpoint_id"] == endpoint_id
+        ),
+        key=lambda row: row["request_hex"],
+    )
+    return {
+        "endpoint_id": endpoint_id,
+        "tester_can_id": endpoint["tester_can_id"],
+        "response_can_id": endpoint["response_can_id"],
+        **({} if endpoint.get("target_address") is None else {"target_address": endpoint["target_address"]}),
+        "session_recipe_id": recipe["id"],
+        "network": transport["network"],
+        "request_start_floor_ms": safety["request_start_floor_ms"],
+        "initial_response_timeout_ms": safety["initial_response_timeout_ms"],
+        "response_pending_budget_ms": safety["response_pending_budget_ms"],
+        "transport_retries": safety["transport_retries"],
+        "session_setup": [dict(step) for step in recipe["steps"]] + dynamic,
+    }
 
 
 def _compile_decodes(

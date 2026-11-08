@@ -176,6 +176,10 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--recipe", help="advanced: use only this session recipe for endpoints not verified "
                         "yet (default: try each reviewed recipe until one opens a session)")
     verify.add_argument("--yes", action="store_true", help="start without a prompt (needs a matching --dry-run)")
+    watch = command("watch", "watch", _watch,
+                    "LIVE: read one DID at its collection interval and print its signals; nothing is recorded "
+                    "(Ctrl+C stops)", [selector, dry])
+    watch.add_argument("--yes", action="store_true", help="start without a prompt (needs a matching --dry-run)")
 
     signal_cmd = commands.add_parser("signal", help="signal definition and review")
     signal_commands = signal_cmd.add_subparsers(dest="signal_command", required=True)
@@ -570,6 +574,55 @@ def _verify(service: OperatorService, args: argparse.Namespace) -> int:
         outcomes = ", ".join(f"{count} {name}" for name, count in sorted(summary["outcomes"].items()))
         print(("Stopped early: " if result.stopped else "Finished: ") + (outcomes or "no DIDs read"))
     return EXIT_OK
+
+
+def _watch(service: OperatorService, args: argparse.Namespace) -> int:
+    tree = service.tree()
+    selection = service.select(tree, args.selectors, ecus=args.ecu, states=args.states, search=args.search)
+    if len(selection.dids) != 1:
+        raise ValueError(f"select exactly one DID to watch (the selection has {len(selection.dids)})")
+    scope = service.watch_scope(tree, selection.dids[0])
+    repository = service.repository()
+    if args.dry_run:
+        record_preview(repository, "watch", scope.digest)
+        if args.as_json:
+            return _emit({"dry_run": True, "scope": scope.as_dict()})
+        print(scope.summary())
+        print("Dry run only; nothing was transmitted. Re-run without --dry-run to start.")
+        return EXIT_OK
+    if not args.as_json:
+        print(scope.summary())
+    _confirm_live(repository, "watch", scope.digest, scope.summary(), args)
+    stop = threading.Event()
+    names = {row["signal_ref"]: row for row in scope.signals}
+
+    def show(event: dict[str, Any]) -> None:
+        if args.as_json:
+            print(json.dumps(event, sort_keys=True), flush=True)
+        elif event["event"] == "read":
+            if event["outcome"] != "positive":
+                detail = f" {event['nrc']}" if event.get("nrc") else ""
+                print(f"  read {event['sequence']}: {event['outcome']}{detail}", flush=True)
+                return
+            parts = []
+            for value in event["values"]:
+                signal = names[value["signal_ref"]]
+                parts.append(f"{signal['name']} = {_watch_text(value, signal['unit'])}")
+            print(f"  read {event['sequence']}: " + "; ".join(parts), flush=True)
+
+    with _safe_interrupt(stop, "Stopping after the current read…"):
+        reason = service.watch(scope, on_event=show, stop_event=stop)
+    if not args.as_json:
+        print(reason.capitalize() + ".")
+    return EXIT_OK
+
+
+def _watch_text(value: dict[str, Any], unit: str) -> str:
+    if value["value"] is None and value["raw"] is None:
+        return value["text"] or "?"
+    number = value["text"] or (f"{value['value']:g}{f' {unit}' if unit else ''}"
+                               if value["value"] is not None else "?")
+    return f"{number} (raw {value['raw']})"
 
 
 def _print_verification_scope(scope) -> None:

@@ -810,7 +810,73 @@ class StatusTests(ServiceTestCase):
         for operation in OPERATIONS:
             self.assertTrue(operation.cli.startswith("telemetry "))
             self.assertTrue(operation.gui)
-        self.assertEqual({op.id for op in OPERATIONS if op.live}, {"verify", "collect"})
+        self.assertEqual({op.id for op in OPERATIONS if op.live}, {"verify", "watch", "collect"})
+
+
+class WatchTests(ServiceTestCase):
+    DID = f"{ENDPOINT_ID}/0x1003"
+
+    def _ready(self) -> None:
+        self.import_rows()
+        tree = self.service.tree()
+        result = self.service.edit_targets(tree, ["372/0x1003/0..7"], requirements={"minimum_samples": 1})
+        self.service.save(policy=result.policy)
+
+    def test_only_a_verified_did_with_an_interval_is_watched(self) -> None:
+        self._ready()
+        with self.assertRaisesRegex(ValueError, "verify this DID first"):
+            self.service.watch_scope(self.service.tree(), self.DID)
+        self.verify(self.DID)
+        scope = self.service.watch_scope(self.service.tree(), self.DID)
+        self.assertEqual((scope.request_hex, scope.data_id), ("22 10 03", "0x1003"))
+        self.assertEqual([row["signal_ref"] for row in scope.signals], ["372/0x1003/0..7", "372/0x1003/8..15"])
+        self.assertGreaterEqual(scope.interval_ms, 100)
+        with self.assertRaisesRegex(ValueError, "no DID"):
+            self.service.watch_scope(self.service.tree(), f"{ENDPOINT_ID}/0x7777")
+
+    def test_watch_reads_at_the_interval_decodes_and_records_nothing(self) -> None:
+        self._ready()
+        self.verify(self.DID)
+        scope = self.service.watch_scope(self.service.tree(), self.DID)
+        configs = []
+
+        class Worker(FakeWorker):
+            def __init__(self, executable, config_path):
+                super().__init__(executable, config_path)
+                configs.append(self.config)
+
+        stop = threading.Event()
+        events = []
+
+        def on_event(event):
+            events.append(event)
+            if sum(1 for row in events if row["event"] == "read") == 3:
+                stop.set()
+
+        runs_before = sorted(path.name for path in (self.root / "captures").iterdir())
+        reason = self.service.watch(scope, on_event=on_event, stop_event=stop, worker_factory=Worker)
+        self.assertEqual(reason, "stopped")
+        # The worker may send only this DID's read, after the endpoint's own session steps.
+        self.assertEqual([row["request_hex"] for row in configs[0]["allowed_transactions"]], ["22 10 03"])
+        reads = [row for row in events if row["event"] == "read"]
+        self.assertEqual(len(reads), 3)
+        # 62 10 03 00 07: gear raw 0, coolant raw 7 -> 7 - 40.
+        self.assertEqual([(row["raw"], row["value"]) for row in reads[0]["values"]], [(0, 0.0), (7, -33.0)])
+        self.assertEqual(sorted(path.name for path in (self.root / "captures").iterdir()), runs_before)
+
+    def test_watch_stops_after_repeated_failures(self) -> None:
+        self._ready()
+        self.verify(self.DID)
+        scope = self.service.watch_scope(self.service.tree(), self.DID)
+
+        class Refusing(FakeWorker):
+            def exchange(self, sequence, transaction_id, event_sink):
+                return {**super().exchange(sequence, transaction_id, event_sink),
+                        "outcome": "negative", "response_hex": "7F 22 31", "nrc": "0x31"}
+
+        reason = self.service.watch(scope, on_event=lambda _event: None, stop_event=threading.Event(),
+                                    worker_factory=Refusing)
+        self.assertEqual(reason, "stopped after 3 failed reads in a row")
 
 
 class FakeWorker:
