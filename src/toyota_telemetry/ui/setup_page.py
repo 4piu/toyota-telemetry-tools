@@ -265,18 +265,15 @@ class SetupPage(QWidget):
         installed = default_tis_database()
         if installed is not None:
             self.tis_directory.setText(str(installed))
-        self.tis_phases = QLineEdit("5")
         self.tis_ecus = QLineEdit()
         self.tis_ecus.setPlaceholderText("all installed ECUs")
         self.tis_code_page = QSpinBox()
         self.tis_code_page.setRange(0, 65535)
         self.tis_code_page.setValue(932)
         self.tis_directory.setToolTip("Region folder containing DB")
-        self.tis_phases.setToolTip("Database phases to read, e.g. 5")
         self.tis_ecus.setToolTip("Empty reads every ECU")
         self.tis_code_page.setToolTip("932 for the NA set")
         tis_form.addRow("Database folder", path_field(self.tis_directory, "TIS database folder", directory=True))
-        tis_form.addRow("Phases", self.tis_phases)
         tis_form.addRow("ECU keys", self.tis_ecus)
         tis_form.addRow("Code page", self.tis_code_page)
         self.source_stack.addWidget(tis_page)
@@ -309,10 +306,8 @@ class SetupPage(QWidget):
             return NormalizedFileSource(Path(self.file_path.text().strip()))
         if not self.tis_directory.text().strip():
             raise ValueError("choose the TIS database folder first")
-        phases = parse_keys(self.tis_phases.text()) or [5]
         return TisDatabaseSource(
             Path(self.tis_directory.text().strip()),
-            phases=phases,
             ecu_keys=parse_keys(self.tis_ecus.text()),
             text_code_page=self.tis_code_page.value(),
         )

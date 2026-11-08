@@ -101,7 +101,7 @@ telemetry connector set pcan --channel PCAN_USBBUS1
 telemetry connector check
 telemetry source import file C:\private\catalog-rows.json            # preview
 telemetry source import file C:\private\catalog-rows.json --apply
-telemetry source import tis --phase 4 --phase 5 --apply
+telemetry source import tis --apply
 ```
 
 `connector check` validates settings and runs the worker self-test without
@@ -111,8 +111,9 @@ replaces that source's rows, updates the catalog manifest, and
 rebuilds the cache. The TIS source needs Windows and installed Techstream
 databases; it finds them in the standard install folder (NA, then EU, OT,
 JP) unless `--database FOLDER` names one, and the desktop Setup page fills
-the same folder in. Phase 5 is the default; `--phase 4` adds older ECUs (see
-[how it works](how-it-works.md#older-ecus-local-identifiers)). Candidate rows
+the same folder in. It reads both the current (phase 5) and older (phase 4)
+databases (see [how it works](how-it-works.md#older-ecus-local-identifiers));
+`--ecu KEY` limits it to chosen ECUs. Candidate rows
 never become reviewed authority by being imported.
 
 ## 2. Verify (Signals page, LIVE)

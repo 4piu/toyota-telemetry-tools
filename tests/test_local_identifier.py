@@ -73,7 +73,7 @@ class Phase4SourceTests(unittest.TestCase):
                 stdout = "".join(json.dumps(row) + "\n" for row in answers[mode])
                 return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
 
-            source = TisDatabaseSource(database, phases=(4,))
+            source = TisDatabaseSource(database)
             with mock.patch.object(TisDatabaseSource, "availability", return_value=None), \
                     mock.patch.object(sources.subprocess, "run", side_effect=helper):
                 result = source.read()

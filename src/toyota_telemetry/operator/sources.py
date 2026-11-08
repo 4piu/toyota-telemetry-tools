@@ -123,6 +123,8 @@ class NormalizedFileSource:
 
 
 TECHSTREAM_REGIONS = ("NA", "EU", "OT", "JP")
+# Database generations the import understands: 5 (22 DID) and 4 (21 LL).
+SUPPORTED_PHASES = (4, 5)
 FALLBACK_PROGRAM_FILES = ("C:\\Program Files (x86)",)
 
 
@@ -150,7 +152,8 @@ class TisDatabaseSource:
     one-byte local identifier) and stored with DID 0x00LL; items whose layout
     the helper does not understand are rejected rather than guessed.
 
-    Selection narrows the installed ECU catalog by database phase and ECU key.
+    Every installed database of a supported phase (5, then the older 4) is
+    read; an optional list of ECU keys narrows the selection.
     Database records are candidates; only verification establishes support.
     """
 
@@ -161,13 +164,11 @@ class TisDatabaseSource:
         self,
         database_directory: Path,
         *,
-        phases: Iterable[int] = (5,),
         ecu_keys: Iterable[int] = (),
         techstream_bin_directory: Path | None = None,
         text_code_page: int = 932,
     ) -> None:
         self.database_directory = Path(database_directory)
-        self.phases = tuple(sorted(set(phases)))
         self.ecu_keys = tuple(sorted(set(ecu_keys)))
         self.techstream_bin_directory = techstream_bin_directory
         self.text_code_page = text_code_page
@@ -199,17 +200,16 @@ class TisDatabaseSource:
             if self.ecu_keys and key not in self.ecu_keys:
                 continue
             match = _PHASE.search(name)
-            if self.phases and (match is None or int(match.group(1)) not in self.phases):
+            if match is None or int(match.group(1)) not in SUPPORTED_PHASES:
                 continue
             selected.setdefault(key, {"key": key, "name": record["Ecu"], "phase": int(match.group(1)) if match else 5})
         if not selected:
-            raise ValueError("no installed TIS database matches the phase/ECU selection")
+            raise ValueError("no installed TIS database matches the ECU selection")
         raw_rows: list[dict[str, Any]] = []
         for key in sorted(selected):
             raw_rows.extend(self._ecu_rows(selected[key]))
         rows, rejections = _normalize_all(raw_rows)
-        phases = ",".join(str(value) for value in self.phases) or "any"
-        label = f"TIS databases (phase {phases}, {len(selected)} ECUs)"
+        label = f"TIS databases ({len(selected)} ECUs)"
         return SourceRows(self.source_id, self.kind, label, rows, rejections)
 
     def _ecu_rows(self, ecu: dict[str, Any]) -> list[dict[str, Any]]:

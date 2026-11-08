@@ -253,7 +253,8 @@ Some ECUs, often body modules behind the gateway, predate `22 DID`. They
 refuse tester present with `7F 3E 12`, answer `22` with `7F 22 11`, and are
 read with `21 LL`: one byte, a *local identifier*, answered by `61 LL` and
 its data. Techstream describes them in its phase-4 databases; the import
-reads those (`--phase 4`) and stores local identifier `LL` as DID `0x00LL`.
+reads those along with the current ones and stores local identifier `LL` as
+DID `0x00LL`.
 That range is reserved for DIDs, so the toolkit treats any DID below
 `0x0100` as a local identifier and reads it with `21 LL`. Items whose layout
 the import does not understand are rejected rather than guessed. Such ECUs

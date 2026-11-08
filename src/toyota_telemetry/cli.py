@@ -129,7 +129,6 @@ def build_parser() -> argparse.ArgumentParser:
                   parent=import_kinds)
     tis.add_argument("--database", type=Path,
                      help="Techstream region folder containing DB/ (default: the installed NA, EU, OT, or JP folder)")
-    tis.add_argument("--phase", type=int, action="append", default=[], help="database phase (default 5)")
     tis.add_argument("--ecu", type=int, action="append", default=[], help="only this ECU key")
     tis.add_argument("--techstream-bin", type=Path, help="Techstream bin folder")
     tis.add_argument("--code-page", type=int, default=932, help="database text code page")
@@ -357,7 +356,7 @@ def _source_import(service: OperatorService, args: argparse.Namespace) -> int:
         if database is None:
             raise ValueError("no installed Techstream database found; pass --database FOLDER")
         source = TisDatabaseSource(
-            database, phases=args.phase or (5,), ecu_keys=args.ecu,
+            database, ecu_keys=args.ecu,
             techstream_bin_directory=args.techstream_bin, text_code_page=args.code_page,
         )
     else:
