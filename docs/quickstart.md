@@ -113,7 +113,7 @@ databases; it finds them in the standard install folder (NA, then EU, OT,
 JP) unless `--database FOLDER` names one, and the desktop Setup page fills
 the same folder in. It reads every installed ECU database, current
 (phase 5) and older (phase 4) alike, including models built by partner
-makers (see [how it works](how-it-works.md#older-ecus-local-identifiers)),
+makers (see [protocols](protocols.md#techstreams-databases)),
 and leaves out ECUs not on CAN; `--ecu KEY` limits it to chosen ECUs.
 Candidate rows
 never become reviewed authority by being imported.

@@ -62,6 +62,8 @@ only. `uv tool upgrade toyota-telemetry-tools` updates to the latest commit.
 
 - [How it works](docs/how-it-works.md): the four steps, what your vehicle
   needs and how to find it, safety, wiring, and decoding.
+- [Diagnostic protocols](docs/protocols.md): how ECUs are reached and
+  read, and which transports are supported.
 - [Quickstart](docs/quickstart.md): every step as a command and as a desktop
   page, and where the built-in help is.
 - [Adapters](backends/README.md) and [adding one](docs/adding-an-adapter.md).

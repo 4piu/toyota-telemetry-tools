@@ -233,50 +233,26 @@ the session file private, as later sections can hold the VIN.
 
 ## ECUs behind a gateway
 
-Many body, chassis, and driver-assistance ECUs are not on the diagnostic bus
-directly. A gateway forwards to them through one shared request ID (on
-Toyotas usually `0x750`, answered on `0x758`), and the first byte of every
-frame, in both directions, is the address of the ECU meant: ISO 15765-2
-extended addressing. Each frame then carries one data byte less.
-
-The toolkit treats each address as its own endpoint: `750-758-2a` is the
-ECU at address `0x2A`. The Techstream import reads the address from the
-database, a candidate file gives it as `target_address`, and `endpoint add
-... --address 0x2A` (or Address in the desktop Add endpoint dialog) adds one
-by hand. Verification and collection then send and accept only frames
-carrying that address; frames from the other ECUs on the same response ID
-are ignored.
+Many body, chassis, and driver-assistance ECUs sit behind a gateway that
+shares one request ID (usually `0x750`, answered on `0x758`); the first byte
+of every frame is the address of the ECU meant. The toolkit treats each
+address as its own endpoint, such as `750-758-2a`. Frames, sessions, and
+replies are in [Diagnostic protocols](protocols.md#extended-addressing-gateway).
 
 ## Older ECUs: local identifiers
 
-Some ECUs, often body modules behind the gateway, predate `22 DID`. They
-refuse tester present with `7F 3E 12`, answer `22` with `7F 22 11`, and are
-read with `21 LL`: one byte, a *local identifier*, answered by `61 LL` and
-its data. Techstream describes them in its phase-4 databases; the import
-reads those along with the current ones (it tells them apart by the data
-list each database holds, not by file name) and stores local identifier
-`LL` as DID `0x00LL`.
-That range is reserved for DIDs, so the toolkit treats any DID below
-`0x0100` as a local identifier and reads it with `21 LL`. Items whose layout
-the import does not understand are rejected rather than guessed. Such ECUs
-may accept no session change; a session recipe with only tester present
-(negative reply tolerated) opens them.
-
-The database's bit layout covers every version of an ECU, and the length it
-lists is not the reply length. Replies seen on a vehicle were both shorter
-and longer than listed, so the import keeps every item and verification
-records how long this ECU's reply really is. An item past that reply is
-absent on this vehicle: export marks it `beyond response`, and a target on
-it is refused at planning.
+Older ECUs answer `22` with `7F 22 11` and are read with `21 LL`, a one-byte
+*local identifier*. The toolkit stores `LL` as DID `0x00LL` and reads every
+DID below `0x0100` that way. Techstream's databases list every version of
+an ECU, so verification records each reply's real length, and an item past
+it is marked `beyond response`. Details are in
+[Diagnostic protocols](protocols.md#reads).
 
 ## Limits
 
 - Classical CAN with 11-bit identifiers, with normal or extended addressing.
-  CAN FD and 29-bit identifiers are rejected in configuration. A gateway's
-  response ID is taken as request + 8 until an ECU answers on it.
-- ECUs reached over K-line (older vehicles, OBD pin 7) or diagnostic
-  Ethernet (DoIP, the newest driver-assistance ECUs) are not supported; the
-  Techstream import leaves them out.
+  K-line, DoIP, CAN FD, and 29-bit identifiers are not supported; see
+  [Diagnostic protocols](protocols.md#not-supported-and-why).
 - Safety-critical signals that cannot be provoked safely stay untested unless
   they occur naturally; a constant value is never treated as proof that a
   signal is absent.
