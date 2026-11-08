@@ -153,9 +153,11 @@ def compile_plan(
         )
         if target < floor or maximum < floor:
             raise ValueError(f"acquisition interval violates request-start floor: {acquisition_id}")
-        response_frames = max(1, math.ceil(facts["maximum_response_bytes"] / 7))
-        estimated_bits = (1 + response_frames) * 128
         ref = AcquisitionRef.parse(acquisition_id)
+        # An extended-address byte leaves six data bytes per frame instead of seven.
+        per_frame = 6 if endpoint_rows[ref.endpoint_id].get("target_address") else 7
+        response_frames = max(1, math.ceil(facts["maximum_response_bytes"] / per_frame))
+        estimated_bits = (1 + response_frames) * 128
         load = load_by_endpoint.setdefault(
             ref.endpoint_id,
             {
@@ -224,6 +226,8 @@ def compile_plan(
                 "endpoint_id": endpoint_id,
                 "tester_can_id": endpoint["tester_can_id"],
                 "response_can_id": endpoint["response_can_id"],
+                **({} if endpoint.get("target_address") is None
+                   else {"target_address": endpoint["target_address"]}),
                 "session_recipe_id": recipe["id"],
                 "network": transport["network"],
                 "request_start_floor_ms": safety["request_start_floor_ms"],

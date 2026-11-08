@@ -16,7 +16,7 @@ import re
 import subprocess
 from typing import Any, Iterable
 
-from ..identity import SignalRef, stable_slug
+from ..identity import SignalRef, canonical_target_address, stable_slug
 from ..project import WORKERS
 
 
@@ -26,7 +26,7 @@ _PHASE = re.compile(r"_P(\d)\.ddb$", re.IGNORECASE)
 _HEX = re.compile(r"(?:0x)?([0-9A-Fa-f]+)")
 _TIS_ROW_FIELDS = (
     "name", "unit", "formula", "formula_state", "value_type", "internal_id",
-    "ecu_name", "tester_can_id", "response_can_id", "states",
+    "ecu_name", "tester_can_id", "response_can_id", "target_address", "states",
 )
 
 
@@ -78,6 +78,13 @@ def normalize_row(raw: Any) -> dict[str, Any]:
         for name in ("tester_can_id", "response_can_id"):
             if name in row:
                 row[name] = canonical_can_id(row[name])
+    if "target_address" in row:
+        # Extended addressing: the ECU's address byte behind a shared gateway ID.
+        address = canonical_target_address(row["target_address"])
+        if address is None:
+            del row["target_address"]
+        else:
+            row["target_address"] = address
     return row
 
 
@@ -229,12 +236,15 @@ class TisDatabaseSource:
                 "ecu_name": ecu["name"],
                 "tester_can_id": protocol.get("PhysicalRequestCanId"),
                 "response_can_id": protocol.get("ResponseCanIdCandidate"),
+                "target_address": protocol.get("TargetAddress"),
             }
             # Text Techstream shows for listed raw values; other values display as numbers.
             if states.get(int(monitor.get("StateSet") or 0)):
                 row["states"] = states[int(monitor["StateSet"])]
             if monitor.get("Acquisition") != "direct DID":
                 row["rejected"] = "mapped or dynamic record, not a direct DID"
+            elif protocol.get("Addressing") not in (None, "normal", "extended"):
+                row["rejected"] = f"not a CAN diagnostic address ({protocol['Addressing']})"
             rows.append(row)
         return rows
 

@@ -191,6 +191,12 @@ namespace Telemetry.TisDb
                 {
                     byte[] item = Item(index, 28);
                     ushort physical = BitConverter.ToUInt16(item, 0x08);
+                    // Observed: byte 0x18 is 0x12 for normal CAN addressing, 0x22 for
+                    // extended addressing (byte 0x0A is then the target ECU address on
+                    // a shared gateway request ID), 0x14 for Ethernet diagnostics.
+                    string addressing = item[0x18] == 0x12 ? "normal"
+                        : item[0x18] == 0x22 ? "extended"
+                        : "other 0x" + item[0x18].ToString("X2", CultureInfo.InvariantCulture);
                     var result = new Record()
                         .Add("Key", (long)key).Add("Status", Status(status)).Add("Count", count).Add("Index", index)
                         .Add("ProtocolId", Hex16(BitConverter.ToUInt16(item, 0x02)))
@@ -200,7 +206,10 @@ namespace Telemetry.TisDb
                         .Add("ResponseCanIdCandidate", Can(physical + 8))
                         .Add("ResponseMask", Can(BitConverter.ToUInt16(item, 0x0e)))
                         .Add("RequestMask", Can(BitConverter.ToUInt16(item, 0x10)))
-                        .Add("AlternateRequestCanId", Can(BitConverter.ToUInt16(item, 0x14)));
+                        .Add("AlternateRequestCanId", Can(BitConverter.ToUInt16(item, 0x14)))
+                        .Add("Addressing", addressing)
+                        .Add("TargetAddress", addressing == "extended"
+                            ? "0x" + item[0x0A].ToString("X2", CultureInfo.InvariantCulture) : null);
                     records.Add(raw ? result.Add("Raw", Hex(item)) : result);
                 }
             });

@@ -863,6 +863,16 @@ def test_endpoint_dialogs_keep_input_and_explain_problems(qtbot) -> None:
     assert add.result() != add.DialogCode.Accepted
     assert add.error.text() == "Enter at least one ECU key."
     assert add.tester.text() == "0x7D0"
+    # An ECU behind a gateway is reached through an address byte; it is optional.
+    add.ecus.setText("452")
+    add.address.setText("0x12A")
+    add.accept()
+    assert add.result() != add.DialogCode.Accepted
+    assert "one hexadecimal byte" in add.error.text()
+    add.address.setText("2a")
+    assert add.values() == ("0x7D0", "0x7D8", "session-a1", [452], "0x2A")
+    add.address.setText("")
+    assert add.values()[-1] is None
     confirm = EndpointConfirmDialog("Engine  7A1→7A9", [405])
     assert confirm.windowTitle() == "Confirm Engine  7A1→7A9"
     qtbot.addWidget(confirm)

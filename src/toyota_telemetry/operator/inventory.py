@@ -16,7 +16,7 @@ import json
 import sqlite3
 from typing import Any, Iterable, Mapping
 
-from ..identity import SignalRef, canonical_did, stable_slug
+from ..identity import SignalRef, address_suffix, canonical_did, canonical_target_address, stable_slug
 from ..repository import (
     ProjectRepository,
     _atomic_write,
@@ -121,8 +121,13 @@ def validate_inventory(document: Mapping[str, Any], project_id: str) -> None:
             raise ValueError("candidate inventory row has no known source")
         SignalRef.parse(entry["row"]["signal_ref"])
     for endpoint in document["manual_endpoints"]:
-        if set(endpoint) != {"tester_can_id", "response_can_id", "session_recipe_id", "ecu_keys"}:
+        fields = {"tester_can_id", "response_can_id", "session_recipe_id", "ecu_keys"}
+        if set(endpoint) - {"target_address"} != fields:
             raise ValueError("candidate inventory manual endpoint fields mismatch")
+        if "target_address" in endpoint and (
+            canonical_target_address(endpoint["target_address"]) != endpoint["target_address"]
+        ):
+            raise ValueError("candidate inventory manual endpoint target_address must be canonical 0xNN")
 
 
 def write_inventory(repository: ProjectRepository, document: Mapping[str, Any]) -> None:
@@ -277,9 +282,11 @@ def add_manual_endpoint(
     response_can_id: str,
     session_recipe_id: str,
     ecu_keys: Iterable[int],
+    target_address: str | None = None,
 ) -> dict[str, Any]:
     tester = canonical_can_id(tester_can_id)
     response = canonical_can_id(response_can_id)
+    target = canonical_target_address(target_address)
     if tester is None or response is None or tester == response:
         raise ValueError("endpoint needs two different 11-bit CAN IDs such as 0x7E0 and 0x7E8")
     recipes = {row["id"] for row in repository.transport["session_recipes"]}
@@ -295,16 +302,18 @@ def add_manual_endpoint(
         raise ValueError(f"ECU keys already belong to a confirmed endpoint: {conflicting}")
     manual = [
         row for row in inventory["manual_endpoints"]
-        if (row["tester_can_id"], row["response_can_id"]) != (tester, response)
+        if (row["tester_can_id"], row["response_can_id"], row.get("target_address"))
+        != (tester, response, target)
         and not set(row["ecu_keys"]) & set(keys)
     ]
     manual.append({
         "tester_can_id": tester,
         "response_can_id": response,
+        **({} if target is None else {"target_address": target}),
         "session_recipe_id": stable_slug(session_recipe_id, "session recipe id"),
         "ecu_keys": keys,
     })
-    manual.sort(key=lambda row: (row["tester_can_id"], row["response_can_id"]))
+    manual.sort(key=lambda row: (row["tester_can_id"], row["response_can_id"], row.get("target_address") or ""))
     document = {**inventory, "manual_endpoints": manual}
     write_inventory(repository, document)
     return document
@@ -347,14 +356,17 @@ def _did_identity(row: Mapping[str, Any]) -> tuple[int, int]:
     return ref.ecu_key, ref.data_id
 
 
-def _row_endpoint(row: Mapping[str, Any]) -> tuple[str, str] | None:
+def _row_endpoint(row: Mapping[str, Any]) -> tuple[str, str, str | None] | None:
+    """(tester, response, target address) of a candidate row; the address is
+    None for normal addressing."""
+
     tester = canonical_can_id(row.get("tester_can_id"))
     response = canonical_can_id(
         row.get("response_can_id", row.get("ecu_response_can_id_candidate"))
     )
     if tester is None or response is None or tester == response:
         return None
-    return tester, response
+    return tester, response, canonical_target_address(row.get("target_address"))
 
 
 def _decode_identity(row: Mapping[str, Any]) -> str:
@@ -368,8 +380,11 @@ def _conflicting_signals(rows: Iterable[Mapping[str, Any]]) -> list[str]:
     return sorted((ref for ref, values in seen.items() if len(values) > 1), key=SignalRef.parse)
 
 
-def pair_key(tester_can_id: str, response_can_id: str) -> str:
-    return f"{tester_can_id[2:].lower()}-{response_can_id[2:].lower()}"
+def pair_key(tester_can_id: str, response_can_id: str, target_address: str | None = None) -> str:
+    return (
+        f"{tester_can_id[2:].lower()}-{response_can_id[2:].lower()}"
+        f"{address_suffix(target_address)}"
+    )
 
 
 @dataclass
@@ -458,6 +473,7 @@ class EndpointItem:
     session_recipe_id: str | None = None
     candidate_ids: list[str] = field(default_factory=list)
     dids: list[DidItem] = field(default_factory=list)
+    target_address: str | None = None
 
     @property
     def label(self) -> str:
@@ -472,6 +488,7 @@ class EndpointItem:
             "state": self.state,
             "tester_can_id": self.tester_can_id,
             "response_can_id": self.response_can_id,
+            **({} if self.target_address is None else {"target_address": self.target_address}),
             "session_recipe_id": self.session_recipe_id,
             "ecu_keys": self.ecu_keys,
             "ecu_names": self.ecu_names,
@@ -571,9 +588,10 @@ def build_tree(
             endpoint_id=endpoint_id,
             confirmed=True,
             session_recipe_id=row["session_recipe_id"],
+            target_address=row.get("target_address"),
         )
     for row in inventory["manual_endpoints"]:
-        key = pair_key(row["tester_can_id"], row["response_can_id"])
+        key = pair_key(row["tester_can_id"], row["response_can_id"], row.get("target_address"))
         endpoints.setdefault(key, EndpointItem(
             key=key,
             tester_can_id=row["tester_can_id"],
@@ -582,6 +600,7 @@ def build_tree(
             ecu_names=[],
             state="not verified",
             session_recipe_id=row["session_recipe_id"],
+            target_address=row.get("target_address"),
         ))
 
     def endpoint_for(ecu_key: int, rows: list[dict[str, Any]]) -> EndpointItem:
@@ -589,7 +608,7 @@ def build_tree(
             return endpoints[ecu_to_confirmed[ecu_key]]
         manual = manual_by_ecu.get(ecu_key)
         pair = (
-            (manual["tester_can_id"], manual["response_can_id"]) if manual
+            (manual["tester_can_id"], manual["response_can_id"], manual.get("target_address")) if manual
             else next((pair for pair in map(_row_endpoint, rows) if pair), None)
         )
         if pair is None:
@@ -601,7 +620,7 @@ def build_tree(
         key = pair_key(*pair)
         return endpoints.setdefault(key, EndpointItem(
             key=key, tester_can_id=pair[0], response_can_id=pair[1], ecu_keys=[],
-            ecu_names=[], state="not verified",
+            ecu_names=[], state="not verified", target_address=pair[2],
         ))
 
     dids: dict[tuple[str, str], DidItem] = {}
@@ -709,8 +728,8 @@ def _apply_verification(
             matching = sorted(
                 (
                     fact for fact in discovery
-                    if (fact["tester_can_id"], fact["response_can_id"])
-                    == (endpoint.tester_can_id, endpoint.response_can_id)
+                    if (fact["tester_can_id"], fact["response_can_id"], fact.get("target_address"))
+                    == (endpoint.tester_can_id, endpoint.response_can_id, endpoint.target_address)
                 ),
                 key=lambda fact: fact["observed_utc"],
             )

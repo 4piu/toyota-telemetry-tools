@@ -15,7 +15,7 @@ import tomllib
 from typing import Any, Iterable, Mapping
 
 from .capture_store import capture_run_hashes, capture_set_hash, load_capture_tree
-from .identity import AcquisitionRef, SignalRef, canonical_did
+from .identity import AcquisitionRef, SignalRef, canonical_did, canonical_target_address
 from .objectives import ReplayObservation, condition_refs, replay_targets
 from .schemas import (
     validate_local_settings,
@@ -485,14 +485,15 @@ class ProjectRepository:
         the cache or confirming an endpoint never discards them.
         """
 
-        _exact_keys(
-            fact,
-            {
-                "candidate_id", "tester_can_id", "response_can_id", "session_recipe_id",
-                "responded", "observed_utc", "result",
-            },
-            "discovery candidate fact",
-        )
+        keys = {
+            "candidate_id", "tester_can_id", "response_can_id", "session_recipe_id",
+            "responded", "observed_utc", "result",
+        }
+        if "target_address" in fact:  # extended addressing only
+            if canonical_target_address(fact["target_address"]) != fact["target_address"]:
+                raise ValueError("discovery candidate fact target_address must be canonical 0xNN")
+            keys.add("target_address")
+        _exact_keys(fact, keys, "discovery candidate fact")
         document = self._verification_facts()
         document["discovery"][fact["candidate_id"]] = json.loads(_canonical_json(fact))
         self._write_verification_facts(document)

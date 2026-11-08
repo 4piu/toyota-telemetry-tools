@@ -179,11 +179,22 @@ namespace Telemetry.Can.Core
         /// allowlist, so the two can never disagree.</summary>
         internal static IEnumerable<byte[]> IsoTpFrames(byte[] payload)
         {
-            if (payload.Length <= 7)
+            return IsoTpFrames(payload, IsoTpAddress.None);
+        }
+
+        /// <summary>
+        /// Segment one payload into eight-byte frames. With extended addressing
+        /// (<paramref name="address"/> 0..255) every frame starts with the
+        /// target address byte, so each frame carries one data byte less.
+        /// </summary>
+        internal static IEnumerable<byte[]> IsoTpFrames(byte[] payload, int address)
+        {
+            int pci = IsoTpAddress.Offset(address);
+            if (payload.Length <= 7 - pci)
             {
-                byte[] single = new byte[8];
-                single[0] = (byte)payload.Length;
-                Buffer.BlockCopy(payload, 0, single, 1, payload.Length);
+                byte[] single = IsoTpAddress.NewFrame(address);
+                single[pci] = (byte)payload.Length;
+                Buffer.BlockCopy(payload, 0, single, pci + 1, payload.Length);
                 yield return single;
                 yield break;
             }
@@ -193,24 +204,49 @@ namespace Telemetry.Can.Core
                     "ISO-TP payload exceeds the Classical-CAN 12-bit length limit.");
             }
 
-            byte[] first = new byte[8];
-            first[0] = (byte)(0x10 | ((payload.Length >> 8) & 0x0F));
-            first[1] = (byte)(payload.Length & 0xFF);
-            Buffer.BlockCopy(payload, 0, first, 2, 6);
+            byte[] first = IsoTpAddress.NewFrame(address);
+            first[pci] = (byte)(0x10 | ((payload.Length >> 8) & 0x0F));
+            first[pci + 1] = (byte)(payload.Length & 0xFF);
+            Buffer.BlockCopy(payload, 0, first, pci + 2, 6 - pci);
             yield return first;
 
-            int offset = 6;
+            int offset = 6 - pci;
             int sequence = 1;
             while (offset < payload.Length)
             {
-                byte[] consecutive = new byte[8];
-                consecutive[0] = (byte)(0x20 | (sequence & 0x0F));
-                int count = Math.Min(7, payload.Length - offset);
-                Buffer.BlockCopy(payload, offset, consecutive, 1, count);
+                byte[] consecutive = IsoTpAddress.NewFrame(address);
+                consecutive[pci] = (byte)(0x20 | (sequence & 0x0F));
+                int count = Math.Min(7 - pci, payload.Length - offset);
+                Buffer.BlockCopy(payload, offset, consecutive, pci + 1, count);
                 yield return consecutive;
                 offset += count;
                 sequence = (sequence + 1) & 0x0F;
             }
+        }
+    }
+
+    /// <summary>
+    /// ISO 15765-2 addressing for one endpoint: normal (no address byte) or
+    /// extended, where the first data byte of every frame in both directions
+    /// is the target ECU's address and the protocol control byte follows it.
+    /// </summary>
+    internal static class IsoTpAddress
+    {
+        internal const int None = -1;
+
+        internal static int Offset(int address)
+        {
+            return address == None ? 0 : 1;
+        }
+
+        internal static byte[] NewFrame(int address)
+        {
+            byte[] frame = new byte[8];
+            if (address != None)
+            {
+                frame[0] = (byte)address;
+            }
+            return frame;
         }
     }
 }

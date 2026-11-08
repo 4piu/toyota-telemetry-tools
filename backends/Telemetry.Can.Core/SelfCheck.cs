@@ -121,8 +121,163 @@ namespace Telemetry.Can.Core
                 TelemetryGuardContext.SessionSetup,
                 "a zero-position DefineByIdentifier source tuple");
 
+            // Extended addressing: the target address leads every frame, so a
+            // single frame holds six bytes and the split becomes 5/6/6.
+            AssertFrames(
+                IsoTpTransport.ReadDataByIdentifier(0x0140),
+                new byte[][]
+                {
+                    new byte[] { 0x2A, 0x03, 0x22, 0x01, 0x40, 0x00, 0x00, 0x00 }
+                },
+                "extended-address single frame", 0x2A);
+            AssertFrames(
+                new byte[] { 0x2E, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66 },
+                new byte[][]
+                {
+                    new byte[] { 0x2A, 0x10, 0x07, 0x2E, 0x11, 0x22, 0x33, 0x44 },
+                    new byte[] { 0x2A, 0x21, 0x55, 0x66, 0x00, 0x00, 0x00, 0x00 }
+                },
+                "extended-address seven bytes segment", 0x2A);
+
+            RunTransportChecks();
             RunWorkerProtocolChecks();
             RunProbeProtocolChecks();
+        }
+
+        /// <summary>
+        /// Drive whole exchanges through the real transport against a scripted
+        /// channel: what it transmits, which received frames it accepts, and
+        /// the payload it reassembles.
+        /// </summary>
+        private static void RunTransportChecks()
+        {
+            // Normal addressing: single-frame request, two-frame response.
+            var normal = new ScriptedChannel(
+                new byte[] { 0x10, 0x09, 0x62, 0x10, 0x75, 0x01, 0x02, 0x03 },
+                new byte[] { 0x21, 0x04, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00 });
+            ExchangeResult plain = Transport(normal, 0x700, 0x708, IsoTpAddress.None).Exchange(
+                IsoTpTransport.ReadDataByIdentifier(0x1075), new byte[] { 0x62, 0x10, 0x75 },
+                "read 0x1075", TelemetryGuardContext.Transaction);
+            AssertBytes(plain.Payload, new byte[] { 0x62, 0x10, 0x75, 1, 2, 3, 4, 5, 6 }, "normal reassembly");
+            AssertSent(normal, new byte[][]
+            {
+                new byte[] { 0x03, 0x22, 0x10, 0x75, 0x00, 0x00, 0x00, 0x00 },
+                new byte[] { 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+            }, "normal exchange");
+
+            // Extended addressing behind a gateway: a frame from another ECU on
+            // the same response ID (address 0x40) is ignored, and the flow
+            // control we send carries our target address.
+            var gateway = new ScriptedChannel(
+                new byte[] { 0x40, 0x03, 0x62, 0x01, 0x40, 0x00, 0x00, 0x00 },
+                new byte[] { 0x2A, 0x10, 0x0A, 0x62, 0x01, 0x40, 0x01, 0x02 },
+                new byte[] { 0x2A, 0x21, 0x03, 0x04, 0x05, 0x06, 0x07, 0x00 });
+            ExchangeResult addressed = Transport(gateway, 0x750, 0x758, 0x2A).Exchange(
+                IsoTpTransport.ReadDataByIdentifier(0x0140), new byte[] { 0x62, 0x01, 0x40 },
+                "read 0x0140", TelemetryGuardContext.Transaction);
+            AssertBytes(addressed.Payload,
+                new byte[] { 0x62, 0x01, 0x40, 1, 2, 3, 4, 5, 6, 7 }, "extended reassembly");
+            AssertSent(gateway, new byte[][]
+            {
+                new byte[] { 0x2A, 0x03, 0x22, 0x01, 0x40, 0x00, 0x00, 0x00 },
+                new byte[] { 0x2A, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+            }, "extended exchange");
+
+            // Extended single-frame response, and a single frame too long for
+            // the six bytes an addressed frame can carry is rejected.
+            var shortReply = new ScriptedChannel(
+                new byte[] { 0x2A, 0x02, 0x7E, 0x00, 0x00, 0x00, 0x00, 0x00 });
+            AssertBytes(Transport(shortReply, 0x750, 0x758, 0x2A).Exchange(
+                    new byte[] { 0x3E, 0x00 }, new byte[] { 0x7E, 0x00 }, "tester present",
+                    TelemetryGuardContext.SessionSetup).Payload,
+                new byte[] { 0x7E, 0x00 }, "extended single frame");
+            var overlong = new ScriptedChannel(
+                new byte[] { 0x2A, 0x07, 0x62, 0x01, 0x40, 0x01, 0x02, 0x03 });
+            try
+            {
+                Transport(overlong, 0x750, 0x758, 0x2A).Exchange(
+                    IsoTpTransport.ReadDataByIdentifier(0x0140), new byte[] { 0x62, 0x01, 0x40 },
+                    "read 0x0140", TelemetryGuardContext.Transaction);
+                throw new ApplicationException("accepted");
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (ApplicationException)
+            {
+                throw new InvalidOperationException(
+                    "Transport self-check failed to reject an overlong extended single frame.");
+            }
+        }
+
+        private static IsoTpTransport Transport(ICanChannel channel, uint tester, uint response, int address)
+        {
+            var config = new BackendConfig();
+            config.TesterCanId = tester;
+            config.ResponseCanId = response;
+            config.ResponsePendingBudgetMs = 1000;
+            config.TargetAddress = address;
+            return new IsoTpTransport(channel, config, 200, false);
+        }
+
+        private static void AssertBytes(byte[] actual, byte[] expected, string label)
+        {
+            if (!Hex.Equal(actual, expected))
+            {
+                throw new InvalidOperationException(
+                    "Self-check failed for " + label + ": expected " + Hex.Format(expected) +
+                    ", produced " + Hex.Format(actual) + ".");
+            }
+        }
+
+        private static void AssertSent(ScriptedChannel channel, byte[][] expected, string label)
+        {
+            if (channel.Sent.Count != expected.Length)
+            {
+                throw new InvalidOperationException(
+                    "Self-check failed for " + label + ": sent " +
+                    channel.Sent.Count.ToString(CultureInfo.InvariantCulture) + " frames, expected " +
+                    expected.Length.ToString(CultureInfo.InvariantCulture) + ".");
+            }
+            for (int i = 0; i < expected.Length; i++)
+            {
+                AssertBytes(channel.Sent[i], expected[i], label + " frame " + i.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+
+        /// <summary>An offline channel that answers from a fixed script on one response ID.</summary>
+        private sealed class ScriptedChannel : ICanChannel
+        {
+            private readonly Queue<byte[]> replies;
+            internal readonly List<byte[]> Sent = new List<byte[]>();
+            private uint responseId;
+
+            internal ScriptedChannel(params byte[][] frames)
+            {
+                replies = new Queue<byte[]>(frames);
+            }
+
+            public string Description { get { return "self-check script"; } }
+            public string BackendName { get { return "self-check"; } }
+            public string Kind { get { return "self-check"; } }
+            public void Open(int bitrate, uint filterFromId, uint filterToId) { }
+
+            public void Write(uint canId, byte[] data)
+            {
+                Sent.Add((byte[])data.Clone());
+                responseId = canId + 8;
+            }
+
+            public bool TryRead(out uint canId, out byte[] data)
+            {
+                canId = responseId;
+                data = replies.Count > 0 ? replies.Dequeue() : null;
+                return data != null;
+            }
+
+            public void CheckStatus(string context) { }
+            public void RefuseConcurrentClients() { }
+            public void Dispose() { }
         }
 
         private static void RunProbeProtocolChecks()
@@ -168,6 +323,26 @@ namespace Telemetry.Can.Core
                     "Probe config self-check failed: discovery-only config carried a read step.");
             }
 
+            string extended = validConfig.Replace(
+                "\"addressing\":\"normal\"", "\"addressing\":\"extended\",\"target_address\":\"0x2A\"");
+            if (LoadProbeConfig(extended).Backend.TargetAddress != 0x2A ||
+                loaded.Backend.TargetAddress != IsoTpAddress.None)
+            {
+                throw new InvalidOperationException("Probe config self-check failed: target address.");
+            }
+            AssertProbeConfigRejected(
+                validConfig.Replace("\"addressing\":\"normal\"", "\"addressing\":\"extended\""),
+                "extended addressing without a target address");
+            AssertProbeConfigRejected(
+                validConfig.Replace(
+                    "\"addressing\":\"normal\"", "\"addressing\":\"normal\",\"target_address\":\"0x2A\""),
+                "a target address with normal addressing");
+            AssertProbeConfigRejected(
+                extended.Replace("\"target_address\":\"0x2A\"", "\"target_address\":\"0x12A\""),
+                "a target address above one byte");
+            AssertProbeConfigRejected(
+                validConfig.Replace("\"addressing\":\"normal\"", "\"addressing\":\"mixed\""),
+                "unknown addressing");
             AssertProbeConfigRejected(
                 validConfig.Replace("\"tester_can_id\":\"0x700\"", "\"tester_can_id\":\"0x708\""),
                 "identical tester and response CAN identifiers");
@@ -253,7 +428,12 @@ namespace Telemetry.Can.Core
 
         private static void AssertFrames(byte[] payload, byte[][] expected, string label)
         {
-            List<byte[]> actual = new List<byte[]>(Hex.IsoTpFrames(payload));
+            AssertFrames(payload, expected, label, IsoTpAddress.None);
+        }
+
+        private static void AssertFrames(byte[] payload, byte[][] expected, string label, int address)
+        {
+            List<byte[]> actual = new List<byte[]>(Hex.IsoTpFrames(payload, address));
             if (actual.Count != expected.Length)
             {
                 throw new InvalidOperationException(

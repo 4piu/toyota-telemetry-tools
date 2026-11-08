@@ -22,7 +22,7 @@ import subprocess
 import tempfile
 from typing import Any, Callable, Mapping, Protocol
 
-from .identity import canonical_did, stable_slug
+from .identity import address_suffix, canonical_did, canonical_target_address, stable_slug
 from .project import worker_executable
 from .repository import ProjectRepository
 from .worker_protocol import build_probe_config, parse_probe_result, write_probe_config
@@ -104,34 +104,37 @@ def default_probe_worker_factory(
 def discover_endpoints(
     repository: ProjectRepository,
     root: Path,
-    candidates: list[tuple[str, str, str]],
+    candidates: list[tuple],
     *,
     utc_now: Callable[[], str],
     probe_worker_factory: ProbeWorkerFactory | None = None,
 ) -> list[dict[str, Any]]:
     """Run one bounded probe per (tester_can_id, response_can_id,
-    session_recipe_id) candidate and record a provisional fact for each."""
+    session_recipe_id[, target_address]) candidate and record a provisional
+    fact for each. A target address means extended addressing."""
 
     if not candidates:
         raise ValueError("endpoint discovery requires at least one candidate")
     backend = _local_backend(repository)
     factory = probe_worker_factory or default_probe_worker_factory(repository, root)
     results = []
-    for tester_can_id, response_can_id, session_recipe_id in candidates:
+    for tester_can_id, response_can_id, session_recipe_id, *rest in candidates:
         tester_can_id = _canonical_can_id(tester_can_id)
         response_can_id = _canonical_can_id(response_can_id)
+        target_address = canonical_target_address(rest[0] if rest else None)
         if tester_can_id == response_can_id:
             raise ValueError("candidate tester and response CAN IDs must differ")
-        candidate_id = _candidate_id(tester_can_id, response_can_id, session_recipe_id)
+        candidate_id = _candidate_id(tester_can_id, response_can_id, session_recipe_id, target_address)
         config = build_probe_config(
             repository.transport, candidate_id, tester_can_id, response_can_id,
-            session_recipe_id, backend,
+            session_recipe_id, backend, target_address=target_address,
         )
         result = _run_probe(repository, factory, config)
         fact = {
             "candidate_id": candidate_id,
             "tester_can_id": tester_can_id,
             "response_can_id": response_can_id,
+            **({} if target_address is None else {"target_address": target_address}),
             "session_recipe_id": session_recipe_id,
             "responded": result["responded"],
             "observed_utc": utc_now(),
@@ -157,7 +160,7 @@ def preflight_dids(
 
     if not data_ids:
         raise ValueError("DID preflight requires at least one DID")
-    tester_can_id, response_can_id, session_recipe_id = _resolve_preflight_target(
+    tester_can_id, response_can_id, session_recipe_id, target_address = _resolve_preflight_target(
         repository, endpoint_id
     )
     backend = _local_backend(repository)
@@ -176,7 +179,7 @@ def preflight_dids(
         candidate_id = f"{endpoint_id}/{data_id}"
         config = build_probe_config(
             repository.transport, candidate_id, tester_can_id, response_can_id,
-            session_recipe_id, backend, read_data_id=data_id,
+            session_recipe_id, backend, read_data_id=data_id, target_address=target_address,
         )
         result = _run_probe(repository, factory, config)
         read = result["read"]
@@ -214,12 +217,12 @@ def _run_probe(
 
 def _resolve_preflight_target(
     repository: ProjectRepository, endpoint_id: str
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, str | None]:
     for endpoint in repository.transport["endpoints"]:
         if endpoint["id"] == endpoint_id:
             return (
                 endpoint["tester_can_id"], endpoint["response_can_id"],
-                endpoint["session_recipe_id"],
+                endpoint["session_recipe_id"], endpoint.get("target_address"),
             )
     for candidate in repository.discovery_candidates():
         if candidate["candidate_id"] == endpoint_id:
@@ -227,7 +230,7 @@ def _resolve_preflight_target(
                 raise ValueError(f"discovery candidate did not respond: {endpoint_id}")
             return (
                 candidate["tester_can_id"], candidate["response_can_id"],
-                candidate["session_recipe_id"],
+                candidate["session_recipe_id"], candidate.get("target_address"),
             )
     raise ValueError(
         f"preflight target is neither a confirmed endpoint nor a discovery candidate: {endpoint_id}"
@@ -246,9 +249,15 @@ def _canonical_can_id(value: str) -> str:
     return f"0x{parsed:03X}"
 
 
-def _candidate_id(tester_can_id: str, response_can_id: str, session_recipe_id: str) -> str:
+def _candidate_id(
+    tester_can_id: str, response_can_id: str, session_recipe_id: str,
+    target_address: str | None = None,
+) -> str:
     recipe = stable_slug(session_recipe_id, "session recipe id")
-    return f"{tester_can_id[2:].lower()}-{response_can_id[2:].lower()}-{recipe}"
+    return (
+        f"{tester_can_id[2:].lower()}-{response_can_id[2:].lower()}"
+        f"{address_suffix(target_address)}-{recipe}"
+    )
 
 
 def promote_confirmed_endpoint(
@@ -275,6 +284,7 @@ def promote_confirmed_endpoint(
         _canonical_can_id(candidate["tester_can_id"]),
         _canonical_can_id(candidate["response_can_id"]),
         candidate["session_recipe_id"],
+        candidate.get("target_address"),
     )
     if candidate["candidate_id"] != endpoint_id:
         raise ValueError("discovery candidate_id does not match its endpoint/session identity")
@@ -293,6 +303,8 @@ def promote_confirmed_endpoint(
         "id": endpoint_id,
         "tester_can_id": candidate["tester_can_id"],
         "response_can_id": candidate["response_can_id"],
+        **({} if candidate.get("target_address") is None
+           else {"target_address": candidate["target_address"]}),
         "session_recipe_id": candidate["session_recipe_id"],
         "ecu_keys": sorted(ecu_keys),
         "state": "confirmed",

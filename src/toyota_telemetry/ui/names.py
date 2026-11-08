@@ -38,7 +38,9 @@ def endpoint_name(endpoint: EndpointItem) -> str:
 def endpoint_address(endpoint: EndpointItem) -> str:
     if endpoint.tester_can_id is None or endpoint.response_can_id is None:
         return ""
-    return f"{_can(endpoint.tester_can_id)}→{_can(endpoint.response_can_id)}"
+    text = f"{_can(endpoint.tester_can_id)}→{_can(endpoint.response_can_id)}"
+    # Behind a gateway several ECUs share one ID pair; the address byte tells them apart.
+    return text + (f" @{endpoint.target_address[2:]}" if endpoint.target_address else "")
 
 
 def endpoint_label(endpoint: EndpointItem) -> str:

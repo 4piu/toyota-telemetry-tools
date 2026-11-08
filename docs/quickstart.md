@@ -128,7 +128,8 @@ are read only if it responds. Results (baseline bytes, latency, outcome) are
 kept in `state/verification-facts.json`. `endpoint confirm` writes a
 responding endpoint into the transport settings; `--note` keeps an optional
 remark with it. `endpoint add
-TESTER:RESPONSE:RECIPE --ecu KEY` adds an address the source did not provide.
+TESTER:RESPONSE:RECIPE --ecu KEY` adds an address the source did not provide;
+`--address 0x2A` adds an ECU behind a gateway (extended addressing).
 
 ### Live confirmation
 

@@ -77,8 +77,11 @@ it never copies the database.
 
 ## Safety boundary
 
-- Classical CAN, standard 11-bit identifiers, and normal ISO-TP addressing
-  only.
+- Classical CAN and standard 11-bit identifiers only, with normal ISO-TP
+  addressing or, for an ECU behind a gateway, extended addressing: one exact
+  target-address byte leads every transmitted frame, and received frames
+  carrying another address are ignored. The allowed services are the same
+  in both modes.
 - One endpoint and one in-flight transaction per worker.
 - Runtime transactions are selected by identifier from the worker's own
   immutable table; the wire protocol never resupplies request bytes.

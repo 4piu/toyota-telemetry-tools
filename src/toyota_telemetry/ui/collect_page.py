@@ -43,6 +43,13 @@ SETTLE_MS = 700
 DEFAULT_SLICE_MINUTES = 5
 
 
+def _ids(session: dict) -> str:
+    """Request/response IDs, and the address byte of an ECU behind a gateway."""
+
+    text = f"{session['tester_can_id']}/{session['response_can_id']}"
+    return text + (f" address {session['target_address']}" if session.get("target_address") else "")
+
+
 class CollectPage(QWidget):
     def __init__(self, context: PageContext) -> None:
         super().__init__()
@@ -456,7 +463,7 @@ class CollectPage(QWidget):
         for row in scope["endpoints"]:
             session = row["endpoint"]
             technical += [
-                f"Endpoint ID: {session['endpoint_id']} ({session['tester_can_id']}/{session['response_can_id']})",
+                f"Endpoint ID: {session['endpoint_id']} ({_ids(session)})",
                 f"  Session {session['session_recipe_id']}: "
                 + "; ".join(step["request_hex"] for step in session["session_setup"]),
                 *[f"  {item['acquisition_id']}: request {item['request_hex']}, every {item['target_interval_ms']} ms"
@@ -485,7 +492,7 @@ class CollectPage(QWidget):
             f"Note: {self.note.text() or '-'}",
         ]
         technical = [
-            f"Endpoint ID: {readiness.endpoint_id} ({session['tester_can_id']}/{session['response_can_id']})",
+            f"Endpoint ID: {readiness.endpoint_id} ({_ids(session)})",
             f"Scope fingerprint: {readiness.digest}",
             f"Session {session['session_recipe_id']}: "
             + "; ".join(step["request_hex"] for step in session["session_setup"]),

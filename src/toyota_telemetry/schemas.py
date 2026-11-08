@@ -10,7 +10,7 @@ from collections.abc import Mapping
 import re
 from typing import Any
 
-from .identity import AcquisitionRef, SignalRef, canonical_did, stable_slug
+from .identity import AcquisitionRef, SignalRef, canonical_did, canonical_target_address, stable_slug
 
 
 REQUIREMENTS = frozenset(
@@ -241,7 +241,15 @@ def validate_transport(document: Mapping[str, Any]) -> None:
         _keys(
             endpoint, where,
             {"id", "tester_can_id", "response_can_id", "session_recipe_id", "ecu_keys", "state", "provenance"},
+            {"target_address"},
         )
+        if "target_address" in endpoint:  # extended addressing behind a gateway
+            try:
+                canonical = canonical_target_address(endpoint["target_address"])
+            except ValueError as exc:
+                raise ValueError(f"{where}.target_address: {exc}") from exc
+            if canonical is None or canonical != endpoint["target_address"]:
+                raise ValueError(f"{where}.target_address must be one byte as canonical 0xNN")
         endpoint_id = stable_slug(_string(endpoint["id"], f"{where}.id"), "endpoint id")
         endpoint_ids.append(endpoint_id)
         tester = _string(endpoint["tester_can_id"], f"{where}.tester_can_id")

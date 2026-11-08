@@ -28,7 +28,7 @@ each one ends up:
 | A CAN adapter and its wiring | PCAN-USB on OBD-II pins 6 (CAN-H), 14 (CAN-L), 5 (ground) | Connector settings (this computer only) | The adapter's and vehicle's documentation; see [Wiring](#wiring) |
 | Bus speed | 500 kbit/s, 11-bit identifiers | `config/transport.json`, `network` (500 kbit/s by default) | Service information; one answered OBD-II request proves it |
 | How an ECU opens a diagnostic session | `3E 00`, then `10 03` | `config/transport.json`, a session recipe, written by hand | Watch what the OEM scan tool sends; see [Finding the session setup](#finding-the-session-setup) |
-| ECU addresses | Request `0x7E0`, response `0x7E8` | The candidate list, then confirmed endpoints | The OEM database's protocol records, or your own notes; Verify proves which ones answer |
+| ECU addresses | Request `0x7E0`, response `0x7E8`; or `0x750`/`0x758` with address `0x2A` behind a gateway | The candidate list, then confirmed endpoints | The OEM database's protocol records, or your own notes; Verify proves which ones answer |
 | Signals | DID `0x1234`, bits 0..15, `raw / 1000`, V | The candidate list | The Techstream import, or a file you write |
 | When each signal moves | Cruise on, reverse, parking brake | Collection targets | What the signal means; plan drives around it |
 
@@ -79,8 +79,10 @@ first, showing counts, conflicts, and rejected rows, then applies.
     "states": {}}]
   ```
 
-  `ecu_key` is any number that groups one ECU's signals. See
-  [Decoding](#decoding) for bits, formulas, and states.
+  `ecu_key` is any number that groups one ECU's signals. For an ECU behind
+  a gateway, add `"target_address": "0x2A"` (see
+  [Gateways](#ecus-behind-a-gateway)). See [Decoding](#decoding) for bits,
+  formulas, and states.
 
 A database lists every variant it covers, so many candidates describe
 equipment your vehicle does not have. That is expected; verification sorts
@@ -227,10 +229,27 @@ the session file private, as later sections can hold the VIN.
   "not available"; a value that never leaves one is a sign the signal is
   unused on this vehicle.
 
+## ECUs behind a gateway
+
+Many body, chassis, and driver-assistance ECUs are not on the diagnostic bus
+directly. A gateway forwards to them through one shared request ID (on
+Toyotas usually `0x750`, answered on `0x758`), and the first byte of every
+frame, in both directions, is the address of the ECU meant: ISO 15765-2
+extended addressing. Each frame then carries one data byte less.
+
+The toolkit treats each address as its own endpoint: `750-758-2a` is the
+ECU at address `0x2A`. The Techstream import reads the address from the
+database, a candidate file gives it as `target_address`, and `endpoint add
+... --address 0x2A` (or Address in the desktop Add endpoint dialog) adds one
+by hand. Verification and collection then send and accept only frames
+carrying that address; frames from the other ECUs on the same response ID
+are ignored.
+
 ## Limits
 
-- Classical CAN with 11-bit identifiers and normal addressing only. CAN FD,
-  29-bit identifiers, and extended addressing are rejected in configuration.
+- Classical CAN with 11-bit identifiers, with normal or extended addressing.
+  CAN FD and 29-bit identifiers are rejected in configuration. A gateway's
+  response ID is taken as request + 8 until an ECU answers on it.
 - Safety-critical signals that cannot be provoked safely stay untested unless
   they occur naturally; a constant value is never treated as proof that a
   signal is absent.

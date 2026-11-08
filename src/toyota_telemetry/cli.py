@@ -153,6 +153,8 @@ def build_parser() -> argparse.ArgumentParser:
                   parent=endpoint_commands)
     add.add_argument("address", metavar="TESTER:RESPONSE:RECIPE", help="e.g. 0x7E0:0x7E8:extended")
     add.add_argument("--ecu", type=int, action="append", required=True, help="ECU key served here")
+    add.add_argument("--address", dest="target_address",
+                     help="extended-address byte for an ECU behind a gateway, e.g. 0x2A")
     confirm = command("confirm", "endpoint.confirm", _endpoint_confirm,
                       "write a responding endpoint into tracked transport", [dry], parent=endpoint_commands)
     confirm.add_argument("endpoint_id")
@@ -415,7 +417,7 @@ def _signals(service: OperatorService, args: argparse.Namespace) -> int:
         dids = [did for did in endpoint.dids if not filtered or did.key in chosen_dids]
         if filtered and not dids:
             continue
-        address = f"{endpoint.tester_can_id}/{endpoint.response_can_id}" if endpoint.tester_can_id else "address unknown"
+        address = _can_pair(endpoint.as_dict()) if endpoint.tester_can_id else "address unknown"
         ecus = ",".join(str(key) for key in endpoint.ecu_keys)
         print(f"{endpoint.key}  [{endpoint.state}]  {address}  ECU {ecus}  {', '.join(endpoint.ecu_names)}")
         for did in dids:
@@ -486,14 +488,22 @@ def _signals_show(service: OperatorService, tree, tokens: list[str], args: argpa
     return EXIT_OK
 
 
+def _can_pair(endpoint: dict) -> str:
+    """Request/response IDs, plus the address byte of an extended-addressed ECU."""
+
+    text = f"{endpoint['tester_can_id']}/{endpoint['response_can_id']}"
+    return text + (f" address {endpoint['target_address']}" if endpoint.get("target_address") else "")
+
+
 def _endpoint_add(service: OperatorService, args: argparse.Namespace) -> int:
     parts = args.address.split(":")
     if len(parts) != 3:
         raise ValueError("address must be TESTER:RESPONSE:RECIPE, e.g. 0x7E0:0x7E8:extended")
-    service.add_endpoint(parts[0], parts[1], parts[2], args.ecu)
+    service.add_endpoint(parts[0], parts[1], parts[2], args.ecu, args.target_address)
     if args.as_json:
-        return _emit({"added": args.address, "ecu_keys": args.ecu})
-    print(f"Added endpoint candidate {args.address} for ECU {', '.join(map(str, args.ecu))}. "
+        return _emit({"added": args.address, "target_address": args.target_address, "ecu_keys": args.ecu})
+    where = args.address + (f" address {args.target_address}" if args.target_address else "")
+    print(f"Added endpoint candidate {where} for ECU {', '.join(map(str, args.ecu))}. "
           "Verify it with `telemetry verify`.")
     return EXIT_OK
 
@@ -503,7 +513,7 @@ def _endpoint_confirm(service: OperatorService, args: argparse.Namespace) -> int
     if args.as_json:
         return _emit({"endpoint": endpoint, "written": not args.dry_run})
     verb = "Would confirm" if args.dry_run else "Confirmed"
-    print(f"{verb} {endpoint['id']} ({endpoint['tester_can_id']}/{endpoint['response_can_id']}) "
+    print(f"{verb} {endpoint['id']} ({_can_pair(endpoint)}) "
           f"for ECU {', '.join(map(str, endpoint['ecu_keys']))} in config/transport.json.")
     return EXIT_OK
 

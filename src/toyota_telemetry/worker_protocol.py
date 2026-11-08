@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from .identity import canonical_did
+from .identity import canonical_did, canonical_target_address
 from .project import atomic_json
 
 
@@ -38,7 +38,12 @@ def build_worker_config(
         "network", "request_start_floor_ms", "initial_response_timeout_ms",
         "response_pending_budget_ms", "transport_retries", "session_setup",
     }
-    _exact_keys(session, expected_session, "endpoint session")
+    target_address = session.get("target_address")
+    _exact_keys(
+        session,
+        expected_session | ({"target_address"} if "target_address" in session else set()),
+        "endpoint session",
+    )
 
     _exact_keys(backend, {"kind", "executable", "settings"}, "local backend")
     kind = _text(backend["kind"], "local backend kind")
@@ -95,7 +100,7 @@ def build_worker_config(
         "transport": {
             "network": network["type"],
             "bitrate": _integer(network["bitrate"], "network bitrate", 10_000),
-            "addressing": network["addressing"],
+            **_addressing(network, target_address),
             "tester_can_id": session["tester_can_id"],
             "response_can_id": session["response_can_id"],
             "initial_response_timeout_ms": _integer(
@@ -111,6 +116,17 @@ def build_worker_config(
     }
 
 
+def _addressing(network: Mapping[str, Any], target_address: str | None) -> dict[str, Any]:
+    """Normal addressing, or extended addressing with the exact target byte."""
+
+    if target_address is None:
+        return {"addressing": network["addressing"]}
+    canonical = canonical_target_address(target_address)
+    if canonical != target_address:
+        raise ValueError(f"target address must be canonical 0xNN: {target_address!r}")
+    return {"addressing": "extended", "target_address": canonical}
+
+
 def write_worker_config(path: Path, config: Mapping[str, Any]) -> None:
     atomic_json(path, dict(config), replace=False)
 
@@ -124,6 +140,7 @@ def build_probe_config(
     backend: Mapping[str, Any],
     *,
     read_data_id: str | None = None,
+    target_address: str | None = None,
 ) -> dict[str, Any]:
     """Build one temporary, single-shot probe config for a candidate CAN ID
     pair, replaying an already-reviewed session recipe from tracked
@@ -157,7 +174,7 @@ def build_probe_config(
         "transport": {
             "network": network["type"],
             "bitrate": _integer(network["bitrate"], "network bitrate", 10_000),
-            "addressing": network["addressing"],
+            **_addressing(network, target_address),
             "tester_can_id": _text(tester_can_id, "tester_can_id"),
             "response_can_id": _text(response_can_id, "response_can_id"),
             "initial_response_timeout_ms": _integer(

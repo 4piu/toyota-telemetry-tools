@@ -24,6 +24,33 @@ def canonical_did(value: str) -> str:
     return f"0x{int(value, 16):04X}"
 
 
+def canonical_target_address(value: object) -> str | None:
+    """The extended-addressing target byte as ``0xNN``, or None for normal addressing.
+
+    Accepts None, an integer 0..255, or text such as ``2A`` / ``0x2a``.
+    """
+
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError(f"invalid target address: {value!r}")
+    if isinstance(value, int):
+        number = value
+    elif isinstance(value, str) and re.fullmatch(r"(?:0[xX])?[0-9A-Fa-f]{1,2}", value.strip()):
+        number = int(value.strip().removeprefix("0x").removeprefix("0X"), 16)
+    else:
+        raise ValueError(f"invalid target address: {value!r}")
+    if not 0 <= number <= 0xFF:
+        raise ValueError(f"target address is outside one byte: {value!r}")
+    return f"0x{number:02X}"
+
+
+def address_suffix(target_address: str | None) -> str:
+    """The identifier suffix that keeps modules behind one gateway ID apart."""
+
+    return "" if target_address is None else f"-{target_address[2:].lower()}"
+
+
 def stable_slug(value: str, label: str = "identifier") -> str:
     if not isinstance(value, str) or _SLUG.fullmatch(value) is None:
         raise ValueError(f"invalid {label}: {value!r}")

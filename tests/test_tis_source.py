@@ -80,6 +80,33 @@ class TisSourceTests(unittest.TestCase):
         self.assertEqual(len(result.rejections), 1)
         self.assertIn("not a direct DID", result.rejections[0][1])
 
+    def test_extended_addressing_carries_the_target_address(self) -> None:
+        answers = dict(ANSWERS)
+
+        def helper(command, **_kwargs):
+            mode = next(argument for argument in command if argument in answers)
+            stdout = "".join(json.dumps(row) + "\n" for row in answers[mode])
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+        source = TisDatabaseSource(self.database)
+        for addressing, address, expected in (
+            ("extended", "0x2A", "0x2A"), ("normal", None, None), ("other 0x14", None, "rejected"),
+        ):
+            answers["--protocol"] = [{
+                "Key": 397, "Status": OK, "Count": 1, "Index": 0, "PhysicalRequestCanId": "0x750",
+                "ResponseCanIdCandidate": "0x758", "Addressing": addressing, "TargetAddress": address,
+            }]
+            with mock.patch.object(TisDatabaseSource, "availability", return_value=None), \
+                    mock.patch.object(sources.subprocess, "run", side_effect=helper):
+                result = source.read()
+            if expected == "rejected":
+                # Ethernet diagnostics have no CAN address: nothing is imported for them.
+                self.assertEqual(result.rows, ())
+                self.assertTrue(any("not a CAN diagnostic address" in reason for _, reason in result.rejections))
+            else:
+                self.assertEqual([row.get("target_address") for row in result.rows], [expected, expected])
+                self.assertEqual(result.rows[0]["tester_can_id"], "0x750")
+
     def test_a_helper_failure_is_reported(self) -> None:
         source = TisDatabaseSource(self.database)
         failed = subprocess.CompletedProcess([], 1, stdout="", stderr="ERROR: Could not load KgpDataCtrl.dll")

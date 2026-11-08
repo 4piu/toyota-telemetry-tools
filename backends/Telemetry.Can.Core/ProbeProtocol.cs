@@ -69,7 +69,7 @@ namespace Telemetry.Can.Core
 
             JsonValue transport = root.Member("", "transport");
             transport.RejectUnknownMembers(
-                "transport", "network", "bitrate", "addressing", "tester_can_id",
+                "transport", "network", "bitrate", "addressing", "target_address", "tester_can_id",
                 "response_can_id", "initial_response_timeout_ms", "response_pending_budget_ms");
             if (!String.Equals(
                     transport.Member("transport", "network").AsString("transport.network"),
@@ -84,12 +84,7 @@ namespace Telemetry.Can.Core
             backend.EcuName = result.CandidateId;
             backend.Bitrate = transport.Member("transport", "bitrate")
                 .AsInteger("transport.bitrate", 10000, 1000000);
-            backend.Addressing = transport.Member("transport", "addressing")
-                .AsString("transport.addressing");
-            if (!String.Equals(backend.Addressing, "normal", StringComparison.Ordinal))
-            {
-                throw new FormatException("'transport.addressing' must be \"normal\".");
-            }
+            backend.ReadAddressing(transport);
             backend.TesterCanId = Hex.ParseId(
                 transport.Member("transport", "tester_can_id").AsString("transport.tester_can_id"),
                 "transport.tester_can_id", 0, 0x7FF);

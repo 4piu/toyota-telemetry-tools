@@ -39,12 +39,14 @@ class EndpointProbe:
     probe_endpoint: bool
     reason: str
     dids: list[str] = field(default_factory=list)
+    target_address: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "key": self.key,
             "tester_can_id": self.tester_can_id,
             "response_can_id": self.response_can_id,
+            **({} if self.target_address is None else {"target_address": self.target_address}),
             "session_recipe_id": self.session_recipe_id,
             "target_id": self.target_id,
             "probe_endpoint": self.probe_endpoint,
@@ -154,21 +156,25 @@ def _endpoint_probe(endpoint, recipes, session_recipe_id: str | None) -> Endpoin
         return EndpointProbe(
             endpoint.key, endpoint.tester_can_id, endpoint.response_can_id,
             endpoint.session_recipe_id, endpoint.endpoint_id, False, "confirmed endpoint",
+            target_address=endpoint.target_address,
         )
     if endpoint.state == "responded":
         return EndpointProbe(
             endpoint.key, endpoint.tester_can_id, endpoint.response_can_id,
             endpoint.session_recipe_id, endpoint.endpoint_id, False, "responded earlier",
+            target_address=endpoint.target_address,
         )
     recipe = session_recipe_id or endpoint.session_recipe_id
     if recipe is None:
         if len(recipes) != 1:
             raise RecipeRequired(endpoint.key, sorted(recipes))
         recipe = next(iter(recipes))
-    target = _candidate_id(endpoint.tester_can_id, endpoint.response_can_id, recipe)
+    target = _candidate_id(
+        endpoint.tester_can_id, endpoint.response_can_id, recipe, endpoint.target_address
+    )
     return EndpointProbe(
         endpoint.key, endpoint.tester_can_id, endpoint.response_can_id, recipe, target, True,
-        "endpoint not verified yet",
+        "endpoint not verified yet", target_address=endpoint.target_address,
     )
 
 
@@ -213,7 +219,7 @@ def run_verification(
         if row.probe_endpoint:
             fact = discover_endpoints(
                 repository, root,
-                [(row.tester_can_id, row.response_can_id, row.session_recipe_id)],
+                [(row.tester_can_id, row.response_can_id, row.session_recipe_id, row.target_address)],
                 utc_now=utc_now, probe_worker_factory=probe_worker_factory,
             )[0]
             responded = bool(fact["responded"])

@@ -988,7 +988,10 @@ class SignalsPage(QWidget):
             action = "probe, then read" if row.probe_endpoint else "read"
             details.append(f"{name}: {action} {count(len(row.dids), 'DID')}")
             details.append("    " + ", ".join(did.rsplit("/", 1)[-1] for did in row.dids))
-            technical.append(f"{row.key}: {row.tester_can_id}/{row.response_can_id}, session {row.session_recipe_id}")
+            address = f" address {row.target_address}" if row.target_address else ""
+            technical.append(
+                f"{row.key}: {row.tester_can_id}/{row.response_can_id}{address}, session {row.session_recipe_id}"
+            )
         details.append(f"{scope.probe_count} probe(s), at most {scope.upper_bound_seconds:.0f} s.")
         technical.append(f"Scope fingerprint: {scope.digest}")
         dialog = LiveConfirmDialog("Verify", scope.summary() + "?", details, self, technical=technical)

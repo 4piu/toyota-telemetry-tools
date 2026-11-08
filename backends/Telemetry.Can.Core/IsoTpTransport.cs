@@ -71,6 +71,7 @@ namespace Telemetry.Can.Core
         private readonly uint responseCanId;
         private readonly int timeoutMs;
         private readonly int responsePendingBudgetMs;
+        private readonly int targetAddress;
         private readonly bool verbose;
         internal Action<int, long> PendingObserved;
 
@@ -85,6 +86,7 @@ namespace Telemetry.Can.Core
             this.responseCanId = config.ResponseCanId;
             this.timeoutMs = timeoutMs;
             this.responsePendingBudgetMs = config.ResponsePendingBudgetMs;
+            this.targetAddress = config.TargetAddress;
             this.verbose = verbose;
         }
 
@@ -182,45 +184,28 @@ namespace Telemetry.Can.Core
 
         private void SendPayload(byte[] payload, string label)
         {
-            if (payload.Length <= 7)
+            // One segmenter (Hex.IsoTpFrames) builds every transmitted frame,
+            // the same one the offline self-check pins byte for byte.
+            var frames = new System.Collections.Generic.List<byte[]>(
+                Hex.IsoTpFrames(payload, targetAddress));
+            if (frames.Count == 1)
             {
-                byte[] single = new byte[8];
-                single[0] = (byte)payload.Length;
-                Buffer.BlockCopy(payload, 0, single, 1, payload.Length);
-                WriteCanFrame(single, label + " SF");
+                WriteCanFrame(frames[0], label + " SF");
                 return;
             }
-            if (payload.Length > 4095)
-            {
-                throw new InvalidOperationException(
-                    "ISO-TP payload exceeds the Classical-CAN 12-bit length limit.");
-            }
-
-            byte[] first = new byte[8];
-            first[0] = (byte)(0x10 | ((payload.Length >> 8) & 0x0F));
-            first[1] = (byte)(payload.Length & 0xFF);
-            Buffer.BlockCopy(payload, 0, first, 2, 6);
-            WriteCanFrame(first, label + " FF");
+            WriteCanFrame(frames[0], label + " FF");
 
             FlowControl flowControl = ReadFlowControl(label);
-            int offset = 6;
-            int sequence = 1;
             int sentInBlock = 0;
-            while (offset < payload.Length)
+            for (int index = 1; index < frames.Count; index++)
             {
                 DelaySeparationTime(flowControl.SeparationTime);
-                byte[] consecutive = new byte[8];
-                consecutive[0] = (byte)(0x20 | (sequence & 0x0F));
-                int count = Math.Min(7, payload.Length - offset);
-                Buffer.BlockCopy(payload, offset, consecutive, 1, count);
                 WriteCanFrame(
-                    consecutive, label + " CF" + sequence.ToString(CultureInfo.InvariantCulture));
-                offset += count;
-                sequence = (sequence + 1) & 0x0F;
+                    frames[index], label + " CF" + index.ToString(CultureInfo.InvariantCulture));
                 sentInBlock++;
 
                 if (flowControl.BlockSize != 0 &&
-                    sentInBlock >= flowControl.BlockSize && offset < payload.Length)
+                    sentInBlock >= flowControl.BlockSize && index + 1 < frames.Count)
                 {
                     flowControl = ReadFlowControl(label);
                     sentInBlock = 0;
@@ -230,17 +215,18 @@ namespace Telemetry.Can.Core
 
         private byte[] ReceivePayload(string label, int frameTimeoutMs)
         {
+            int pci = IsoTpAddress.Offset(targetAddress);
             byte[] first = ReadCanFrame(label + " response", frameTimeoutMs);
-            int frameType = first[0] >> 4;
+            int frameType = first[pci] >> 4;
             if (frameType == 0)
             {
-                int length = first[0] & 0x0F;
-                if (length <= 0 || length > 7)
+                int length = first[pci] & 0x0F;
+                if (length <= 0 || length > 7 - pci)
                 {
                     throw new InvalidOperationException(
                         "Invalid ISO-TP single-frame length in " + Hex.Format(first));
                 }
-                return Hex.Slice(first, 1, length);
+                return Hex.Slice(first, pci + 1, length);
             }
             if (frameType != 1)
             {
@@ -248,34 +234,34 @@ namespace Telemetry.Can.Core
                     "Expected ISO-TP response SF/FF, received " + Hex.Format(first));
             }
 
-            int totalLength = ((first[0] & 0x0F) << 8) | first[1];
-            if (totalLength <= 6 || totalLength > 4095)
+            int totalLength = ((first[pci] & 0x0F) << 8) | first[pci + 1];
+            if (totalLength <= 7 - pci || totalLength > 4095)
             {
                 throw new InvalidOperationException(
                     "Invalid ISO-TP first-frame length in " + Hex.Format(first));
             }
 
             byte[] payload = new byte[totalLength];
-            Buffer.BlockCopy(first, 2, payload, 0, 6);
-            int offset = 6;
+            Buffer.BlockCopy(first, pci + 2, payload, 0, 6 - pci);
+            int offset = 6 - pci;
 
-            byte[] continueFlowControl = new byte[8];
-            continueFlowControl[0] = 0x30;
+            byte[] continueFlowControl = IsoTpAddress.NewFrame(targetAddress);
+            continueFlowControl[pci] = 0x30;
             WriteCanFrame(continueFlowControl, label + " FC");
 
             int expectedSequence = 1;
             while (offset < totalLength)
             {
                 byte[] consecutive = ReadCanFrame(label + " response CF", frameTimeoutMs);
-                if ((consecutive[0] >> 4) != 2 || (consecutive[0] & 0x0F) != expectedSequence)
+                if ((consecutive[pci] >> 4) != 2 || (consecutive[pci] & 0x0F) != expectedSequence)
                 {
                     throw new InvalidOperationException(
                         "ISO-TP consecutive-frame sequence mismatch; expected " +
                         expectedSequence.ToString(CultureInfo.InvariantCulture) +
                         ", received " + Hex.Format(consecutive));
                 }
-                int count = Math.Min(7, totalLength - offset);
-                Buffer.BlockCopy(consecutive, 1, payload, offset, count);
+                int count = Math.Min(7 - pci, totalLength - offset);
+                Buffer.BlockCopy(consecutive, pci + 1, payload, offset, count);
                 offset += count;
                 expectedSequence = (expectedSequence + 1) & 0x0F;
             }
@@ -284,13 +270,14 @@ namespace Telemetry.Can.Core
 
         private FlowControl ReadFlowControl(string label)
         {
+            int pci = IsoTpAddress.Offset(targetAddress);
             byte[] frame = ReadCanFrame(label + " flow control", timeoutMs);
-            if ((frame[0] >> 4) != 3)
+            if ((frame[pci] >> 4) != 3)
             {
                 throw new InvalidOperationException(
                     "Expected ISO-TP flow control, received " + Hex.Format(frame));
             }
-            int status = frame[0] & 0x0F;
+            int status = frame[pci] & 0x0F;
             if (status != 0)
             {
                 throw new InvalidOperationException(
@@ -298,7 +285,7 @@ namespace Telemetry.Can.Core
                     status.ToString(CultureInfo.InvariantCulture) +
                     " instead of ContinueToSend: " + Hex.Format(frame));
             }
-            return new FlowControl(frame[1], frame[2]);
+            return new FlowControl(frame[pci + 1], frame[pci + 2]);
         }
 
         private byte[] ReadCanFrame(string label, int frameTimeoutMs)
@@ -331,6 +318,19 @@ namespace Telemetry.Can.Core
                         "CAN frame from 0x" +
                         responseCanId.ToString("X", CultureInfo.InvariantCulture) +
                         " was not eight bytes while awaiting " + label + ".");
+                }
+                if (targetAddress != IsoTpAddress.None && data[0] != targetAddress)
+                {
+                    // Behind a gateway several ECUs answer on one response ID;
+                    // their frames carry their own address byte and are not ours.
+                    if (verbose)
+                    {
+                        Console.WriteLine(
+                            "CAN RX 0x" + responseCanId.ToString("X3", CultureInfo.InvariantCulture) +
+                            " ignored (address 0x" + data[0].ToString("X2", CultureInfo.InvariantCulture) +
+                            "): " + Hex.Format(data));
+                    }
+                    continue;
                 }
                 if (verbose)
                 {

@@ -403,12 +403,15 @@ class OperatorService:
         return resolve_selection(tree, tokens, **filters)
 
     def add_endpoint(
-        self, tester_can_id: str, response_can_id: str, session_recipe_id: str, ecu_keys: Iterable[int]
+        self, tester_can_id: str, response_can_id: str, session_recipe_id: str, ecu_keys: Iterable[int],
+        target_address: str | None = None,
     ) -> dict[str, Any]:
+        """Add a manual endpoint candidate; a target address means extended addressing."""
+
         repository = self.repository()
         return add_manual_endpoint(
             repository, self.inventory(repository), tester_can_id, response_can_id,
-            session_recipe_id, ecu_keys,
+            session_recipe_id, ecu_keys, target_address,
         )
 
     def confirm_endpoint(
