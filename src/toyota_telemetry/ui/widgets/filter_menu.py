@@ -8,7 +8,8 @@ so several can be ticked; the menu stays open while ticking. A long group
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPointF, QSize, Qt, Signal
+from PySide6.QtGui import QIcon, QPainter, QPen
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -16,6 +17,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QScrollArea,
     QStyle,
+    QStyleOptionToolButton,
+    QStylePainter,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -26,6 +29,8 @@ from .icons import filter_icon
 
 # Groups with more options than this scroll; the box shows about this many rows.
 VISIBLE_ROWS = 10
+# Room on the right for the drop-down chevron.
+CHEVRON = 16
 
 
 class FilterButton(QToolButton):
@@ -43,6 +48,38 @@ class FilterButton(QToolButton):
         self.groups: dict[str, list[tuple[str, str, str]]] = {}
         self.actions_: dict[str, QCheckBox] = {}
         self._rebuild()
+
+    def sizeHint(self) -> QSize:  # noqa: N802 - Qt API
+        option = self._option()
+        hint = self.style().sizeFromContents(
+            QStyle.ContentsType.CT_ToolButton, option, option.iconSize + QSize(self.fontMetrics().horizontalAdvance(
+                self.text()) + 6, 0), self,
+        )
+        return QSize(hint.width() + CHEVRON, max(hint.height(), super().sizeHint().height()))
+
+    def _option(self) -> QStyleOptionToolButton:
+        option = QStyleOptionToolButton()
+        self.initStyleOption(option)
+        # Qt's own menu indicator is a small corner triangle; a chevron is drawn instead.
+        option.features &= ~QStyleOptionToolButton.ToolButtonFeature.HasMenu
+        return option
+
+    def paintEvent(self, _event) -> None:  # noqa: N802 - Qt API
+        option = self._option()
+        painter = QStylePainter(self)
+        bevel = QStyleOptionToolButton(option)
+        bevel.text = ""
+        bevel.icon = QIcon()
+        painter.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, bevel)
+        label = QStyleOptionToolButton(option)
+        label.rect = option.rect.adjusted(4, 0, -CHEVRON, 0)
+        painter.drawControl(QStyle.ControlElement.CE_ToolButtonLabel, label)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = self.palette().buttonText().color() if self.isEnabled() else self.palette().placeholderText().color()
+        painter.setPen(QPen(color, 1.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        x = option.rect.right() - CHEVRON / 2 - 2
+        y = option.rect.center().y() + 0.5
+        painter.drawPolyline([QPointF(x - 3.5, y - 1.8), QPointF(x, y + 1.8), QPointF(x + 3.5, y - 1.8)])
 
     def set_group(self, title: str, options: list[tuple[str, str, str]]) -> None:
         """Add or replace a group of (key, label, tooltip) options; ticks on kept keys survive."""
