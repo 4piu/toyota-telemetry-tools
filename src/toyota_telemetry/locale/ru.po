@@ -9,3487 +9,3487 @@ msgstr ""
 
 #: src/toyota_telemetry/admission.py:23
 msgid "all included collection targets are already complete"
-msgstr ""
+msgstr "все включённые цели сбора уже выполнены"
 
 #: src/toyota_telemetry/admission.py:72
 msgid "collection policy has no included targets"
-msgstr ""
+msgstr "в политике сбора нет включённых целей"
 
 #: src/toyota_telemetry/admission.py:77
 msgid "insufficient disk budget: {available} MiB available, {required} MiB required"
-msgstr ""
+msgstr "недостаточно места на диске: доступно {available} МиБ, требуется {required} МиБ"
 
 #: src/toyota_telemetry/admission.py:145
 msgid "request-start floor exceeds the tracked maximum request rate"
-msgstr ""
+msgstr "минимальный интервал между запросами превышает отслеживаемую максимальную частоту запросов"
 
 #: src/toyota_telemetry/admission.py:103
 msgid "target has no included DID settings: {signal} needs {did}"
-msgstr ""
+msgstr "для цели нет включённых настроек DID: {signal} требует {did}"
 
 #: src/toyota_telemetry/admission.py:157
 msgid "missing latency/response-size facts: verify {did} first"
-msgstr ""
+msgstr "нет данных о задержке и размере ответа: сначала проверьте {did}"
 
 #: src/toyota_telemetry/admission.py:168
 msgid "acquisition interval violates request-start floor: {did}"
-msgstr ""
+msgstr "интервал опроса меньше минимального интервала между запросами: {did}"
 
 #: src/toyota_telemetry/admission.py:210
 msgid "endpoint {endpoint} request rate {rate:.3f} Hz exceeds tracked limit {limit:.3f} Hz"
-msgstr ""
+msgstr "конечная точка {endpoint}: частота запросов {rate:.3f} Гц превышает отслеживаемый предел {limit:.3f} Гц"
 
 #: src/toyota_telemetry/admission.py:215
 msgid "endpoint {endpoint} estimated bus utilization {value:.6f} exceeds tracked limit {limit:.6f}"
-msgstr ""
+msgstr "конечная точка {endpoint}: расчётная загрузка шины {value:.6f} превышает отслеживаемый предел {limit:.6f}"
 
 #: src/toyota_telemetry/admission.py:221
 msgid "endpoint {endpoint} nominal session utilization {value:.6f} exceeds tracked limit {limit:.6f}"
-msgstr ""
+msgstr "конечная точка {endpoint}: номинальная загрузка сеанса {value:.6f} превышает отслеживаемый предел {limit:.6f}"
 
 #: src/toyota_telemetry/admission.py:256
 msgid "{signal} lies past the reply: {did} answers with {count} data bytes"
-msgstr ""
+msgstr "{signal} выходит за пределы ответа: {did} возвращает {count} байт данных"
 
 #: src/toyota_telemetry/admission.py:341
 msgid "collection decode does not resolve catalog signal: {signal}"
-msgstr ""
+msgstr "декодирование для сбора не находит сигнал каталога: {signal}"
 
 #: src/toyota_telemetry/admission.py:352
 msgid "collection decode formula is ambiguous: {signal}"
-msgstr ""
+msgstr "формула декодирования для сбора неоднозначна: {signal}"
 
 #: src/toyota_telemetry/admission.py:126
 msgid "condition signal has no included DID settings: {signal} needs {did}"
-msgstr ""
+msgstr "для сигнала условия нет включённых настроек DID: {signal} требует {did}"
 
 #: src/toyota_telemetry/operator/collection.py:43
 msgid "Switch every few minutes"
-msgstr ""
+msgstr "Переключать каждые несколько минут"
 
 #: src/toyota_telemetry/operator/collection.py:44
 msgid "One after another, each until done"
-msgstr ""
+msgstr "По очереди, каждый до завершения"
 
 #: src/toyota_telemetry/operator/collection.py:367
 msgid "Verify {item}"
-msgstr ""
+msgstr "Проверить {item}"
 
 #: src/toyota_telemetry/operator/collection.py:368
 msgid "Include the DID settings for {item}"
-msgstr ""
+msgstr "Включить настройки DID для {item}"
 
 #: src/toyota_telemetry/operator/collection.py:370 src/toyota_telemetry/operator/service.py:97 src/toyota_telemetry/operator/service.py:296
 msgid "Set collection targets"
-msgstr ""
+msgstr "Задать цели сбора"
 
 #: src/toyota_telemetry/operator/collection.py:372
 msgid "Free disk space"
-msgstr ""
+msgstr "Освободить место на диске"
 
 #: src/toyota_telemetry/operator/collection.py:373
 msgid "Lengthen DID intervals on {item}"
-msgstr ""
+msgstr "Увеличить интервалы DID на {item}"
 
 #: src/toyota_telemetry/operator/collection.py:375
 msgid "Lengthen DID intervals"
-msgstr ""
+msgstr "Увеличить интервалы DID"
 
 #: src/toyota_telemetry/operator/collection.py:378
 msgid "Choose a formula for {item}"
-msgstr ""
+msgstr "Выбрать формулу для {item}"
 
 #: src/toyota_telemetry/operator/collection.py:392
 msgid "Check the project files"
-msgstr ""
+msgstr "Проверить файлы проекта"
 
 #: src/toyota_telemetry/operator/collection.py:285
 msgid "collection is not ready; resolve the readiness problems first"
-msgstr ""
+msgstr "сбор не готов; сначала устраните проблемы готовности"
 
 #: src/toyota_telemetry/operator/collection.py:106 src/toyota_telemetry/operator/connector.py:94 src/toyota_telemetry/operator/verification.py:108
 msgid "no connector is configured"
-msgstr ""
+msgstr "адаптер не настроен"
 
 #: src/toyota_telemetry/operator/collection.py:106 src/toyota_telemetry/operator/service.py:270
 msgid "Configure the connector"
-msgstr ""
+msgstr "Настроить адаптер"
 
 #: src/toyota_telemetry/operator/collection.py:139
 msgid "Choose the endpoint, or take them in turn"
-msgstr ""
+msgstr "Выбрать конечную точку или опрашивать их по очереди"
 
 #: src/toyota_telemetry/operator/collection.py:206
 msgid "Switch ECUs less often"
-msgstr ""
+msgstr "Переключать ECU реже"
 
 #: src/toyota_telemetry/operator/collection.py:191
 msgid "Leave it out"
-msgstr ""
+msgstr "Исключить"
 
 #: src/toyota_telemetry/operator/collection.py:359
 msgid "the scope of {endpoint} changed since it was confirmed; check readiness and start again"
-msgstr ""
+msgstr "область {endpoint} изменилась после подтверждения; проверьте готовность и начните заново"
 
 #: src/toyota_telemetry/operator/collection.py:136
 msgid "targets span {count} endpoints; one run collects one endpoint"
-msgstr ""
+msgstr "цели относятся к нескольким конечным точкам ({count}); одна запись собирает одну конечную точку"
 
 #: src/toyota_telemetry/operator/collection.py:196
 msgid "unknown strategy {strategy!r}"
-msgstr ""
+msgstr "неизвестная стратегия {strategy!r}"
 
 #: src/toyota_telemetry/operator/collection.py:197
 msgid "Choose {first} or {second}"
-msgstr ""
+msgstr "Выберите {first} или {second}"
 
 #: src/toyota_telemetry/operator/collection.py:203
 msgid "a time slice of {seconds} s is shorter than {minimum} s"
-msgstr ""
+msgstr "интервал переключения {seconds} с короче {minimum} с"
 
 #: src/toyota_telemetry/operator/collection.py:143 src/toyota_telemetry/operator/collection.py:190
 msgid "{endpoint} has no unfinished targets ready to collect"
-msgstr ""
+msgstr "у {endpoint} нет незавершённых целей, готовых к сбору"
 
 #: src/toyota_telemetry/operator/collection.py:144
 msgid "Choose one of: {endpoints}"
-msgstr ""
+msgstr "Выберите одно из: {endpoints}"
 
 #: src/toyota_telemetry/operator/collection.py:329
 msgid "{endpoint} is no longer ready: {problem}"
-msgstr ""
+msgstr "{endpoint} больше не готова: {problem}"
 
 #: src/toyota_telemetry/operator/connector.py:22
 msgid "PCAN channel (PCAN_USBBUS1-8)"
-msgstr ""
+msgstr "Канал PCAN (PCAN_USBBUS1-8)"
 
 #: src/toyota_telemetry/operator/connector.py:23
 msgid "J2534 driver DLL path"
-msgstr ""
+msgstr "Путь к DLL драйвера J2534"
 
 #: src/toyota_telemetry/operator/connector.py:25
 msgid "USB vendor ID (4 hex digits)"
-msgstr ""
+msgstr "USB vendor ID (4 шестнадцатеричные цифры)"
 
 #: src/toyota_telemetry/operator/connector.py:26
 msgid "USB product ID (4 hex digits)"
-msgstr ""
+msgstr "USB product ID (4 шестнадцатеричные цифры)"
 
 #: src/toyota_telemetry/operator/connector.py:27
 msgid "USB serial number (optional)"
-msgstr ""
+msgstr "Серийный номер USB (необязательно)"
 
 #: src/toyota_telemetry/operator/connector.py:29
 msgid "Serial port, e.g. COM5"
-msgstr ""
+msgstr "Последовательный порт, например COM5"
 
 #: src/toyota_telemetry/operator/connector.py:58
 msgid "unknown connector {kind!r}; choose {kinds}"
-msgstr ""
+msgstr "неизвестный адаптер {kind!r}; выберите {kinds}"
 
 #: src/toyota_telemetry/operator/connector.py:64
 msgid "{kind} does not use: {fields}"
-msgstr ""
+msgstr "{kind} не использует: {fields}"
 
 #: src/toyota_telemetry/operator/connector.py:104
 msgid "worker {name} is missing from this installation"
-msgstr ""
+msgstr "рабочий модуль {name} отсутствует в этой установке"
 
 #: src/toyota_telemetry/operator/connector.py:126
 msgid "worker self-test passed; no device was opened"
-msgstr ""
+msgstr "самопроверка рабочего модуля пройдена; устройство не открывалось"
 
 #: src/toyota_telemetry/operator/connector.py:109
 msgid "J2534 driver DLL was not found: {name}"
-msgstr ""
+msgstr "DLL драйвера J2534 не найдена: {name}"
 
 #: src/toyota_telemetry/operator/connector.py:123
 msgid "worker self-test failed"
-msgstr ""
+msgstr "самопроверка рабочего модуля не пройдена"
 
 #: src/toyota_telemetry/operator/connector.py:117
 msgid "worker self-test could not run: {error}"
-msgstr ""
+msgstr "не удалось запустить самопроверку рабочего модуля: {error}"
 
 #: src/toyota_telemetry/operator/connector.py:122
 msgid "worker self-test failed: {detail}"
-msgstr ""
+msgstr "самопроверка рабочего модуля не пройдена: {detail}"
 
 #: src/toyota_telemetry/operator/editing.py:35 src/toyota_telemetry/ui/names.py:32
 msgid "Minimum samples"
-msgstr ""
+msgstr "Минимум отсчётов"
 
 #: src/toyota_telemetry/operator/editing.py:36 src/toyota_telemetry/ui/names.py:33
 msgid "Minimum runs"
-msgstr ""
+msgstr "Минимум записей"
 
 #: src/toyota_telemetry/operator/editing.py:37 src/toyota_telemetry/ui/names.py:34
 msgid "Minimum span"
-msgstr ""
+msgstr "Минимальный охват"
 
 #: src/toyota_telemetry/operator/editing.py:38 src/toyota_telemetry/ui/names.py:35
 msgid "Required states"
-msgstr ""
+msgstr "Обязательные состояния"
 
 #: src/toyota_telemetry/operator/editing.py:39 src/toyota_telemetry/ui/names.py:36
 msgid "Minimum transitions"
-msgstr ""
+msgstr "Минимум переходов"
 
 #: src/toyota_telemetry/operator/editing.py:40 src/toyota_telemetry/ui/names.py:37
 msgid "Minimum changes"
-msgstr ""
+msgstr "Минимум изменений"
 
 #: src/toyota_telemetry/operator/editing.py:41 src/toyota_telemetry/ui/names.py:38
 msgid "Minimum applicable time"
-msgstr ""
+msgstr "Минимальное время при условии"
 
 #: src/toyota_telemetry/operator/editing.py:172
 msgid "Reviewing a signal needs a confirmed endpoint; {endpoint} is {state}. Verify it, then confirm the endpoint."
-msgstr ""
+msgstr "Для проверки смысла сигнала нужна подтверждённая конечная точка; {endpoint}: {state}. Проверьте её, затем подтвердите конечную точку."
 
 #: src/toyota_telemetry/operator/editing.py:174
 msgid "A collection target needs a confirmed endpoint; {endpoint} is {state}. Verify it, then confirm the endpoint."
-msgstr ""
+msgstr "Для цели сбора нужна подтверждённая конечная точка; {endpoint}: {state}. Проверьте её, затем подтвердите конечную точку."
 
 #: src/toyota_telemetry/operator/editing.py:94
 msgid "a condition may combine clauses with 'and' or with 'or', not both"
-msgstr ""
+msgstr "условие может объединять части через 'and' или через 'or', но не через оба"
 
 #: src/toyota_telemetry/operator/editing.py:74
 msgid "invalid duration {text!r}; use seconds or a suffix such as 30s, 10m, 2h"
-msgstr ""
+msgstr "неверная длительность {text!r}; укажите секунды или суффикс, например 30s, 10m, 2h"
 
 #: src/toyota_telemetry/operator/editing.py:129
 msgid "invalid condition clause {text!r}; expected SIGNAL OP VALUE, e.g. 372/0x1002/0..15 > 10"
-msgstr ""
+msgstr "неверная часть условия {text!r}; ожидается СИГНАЛ ОПЕРАТОР ЗНАЧЕНИЕ, например 372/0x1002/0..15 > 10"
 
 #: src/toyota_telemetry/operator/editing.py:184 src/toyota_telemetry/operator/selection.py:153 src/toyota_telemetry/operator/selection.py:122
 msgid "signal is not in the candidate list: {signal}"
-msgstr ""
+msgstr "сигнала нет в списке кандидатов: {signal}"
 
 #: src/toyota_telemetry/operator/editing.py:242
 msgid "evidence state must not be empty"
-msgstr ""
+msgstr "состояние подтверждения не может быть пустым"
 
 #: src/toyota_telemetry/operator/editing.py:137
 msgid "'in' needs a comma-separated list in {text!r}"
-msgstr ""
+msgstr "для 'in' нужен список через запятую в {text!r}"
 
 #: src/toyota_telemetry/operator/editing.py:161
 msgid "condition value must be a number or true/false, got {text!r}"
-msgstr ""
+msgstr "значение условия должно быть числом или true/false, получено {text!r}"
 
 #: src/toyota_telemetry/operator/editing.py:212
 msgid "{signal} has several review rows; edit review/signals.json directly"
-msgstr ""
+msgstr "у {signal} несколько строк проверки смысла; отредактируйте review/signals.json напрямую"
 
 #: src/toyota_telemetry/operator/editing.py:274
 msgid "DID is not in the candidate list: {did}"
-msgstr ""
+msgstr "DID нет в списке кандидатов: {did}"
 
 #: src/toyota_telemetry/operator/editing.py:277
 msgid "DID settings need a confirmed endpoint; {endpoint} is {state}"
-msgstr ""
+msgstr "для настроек DID нужна подтверждённая конечная точка; {endpoint}: {state}"
 
 #: src/toyota_telemetry/operator/editing.py:296
 msgid "{did}: interval must not exceed the maximum interval"
-msgstr ""
+msgstr "{did}: интервал не должен превышать максимальный интервал"
 
 #: src/toyota_telemetry/operator/editing.py:360
 msgid "{signal}: a target needs at least one completion requirement"
-msgstr ""
+msgstr "{signal}: цели нужно хотя бы одно условие выполнения"
 
 #: src/toyota_telemetry/operator/editing.py:416
 msgid "invalid formula {formula!r}: {error}"
-msgstr ""
+msgstr "неверная формула {formula!r}: {error}"
 
 #: src/toyota_telemetry/operator/editing.py:353
 msgid "{signal}: minimum changes needs a minimum difference"
-msgstr ""
+msgstr "{signal}: для минимума изменений нужна минимальная разница"
 
 #: src/toyota_telemetry/operator/inventory.py:42
 msgid "Verified"
-msgstr ""
+msgstr "Проверено"
 
 #: src/toyota_telemetry/operator/inventory.py:43
 msgid "Not verified"
-msgstr ""
+msgstr "Не проверено"
 
 #: src/toyota_telemetry/operator/inventory.py:44
 msgid "Failed"
-msgstr ""
+msgstr "Ошибка"
 
 #: src/toyota_telemetry/operator/inventory.py:45
 msgid "Endpoint not verified"
-msgstr ""
+msgstr "Конечная точка не проверена"
 
 #: src/toyota_telemetry/operator/inventory.py:47
 msgid "ECU did not answer"
-msgstr ""
+msgstr "ECU не ответил"
 
 #: src/toyota_telemetry/operator/inventory.py:50 src/toyota_telemetry/ui/names.py:20 src/toyota_telemetry/ui/names.py:27 src/toyota_telemetry/ui/signals_page.py:95
 msgid "Not checked"
-msgstr ""
+msgstr "Не проверено"
 
 #: src/toyota_telemetry/operator/inventory.py:51 src/toyota_telemetry/ui/names.py:21 src/toyota_telemetry/ui/names.py:26 src/toyota_telemetry/ui/signals_page.py:96
 msgid "No answer"
-msgstr ""
+msgstr "Нет ответа"
 
 #: src/toyota_telemetry/operator/inventory.py:52 src/toyota_telemetry/ui/names.py:22 src/toyota_telemetry/ui/signals_page.py:97
 msgid "Refused"
-msgstr ""
+msgstr "Отклонено"
 
 #: src/toyota_telemetry/operator/inventory.py:53
 msgid "Responds"
-msgstr ""
+msgstr "Отвечает"
 
 #: src/toyota_telemetry/operator/inventory.py:54 src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/shell.py:89
 msgid "Recorded"
-msgstr ""
+msgstr "Записано"
 
 #: src/toyota_telemetry/operator/inventory.py:55
 msgid "Reviewed"
-msgstr ""
+msgstr "Смысл проверен"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Candidate"
-msgstr ""
+msgstr "Кандидат"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Observed"
-msgstr ""
+msgstr "Наблюдался"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Correlated"
-msgstr ""
+msgstr "Сопоставлен"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Validated"
-msgstr ""
+msgstr "Подтверждён"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Observed and replayed"
-msgstr ""
+msgstr "Наблюдался и воспроизведён"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Correlated and replayed"
-msgstr ""
+msgstr "Сопоставлен и воспроизведён"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Validated and replayed"
-msgstr ""
+msgstr "Подтверждён и воспроизведён"
 
 #: src/toyota_telemetry/operator/inventory.py:68
 msgid "refused"
-msgstr ""
+msgstr "отклонено"
 
 #: src/toyota_telemetry/operator/inventory.py:69
 msgid "no answer"
-msgstr ""
+msgstr "нет ответа"
 
 #: src/toyota_telemetry/operator/inventory.py:70
 msgid "connection error"
-msgstr ""
+msgstr "ошибка соединения"
 
 #: src/toyota_telemetry/operator/inventory.py:71
 msgid "session could not be opened"
-msgstr ""
+msgstr "не удалось открыть сеанс"
 
 #: src/toyota_telemetry/operator/inventory.py:75
 msgid "general reject"
-msgstr ""
+msgstr "общий отказ"
 
 #: src/toyota_telemetry/operator/inventory.py:76
 msgid "service not supported"
-msgstr ""
+msgstr "сервис не поддерживается"
 
 #: src/toyota_telemetry/operator/inventory.py:77
 msgid "sub-function not supported"
-msgstr ""
+msgstr "подфункция не поддерживается"
 
 #: src/toyota_telemetry/operator/inventory.py:78
 msgid "wrong message length"
-msgstr ""
+msgstr "неверная длина сообщения"
 
 #: src/toyota_telemetry/operator/inventory.py:79
 msgid "response too long"
-msgstr ""
+msgstr "слишком длинный ответ"
 
 #: src/toyota_telemetry/operator/inventory.py:80
 msgid "conditions not correct"
-msgstr ""
+msgstr "условия не выполнены"
 
 #: src/toyota_telemetry/operator/inventory.py:81
 msgid "request out of range"
-msgstr ""
+msgstr "запрос вне диапазона"
 
 #: src/toyota_telemetry/operator/inventory.py:82
 msgid "security access required"
-msgstr ""
+msgstr "требуется доступ безопасности"
 
 #: src/toyota_telemetry/operator/inventory.py:83
 msgid "general programming failure"
-msgstr ""
+msgstr "общая ошибка программирования"
 
 #: src/toyota_telemetry/operator/inventory.py:84
 msgid "not supported in this session"
-msgstr ""
+msgstr "не поддерживается в этом сеансе"
 
 #: src/toyota_telemetry/operator/inventory.py:85
 msgid "service not supported in this session"
-msgstr ""
+msgstr "сервис не поддерживается в этом сеансе"
 
 #: src/toyota_telemetry/operator/inventory.py:1107
 msgid "endpoint is not verified"
-msgstr ""
+msgstr "конечная точка не проверена"
 
 #: src/toyota_telemetry/operator/inventory.py:1108
 msgid "endpoint is address unknown"
-msgstr ""
+msgstr "адрес конечной точки неизвестен"
 
 #: src/toyota_telemetry/operator/inventory.py:407
 msgid "not in the candidate list"
-msgstr ""
+msgstr "нет в списке кандидатов"
 
 #: src/toyota_telemetry/operator/inventory.py:384
 msgid "the candidate list changed since the preview; preview the source again"
-msgstr ""
+msgstr "список кандидатов изменился после предпросмотра; выполните предпросмотр источника снова"
 
 #: src/toyota_telemetry/operator/inventory.py:409
 msgid "reviewed"
-msgstr ""
+msgstr "смысл проверен"
 
 #: src/toyota_telemetry/operator/inventory.py:411
 msgid "has a target"
-msgstr ""
+msgstr "есть цель"
 
 #: src/toyota_telemetry/operator/inventory.py:431
 msgid "the candidate list changed since the preview; select the signals again"
-msgstr ""
+msgstr "список кандидатов изменился после предпросмотра; выберите сигналы снова"
 
 #: src/toyota_telemetry/operator/inventory.py:433
 msgid "none of the selected signals can be deleted"
-msgstr ""
+msgstr "ни один из выбранных сигналов нельзя удалить"
 
 #: src/toyota_telemetry/operator/inventory.py:493
 msgid "Nothing to delete."
-msgstr ""
+msgstr "Нечего удалять."
 
 #: src/toyota_telemetry/operator/inventory.py:608
 msgid "enter at least one endpoint"
-msgstr ""
+msgstr "введите хотя бы одну конечную точку"
 
 #: src/toyota_telemetry/operator/inventory.py:792
 msgid "unnamed ECU"
-msgstr ""
+msgstr "безымянный ECU"
 
 #: src/toyota_telemetry/operator/inventory.py:956
 msgid "(not in candidate list)"
-msgstr ""
+msgstr "(нет в списке кандидатов)"
 
 #: src/toyota_telemetry/operator/inventory.py:95
 msgid "{outcome} (code {code})"
-msgstr ""
+msgstr "{outcome} (код {code})"
 
 #: src/toyota_telemetry/operator/inventory.py:417
 msgid "recorded"
-msgstr ""
+msgstr "записано"
 
 #: src/toyota_telemetry/operator/inventory.py:442
 msgid "{label}: {rows} rows, {signals} signals, {dids} DIDs, {ecus} ECUs, {endpoints} endpoint candidates."
-msgstr ""
+msgstr "{label}: строк: {rows}, сигналов: {signals}, DID: {dids}, ECU: {ecus}, кандидатов конечных точек: {endpoints}."
 
 #: src/toyota_telemetry/operator/inventory.py:450
 msgid "To add {added} signals; to update {updated}; unchanged {unchanged}."
-msgstr ""
+msgstr "Будет добавлено сигналов: {added}; обновлено: {updated}; без изменений: {unchanged}."
 
 #: src/toyota_telemetry/operator/inventory.py:1091
 msgid "responded in recorded runs"
-msgstr ""
+msgstr "отвечал в записях"
 
 #: src/toyota_telemetry/operator/inventory.py:94
 msgid "{outcome}: {meaning} (code {code})"
-msgstr ""
+msgstr "{outcome}: {meaning} (код {code})"
 
 #: src/toyota_telemetry/operator/inventory.py:195
 msgid "no imported source {source!r}; imported: {known}"
-msgstr ""
+msgstr "нет импортированного источника {source!r}; импортированы: {known}"
 
 #: src/toyota_telemetry/operator/inventory.py:269
 msgid "DID is outside the transport safety range"
-msgstr ""
+msgstr "DID вне безопасного диапазона транспорта"
 
 #: src/toyota_telemetry/operator/inventory.py:368
 msgid "reviewed signals would no longer resolve: {error}"
-msgstr ""
+msgstr "сигналы с проверенным смыслом больше не будут находиться: {error}"
 
 #: src/toyota_telemetry/operator/inventory.py:414
 msgid "used in a target condition"
-msgstr ""
+msgstr "используется в условии цели"
 
 #: src/toyota_telemetry/operator/inventory.py:457
 msgid "Updates change: {fields}."
-msgstr ""
+msgstr "Обновления меняют: {fields}."
 
 #: src/toyota_telemetry/operator/inventory.py:461
 msgid "{count} signal from this source's last import is not in it; it is kept."
 msgid_plural "{count} signals from this source's last import are not in it; they are kept."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} сигнал из прошлого импорта этого источника в нём отсутствует; он сохранён."
+msgstr[1] "{count} сигнала из прошлого импорта этого источника в нём отсутствуют; они сохранены."
+msgstr[2] "{count} сигналов из прошлого импорта этого источника в нём отсутствуют; они сохранены."
 
 #: src/toyota_telemetry/operator/inventory.py:466
 msgid "{count} replaced definition is kept because a review uses it."
 msgid_plural "{count} replaced definitions are kept because a review uses them."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} заменённое определение сохранено, так как его использует проверка смысла."
+msgstr[1] "{count} заменённых определения сохранены, так как их использует проверка смысла."
+msgstr[2] "{count} заменённых определений сохранены, так как их использует проверка смысла."
 
 #: src/toyota_telemetry/operator/inventory.py:471
 msgid "{count} repeated row merged into an existing definition."
 msgid_plural "{count} repeated rows merged into an existing definition."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} повторяющаяся строка объединена с существующим определением."
+msgstr[1] "{count} повторяющиеся строки объединены с существующим определением."
+msgstr[2] "{count} повторяющихся строк объединены с существующим определением."
 
 #: src/toyota_telemetry/operator/inventory.py:476
 msgid "{count} of these signals has more than one formula."
 msgid_plural "{count} of these signals have more than one formula."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "У {count} из этих сигналов больше одной формулы."
+msgstr[1] "У {count} из этих сигналов больше одной формулы."
+msgstr[2] "У {count} из этих сигналов больше одной формулы."
 
 #: src/toyota_telemetry/operator/inventory.py:481
 msgid "{count} row rejected."
 msgid_plural "{count} rows rejected."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} строка отклонена."
+msgstr[1] "{count} строки отклонены."
+msgstr[2] "{count} строк отклонено."
 
 #: src/toyota_telemetry/operator/inventory.py:488
 msgid "Delete {count} signal from the candidate list. Importing its source again adds it back."
 msgid_plural "Delete {count} signals from the candidate list. Importing their source again adds them back."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "Удалить {count} сигнал из списка кандидатов. Повторный импорт источника вернёт его."
+msgstr[1] "Удалить {count} сигнала из списка кандидатов. Повторный импорт источника вернёт их."
+msgstr[2] "Удалить {count} сигналов из списка кандидатов. Повторный импорт источника вернёт их."
 
 #: src/toyota_telemetry/operator/inventory.py:498
 msgid "Kept: {reasons}."
-msgstr ""
+msgstr "Сохранены: {reasons}."
 
 #: src/toyota_telemetry/operator/inventory.py:1084
 msgid "responded during verification"
-msgstr ""
+msgstr "ответил при проверке"
 
 #: src/toyota_telemetry/operator/inventory.py:1094
 msgid "the ECU did not answer when verified, so this DID was not read"
-msgstr ""
+msgstr "ECU не ответил при проверке, поэтому этот DID не читался"
 
 #: src/toyota_telemetry/operator/inventory.py:196 src/toyota_telemetry/ui/dialogs.py:314 src/toyota_telemetry/ui/dialogs.py:294 src/toyota_telemetry/ui/signals_page.py:961
 msgid "none"
-msgstr ""
+msgstr "нет"
 
 #: src/toyota_telemetry/operator/inventory.py:574
 msgid "endpoint {number}: enter the request CAN ID as hexadecimal, e.g. 0x7E0"
-msgstr ""
+msgstr "конечная точка {number}: введите CAN ID запроса в шестнадцатеричном виде, например 0x7E0"
 
 #: src/toyota_telemetry/operator/inventory.py:580
 msgid "endpoint {number}: the response CAN ID must be an 11-bit ID other than the request ID"
-msgstr ""
+msgstr "конечная точка {number}: CAN ID ответа должен быть 11-битным и отличаться от ID запроса"
 
 #: src/toyota_telemetry/operator/inventory.py:591
 msgid "endpoint {number}: enter at least one ECU key"
-msgstr ""
+msgstr "конечная точка {number}: введите хотя бы один ключ ECU"
 
 #: src/toyota_telemetry/operator/inventory.py:593
 msgid "endpoint {number}: ECU keys already belong to a confirmed endpoint: {keys}"
-msgstr ""
+msgstr "конечная точка {number}: ключи ECU уже относятся к подтверждённой конечной точке: {keys}"
 
 #: src/toyota_telemetry/operator/inventory.py:587
 msgid "endpoint {number}: the address must be one hexadecimal byte, e.g. 0x2A"
-msgstr ""
+msgstr "конечная точка {number}: адрес должен быть одним шестнадцатеричным байтом, например 0x2A"
 
 #: src/toyota_telemetry/operator/inventory.py:600
 msgid "endpoint {number}: repeats an endpoint or ECU key given above"
-msgstr ""
+msgstr "конечная точка {number}: повторяет конечную точку или ключ ECU, указанные выше"
 
 #: src/toyota_telemetry/operator/inventory.py:1099
 msgid "endpoint is {state}"
-msgstr ""
+msgstr "конечная точка: {state}"
 
 #: src/toyota_telemetry/operator/live.py:53
 msgid "another live operation is running for this project"
-msgstr ""
+msgstr "для этого проекта уже выполняется другая операция с автомобилем"
 
 #: src/toyota_telemetry/operator/recordings.py:27
 msgid "complete"
-msgstr ""
+msgstr "завершена"
 
 #: src/toyota_telemetry/operator/recordings.py:28
 msgid "needs recovery"
-msgstr ""
+msgstr "требует восстановления"
 
 #: src/toyota_telemetry/operator/recordings.py:29
 msgid "unreadable"
-msgstr ""
+msgstr "не читается"
 
 #: src/toyota_telemetry/operator/recordings.py:31
 msgid "targets complete"
-msgstr ""
+msgstr "цели выполнены"
 
 #: src/toyota_telemetry/operator/recordings.py:32
 msgid "handed over to the next ECU"
-msgstr ""
+msgstr "передано следующему ECU"
 
 #: src/toyota_telemetry/operator/recordings.py:33
 msgid "stopped"
-msgstr ""
+msgstr "остановлена"
 
 #: src/toyota_telemetry/operator/recordings.py:34
 msgid "connection lost"
-msgstr ""
+msgstr "соединение потеряно"
 
 #: src/toyota_telemetry/operator/recordings.py:35
 msgid "storage limit reached"
-msgstr ""
+msgstr "достигнут предел хранилища"
 
 #: src/toyota_telemetry/operator/recordings.py:36
 msgid "recovered after interruption"
-msgstr ""
+msgstr "восстановлена после прерывания"
 
 #: src/toyota_telemetry/operator/recordings.py:278
 msgid "interrupted: recover it to keep the reads saved before the interruption, or move it to the trash"
-msgstr ""
+msgstr "прервана: восстановите её, чтобы сохранить чтения до прерывания, или переместите в корзину"
 
 #: src/toyota_telemetry/operator/recordings.py:98
 msgid "a live job is running; delete after it stops"
-msgstr ""
+msgstr "идёт работа с автомобилем; удалите после её остановки"
 
 #: src/toyota_telemetry/operator/recordings.py:164
 msgid "a live job is running; recover after it stops"
-msgstr ""
+msgstr "идёт работа с автомобилем; восстановите после её остановки"
 
 #: src/toyota_telemetry/operator/recordings.py:154
 msgid "run {run} is already complete"
-msgstr ""
+msgstr "запись {run} уже завершена"
 
 #: src/toyota_telemetry/operator/recordings.py:207
 msgid "no recorded run {run}"
-msgstr ""
+msgstr "нет записи {run}"
 
 #: src/toyota_telemetry/operator/recordings.py:215
 msgid "directory name is not a run id"
-msgstr ""
+msgstr "имя папки не является ID записи"
 
 #: src/toyota_telemetry/operator/recordings.py:221
 msgid "run-start is unreadable: {error}"
-msgstr ""
+msgstr "run-start не читается: {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:100
 msgid "not moved to the trash: {error}"
-msgstr ""
+msgstr "не перемещено в корзину: {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:275
 msgid "run-end is unreadable: {error}"
-msgstr ""
+msgstr "run-end не читается: {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:161
 msgid "run {run} has no interrupted segment to recover"
-msgstr ""
+msgstr "в записи {run} нет прерванного фрагмента для восстановления"
 
 #: src/toyota_telemetry/operator/selection.py:73
 msgid "nothing selected: name an endpoint, DID, or signal, or use a filter"
-msgstr ""
+msgstr "ничего не выбрано: укажите конечную точку, DID или сигнал либо используйте фильтр"
 
 #: src/toyota_telemetry/operator/selection.py:110
 msgid "the selection matched nothing in the candidate list"
-msgstr ""
+msgstr "выбор не совпал ни с чем в списке кандидатов"
 
 #: src/toyota_telemetry/operator/selection.py:127
 msgid "unknown endpoint {endpoint!r}"
-msgstr ""
+msgstr "неизвестная конечная точка {endpoint!r}"
 
 #: src/toyota_telemetry/operator/selection.py:131
 msgid "invalid selector {token!r}"
-msgstr ""
+msgstr "неверный селектор {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:149
 msgid "invalid signal bits in selector {token!r}"
-msgstr ""
+msgstr "неверные биты сигнала в селекторе {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:161
 msgid "bits {bits} are ambiguous on {did}; use the full signal reference ECU/DID/BITS"
-msgstr ""
+msgstr "биты {bits} неоднозначны в {did}; используйте полную ссылку на сигнал ECU/DID/BITS"
 
 #: src/toyota_telemetry/operator/selection.py:71
 msgid "unknown state filter {state!r}; choose from {choices}"
-msgstr ""
+msgstr "неизвестный фильтр состояния {state!r}; выберите из {choices}"
 
 #: src/toyota_telemetry/operator/selection.py:135
 msgid "invalid DID in selector {token!r}"
-msgstr ""
+msgstr "неверный DID в селекторе {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:139
 msgid "DID {did} is not in the candidate list for {endpoint}"
-msgstr ""
+msgstr "DID {did} нет в списке кандидатов для {endpoint}"
 
 #: src/toyota_telemetry/operator/service.py:78
 msgid "Create a project workspace"
-msgstr ""
+msgstr "Создать проект"
 
 #: src/toyota_telemetry/operator/service.py:79
 msgid "Show readiness and the next action"
-msgstr ""
+msgstr "Показать готовность и следующее действие"
 
 #: src/toyota_telemetry/operator/service.py:80 src/toyota_telemetry/ui/shell.py:211
 msgid "Validate project files"
-msgstr ""
+msgstr "Проверить файлы проекта"
 
 #: src/toyota_telemetry/operator/service.py:81
 msgid "Show connector settings"
-msgstr ""
+msgstr "Показать настройки адаптера"
 
 #: src/toyota_telemetry/operator/service.py:82
 msgid "Save connector settings"
-msgstr ""
+msgstr "Сохранить настройки адаптера"
 
 #: src/toyota_telemetry/operator/service.py:83
 msgid "Check connector offline"
-msgstr ""
+msgstr "Проверить адаптер без подключения"
 
 #: src/toyota_telemetry/operator/service.py:84
 msgid "Preview a candidate source"
-msgstr ""
+msgstr "Предпросмотр источника кандидатов"
 
 #: src/toyota_telemetry/operator/service.py:85
 msgid "Apply a candidate source"
-msgstr ""
+msgstr "Применить источник кандидатов"
 
 #: src/toyota_telemetry/operator/service.py:86
 msgid "Save candidate rows to a file"
-msgstr ""
+msgstr "Сохранить строки кандидатов в файл"
 
 #: src/toyota_telemetry/operator/service.py:87
 msgid "Rebuild the derived cache"
-msgstr ""
+msgstr "Перестроить производный кэш"
 
 #: src/toyota_telemetry/operator/service.py:88
 msgid "List endpoints, DIDs, and signals"
-msgstr ""
+msgstr "Список конечных точек, DID и сигналов"
 
 #: src/toyota_telemetry/operator/service.py:89
 msgid "Show one DID or signal"
-msgstr ""
+msgstr "Показать один DID или сигнал"
 
 #: src/toyota_telemetry/operator/service.py:90
 msgid "Add a manual endpoint candidate"
-msgstr ""
+msgstr "Добавить кандидата конечной точки вручную"
 
 #: src/toyota_telemetry/operator/service.py:91
 msgid "Confirm a responding endpoint"
-msgstr ""
+msgstr "Подтвердить отвечающую конечную точку"
 
 #: src/toyota_telemetry/operator/service.py:92
 msgid "Verify endpoints and DIDs"
-msgstr ""
+msgstr "Проверить конечные точки и DID"
 
 #: src/toyota_telemetry/operator/service.py:93
 msgid "Watch one DID's signals live"
-msgstr ""
+msgstr "Смотреть сигналы одного DID онлайн"
 
 #: src/toyota_telemetry/operator/service.py:94
 msgid "Delete candidate signals"
-msgstr ""
+msgstr "Удалить сигналы-кандидаты"
 
 #: src/toyota_telemetry/operator/service.py:95
 msgid "Edit a signal definition"
-msgstr ""
+msgstr "Изменить определение сигнала"
 
 #: src/toyota_telemetry/operator/service.py:96
 msgid "Edit shared DID settings"
-msgstr ""
+msgstr "Изменить общие настройки DID"
 
 #: src/toyota_telemetry/operator/service.py:98
 msgid "Remove collection targets"
-msgstr ""
+msgstr "Удалить цели сбора"
 
 #: src/toyota_telemetry/operator/service.py:99
 msgid "Check collection readiness"
-msgstr ""
+msgstr "Проверить готовность к сбору"
 
 #: src/toyota_telemetry/operator/service.py:100 src/toyota_telemetry/operator/service.py:302
 msgid "Collect data"
-msgstr ""
+msgstr "Собрать данные"
 
 #: src/toyota_telemetry/operator/service.py:101
 msgid "List recorded runs"
-msgstr ""
+msgstr "Список записей"
 
 #: src/toyota_telemetry/operator/service.py:102
 msgid "Show one run"
-msgstr ""
+msgstr "Показать одну запись"
 
 #: src/toyota_telemetry/operator/service.py:103
 msgid "Recover an interrupted run"
-msgstr ""
+msgstr "Восстановить прерванную запись"
 
 #: src/toyota_telemetry/operator/service.py:104
 msgid "Move a run to the system trash"
-msgstr ""
+msgstr "Переместить запись в корзину"
 
 #: src/toyota_telemetry/operator/service.py:105 src/toyota_telemetry/ui/recordings_page.py:124
 msgid "Export recorded samples"
-msgstr ""
+msgstr "Экспортировать записанные отсчёты"
 
 #: src/toyota_telemetry/operator/service.py:106
 msgid "Export the result to a folder"
-msgstr ""
+msgstr "Экспортировать результат в папку"
 
 #: src/toyota_telemetry/operator/service.py:303
 msgid "Analyze recordings"
-msgstr ""
+msgstr "Анализировать записи"
 
 #: src/toyota_telemetry/operator/service.py:266
 msgid "Recover the interrupted run"
-msgstr ""
+msgstr "Восстановить прерванную запись"
 
 #: src/toyota_telemetry/operator/service.py:273
 msgid "Import a candidate signal list"
-msgstr ""
+msgstr "Импортировать список сигналов-кандидатов"
 
 #: src/toyota_telemetry/operator/service.py:280
 msgid "Confirm the responding endpoint"
-msgstr ""
+msgstr "Подтвердить отвечающую конечную точку"
 
 #: src/toyota_telemetry/operator/service.py:290
 msgid "Verify endpoints and DIDs with the vehicle"
-msgstr ""
+msgstr "Проверить конечные точки и DID на автомобиле"
 
 #: src/toyota_telemetry/operator/service.py:331
 msgid "no connector configured yet"
-msgstr ""
+msgstr "адаптер ещё не настроен"
 
 #: src/toyota_telemetry/operator/service.py:386
 msgid "no candidate rows imported yet"
-msgstr ""
+msgstr "строки кандидатов ещё не импортированы"
 
 #: src/toyota_telemetry/operator/service.py:219 src/toyota_telemetry/operator/service.py:244
 msgid "Fix the project files"
-msgstr ""
+msgstr "Исправить файлы проекта"
 
 #: src/toyota_telemetry/operator/service.py:313
 msgid "project {project} profile {profile}: workspace files are valid"
-msgstr ""
+msgstr "проект {project}, профиль {profile}: файлы проекта корректны"
 
 #: src/toyota_telemetry/operator/service.py:243
 msgid "cache could not be refreshed: {error}"
-msgstr ""
+msgstr "не удалось обновить кэш: {error}"
 
 #: src/toyota_telemetry/operator/service.py:389
 msgid "{name} exists; choose another name or overwrite it"
-msgstr ""
+msgstr "{name} уже существует; выберите другое имя или перезапишите"
 
 #: src/toyota_telemetry/operator/service.py:478
 msgid "{candidate} has no verification result; verify it before confirming"
-msgstr ""
+msgstr "у {candidate} нет результата проверки; проверьте перед подтверждением"
 
 #: src/toyota_telemetry/operator/service.py:320
 msgid "candidate inventory: {error}"
-msgstr ""
+msgstr "перечень кандидатов: {error}"
 
 #: src/toyota_telemetry/operator/service.py:325
 msgid "verification facts: {error}"
-msgstr ""
+msgstr "данные проверки: {error}"
 
 #: src/toyota_telemetry/operator/service.py:329
 msgid "candidate list: {error}"
-msgstr ""
+msgstr "список кандидатов: {error}"
 
 #: src/toyota_telemetry/operator/sources.py:262
 msgid "the TIS database reader needs Windows (32-bit Techstream libraries)"
-msgstr ""
+msgstr "для чтения базы TIS нужна Windows (32-битные библиотеки Techstream)"
 
 #: src/toyota_telemetry/operator/sources.py:288
 msgid "no installed TIS database matches the ECU selection"
-msgstr ""
+msgstr "ни одна установленная база TIS не соответствует выбору ECU"
 
 #: src/toyota_telemetry/operator/sources.py:189
 msgid "file not found: {name}"
-msgstr ""
+msgstr "файл не найден: {name}"
 
 #: src/toyota_telemetry/operator/sources.py:264
 msgid "{name} is missing from this installation; build it with backends\\build.ps1"
-msgstr ""
+msgstr "{name} отсутствует в этой установке; соберите его с помощью backends\\build.ps1"
 
 #: src/toyota_telemetry/operator/sources.py:266
 msgid "no DB folder under the database directory {name}"
-msgstr ""
+msgstr "в папке базы данных {name} нет папки DB"
 
 #: src/toyota_telemetry/operator/sources.py:205
 msgid "{name}: expected a JSON array of rows"
-msgstr ""
+msgstr "{name}: ожидается JSON-массив строк"
 
 #: src/toyota_telemetry/operator/sources.py:320
 msgid "not a CAN diagnostic address ({addressing})"
-msgstr ""
+msgstr "не диагностический адрес CAN ({addressing})"
 
 #: src/toyota_telemetry/operator/sources.py:199
 msgid "{name}: invalid JSON: {error}"
-msgstr ""
+msgstr "{name}: неверный JSON: {error}"
 
 #: src/toyota_telemetry/operator/verification.py:110
 msgid "verification needs at least one selected DID"
-msgstr ""
+msgstr "для проверки нужен хотя бы один выбранный DID"
 
 #: src/toyota_telemetry/operator/verification.py:115
 msgid "the transport settings have no session recipe yet"
-msgstr ""
+msgstr "в настройках транспорта ещё нет рецепта сеанса"
 
 #: src/toyota_telemetry/operator/verification.py:45
 msgid ", then "
-msgstr ""
+msgstr ", затем "
 
 #: src/toyota_telemetry/operator/verification.py:46
 msgid "session automatic (tries {order})"
-msgstr ""
+msgstr "сеанс автоматически (пробует {order})"
 
 #: src/toyota_telemetry/operator/verification.py:81
 msgid "LIVE verification of {endpoints} endpoint(s) ({probes} to probe) and {dids} DID(s) on {connector} {device}"
-msgstr ""
+msgstr "Проверка НА АВТОМОБИЛЕ: конечных точек: {endpoints} (опросить: {probes}), DID: {dids}, адаптер {connector} {device}"
 
 #: src/toyota_telemetry/operator/verification.py:44
 msgid "session {recipe}"
-msgstr ""
+msgstr "сеанс {recipe}"
 
 #: src/toyota_telemetry/operator/verification.py:113
 msgid "unknown session recipe {recipe!r}"
-msgstr ""
+msgstr "неизвестный рецепт сеанса {recipe!r}"
 
 #: src/toyota_telemetry/operator/verification.py:165
 msgid "{endpoint} has no known CAN IDs; add a manual endpoint with its tester and response CAN IDs"
-msgstr ""
+msgstr "у {endpoint} нет известных CAN ID; добавьте конечную точку вручную с CAN ID тестера и ответа"
 
 #: src/toyota_telemetry/operator/verification.py:262
 msgid "endpoint did not respond"
-msgstr ""
+msgstr "конечная точка не ответила"
 
 #: src/toyota_telemetry/operator/verification.py:130
 msgid "unknown endpoint in selection: {endpoint}"
-msgstr ""
+msgstr "неизвестная конечная точка в выборе: {endpoint}"
 
 #: src/toyota_telemetry/operator/verification.py:133
 msgid "{did} is outside the transport DID safety range {low}..{high}"
-msgstr ""
+msgstr "{did} вне безопасного диапазона DID транспорта {low}..{high}"
 
 #: src/toyota_telemetry/operator/watch.py:78
 msgid "confirm the endpoint first"
-msgstr ""
+msgstr "сначала подтвердите конечную точку"
 
 #: src/toyota_telemetry/operator/watch.py:80
 msgid "verify this DID first; only DIDs that answered are watched"
-msgstr ""
+msgstr "сначала проверьте этот DID; просматриваются только ответившие DID"
 
 #: src/toyota_telemetry/operator/watch.py:84
 msgid "set how often this DID is read first"
-msgstr ""
+msgstr "сначала задайте, как часто читать этот DID"
 
 #: src/toyota_telemetry/operator/watch.py:91
 msgid "configure the connector first"
-msgstr ""
+msgstr "сначала настройте адаптер"
 
 #: src/toyota_telemetry/operator/watch.py:93
 msgid "this DID has no signals to show"
-msgstr ""
+msgstr "у этого DID нет сигналов для отображения"
 
 #: src/toyota_telemetry/operator/watch.py:173
 msgid "beyond the reply"
-msgstr ""
+msgstr "за пределами ответа"
 
 #: src/toyota_telemetry/operator/watch.py:55
 msgid "Read {did} on {endpoint} every {interval} ms and show {count} signal(s); nothing is recorded"
-msgstr ""
+msgstr "Читать {did} на {endpoint} каждые {interval} мс и показывать сигналы ({count}); ничего не записывается"
 
 #: src/toyota_telemetry/operator/watch.py:75
 msgid "no DID {did} in the candidate list"
-msgstr ""
+msgstr "DID {did} нет в списке кандидатов"
 
 #: src/toyota_telemetry/operator/watch.py:87
 msgid "the DID's interval {interval} ms is below the {floor} ms request floor"
-msgstr ""
+msgstr "интервал DID {interval} мс меньше минимального интервала запросов {floor} мс"
 
 #: src/toyota_telemetry/operator/watch.py:156
 msgid "stopped after {count} failed read in a row"
 msgid_plural "stopped after {count} failed reads in a row"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "остановлено после {count} неудачного чтения подряд"
+msgstr[1] "остановлено после {count} неудачных чтений подряд"
+msgstr[2] "остановлено после {count} неудачных чтений подряд"
 
 #: src/toyota_telemetry/operator/workspace.py:53
 msgid "{name} is not an empty folder"
-msgstr ""
+msgstr "{name} не является пустой папкой"
 
 #: src/toyota_telemetry/ui/collect_page.py:367
 msgid "one after another"
-msgstr ""
+msgstr "по очереди"
 
 #: src/toyota_telemetry/ui/collect_page.py:72
 msgid "Readiness"
-msgstr ""
+msgstr "Готовность"
 
 #: src/toyota_telemetry/ui/collect_page.py:77
 msgid "ECUs to collect"
-msgstr ""
+msgstr "ECU для сбора"
 
 #: src/toyota_telemetry/ui/collect_page.py:78
 msgid "Check ECUs to collect; drag to order"
-msgstr ""
+msgstr "Отметьте ECU для сбора; перетаскивайте для порядка"
 
 #: src/toyota_telemetry/ui/collect_page.py:94
 msgid "How to move between ECUs"
-msgstr ""
+msgstr "Переход между ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:95
 msgid "How to move between checked ECUs"
-msgstr ""
+msgstr "Как переходить между отмеченными ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:100
 msgid "Time on each ECU"
-msgstr ""
+msgstr "Время на каждый ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:101
 msgid "Time on each ECU before the next"
-msgstr ""
+msgstr "Время на каждом ECU перед переходом к следующему"
 
 #: src/toyota_telemetry/ui/collect_page.py:106 src/toyota_telemetry/ui/setup_page.py:72
 msgid "Check"
-msgstr ""
+msgstr "Проверить"
 
 #: src/toyota_telemetry/ui/collect_page.py:107
 msgid "Recheck; nothing is transmitted"
-msgstr ""
+msgstr "Проверить снова; ничего не передаётся"
 
 #: src/toyota_telemetry/ui/collect_page.py:111
 msgid "Several ECUs"
-msgstr ""
+msgstr "Несколько ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:112
 msgid "Switch every"
-msgstr ""
+msgstr "Переключать каждые"
 
 #: src/toyota_telemetry/ui/collect_page.py:117 src/toyota_telemetry/ui/collect_page.py:262 src/toyota_telemetry/ui/signals_page.py:323 src/toyota_telemetry/ui/signals_page.py:567
 msgid "No project open."
-msgstr ""
+msgstr "Проект не открыт."
 
 #: src/toyota_telemetry/ui/collect_page.py:123
 msgid "Technical collection scope"
-msgstr ""
+msgstr "Техническая область сбора"
 
 #: src/toyota_telemetry/ui/collect_page.py:124
 msgid "Scope"
-msgstr ""
+msgstr "Область"
 
 #: src/toyota_telemetry/ui/collect_page.py:125
 msgid "The exact compiled scope"
-msgstr ""
+msgstr "Точная собранная область"
 
 #: src/toyota_telemetry/ui/collect_page.py:130
 msgid "Run"
-msgstr ""
+msgstr "Запись"
 
 #: src/toyota_telemetry/ui/collect_page.py:134 src/toyota_telemetry/ui/dialogs.py:239
 msgid "optional"
-msgstr ""
+msgstr "необязательно"
 
 #: src/toyota_telemetry/ui/collect_page.py:135
 msgid "Saved with the run, e.g. highway"
-msgstr ""
+msgstr "Сохраняется с записью, например «трасса»"
 
 #: src/toyota_telemetry/ui/collect_page.py:136 src/toyota_telemetry/ui/dialogs.py:242 src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Note"
-msgstr ""
+msgstr "Заметка"
 
 #: src/toyota_telemetry/ui/collect_page.py:145
 msgid "Idle. Adapter closed."
-msgstr ""
+msgstr "Ожидание. Адаптер закрыт."
 
 #: src/toyota_telemetry/ui/collect_page.py:148 src/toyota_telemetry/ui/collect_page.py:464
 msgid "%v of %m targets complete"
-msgstr ""
+msgstr "%v из %m целей выполнено"
 
 #: src/toyota_telemetry/ui/collect_page.py:157
 msgid "Read log"
-msgstr ""
+msgstr "Журнал чтений"
 
 #: src/toyota_telemetry/ui/collect_page.py:158
 msgid "Every read as it happens"
-msgstr ""
+msgstr "Каждое чтение по мере выполнения"
 
 #: src/toyota_telemetry/ui/collect_page.py:163 src/toyota_telemetry/ui/collect_page.py:402 src/toyota_telemetry/ui/shell.py:65 src/toyota_telemetry/ui/signals_page.py:375
 msgid "Targets"
-msgstr ""
+msgstr "Цели"
 
 #: src/toyota_telemetry/ui/collect_page.py:164
 msgid "Collected so far, across all runs"
-msgstr ""
+msgstr "Собрано на данный момент по всем записям"
 
 #: src/toyota_telemetry/ui/collect_page.py:170
 msgid "Target progress"
-msgstr ""
+msgstr "Ход выполнения целей"
 
 #: src/toyota_telemetry/ui/collect_page.py:226 src/toyota_telemetry/ui/collect_page.py:354 src/toyota_telemetry/ui/setup_page.py:112
 msgid "Checking…"
-msgstr ""
+msgstr "Проверка…"
 
 #: src/toyota_telemetry/ui/collect_page.py:432 src/toyota_telemetry/ui/collect_page.py:138 src/toyota_telemetry/ui/dialogs.py:192
 msgid "Start"
-msgstr ""
+msgstr "Начать"
 
 #: src/toyota_telemetry/ui/collect_page.py:468
 msgid "LIVE - starting…"
-msgstr ""
+msgstr "НА АВТОМОБИЛЕ - запуск…"
 
 #: src/toyota_telemetry/ui/collect_page.py:494
 msgid "One run per ECU and turn; ECUs whose targets are met are skipped."
-msgstr ""
+msgstr "Одна запись на ECU за проход; ECU с выполненными целями пропускаются."
 
 #: src/toyota_telemetry/ui/collect_page.py:498
 msgid "Stops when every target is met or you stop it."
-msgstr ""
+msgstr "Останавливается, когда все цели выполнены или вы его остановите."
 
 #: src/toyota_telemetry/ui/collect_page.py:517 src/toyota_telemetry/ui/collect_page.py:554 src/toyota_telemetry/ui/collect_page.py:66 src/toyota_telemetry/ui/shell.py:37 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:99 src/toyota_telemetry/ui/signals_page.py:350 src/toyota_telemetry/ui/signals_page.py:669
 msgid "Collect"
-msgstr ""
+msgstr "Сбор"
 
 #: src/toyota_telemetry/ui/collect_page.py:597
 msgid "Completed: every target in this run is complete."
-msgstr ""
+msgstr "Завершено: все цели этой записи выполнены."
 
 #: src/toyota_telemetry/ui/collect_page.py:598
 msgid "Turn ended."
-msgstr ""
+msgstr "Проход завершён."
 
 #: src/toyota_telemetry/ui/collect_page.py:599
 msgid "Stopped safely."
-msgstr ""
+msgstr "Безопасно остановлено."
 
 #: src/toyota_telemetry/ui/collect_page.py:600
 msgid "Stopped at the storage limit; the run was finalized."
-msgstr ""
+msgstr "Остановлено на пределе хранилища; запись завершена."
 
 #: src/toyota_telemetry/ui/collect_page.py:601
 msgid "Transport lost; the valid prefix was finalized."
-msgstr ""
+msgstr "Транспорт потерян; корректная часть записи сохранена."
 
 #: src/toyota_telemetry/ui/collect_page.py:52
 msgid "{ids} address {address}"
-msgstr ""
+msgstr "{ids}, адрес {address}"
 
 #: src/toyota_telemetry/ui/collect_page.py:67 src/toyota_telemetry/ui/shell.py:43
 msgid "Run collection; target progress"
-msgstr ""
+msgstr "Запуск сбора; ход выполнения целей"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/watch_window.py:46
 msgid "Signal"
-msgstr ""
+msgstr "Сигнал"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/recordings_page.py:49 src/toyota_telemetry/ui/signals_page.py:719 src/toyota_telemetry/ui/signals_page.py:669
 msgid "ECU"
-msgstr ""
+msgstr "ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:103 src/toyota_telemetry/ui/signals_page.py:670
 msgid "Target"
-msgstr ""
+msgstr "Цель"
 
 #: src/toyota_telemetry/ui/collect_page.py:172
 msgid "Still needs"
-msgstr ""
+msgstr "Ещё нужно"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "Signal with a target"
-msgstr ""
+msgstr "Сигнал с целью"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "Where it is read"
-msgstr ""
+msgstr "Где он читается"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "What it must collect"
-msgstr ""
+msgstr "Что нужно собрать"
 
 #: src/toyota_telemetry/ui/collect_page.py:175
 msgid "Collected so far across valid runs"
-msgstr ""
+msgstr "Собрано на данный момент по корректным записям"
 
 #: src/toyota_telemetry/ui/collect_page.py:175
 msgid "Requirements not met yet"
-msgstr ""
+msgstr "Ещё не выполненные требования"
 
 #: src/toyota_telemetry/ui/collect_page.py:209
 msgid "Signals has unsaved changes. This page uses the saved settings until you save them."
-msgstr ""
+msgstr "На странице «Сигналы» есть несохранённые изменения. Эта страница использует сохранённые настройки, пока вы их не сохраните."
 
 #: src/toyota_telemetry/ui/collect_page.py:270
 msgid "Check at least one ECU to collect."
-msgstr ""
+msgstr "Отметьте хотя бы один ECU для сбора."
 
 #: src/toyota_telemetry/ui/collect_page.py:288
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), storage limit {limit} MiB."
-msgstr ""
+msgstr "Готово: {where}, целей: {targets}, DID: {dids}, предел хранилища {limit} МиБ."
 
 #: src/toyota_telemetry/ui/collect_page.py:393
 msgid "Nothing yet"
-msgstr ""
+msgstr "Пока ничего"
 
 #: src/toyota_telemetry/ui/collect_page.py:426 src/toyota_telemetry/ui/signals_page.py:436 src/toyota_telemetry/ui/watch_window.py:64
 msgid "Stop"
-msgstr ""
+msgstr "Остановить"
 
 #: src/toyota_telemetry/ui/collect_page.py:428
 msgid "Stops safely and keeps the run"
-msgstr ""
+msgstr "Безопасно останавливает и сохраняет запись"
 
 #: src/toyota_telemetry/ui/collect_page.py:442
 msgid "Another live job is running."
-msgstr ""
+msgstr "Уже идёт другая работа с автомобилем."
 
 #: src/toyota_telemetry/ui/collect_page.py:464
 msgid "%v of %m targets on this ECU"
-msgstr ""
+msgstr "%v из %m целей на этом ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:564
 msgid "LIVE - stopping safely…"
-msgstr ""
+msgstr "НА АВТОМОБИЛЕ - безопасная остановка…"
 
 #: src/toyota_telemetry/ui/collect_page.py:141
 msgid "Stops when targets are met\n{live}"
-msgstr ""
+msgstr "Останавливается при выполнении целей\n{live}"
 
 #: src/toyota_telemetry/ui/collect_page.py:292
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), bus load {load}%, up to {rate} reads/s, storage limit {limit} MiB."
-msgstr ""
+msgstr "Готово: {where}, целей: {targets}, DID: {dids}, загрузка шины {load}%, до {rate} чтений/с, предел хранилища {limit} МиБ."
 
 #: src/toyota_telemetry/ui/collect_page.py:295
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), bus load {load}%, {rate} reads/s, storage limit {limit} MiB."
-msgstr ""
+msgstr "Готово: {where}, целей: {targets}, DID: {dids}, загрузка шины {load}%, {rate} чтений/с, предел хранилища {limit} МиБ."
 
 #: src/toyota_telemetry/ui/collect_page.py:301
 msgid "✓ All targets met. Nothing left to collect."
-msgstr ""
+msgstr "✓ Все цели выполнены. Собирать больше нечего."
 
 #: src/toyota_telemetry/ui/collect_page.py:304
 msgid "Not ready:"
-msgstr ""
+msgstr "Не готово:"
 
 #: src/toyota_telemetry/ui/collect_page.py:366
 msgid "in turn, {minutes} min each"
-msgstr ""
+msgstr "по очереди, по {minutes} мин"
 
 #: src/toyota_telemetry/ui/collect_page.py:405
 msgid "No targets yet. Set them on Signals."
-msgstr ""
+msgstr "Целей пока нет. Задайте их на странице «Сигналы»."
 
 #: src/toyota_telemetry/ui/collect_page.py:443
 msgid "All targets met."
-msgstr ""
+msgstr "Все цели выполнены."
 
 #: src/toyota_telemetry/ui/collect_page.py:443
 msgid "Readiness has problems."
-msgstr ""
+msgstr "Есть проблемы готовности."
 
 #: src/toyota_telemetry/ui/collect_page.py:489
 msgid "ECUs {turns}, in this order:"
-msgstr ""
+msgstr "ECU {turns}, в таком порядке:"
 
 #: src/toyota_telemetry/ui/collect_page.py:499 src/toyota_telemetry/ui/collect_page.py:539
 msgid "Storage limit: {limit} MiB"
-msgstr ""
+msgstr "Предел хранилища: {limit} МиБ"
 
 #: src/toyota_telemetry/ui/collect_page.py:500 src/toyota_telemetry/ui/collect_page.py:540
 msgid "Note: {note}"
-msgstr ""
+msgstr "Заметка: {note}"
 
 #: src/toyota_telemetry/ui/collect_page.py:502 src/toyota_telemetry/ui/collect_page.py:544 src/toyota_telemetry/ui/signals_page.py:1076 src/toyota_telemetry/ui/signals_page.py:1180
 msgid "Scope fingerprint: {digest}"
-msgstr ""
+msgstr "Отпечаток области: {digest}"
 
 #: src/toyota_telemetry/ui/collect_page.py:518
 msgid "LIVE collection of {signals} signal(s) on {ecus} ECUs {turns}?"
-msgstr ""
+msgstr "Сбор НА АВТОМОБИЛЕ: сигналов: {signals}, ECU: {ecus}, {turns}?"
 
 #: src/toyota_telemetry/ui/collect_page.py:532
 msgid "Endpoint: {ecu}"
-msgstr ""
+msgstr "Конечная точка: {ecu}"
 
 #: src/toyota_telemetry/ui/collect_page.py:534
 msgid "Signals ({count}):"
-msgstr ""
+msgstr "Сигналы ({count}):"
 
 #: src/toyota_telemetry/ui/collect_page.py:536
 msgid "Reads {dids} DID(s); stops when these targets are complete or you stop it."
-msgstr ""
+msgstr "Читает DID: {dids}; останавливается, когда эти цели выполнены или вы его остановите."
 
 #: src/toyota_telemetry/ui/collect_page.py:543 src/toyota_telemetry/ui/collect_page.py:506
 msgid "Endpoint ID: {endpoint} ({ids})"
-msgstr ""
+msgstr "ID конечной точки: {endpoint} ({ids})"
 
 #: src/toyota_telemetry/ui/collect_page.py:545 src/toyota_telemetry/ui/collect_page.py:507
 msgid "Session {recipe}: {requests}"
-msgstr ""
+msgstr "Сеанс {recipe}: {requests}"
 
 #: src/toyota_telemetry/ui/collect_page.py:555
 msgid "LIVE collection of {signals} signal(s) on {ecu}?"
-msgstr ""
+msgstr "Сбор НА АВТОМОБИЛЕ: сигналов: {signals} на {ecu}?"
 
 #: src/toyota_telemetry/ui/collect_page.py:603
 msgid "{outcome} Adapter closed."
-msgstr ""
+msgstr "{outcome} Адаптер закрыт."
 
 #: src/toyota_telemetry/ui/collect_page.py:610
 msgid "Failed: {detail} Adapter closed."
-msgstr ""
+msgstr "Ошибка: {detail} Адаптер закрыт."
 
 #: src/toyota_telemetry/ui/collect_page.py:103
 msgid "{minutes} min"
-msgstr ""
+msgstr "{minutes} мин"
 
 #: src/toyota_telemetry/ui/collect_page.py:234
 msgid "Cannot check readiness: {detail}"
-msgstr ""
+msgstr "Не удалось проверить готовность: {detail}"
 
 #: src/toyota_telemetry/ui/collect_page.py:278
 msgid "{count} ECUs {turns}"
-msgstr ""
+msgstr "{count} ECU {turns}"
 
 #: src/toyota_telemetry/ui/collect_page.py:390
 msgid "{samples}, {runs}"
-msgstr ""
+msgstr "{samples}, {runs}"
 
 #: src/toyota_telemetry/ui/collect_page.py:397
 msgid "✓ Met"
-msgstr ""
+msgstr "✓ Выполнено"
 
 #: src/toyota_telemetry/ui/collect_page.py:402
 msgid "Targets: {met} of {total} met"
-msgstr ""
+msgstr "Цели: выполнено {met} из {total}"
 
 #: src/toyota_telemetry/ui/collect_page.py:570
 msgid "LIVE - switching to {ecu}…"
-msgstr ""
+msgstr "НА АВТОМОБИЛЕ - переключение на {ecu}…"
 
 #: src/toyota_telemetry/ui/collect_page.py:574
 msgid "LIVE - collecting."
-msgstr ""
+msgstr "НА АВТОМОБИЛЕ - сбор."
 
 #: src/toyota_telemetry/ui/collect_page.py:326
 msgid "{ecu}  ({targets})"
-msgstr ""
+msgstr "{ecu}  ({targets})"
 
 #: src/toyota_telemetry/ui/collect_page.py:488 src/toyota_telemetry/ui/collect_page.py:533
 msgid "Adapter: {kind} {device}"
-msgstr ""
+msgstr "Адаптер: {kind} {device}"
 
 #: src/toyota_telemetry/ui/collect_page.py:495
 msgid "Each ECU is read until its targets are met: one that cannot be met\nnow keeps the next ECUs waiting until you stop."
-msgstr ""
+msgstr "Каждый ECU читается, пока его цели не выполнены: если их сейчас\nнельзя выполнить, следующие ECU ждут, пока вы не остановите сбор."
 
 #: src/toyota_telemetry/ui/collect_page.py:549 src/toyota_telemetry/ui/collect_page.py:511
 msgid "{acquisition}: request {request}, every {interval} ms"
-msgstr ""
+msgstr "{acquisition}: запрос {request}, каждые {interval} мс"
 
 #: src/toyota_telemetry/ui/collect_page.py:490
 msgid "{ecu}: {signals}, {dids} DID(s)"
-msgstr ""
+msgstr "{ecu}: {signals}, DID: {dids}"
 
 #: src/toyota_telemetry/ui/collect_page.py:574
 msgid "LIVE - collecting from {ecu}."
-msgstr ""
+msgstr "НА АВТОМОБИЛЕ - сбор с {ecu}."
 
 #: src/toyota_telemetry/ui/collect_page.py:580
 msgid "Elapsed {seconds} s, {reads} reads, {failed} failed."
-msgstr ""
+msgstr "Прошло {seconds} с, чтений: {reads}, неудачных: {failed}."
 
 #: src/toyota_telemetry/ui/collect_page.py:604
 msgid "Finished: {reason}"
-msgstr ""
+msgstr "Завершено: {reason}"
 
 #: src/toyota_telemetry/ui/collect_page.py:585
 msgid "heartbeat {state} {acquisition}"
-msgstr ""
+msgstr "heartbeat {state} {acquisition}"
 
 #: src/toyota_telemetry/ui/collect_page.py:591
 msgid "error: {detail}"
-msgstr ""
+msgstr "ошибка: {detail}"
 
 #: src/toyota_telemetry/ui/collect_page.py:593
 msgid "finished: {reason}"
-msgstr ""
+msgstr "завершено: {reason}"
 
 #: src/toyota_telemetry/ui/context.py:81
 msgid "Operation failed"
-msgstr ""
+msgstr "Операция не выполнена"
 
 #: src/toyota_telemetry/ui/dialogs.py:41
 msgid "CSV (spreadsheet)"
-msgstr ""
+msgstr "CSV (таблица)"
 
 #: src/toyota_telemetry/ui/dialogs.py:44
 msgid "e.g. 500: at least 500 readings"
-msgstr ""
+msgstr "например 500: не менее 500 показаний"
 
 #: src/toyota_telemetry/ui/dialogs.py:45
 msgid "e.g. 3: seen in at least 3 recordings"
-msgstr ""
+msgstr "например 3: встречается не менее чем в 3 записях"
 
 #: src/toyota_telemetry/ui/dialogs.py:46
 msgid "e.g. 30m: first and last reading 30 min apart"
-msgstr ""
+msgstr "например 30m: первое и последнее показания с разницей 30 мин"
 
 #: src/toyota_telemetry/ui/dialogs.py:47
 msgid "e.g. 0,1,2: each of these raw values seen"
-msgstr ""
+msgstr "например 0,1,2: встречено каждое из этих сырых значений"
 
 #: src/toyota_telemetry/ui/dialogs.py:48
 msgid "e.g. 10: the raw value changed 10 times"
-msgstr ""
+msgstr "например 10: сырое значение менялось 10 раз"
 
 #: src/toyota_telemetry/ui/dialogs.py:49
 msgid "e.g. 20: moved by the minimum difference 20 times"
-msgstr ""
+msgstr "например 20: изменилось на минимальную разницу 20 раз"
 
 #: src/toyota_telemetry/ui/dialogs.py:50
 msgid "e.g. 10m: 10 min recorded while Collect when holds"
-msgstr ""
+msgstr "например 10m: записано 10 мин, пока выполняется «Собирать, когда»"
 
 #: src/toyota_telemetry/ui/dialogs.py:51
 msgid "e.g. 0.5: smaller steps don't count as changes"
-msgstr ""
+msgstr "например 0.5: меньшие шаги не считаются изменениями"
 
 #: src/toyota_telemetry/ui/dialogs.py:52
 msgid "e.g. 372/0x1002/0..15 > 10; empty means always"
-msgstr ""
+msgstr "например 372/0x1002/0..15 > 10; пусто — всегда"
 
 #: src/toyota_telemetry/ui/dialogs.py:53
 msgid "Paused keeps the target but leaves it out of plans"
-msgstr ""
+msgstr "Приостановленная цель сохраняется, но не входит в планы"
 
 #: src/toyota_telemetry/ui/dialogs.py:104 src/toyota_telemetry/ui/recordings_page.py:105
 msgid "Export samples"
-msgstr ""
+msgstr "Экспорт отсчётов"
 
 #: src/toyota_telemetry/ui/dialogs.py:116 src/toyota_telemetry/ui/shell.py:37 src/toyota_telemetry/ui/signals_page.py:208
 msgid "Signals"
-msgstr ""
+msgstr "Сигналы"
 
 #: src/toyota_telemetry/ui/dialogs.py:126
 msgid "Runs"
-msgstr ""
+msgstr "Записи"
 
 #: src/toyota_telemetry/ui/dialogs.py:130
 msgid "Format"
-msgstr ""
+msgstr "Формат"
 
 #: src/toyota_telemetry/ui/dialogs.py:133 src/toyota_telemetry/ui/recordings_page.py:122
 msgid "Export"
-msgstr ""
+msgstr "Экспортировать"
 
 #: src/toyota_telemetry/ui/dialogs.py:179
 msgid "Exact live scope"
-msgstr ""
+msgstr "Точная область работы с автомобилем"
 
 #: src/toyota_telemetry/ui/dialogs.py:194
 msgid "Read-only requests. Never operate while driving."
-msgstr ""
+msgstr "Только запросы чтения. Не управляйте программой во время движения."
 
 #: src/toyota_telemetry/ui/dialogs.py:237
 msgid "Which ECUs answer at this endpoint"
-msgstr ""
+msgstr "Какие ECU отвечают на этой конечной точке"
 
 #: src/toyota_telemetry/ui/dialogs.py:240
 msgid "How it was confirmed, for your own records"
-msgstr ""
+msgstr "Как это подтверждено, для ваших записей"
 
 #: src/toyota_telemetry/ui/dialogs.py:241 src/toyota_telemetry/ui/import_dialog.py:32 src/toyota_telemetry/ui/import_dialog.py:100
 msgid "ECU keys"
-msgstr ""
+msgstr "Ключи ECU"
 
 #: src/toyota_telemetry/ui/dialogs.py:251
 msgid "Enter at least one ECU key."
-msgstr ""
+msgstr "Введите хотя бы один ключ ECU."
 
 #: src/toyota_telemetry/ui/dialogs.py:282
 msgid "0 or empty removes a requirement"
-msgstr ""
+msgstr "0 или пусто удаляет требование"
 
 #: src/toyota_telemetry/ui/dialogs.py:316
 msgid "Minimum difference"
-msgstr ""
+msgstr "Минимальная разница"
 
 #: src/toyota_telemetry/ui/dialogs.py:319
 msgid "372/0x1002/0..15 > 10 and ...; empty means always"
-msgstr ""
+msgstr "372/0x1002/0..15 > 10 and ...; пусто — всегда"
 
 #: src/toyota_telemetry/ui/dialogs.py:320
 msgid "Collect when"
-msgstr ""
+msgstr "Собирать, когда"
 
 #: src/toyota_telemetry/ui/dialogs.py:323
 msgid "Active"
-msgstr ""
+msgstr "Активна"
 
 #: src/toyota_telemetry/ui/dialogs.py:324
 msgid "Paused"
-msgstr ""
+msgstr "Приостановлена"
 
 #: src/toyota_telemetry/ui/dialogs.py:326 src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Status"
-msgstr ""
+msgstr "Статус"
 
 #: src/toyota_telemetry/ui/dialogs.py:330
 msgid "Batch impact preview"
-msgstr ""
+msgstr "Предпросмотр групповых изменений"
 
 #: src/toyota_telemetry/ui/dialogs.py:334 src/toyota_telemetry/ui/import_dialog.py:57 src/toyota_telemetry/ui/signals_page.py:366 src/toyota_telemetry/ui/signals_page.py:417
 msgid "Apply"
-msgstr ""
+msgstr "Применить"
 
 #: src/toyota_telemetry/ui/dialogs.py:335
 msgid "Saved with Save on Signals"
-msgstr ""
+msgstr "Сохраняется кнопкой «Сохранить» на странице «Сигналы»"
 
 #: src/toyota_telemetry/ui/dialogs.py:109
 msgid "Selected signal"
-msgstr ""
+msgstr "Выбранный сигнал"
 
 #: src/toyota_telemetry/ui/dialogs.py:119
 msgid "Selected runs"
-msgstr ""
+msgstr "Выбранные записи"
 
 #: src/toyota_telemetry/ui/dialogs.py:185
 msgid "Technical scope details"
-msgstr ""
+msgstr "Технические детали области"
 
 #: src/toyota_telemetry/ui/dialogs.py:186
 msgid "Technical details"
-msgstr ""
+msgstr "Технические детали"
 
 #: src/toyota_telemetry/ui/dialogs.py:187
 msgid "Request bytes and session steps"
-msgstr ""
+msgstr "Байты запросов и шаги сеанса"
 
 #: src/toyota_telemetry/ui/dialogs.py:234
 msgid "Nothing is sent. This records that the endpoint\nwhich answered is this ECU."
-msgstr ""
+msgstr "Ничего не отправляется. Это фиксирует, что ответившая\nконечная точка — это данный ECU."
 
 #: src/toyota_telemetry/ui/dialogs.py:277
 msgid "Batch edit collection targets"
-msgstr ""
+msgstr "Групповое изменение целей сбора"
 
 #: src/toyota_telemetry/ui/dialogs.py:277
 msgid "Edit collection target"
-msgstr ""
+msgstr "Изменить цель сбора"
 
 #: src/toyota_telemetry/ui/dialogs.py:112
 msgid "All {count} signal"
 msgid_plural "All {count} signals"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "Все сигналы ({count})"
+msgstr[1] "Все сигналы ({count})"
+msgstr[2] "Все сигналы ({count})"
 
 #: src/toyota_telemetry/ui/dialogs.py:122
 msgid "All {count} run"
 msgid_plural "All {count} runs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "Все записи ({count})"
+msgstr[1] "Все записи ({count})"
+msgstr[2] "Все записи ({count})"
 
 #: src/toyota_telemetry/ui/dialogs.py:232
 msgid "Confirm {name}"
-msgstr ""
+msgstr "Подтвердить {name}"
 
 #: src/toyota_telemetry/ui/dialogs.py:309
 msgid "Each checked state must be seen"
-msgstr ""
+msgstr "Каждое отмеченное состояние должно встретиться"
 
 #: src/toyota_telemetry/ui/dialogs.py:343
 msgid "Change {field}"
-msgstr ""
+msgstr "Изменить: {field}"
 
 #: src/toyota_telemetry/ui/dialogs.py:399
 msgid "Check at least one field to change."
-msgstr ""
+msgstr "Отметьте хотя бы одно поле для изменения."
 
 #: src/toyota_telemetry/ui/dialogs.py:77
 msgid "Raw value {raw}"
-msgstr ""
+msgstr "Сырое значение {raw}"
 
 #: src/toyota_telemetry/ui/dialogs.py:109
 msgid "Selected: {signal}"
-msgstr ""
+msgstr "Выбрано: {signal}"
 
 #: src/toyota_telemetry/ui/dialogs.py:118
 msgid "Selected {count} run"
 msgid_plural "Selected {count} runs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "Выбрана {count} запись"
+msgstr[1] "Выбрано {count} записи"
+msgstr[2] "Выбрано {count} записей"
 
 #: src/toyota_telemetry/ui/dialogs.py:298
 msgid "e.g. 30m or 2h; empty removes"
-msgstr ""
+msgstr "например 30m или 2h; пусто — удалить"
 
 #: src/toyota_telemetry/ui/dialogs.py:306
 msgid "raw states, e.g. 0,1,2; empty removes"
-msgstr ""
+msgstr "сырые состояния, например 0,1,2; пусто — удалить"
 
 #: src/toyota_telemetry/ui/dialogs.py:405
 msgid "Cannot apply: {error}"
-msgstr ""
+msgstr "Не удалось применить: {error}"
 
 #: src/toyota_telemetry/ui/dialogs.py:415
 msgid "ECU key must be a number: {value}"
-msgstr ""
+msgstr "Ключ ECU должен быть числом: {value}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Request ID"
-msgstr ""
+msgstr "ID запроса"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Response ID"
-msgstr ""
+msgstr "ID ответа"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Address"
-msgstr ""
+msgstr "Адрес"
 
 #: src/toyota_telemetry/ui/import_dialog.py:34
 msgid "Request CAN ID, e.g. 0x7E0"
-msgstr ""
+msgstr "CAN ID запроса, например 0x7E0"
 
 #: src/toyota_telemetry/ui/import_dialog.py:35
 msgid "Empty means request + 8"
-msgstr ""
+msgstr "Пусто — запрос + 8"
 
 #: src/toyota_telemetry/ui/import_dialog.py:36
 msgid "Only for an ECU behind a gateway, e.g. 0x2A"
-msgstr ""
+msgstr "Только для ECU за шлюзом, например 0x2A"
 
 #: src/toyota_telemetry/ui/import_dialog.py:37
 msgid "ECU keys answering here, e.g. 372, 374"
-msgstr ""
+msgstr "Ключи ECU, отвечающих здесь, например 372, 374"
 
 #: src/toyota_telemetry/ui/import_dialog.py:48 src/toyota_telemetry/ui/signals_page.py:432
 msgid "Add candidates"
-msgstr ""
+msgstr "Добавить кандидатов"
 
 #: src/toyota_telemetry/ui/import_dialog.py:52
 msgid "JSON file"
-msgstr ""
+msgstr "Файл JSON"
 
 #: src/toyota_telemetry/ui/import_dialog.py:53
 msgid "TIS database"
-msgstr ""
+msgstr "База TIS"
 
 #: src/toyota_telemetry/ui/import_dialog.py:54
 msgid "Manual"
-msgstr ""
+msgstr "Вручную"
 
 #: src/toyota_telemetry/ui/import_dialog.py:56
 msgid "Preview"
-msgstr ""
+msgstr "Предпросмотр"
 
 #: src/toyota_telemetry/ui/import_dialog.py:58
 msgid "Show what will change; nothing is written"
-msgstr ""
+msgstr "Показать, что изменится; ничего не записывается"
 
 #: src/toyota_telemetry/ui/import_dialog.py:59
 msgid "Make exactly the previewed changes"
-msgstr ""
+msgstr "Внести ровно те изменения, что показаны в предпросмотре"
 
 #: src/toyota_telemetry/ui/import_dialog.py:60 src/toyota_telemetry/ui/import_dialog.py:160 src/toyota_telemetry/ui/import_dialog.py:198
 msgid "Preview a source first."
-msgstr ""
+msgstr "Сначала выполните предпросмотр источника."
 
 #: src/toyota_telemetry/ui/import_dialog.py:69
 msgid "Close"
-msgstr ""
+msgstr "Закрыть"
 
 #: src/toyota_telemetry/ui/import_dialog.py:81
 msgid "Row file"
-msgstr ""
+msgstr "Файл строк"
 
 #: src/toyota_telemetry/ui/import_dialog.py:92
 msgid "all installed ECUs"
-msgstr ""
+msgstr "все установленные ECU"
 
 #: src/toyota_telemetry/ui/import_dialog.py:96
 msgid "Region folder containing DB"
-msgstr ""
+msgstr "Папка региона, содержащая DB"
 
 #: src/toyota_telemetry/ui/import_dialog.py:97
 msgid "Empty reads every ECU"
-msgstr ""
+msgstr "Пусто — читать все ECU"
 
 #: src/toyota_telemetry/ui/import_dialog.py:98
 msgid "932 for the NA set"
-msgstr ""
+msgstr "932 для набора NA"
 
 #: src/toyota_telemetry/ui/import_dialog.py:99
 msgid "Database folder"
-msgstr ""
+msgstr "Папка базы данных"
 
 #: src/toyota_telemetry/ui/import_dialog.py:101
 msgid "Code page"
-msgstr ""
+msgstr "Кодовая страница"
 
 #: src/toyota_telemetry/ui/import_dialog.py:107
 msgid "One endpoint per row. Nothing is sent; Verify finds the session."
-msgstr ""
+msgstr "Одна конечная точка на строку. Ничего не отправляется; «Проверить» найдёт сеанс."
 
 #: src/toyota_telemetry/ui/import_dialog.py:115
 msgid "Endpoints to add"
-msgstr ""
+msgstr "Добавляемые конечные точки"
 
 #: src/toyota_telemetry/ui/import_dialog.py:117
 msgid "Add row"
-msgstr ""
+msgstr "Добавить строку"
 
 #: src/toyota_telemetry/ui/import_dialog.py:118
 msgid "Another endpoint"
-msgstr ""
+msgstr "Ещё одна конечная точка"
 
 #: src/toyota_telemetry/ui/import_dialog.py:119
 msgid "Remove row"
-msgstr ""
+msgstr "Удалить строку"
 
 #: src/toyota_telemetry/ui/import_dialog.py:120
 msgid "Remove the selected rows"
-msgstr ""
+msgstr "Удалить выбранные строки"
 
 #: src/toyota_telemetry/ui/import_dialog.py:121
 msgid "Add endpoints"
-msgstr ""
+msgstr "Добавить конечные точки"
 
 #: src/toyota_telemetry/ui/import_dialog.py:122
 msgid "Add these endpoint candidates"
-msgstr ""
+msgstr "Добавить этих кандидатов конечных точек"
 
 #: src/toyota_telemetry/ui/import_dialog.py:186
 msgid "Reading the source…"
-msgstr ""
+msgstr "Чтение источника…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:207
 msgid "Applying…"
-msgstr ""
+msgstr "Применение…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:81
 msgid "Candidate row file"
-msgstr ""
+msgstr "Файл строк кандидатов"
 
 #: src/toyota_telemetry/ui/import_dialog.py:99
 msgid "TIS database folder"
-msgstr ""
+msgstr "Папка базы TIS"
 
 #: src/toyota_telemetry/ui/import_dialog.py:139
 msgid "Installed Techstream databases"
-msgstr ""
+msgstr "Установленные базы Techstream"
 
 #: src/toyota_telemetry/ui/import_dialog.py:149
 msgid "choose the TIS database folder first"
-msgstr ""
+msgstr "сначала выберите папку базы TIS"
 
 #: src/toyota_telemetry/ui/import_dialog.py:204
 msgid "Candidates not imported"
-msgstr ""
+msgstr "Кандидаты не импортированы"
 
 #: src/toyota_telemetry/ui/import_dialog.py:146
 msgid "choose a row file first"
-msgstr ""
+msgstr "сначала выберите файл строк"
 
 #: src/toyota_telemetry/ui/import_dialog.py:206
 msgid "Applying {source}…"
-msgstr ""
+msgstr "Применение {source}…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:263
 msgid "Added {count} endpoint candidate(s). Select them and Verify."
 msgid_plural "Added {count} endpoint candidate(s). Select them and Verify."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "Добавлено кандидатов конечных точек: {count}. Выберите их и нажмите «Проверить»."
+msgstr[1] "Добавлено кандидатов конечных точек: {count}. Выберите их и нажмите «Проверить»."
+msgstr[2] "Добавлено кандидатов конечных точек: {count}. Выберите их и нажмите «Проверить»."
 
 #: src/toyota_telemetry/ui/import_dialog.py:171
 msgid "Rejected {where}: {reason}"
-msgstr ""
+msgstr "Отклонено {where}: {reason}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:184
 msgid "Could not read the source: {error}"
-msgstr ""
+msgstr "Не удалось прочитать источник: {error}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:196
 msgid "Applied {source}."
-msgstr ""
+msgstr "Применено: {source}."
 
 #: src/toyota_telemetry/ui/import_dialog.py:175
 msgid "Cannot use this list: {problem}"
-msgstr ""
+msgstr "Нельзя использовать этот список: {problem}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:259
 msgid "Not added. {problem}"
-msgstr ""
+msgstr "Не добавлено. {problem}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:256
 msgid "Row {number}:"
-msgstr ""
+msgstr "Строка {number}:"
 
 #: src/toyota_telemetry/ui/names.py:19 src/toyota_telemetry/ui/shell.py:63 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:93 src/toyota_telemetry/ui/signals_page.py:94 src/toyota_telemetry/ui/signals_page.py:669
 msgid "Readable"
-msgstr ""
+msgstr "Читается"
 
 #: src/toyota_telemetry/ui/names.py:51
 msgid "Unnamed ECU"
-msgstr ""
+msgstr "Безымянный ECU"
 
 #: src/toyota_telemetry/ui/names.py:25
 msgid "Needs confirming"
-msgstr ""
+msgstr "Нужно подтвердить"
 
 #: src/toyota_telemetry/ui/names.py:25
 msgid "Answered; confirm it to plan"
-msgstr ""
+msgstr "Ответила; подтвердите, чтобы планировать"
 
 #: src/toyota_telemetry/ui/names.py:26
 msgid "Did not answer"
-msgstr ""
+msgstr "Не ответила"
 
 #: src/toyota_telemetry/ui/names.py:27
 msgid "Not probed yet"
-msgstr ""
+msgstr "Ещё не опрошена"
 
 #: src/toyota_telemetry/ui/names.py:28
 msgid "No address"
-msgstr ""
+msgstr "Нет адреса"
 
 #: src/toyota_telemetry/ui/names.py:28 src/toyota_telemetry/ui/signals_page.py:1385
 msgid "Address unknown; add it under Add candidates"
-msgstr ""
+msgstr "Адрес неизвестен; добавьте его в «Добавить кандидатов»"
 
 #: src/toyota_telemetry/ui/names.py:32
 msgid "samples"
-msgstr ""
+msgstr "отсчёты"
 
 #: src/toyota_telemetry/ui/names.py:33
 msgid "runs"
-msgstr ""
+msgstr "записи"
 
 #: src/toyota_telemetry/ui/names.py:34
 msgid "span"
-msgstr ""
+msgstr "охват"
 
 #: src/toyota_telemetry/ui/names.py:35
 msgid "required states"
-msgstr ""
+msgstr "обязательные состояния"
 
 #: src/toyota_telemetry/ui/names.py:36
 msgid "transitions"
-msgstr ""
+msgstr "переходы"
 
 #: src/toyota_telemetry/ui/names.py:37 src/toyota_telemetry/ui/shell.py:69
 msgid "changes"
-msgstr ""
+msgstr "изменения"
 
 #: src/toyota_telemetry/ui/names.py:38
 msgid "applicable time"
-msgstr ""
+msgstr "время при условии"
 
 #: src/toyota_telemetry/ui/names.py:89
 msgid "{count} DID"
 msgid_plural "{count} DIDs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} DID"
+msgstr[1] "{count} DID"
+msgstr[2] "{count} DID"
 
 #: src/toyota_telemetry/ui/names.py:90
 msgid "{count} signal"
 msgid_plural "{count} signals"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} сигнал"
+msgstr[1] "{count} сигнала"
+msgstr[2] "{count} сигналов"
 
 #: src/toyota_telemetry/ui/names.py:91
 msgid "{count} run"
 msgid_plural "{count} runs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} запись"
+msgstr[1] "{count} записи"
+msgstr[2] "{count} записей"
 
 #: src/toyota_telemetry/ui/names.py:92
 msgid "{count} target"
 msgid_plural "{count} targets"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} цель"
+msgstr[1] "{count} цели"
+msgstr[2] "{count} целей"
 
 #: src/toyota_telemetry/ui/names.py:93
 msgid "{count} sample"
 msgid_plural "{count} samples"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} отсчёт"
+msgstr[1] "{count} отсчёта"
+msgstr[2] "{count} отсчётов"
 
 #: src/toyota_telemetry/ui/names.py:110
 msgid "Session"
-msgstr ""
+msgstr "Сеанс"
 
 #: src/toyota_telemetry/ui/names.py:127
 msgid "Everything"
-msgstr ""
+msgstr "Всё"
 
 #: src/toyota_telemetry/ui/names.py:130
 msgid "State {states}"
-msgstr ""
+msgstr "Состояние {states}"
 
 #: src/toyota_telemetry/ui/names.py:50
 msgid "ECU {keys}"
-msgstr ""
+msgstr "ECU {keys}"
 
 #: src/toyota_telemetry/ui/names.py:113
 msgid "{first} then {next}"
-msgstr ""
+msgstr "{first}, затем {next}"
 
 #: src/toyota_telemetry/ui/names.py:166
 msgid "{summary} (paused)"
-msgstr ""
+msgstr "{summary} (приостановлена)"
 
 #: src/toyota_telemetry/ui/names.py:162
 msgid "{requirement} {value}"
-msgstr ""
+msgstr "{requirement} {value}"
 
 #: src/toyota_telemetry/ui/names.py:164
 msgid "when {condition}"
-msgstr ""
+msgstr "когда {condition}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Started"
-msgstr ""
+msgstr "Начало"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Length"
-msgstr ""
+msgstr "Длительность"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Samples"
-msgstr ""
+msgstr "Отсчёты"
 
 #: src/toyota_telemetry/ui/recordings_page.py:50
 msgid "! Interrupted"
-msgstr ""
+msgstr "! Прервана"
 
 #: src/toyota_telemetry/ui/recordings_page.py:50
 msgid "✕ Unreadable"
-msgstr ""
+msgstr "✕ Не читается"
 
 #: src/toyota_telemetry/ui/recordings_page.py:704
 msgid "a run without a start time"
-msgstr ""
+msgstr "запись без времени начала"
 
 #: src/toyota_telemetry/ui/recordings_page.py:709
 msgid "Unknown time"
-msgstr ""
+msgstr "Неизвестное время"
 
 #: src/toyota_telemetry/ui/recordings_page.py:147
 msgid "Recorded runs"
-msgstr ""
+msgstr "Записи"
 
 #: src/toyota_telemetry/ui/recordings_page.py:152
 msgid "Select runs to narrow the signals"
-msgstr ""
+msgstr "Выберите записи, чтобы сузить список сигналов"
 
 #: src/toyota_telemetry/ui/recordings_page.py:157
 msgid "The selected runs"
-msgstr ""
+msgstr "Выбранные записи"
 
 #: src/toyota_telemetry/ui/recordings_page.py:158
 msgid "Show all"
-msgstr ""
+msgstr "Показать все"
 
 #: src/toyota_telemetry/ui/recordings_page.py:159
 msgid "Clear the selection (Esc)"
-msgstr ""
+msgstr "Снять выделение (Esc)"
 
 #: src/toyota_telemetry/ui/recordings_page.py:162
 msgid "Recover"
-msgstr ""
+msgstr "Восстановить"
 
 #: src/toyota_telemetry/ui/recordings_page.py:163 src/toyota_telemetry/ui/signals_page.py:315
 msgid "Delete"
-msgstr ""
+msgstr "Удалить"
 
 #: src/toyota_telemetry/ui/recordings_page.py:164
 msgid "Keeps what was saved"
-msgstr ""
+msgstr "Сохраняет уже записанное"
 
 #: src/toyota_telemetry/ui/recordings_page.py:165
 msgid "Moves its files to the system trash"
-msgstr ""
+msgstr "Перемещает её файлы в корзину"
 
 #: src/toyota_telemetry/ui/recordings_page.py:188 src/toyota_telemetry/ui/signals_page.py:256
 msgid "Search signals"
-msgstr ""
+msgstr "Поиск сигналов"
 
 #: src/toyota_telemetry/ui/recordings_page.py:193
 msgid "Recorded signals"
-msgstr ""
+msgstr "Записанные сигналы"
 
 #: src/toyota_telemetry/ui/recordings_page.py:194
 msgid "Select one to plot it"
-msgstr ""
+msgstr "Выберите сигнал, чтобы построить график"
 
 #: src/toyota_telemetry/ui/recordings_page.py:211
 msgid "Select a signal to plot it."
-msgstr ""
+msgstr "Выберите сигнал, чтобы построить график."
 
 #: src/toyota_telemetry/ui/recordings_page.py:293
 msgid "Loading runs…"
-msgstr ""
+msgstr "Загрузка записей…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:294 src/toyota_telemetry/ui/recordings_page.py:327 src/toyota_telemetry/ui/signals_page.py:505
 msgid "Loading signals…"
-msgstr ""
+msgstr "Загрузка сигналов…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:433 src/toyota_telemetry/ui/setup_page.py:148 src/toyota_telemetry/ui/signals_page.py:1006
 msgid "Open a project first."
-msgstr ""
+msgstr "Сначала откройте проект."
 
 #: src/toyota_telemetry/ui/recordings_page.py:525
 msgid "Not recovered"
-msgstr ""
+msgstr "Не восстановлено"
 
 #: src/toyota_telemetry/ui/recordings_page.py:532
 msgid "Not deleted"
-msgstr ""
+msgstr "Не удалено"
 
 #: src/toyota_telemetry/ui/recordings_page.py:644
 msgid "Seen {names} ({reached} of {total} states). Last {last}."
-msgstr ""
+msgstr "Встречены: {names} ({reached} из {total} состояний). Последнее: {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:110 src/toyota_telemetry/ui/shell.py:37
 msgid "Recordings"
-msgstr ""
+msgstr "Записи"
 
 #: src/toyota_telemetry/ui/recordings_page.py:111
 msgid "Select runs to see and plot their signals"
-msgstr ""
+msgstr "Выберите записи, чтобы увидеть их сигналы и построить графики"
 
 #: src/toyota_telemetry/ui/recordings_page.py:433
 msgid "Wait for the live job to finish."
-msgstr ""
+msgstr "Дождитесь завершения работы с автомобилем."
 
 #: src/toyota_telemetry/ui/recordings_page.py:436
 msgid "Select an interrupted run."
-msgstr ""
+msgstr "Выберите прерванную запись."
 
 #: src/toyota_telemetry/ui/recordings_page.py:437
 msgid "Select runs first."
-msgstr ""
+msgstr "Сначала выберите записи."
 
 #: src/toyota_telemetry/ui/recordings_page.py:439
 msgid "Nothing recorded yet."
-msgstr ""
+msgstr "Пока ничего не записано."
 
 #: src/toyota_telemetry/ui/recordings_page.py:480
 msgid "Cannot plot"
-msgstr ""
+msgstr "Не удалось построить график"
 
 #: src/toyota_telemetry/ui/recordings_page.py:499
 msgid "No samples of this signal in the selected runs."
-msgstr ""
+msgstr "В выбранных записях нет отсчётов этого сигнала."
 
 #: src/toyota_telemetry/ui/recordings_page.py:561
 msgid "Recovering…"
-msgstr ""
+msgstr "Восстановление…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:561
 msgid "Deleting…"
-msgstr ""
+msgstr "Удаление…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:597
 msgid "Export failed"
-msgstr ""
+msgstr "Экспорт не выполнен"
 
 #: src/toyota_telemetry/ui/recordings_page.py:616 src/toyota_telemetry/ui/recordings_page.py:364
 msgid "Unknown ECU"
-msgstr ""
+msgstr "Неизвестный ECU"
 
 #: src/toyota_telemetry/ui/recordings_page.py:643
 msgid "Always {last} ({others} other state(s) not seen)."
-msgstr ""
+msgstr "Всегда {last} (другие состояния не встречены: {others})."
 
 #: src/toyota_telemetry/ui/recordings_page.py:704
 msgid "the run of {time}"
-msgstr ""
+msgstr "запись от {time}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:105
 msgid "CSV files (*.csv)"
-msgstr ""
+msgstr "Файлы CSV (*.csv)"
 
 #: src/toyota_telemetry/ui/recordings_page.py:410
 msgid "No recordings."
-msgstr ""
+msgstr "Записей нет."
 
 #: src/toyota_telemetry/ui/recordings_page.py:468
 msgid "Loading {signal}…"
-msgstr ""
+msgstr "Загрузка {signal}…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:290
 msgid "Cannot read recordings: {detail}"
-msgstr ""
+msgstr "Не удалось прочитать записи: {detail}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:378
 msgid "Stopped without finishing"
-msgstr ""
+msgstr "Остановлена, не завершившись"
 
 #: src/toyota_telemetry/ui/recordings_page.py:378
 msgid "Cannot be read"
-msgstr ""
+msgstr "Не читается"
 
 #: src/toyota_telemetry/ui/recordings_page.py:526
 msgid "Recovered {runs}."
-msgstr ""
+msgstr "Восстановлено: {runs}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:533
 msgid "Moved {runs} to the system trash."
-msgstr ""
+msgstr "Перемещено в корзину: {runs}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:592
 msgid "Exported {samples} samples to {name}."
-msgstr ""
+msgstr "Экспортировано отсчётов: {samples} в {name}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:628
 msgid "{ecu}\nDID {did}"
-msgstr ""
+msgstr "{ecu}\nDID {did}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:414
 msgid "All {runs}, {samples} samples."
-msgstr ""
+msgstr "Всего: {runs}, отсчётов: {samples}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:422
 msgid "{runs} selected: {length}, {samples} samples, {failed} failed reads."
-msgstr ""
+msgstr "Выбрано: {runs}; {length}, отсчётов: {samples}, неудачных чтений: {failed}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:426
 msgid "{runs} selected: {length}, {samples} samples."
-msgstr ""
+msgstr "Выбрано: {runs}; {length}, отсчётов: {samples}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:501
 msgid "{samples} samples in {runs}. {states}"
-msgstr ""
+msgstr "Отсчётов: {samples} ({runs}). {states}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:507
 msgid "Constant {last}."
-msgstr ""
+msgstr "Постоянно {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:508
 msgid "Min {minimum}, max {maximum}, last {last}."
-msgstr ""
+msgstr "Мин. {minimum}, макс. {maximum}, последнее {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:513
 msgid "{samples} samples in {runs}. {values}"
-msgstr ""
+msgstr "Отсчётов: {samples} ({runs}). {values}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:517
 msgid "{samples} samples in {runs}; no decoded values."
-msgstr ""
+msgstr "Отсчётов: {samples} ({runs}); нет декодированных значений."
 
 #: src/toyota_telemetry/ui/recordings_page.py:277
 msgid "ECU {key}"
-msgstr ""
+msgstr "ECU {key}"
 
 #: src/toyota_telemetry/ui/setup_page.py:40 src/toyota_telemetry/ui/setup_page.py:47 src/toyota_telemetry/ui/shell.py:57
 msgid "Connector"
-msgstr ""
+msgstr "Адаптер"
 
 #: src/toyota_telemetry/ui/setup_page.py:41
 msgid "CAN adapter on this computer; never exported"
-msgstr ""
+msgstr "CAN-адаптер на этом компьютере; никогда не экспортируется"
 
 #: src/toyota_telemetry/ui/setup_page.py:66
 msgid "default"
-msgstr ""
+msgstr "по умолчанию"
 
 #: src/toyota_telemetry/ui/setup_page.py:67
 msgid "Empty uses the bundled worker"
-msgstr ""
+msgstr "Пусто — встроенный рабочий модуль"
 
 #: src/toyota_telemetry/ui/setup_page.py:68
 msgid "Worker executable"
-msgstr ""
+msgstr "Исполняемый файл рабочего модуля"
 
 #: src/toyota_telemetry/ui/setup_page.py:70
 msgid "Adapter type"
-msgstr ""
+msgstr "Тип адаптера"
 
 #: src/toyota_telemetry/ui/setup_page.py:73 src/toyota_telemetry/ui/signals_page.py:439
 msgid "Save"
-msgstr ""
+msgstr "Сохранить"
 
 #: src/toyota_telemetry/ui/setup_page.py:76
 msgid "Self-test; the adapter is not opened"
-msgstr ""
+msgstr "Самопроверка; адаптер не открывается"
 
 #: src/toyota_telemetry/ui/setup_page.py:78
 msgid "Saved on this computer"
-msgstr ""
+msgstr "Сохраняется на этом компьютере"
 
 #: src/toyota_telemetry/ui/setup_page.py:127
 msgid "Saved."
-msgstr ""
+msgstr "Сохранено."
 
 #: src/toyota_telemetry/ui/setup_page.py:29 src/toyota_telemetry/ui/shell.py:37
 msgid "Setup"
-msgstr ""
+msgstr "Настройка"
 
 #: src/toyota_telemetry/ui/setup_page.py:30
 msgid "The CAN adapter on this computer; nothing here transmits"
-msgstr ""
+msgstr "CAN-адаптер на этом компьютере; здесь ничего не передаётся"
 
 #: src/toyota_telemetry/ui/setup_page.py:110
 msgid "Connector check failed"
-msgstr ""
+msgstr "Проверка адаптера не пройдена"
 
 #: src/toyota_telemetry/ui/setup_page.py:105
 msgid "Settings are valid."
-msgstr ""
+msgstr "Настройки корректны."
 
 #: src/toyota_telemetry/ui/setup_page.py:102 src/toyota_telemetry/ui/shell.py:358
 msgid "OK: {note}"
-msgstr ""
+msgstr "OK: {note}"
 
 #: src/toyota_telemetry/ui/setup_page.py:103 src/toyota_telemetry/ui/setup_page.py:97 src/toyota_telemetry/ui/shell.py:359
 msgid "Problem: {problem}"
-msgstr ""
+msgstr "Проблема: {problem}"
 
 #: src/toyota_telemetry/ui/setup_page.py:125
 msgid "Not saved: {error}"
-msgstr ""
+msgstr "Не сохранено: {error}"
 
 #: src/toyota_telemetry/ui/shell.py:41
 msgid "The CAN adapter on this computer"
-msgstr ""
+msgstr "CAN-адаптер на этом компьютере"
 
 #: src/toyota_telemetry/ui/shell.py:42
 msgid "Candidates, what to collect, and how often"
-msgstr ""
+msgstr "Кандидаты, что собирать и как часто"
 
 #: src/toyota_telemetry/ui/shell.py:44
 msgid "Runs, plots, and export"
-msgstr ""
+msgstr "Записи, графики и экспорт"
 
 #: src/toyota_telemetry/ui/shell.py:129 src/toyota_telemetry/ui/shell.py:398 src/toyota_telemetry/ui/shell.py:52
 msgid "Open or create a project"
-msgstr ""
+msgstr "Откройте или создайте проект"
 
 #: src/toyota_telemetry/ui/shell.py:469 src/toyota_telemetry/ui/shell.py:111 src/toyota_telemetry/ui/start_page.py:25
 msgid "Telemetry Operator"
-msgstr ""
+msgstr "Telemetry Operator"
 
 #: src/toyota_telemetry/ui/shell.py:61
 msgid "Candidates"
-msgstr ""
+msgstr "Кандидаты"
 
 #: src/toyota_telemetry/ui/shell.py:130
 msgid "Progress; click a step to open it"
-msgstr ""
+msgstr "Ход работы; нажмите на шаг, чтобы открыть его"
 
 #: src/toyota_telemetry/ui/shell.py:195
 msgid "&Project"
-msgstr ""
+msgstr "&Проект"
 
 #: src/toyota_telemetry/ui/shell.py:196 src/toyota_telemetry/ui/start_page.py:28
 msgid "New project"
-msgstr ""
+msgstr "Новый проект"
 
 #: src/toyota_telemetry/ui/shell.py:199 src/toyota_telemetry/ui/start_page.py:29
 msgid "Create a workspace in an empty folder"
-msgstr ""
+msgstr "Создать проект в пустой папке"
 
 #: src/toyota_telemetry/ui/shell.py:201 src/toyota_telemetry/ui/start_page.py:30
 msgid "Open project"
-msgstr ""
+msgstr "Открыть проект"
 
 #: src/toyota_telemetry/ui/shell.py:205
 msgid "Close project"
-msgstr ""
+msgstr "Закрыть проект"
 
 #: src/toyota_telemetry/ui/shell.py:209
 msgid "Check project"
-msgstr ""
+msgstr "Проверить проект"
 
 #: src/toyota_telemetry/ui/shell.py:213
 msgid "Rebuild cache"
-msgstr ""
+msgstr "Перестроить кэш"
 
 #: src/toyota_telemetry/ui/shell.py:215
 msgid "Rebuild the sample cache from recordings"
-msgstr ""
+msgstr "Перестроить кэш отсчётов из записей"
 
 #: src/toyota_telemetry/ui/shell.py:217 src/toyota_telemetry/ui/shell.py:120
 msgid "Save candidate list"
-msgstr ""
+msgstr "Сохранить список кандидатов"
 
 #: src/toyota_telemetry/ui/shell.py:220
 msgid "Save the candidate list as a JSON file; keep it private"
-msgstr ""
+msgstr "Сохранить список кандидатов в файл JSON; не публикуйте его"
 
 #: src/toyota_telemetry/ui/shell.py:223
 msgid "Export result"
-msgstr ""
+msgstr "Экспортировать результат"
 
 #: src/toyota_telemetry/ui/shell.py:225
 msgid "Write the signal list to a folder for publishing"
-msgstr ""
+msgstr "Записать список сигналов в папку для публикации"
 
 #: src/toyota_telemetry/ui/shell.py:228 src/toyota_telemetry/ui/signals_page.py:274
 msgid "Refresh"
-msgstr ""
+msgstr "Обновить"
 
 #: src/toyota_telemetry/ui/shell.py:233
 msgid "Exit"
-msgstr ""
+msgstr "Выход"
 
 #: src/toyota_telemetry/ui/shell.py:238
 msgid "&Help"
-msgstr ""
+msgstr "&Справка"
 
 #: src/toyota_telemetry/ui/shell.py:239
 msgid "Concepts and workflow"
-msgstr ""
+msgstr "Понятия и порядок работы"
 
 #: src/toyota_telemetry/ui/shell.py:250
 msgid "&Language"
-msgstr ""
+msgstr "&Язык"
 
 #: src/toyota_telemetry/ui/shell.py:271 src/toyota_telemetry/ui/widgets/busy.py:91 src/toyota_telemetry/ui/widgets/busy.py:63 src/toyota_telemetry/ui/widgets/busy.py:104
 msgid "Loading…"
-msgstr ""
+msgstr "Загрузка…"
 
 #: src/toyota_telemetry/ui/shell.py:272
 msgid "Reading project data"
-msgstr ""
+msgstr "Чтение данных проекта"
 
 #: src/toyota_telemetry/ui/shell.py:273 src/toyota_telemetry/ui/shell.py:399
 msgid "No project open"
-msgstr ""
+msgstr "Проект не открыт"
 
 #: src/toyota_telemetry/ui/shell.py:274 src/toyota_telemetry/ui/shell.py:400 src/toyota_telemetry/ui/shell.py:410
 msgid "No connector"
-msgstr ""
+msgstr "Нет адаптера"
 
 #: src/toyota_telemetry/ui/shell.py:275 src/toyota_telemetry/ui/shell.py:462
 msgid "Adapter closed"
-msgstr ""
+msgstr "Адаптер закрыт"
 
 #: src/toyota_telemetry/ui/shell.py:276 src/toyota_telemetry/ui/shell.py:468
 msgid "Saved"
-msgstr ""
+msgstr "Сохранено"
 
 #: src/toyota_telemetry/ui/shell.py:288
 msgid "Open project workspace"
-msgstr ""
+msgstr "Открыть папку проекта"
 
 #: src/toyota_telemetry/ui/shell.py:304
 msgid "Empty folder for the new project"
-msgstr ""
+msgstr "Пустая папка для нового проекта"
 
 #: src/toyota_telemetry/ui/shell.py:456
 msgid "Exporting the result…"
-msgstr ""
+msgstr "Экспорт результата…"
 
 #: src/toyota_telemetry/ui/shell.py:476
 msgid "Endpoint: one diagnostic route to an ECU (tester and response CAN IDs plus a reviewed session). Confirmed endpoints are recorded in the project; others are candidates until they respond."
-msgstr ""
+msgstr "Конечная точка: один диагностический маршрут к ECU (CAN ID тестера и ответа плюс проверенный сеанс). Подтверждённые конечные точки записываются в проект; остальные остаются кандидатами, пока не ответят."
 
 #: src/toyota_telemetry/ui/shell.py:478
 msgid "DID: one data request on an endpoint. A DID can carry several signals, so its interval is shared."
-msgstr ""
+msgstr "DID: один запрос данных на конечной точке. Один DID может содержать несколько сигналов, поэтому интервал у них общий."
 
 #: src/toyota_telemetry/ui/shell.py:479
 msgid "Signal: one interpreted value inside a DID response; it is what you review, target, and plot."
-msgstr ""
+msgstr "Сигнал: одно интерпретируемое значение внутри ответа DID; именно его вы проверяете, задаёте ему цели и строите график."
 
 #: src/toyota_telemetry/ui/shell.py:480
 msgid "Target: the evidence still wanted for a signal, such as minimum samples or required states. A transition is any change of raw value; a change counts only when the decoded value moves by at least the minimum difference."
-msgstr ""
+msgstr "Цель: подтверждение, которое ещё нужно собрать для сигнала, например минимум отсчётов или обязательные состояния. Переход — любое изменение сырого значения; изменение засчитывается, только если декодированное значение сдвинулось не меньше чем на минимальную разницу."
 
 #: src/toyota_telemetry/ui/shell.py:483
 msgid "Signal status: Not checked, then Responds (its DID answered), Recorded (samples saved), and Reviewed (its meaning confirmed). Refused means the ECU rejected the request. No answer means its ECU did not answer when verified, so it was not read; verifying again later (for example with the engine running) may reach it."
-msgstr ""
+msgstr "Статус сигнала: «Не проверено», затем «Отвечает» (его DID ответил), «Записано» (отсчёты сохранены) и «Смысл проверен» (его значение подтверждено). «Отклонено» означает, что ECU отклонил запрос. «Нет ответа» означает, что его ECU не ответил при проверке, поэтому сигнал не читался; повторная проверка позже (например, при работающем двигателе) может это исправить."
 
 #: src/toyota_telemetry/ui/shell.py:487
 msgid "Diagnostic session: the mode an ECU is switched to before it is read. Most ECUs answer more requests in the extended session (request 10 03) than in the default one. The choices are the session steps reviewed in the project's transport settings."
-msgstr ""
+msgstr "Диагностический сеанс: режим, в который переключается ECU перед чтением. Большинство ECU отвечают на большее число запросов в расширенном сеансе (запрос 10 03), чем в стандартном. Варианты — это шаги сеанса, проверенные в настройках транспорта проекта."
 
 #: src/toyota_telemetry/ui/shell.py:490
 msgid "Verify vs Confirm endpoint: Verify transmits read requests to see which DIDs answer. Confirm endpoint transmits nothing; it records your review that an endpoint which answered is the ECU you think it is, with where the evidence is written up. Collection needs both."
-msgstr ""
+msgstr "«Проверить» и «Подтвердить конечную точку»: «Проверить» передаёт запросы чтения, чтобы узнать, какие DID отвечают. «Подтвердить конечную точку» ничего не передаёт; она фиксирует ваш вывод, что ответившая конечная точка — это именно тот ECU, и где описано подтверждение. Для сбора нужно и то, и другое."
 
 #: src/toyota_telemetry/ui/shell.py:493
 msgid "Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) or 0x22 (conditions not correct); the app names common ones."
-msgstr ""
+msgstr "Коды отказа: отклоняя запрос, ECU возвращает код, например 0x31 (запрос вне диапазона) или 0x22 (условия не выполнены); приложение называет распространённые коды."
 
 #: src/toyota_telemetry/ui/shell.py:495
 msgid "Run: one recording session, saved as one folder. Delete moves a run's folder to the system trash; restore it from there to bring the run back."
-msgstr ""
+msgstr "Запись: один сеанс записи, сохранённый в одной папке. «Удалить» перемещает папку записи в корзину; чтобы вернуть запись, восстановите её оттуда."
 
 #: src/toyota_telemetry/ui/shell.py:497
 msgid "Interrupted run: a recording that stopped without finishing. Recover keeps everything saved up to the interruption."
-msgstr ""
+msgstr "Прерванная запись: запись, остановившаяся без завершения. «Восстановить» сохраняет всё, что записано до прерывания."
 
 #: src/toyota_telemetry/ui/shell.py:499
 msgid "Only actions with a warning icon (Verify, Live view, and Start) transmit to the vehicle, and each shows its exact scope first. Live view reads one DID at its collection interval and shows the values without recording them; Pause stops sending."
-msgstr ""
+msgstr "Только действия со значком предупреждения («Проверить», «Онлайн» и «Начать») передают данные в автомобиль, и каждое сначала показывает точную область. «Онлайн» читает один DID с его интервалом сбора и показывает значения, не записывая их; «Пауза» прекращает отправку."
 
 #: src/toyota_telemetry/ui/shell.py:502
 msgid "Hover over any control for a short explanation."
-msgstr ""
+msgstr "Наведите указатель на любой элемент, чтобы увидеть краткое пояснение."
 
 #: src/toyota_telemetry/ui/shell.py:503
 msgid "The steps across the top are the pages in workflow order. A tick means done, a dot marks the next step (hover it to see what to do), and ! needs attention."
-msgstr ""
+msgstr "Шаги вверху — это страницы в порядке работы. Галочка означает «готово», точка отмечает следующий шаг (наведите на него, чтобы увидеть, что делать), а ! требует внимания."
 
 #: src/toyota_telemetry/ui/shell.py:505
 msgid "Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes."
-msgstr ""
+msgstr "Клавиатура: Alt+1 – Alt+4 открывают страницы; F5 обновляет."
 
 #: src/toyota_telemetry/ui/shell.py:507
 msgid "Telemetry Operator concepts"
-msgstr ""
+msgstr "Понятия Telemetry Operator"
 
 #: src/toyota_telemetry/ui/shell.py:69 src/toyota_telemetry/ui/shell.py:88
 msgid "Unsaved"
-msgstr ""
+msgstr "Не сохранено"
 
 #: src/toyota_telemetry/ui/shell.py:72
 msgid "Running"
-msgstr ""
+msgstr "Выполняется"
 
 #: src/toyota_telemetry/ui/shell.py:85
 msgid "Targets met"
-msgstr ""
+msgstr "Цели выполнены"
 
 #: src/toyota_telemetry/ui/shell.py:88
 msgid "not applied"
-msgstr ""
+msgstr "не применено"
 
 #: src/toyota_telemetry/ui/shell.py:89
 msgid "nothing yet"
-msgstr ""
+msgstr "пока ничего"
 
 #: src/toyota_telemetry/ui/shell.py:91
 msgid "Interrupted"
-msgstr ""
+msgstr "Прервана"
 
 #: src/toyota_telemetry/ui/shell.py:131
 msgid "Export folder"
-msgstr ""
+msgstr "Папка экспорта"
 
 #: src/toyota_telemetry/ui/shell.py:254
 msgid "Automatic (system)"
-msgstr ""
+msgstr "Автоматически (системный)"
 
 #: src/toyota_telemetry/ui/shell.py:266
 msgid "Language"
-msgstr ""
+msgstr "Язык"
 
 #: src/toyota_telemetry/ui/shell.py:266
 msgid "The new language is used the next time the application starts."
-msgstr ""
+msgstr "Новый язык будет использован при следующем запуске приложения."
 
 #: src/toyota_telemetry/ui/shell.py:308
 msgid "Stop the live job before opening another project."
-msgstr ""
+msgstr "Остановите работу с автомобилем, прежде чем открывать другой проект."
 
 #: src/toyota_telemetry/ui/shell.py:325
 msgid "Stop the live job before closing the project."
-msgstr ""
+msgstr "Остановите работу с автомобилем, прежде чем закрывать проект."
 
 #: src/toyota_telemetry/ui/shell.py:360
 msgid "Project check"
-msgstr ""
+msgstr "Проверка проекта"
 
 #: src/toyota_telemetry/ui/shell.py:362
 msgid "Check failed"
-msgstr ""
+msgstr "Проверка не пройдена"
 
 #: src/toyota_telemetry/ui/shell.py:366
 msgid "Cache rebuilt."
-msgstr ""
+msgstr "Кэш перестроен."
 
 #: src/toyota_telemetry/ui/shell.py:369
 msgid "Cache not rebuilt"
-msgstr ""
+msgstr "Кэш не перестроен"
 
 #: src/toyota_telemetry/ui/shell.py:388
 msgid "Candidate list not saved"
-msgstr ""
+msgstr "Список кандидатов не сохранён"
 
 #: src/toyota_telemetry/ui/shell.py:458
 msgid "Result not exported"
-msgstr ""
+msgstr "Результат не экспортирован"
 
 #: src/toyota_telemetry/ui/shell.py:462
 msgid "LIVE - adapter open"
-msgstr ""
+msgstr "НА АВТОМОБИЛЕ - адаптер открыт"
 
 #: src/toyota_telemetry/ui/shell.py:468 src/toyota_telemetry/ui/signals_page.py:1363
 msgid "Unsaved changes"
-msgstr ""
+msgstr "Несохранённые изменения"
 
 #: src/toyota_telemetry/ui/shell.py:525
 msgid "Stopping the live job safely; the window closes when it finishes."
-msgstr ""
+msgstr "Безопасная остановка работы с автомобилем; окно закроется после её завершения."
 
 #: src/toyota_telemetry/ui/shell.py:74 src/toyota_telemetry/ui/shell.py:76
 msgid "Ready"
-msgstr ""
+msgstr "Готово"
 
 #: src/toyota_telemetry/ui/shell.py:74
 msgid "no targets"
-msgstr ""
+msgstr "нет целей"
 
 #: src/toyota_telemetry/ui/shell.py:120
 msgid "JSON files (*.json)"
-msgstr ""
+msgstr "Файлы JSON (*.json)"
 
 #: src/toyota_telemetry/ui/shell.py:299
 msgid "Project not created"
-msgstr ""
+msgstr "Проект не создан"
 
 #: src/toyota_telemetry/ui/shell.py:418
 msgid "{description} (Alt+{number})"
-msgstr ""
+msgstr "{description} (Alt+{number})"
 
 #: src/toyota_telemetry/ui/shell.py:471
 msgid "Telemetry Operator - {project}"
-msgstr ""
+msgstr "Telemetry Operator - {project}"
 
 #: src/toyota_telemetry/ui/shell.py:64
 msgid "{verified}/{total} DIDs"
-msgstr ""
+msgstr "{verified}/{total} DID"
 
 #: src/toyota_telemetry/ui/shell.py:66
 msgid "{count} set"
 msgid_plural "{count} set"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "задано: {count}"
+msgstr[1] "задано: {count}"
+msgstr[2] "задано: {count}"
 
 #: src/toyota_telemetry/ui/shell.py:380
 msgid "Saved {count} candidate row to {name}."
 msgid_plural "Saved {count} candidate rows to {name}."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "Сохранена {count} строка кандидатов в {name}."
+msgstr[1] "Сохранено {count} строки кандидатов в {name}."
+msgstr[2] "Сохранено {count} строк кандидатов в {name}."
 
 #: src/toyota_telemetry/ui/shell.py:409
 msgid "{name}: invalid"
-msgstr ""
+msgstr "{name}: ошибка"
 
 #: src/toyota_telemetry/ui/shell.py:449
 msgid "Exported the result ({count} signal) to {name}."
 msgid_plural "Exported the result ({count} signals) to {name}."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "Результат ({count} сигнал) экспортирован в {name}."
+msgstr[1] "Результат ({count} сигнала) экспортирован в {name}."
+msgstr[2] "Результат ({count} сигналов) экспортирован в {name}."
 
 #: src/toyota_telemetry/ui/shell.py:54
 msgid "Project files"
-msgstr ""
+msgstr "Файлы проекта"
 
 #: src/toyota_telemetry/ui/shell.py:54
 msgid "invalid"
-msgstr ""
+msgstr "ошибка"
 
 #: src/toyota_telemetry/ui/shell.py:78
 msgid "Complete"
-msgstr ""
+msgstr "Завершено"
 
 #: src/toyota_telemetry/ui/shell.py:81
 msgid "Not ready"
-msgstr ""
+msgstr "Не готово"
 
 #: src/toyota_telemetry/ui/shell.py:315
 msgid "Not a telemetry project: {error}"
-msgstr ""
+msgstr "Не проект телеметрии: {error}"
 
 #: src/toyota_telemetry/ui/shell.py:420
 msgid "Next: {action}"
-msgstr ""
+msgstr "Далее: {action}"
 
 #: src/toyota_telemetry/ui/shell.py:82
 msgid "{count} problem"
 msgid_plural "{count} problems"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} проблема"
+msgstr[1] "{count} проблемы"
+msgstr[2] "{count} проблем"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:411
 msgid "Name"
-msgstr ""
+msgstr "Имя"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:363
 msgid "Every"
-msgstr ""
+msgstr "Каждые"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:364
 msgid "Late after"
-msgstr ""
+msgstr "Опоздание после"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:365
 msgid "Priority"
-msgstr ""
+msgstr "Приоритет"
 
 #: src/toyota_telemetry/ui/signals_page.py:81
 msgid "ECU → DID (one request) → signal"
-msgstr ""
+msgstr "ECU → DID (один запрос) → сигнал"
 
 #: src/toyota_telemetry/ui/signals_page.py:82
 msgid "Whether the vehicle answers"
-msgstr ""
+msgstr "Отвечает ли автомобиль"
 
 #: src/toyota_telemetry/ui/signals_page.py:83 src/toyota_telemetry/ui/signals_page.py:351
 msgid "Read during collection"
-msgstr ""
+msgstr "Читается при сборе"
 
 #: src/toyota_telemetry/ui/signals_page.py:84
 msgid "How often the DID is read"
-msgstr ""
+msgstr "Как часто читается DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:85 src/toyota_telemetry/ui/signals_page.py:357
 msgid "Late after this long"
-msgstr ""
+msgstr "Считается опозданием после этого времени"
 
 #: src/toyota_telemetry/ui/signals_page.py:86 src/toyota_telemetry/ui/signals_page.py:359
 msgid "0-100; higher goes first"
-msgstr ""
+msgstr "0-100; больше — раньше"
 
 #: src/toyota_telemetry/ui/signals_page.py:87
 msgid "What to collect; ✓ when met"
-msgstr ""
+msgstr "Что собрать; ✓ — выполнено"
 
 #: src/toyota_telemetry/ui/signals_page.py:1415
 msgid "nothing recorded yet"
-msgstr ""
+msgstr "пока ничего не записано"
 
 #: src/toyota_telemetry/ui/signals_page.py:1414
 msgid "none; its DID was refused"
-msgstr ""
+msgstr "нет; его DID отклонён"
 
 #: src/toyota_telemetry/ui/signals_page.py:94 src/toyota_telemetry/ui/signals_page.py:583
 msgid "DIDs that answered when verified"
-msgstr ""
+msgstr "DID, ответившие при проверке"
 
 #: src/toyota_telemetry/ui/signals_page.py:95
 msgid "DIDs not read from the vehicle yet"
-msgstr ""
+msgstr "DID, ещё не прочитанные с автомобиля"
 
 #: src/toyota_telemetry/ui/signals_page.py:96
 msgid "DIDs whose ECU did not answer"
-msgstr ""
+msgstr "DID, чей ECU не ответил"
 
 #: src/toyota_telemetry/ui/signals_page.py:97
 msgid "DIDs the ECU refused"
-msgstr ""
+msgstr "DID, отклонённые ECU"
 
 #: src/toyota_telemetry/ui/signals_page.py:100
 msgid "Collected"
-msgstr ""
+msgstr "Собирается"
 
 #: src/toyota_telemetry/ui/signals_page.py:100
 msgid "DIDs read during collection"
-msgstr ""
+msgstr "DID, читаемые при сборе"
 
 #: src/toyota_telemetry/ui/signals_page.py:101
 msgid "Not collected"
-msgstr ""
+msgstr "Не собирается"
 
 #: src/toyota_telemetry/ui/signals_page.py:101
 msgid "DIDs not read during collection"
-msgstr ""
+msgstr "DID, не читаемые при сборе"
 
 #: src/toyota_telemetry/ui/signals_page.py:104
 msgid "Has target"
-msgstr ""
+msgstr "Есть цель"
 
 #: src/toyota_telemetry/ui/signals_page.py:104
 msgid "Signals with a target"
-msgstr ""
+msgstr "Сигналы с целью"
 
 #: src/toyota_telemetry/ui/signals_page.py:105
 msgid "No target"
-msgstr ""
+msgstr "Нет цели"
 
 #: src/toyota_telemetry/ui/signals_page.py:105
 msgid "Signals without a target"
-msgstr ""
+msgstr "Сигналы без цели"
 
 #: src/toyota_telemetry/ui/signals_page.py:106
 msgid "Not met"
-msgstr ""
+msgstr "Не выполнена"
 
 #: src/toyota_telemetry/ui/signals_page.py:106
 msgid "Signals whose target is not met yet"
-msgstr ""
+msgstr "Сигналы, цель которых ещё не выполнена"
 
 #: src/toyota_telemetry/ui/signals_page.py:132
 msgid "mixed"
-msgstr ""
+msgstr "разные"
 
 #: src/toyota_telemetry/ui/signals_page.py:226
 msgid "Verification progress"
-msgstr ""
+msgstr "Ход проверки"
 
 #: src/toyota_telemetry/ui/signals_page.py:231
 msgid "%v of %m probes, %p%"
-msgstr ""
+msgstr "%v из %m опросов, %p%"
 
 #: src/toyota_telemetry/ui/signals_page.py:232
 msgid "Endpoint probes and DID reads done so far"
-msgstr ""
+msgstr "Выполненные опросы конечных точек и чтения DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:254
 msgid "Search signal or DID"
-msgstr ""
+msgstr "Поиск сигнала или DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:255
 msgid "Signal name or DID"
-msgstr ""
+msgstr "Имя сигнала или DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:270 src/toyota_telemetry/ui/signals_page.py:714
 msgid "Expand all"
-msgstr ""
+msgstr "Развернуть все"
 
 #: src/toyota_telemetry/ui/signals_page.py:271
 msgid "Show every row"
-msgstr ""
+msgstr "Показать все строки"
 
 #: src/toyota_telemetry/ui/signals_page.py:275
 msgid "Reread project files"
-msgstr ""
+msgstr "Перечитать файлы проекта"
 
 #: src/toyota_telemetry/ui/signals_page.py:289
 msgid "Endpoint, DID, and signal table"
-msgstr ""
+msgstr "Таблица конечных точек, DID и сигналов"
 
 #: src/toyota_telemetry/ui/signals_page.py:307 src/toyota_telemetry/ui/signals_page.py:1181 src/toyota_telemetry/ui/signals_page.py:435
 msgid "Verify"
-msgstr ""
+msgstr "Проверить"
 
 #: src/toyota_telemetry/ui/signals_page.py:309 src/toyota_telemetry/ui/signals_page.py:1078 src/toyota_telemetry/ui/signals_page.py:1058
 msgid "Live view"
-msgstr ""
+msgstr "Онлайн"
 
 #: src/toyota_telemetry/ui/signals_page.py:310
 msgid "Read this DID at its interval and show values"
-msgstr ""
+msgstr "Читать этот DID с его интервалом и показывать значения"
 
 #: src/toyota_telemetry/ui/signals_page.py:316
 msgid "Remove from the candidate list"
-msgstr ""
+msgstr "Удалить из списка кандидатов"
 
 #: src/toyota_telemetry/ui/signals_page.py:320
 msgid "Select rows to change their plan"
-msgstr ""
+msgstr "Выберите строки, чтобы изменить их план"
 
 #: src/toyota_telemetry/ui/signals_page.py:335 src/toyota_telemetry/ui/signals_page.py:830
 msgid "Nothing selected"
-msgstr ""
+msgstr "Ничего не выбрано"
 
 #: src/toyota_telemetry/ui/signals_page.py:342
 msgid "Selected row details"
-msgstr ""
+msgstr "Сведения о выбранной строке"
 
 #: src/toyota_telemetry/ui/signals_page.py:344
 msgid "Details of the selected rows"
-msgstr ""
+msgstr "Сведения о выбранных строках"
 
 #: src/toyota_telemetry/ui/signals_page.py:347 src/toyota_telemetry/ui/signals_page.py:936
 msgid "Collection"
-msgstr ""
+msgstr "Сбор"
 
 #: src/toyota_telemetry/ui/signals_page.py:348
 msgid "\"mixed\" fields stay as they are unless changed"
-msgstr ""
+msgstr "Поля со значением «разные» остаются как есть, если их не менять"
 
 #: src/toyota_telemetry/ui/signals_page.py:355
 msgid "How often to read"
-msgstr ""
+msgstr "Как часто читать"
 
 #: src/toyota_telemetry/ui/signals_page.py:370 src/toyota_telemetry/ui/signals_page.py:419
 msgid "Applied to the draft until Save"
-msgstr ""
+msgstr "Применяется к черновику до сохранения"
 
 #: src/toyota_telemetry/ui/signals_page.py:376
 msgid "What to collect per signal"
-msgstr ""
+msgstr "Что собирать для каждого сигнала"
 
 #: src/toyota_telemetry/ui/signals_page.py:381
 msgid "Edit targets"
-msgstr ""
+msgstr "Изменить цели"
 
 #: src/toyota_telemetry/ui/signals_page.py:382
 msgid "Remove targets"
-msgstr ""
+msgstr "Удалить цели"
 
 #: src/toyota_telemetry/ui/signals_page.py:383
 msgid "Set what to collect"
-msgstr ""
+msgstr "Задать, что собирать"
 
 #: src/toyota_telemetry/ui/signals_page.py:385
 msgid "Recordings are kept"
-msgstr ""
+msgstr "Записи сохраняются"
 
 #: src/toyota_telemetry/ui/signals_page.py:392
 msgid "Definition"
-msgstr ""
+msgstr "Определение"
 
 #: src/toyota_telemetry/ui/signals_page.py:393
 msgid "Name and decoding"
-msgstr ""
+msgstr "Имя и декодирование"
 
 #: src/toyota_telemetry/ui/signals_page.py:396
 msgid "Empty uses the catalog name"
-msgstr ""
+msgstr "Пусто — имя из каталога"
 
 #: src/toyota_telemetry/ui/signals_page.py:398
 msgid "e.g. raw / 10 - 40; empty uses the catalog"
-msgstr ""
+msgstr "например raw / 10 - 40; пусто — из каталога"
 
 #: src/toyota_telemetry/ui/signals_page.py:400
 msgid "Empty uses the catalog unit"
-msgstr ""
+msgstr "Пусто — единица из каталога"
 
 #: src/toyota_telemetry/ui/signals_page.py:405
 msgid "How well its meaning is established"
-msgstr ""
+msgstr "Насколько надёжно установлен смысл"
 
 #: src/toyota_telemetry/ui/signals_page.py:410
 msgid "Text the manufacturer tool shows"
-msgstr ""
+msgstr "Текст, который показывает программа производителя"
 
 #: src/toyota_telemetry/ui/signals_page.py:412
 msgid "Formula"
-msgstr ""
+msgstr "Формула"
 
 #: src/toyota_telemetry/ui/signals_page.py:413
 msgid "Unit"
-msgstr ""
+msgstr "Единица"
 
 #: src/toyota_telemetry/ui/signals_page.py:414 src/toyota_telemetry/ui/signals_page.py:640
 msgid "States"
-msgstr ""
+msgstr "Состояния"
 
 #: src/toyota_telemetry/ui/signals_page.py:415
 msgid "Evidence"
-msgstr ""
+msgstr "Подтверждение"
 
 #: src/toyota_telemetry/ui/signals_page.py:416
 msgid "Notes"
-msgstr ""
+msgstr "Заметки"
 
 #: src/toyota_telemetry/ui/signals_page.py:433
 msgid "From a JSON file, the TIS database, or by CAN IDs"
-msgstr ""
+msgstr "Из файла JSON, базы TIS или по CAN ID"
 
 #: src/toyota_telemetry/ui/signals_page.py:434
 msgid "Confirm endpoint"
-msgstr ""
+msgstr "Подтвердить конечную точку"
 
 #: src/toyota_telemetry/ui/signals_page.py:437
 msgid "Stops after the current probe"
-msgstr ""
+msgstr "Останавливается после текущего опроса"
 
 #: src/toyota_telemetry/ui/signals_page.py:440
 msgid "Write your changes"
-msgstr ""
+msgstr "Записать изменения"
 
 #: src/toyota_telemetry/ui/signals_page.py:441
 msgid "Discard"
-msgstr ""
+msgstr "Сбросить"
 
 #: src/toyota_telemetry/ui/signals_page.py:442
 msgid "Drop your changes"
-msgstr ""
+msgstr "Отменить ваши изменения"
 
 #: src/toyota_telemetry/ui/signals_page.py:929
 msgid "Select DIDs first."
-msgstr ""
+msgstr "Сначала выберите DID."
 
 #: src/toyota_telemetry/ui/signals_page.py:958
 msgid "Select signals, DIDs, or endpoints."
-msgstr ""
+msgstr "Выберите сигналы, DID или конечные точки."
 
 #: src/toyota_telemetry/ui/signals_page.py:994
 msgid "Confirm the endpoint first."
-msgstr ""
+msgstr "Сначала подтвердите конечную точку."
 
 #: src/toyota_telemetry/ui/signals_page.py:1224
 msgid "no DIDs read"
-msgstr ""
+msgstr "DID не прочитаны"
 
 #: src/toyota_telemetry/ui/signals_page.py:1234
 msgid "Verification failed"
-msgstr ""
+msgstr "Проверка не выполнена"
 
 #: src/toyota_telemetry/ui/signals_page.py:1350
 msgid "Saved review and collection settings."
-msgstr ""
+msgstr "Настройки проверки смысла и сбора сохранены."
 
 #: src/toyota_telemetry/ui/signals_page.py:1363
 msgid "Save changes to signal review and collection settings?"
-msgstr ""
+msgstr "Сохранить изменения проверки смысла сигналов и настроек сбора?"
 
 #: src/toyota_telemetry/ui/signals_page.py:1397
 msgid "{selected} signal(s) on {dids} DID(s) will change."
-msgstr ""
+msgstr "Изменятся сигналы: {selected}, DID: {dids}."
 
 #: src/toyota_telemetry/ui/signals_page.py:209
 msgid "What to collect, and how often"
-msgstr ""
+msgstr "Что собирать и как часто"
 
 #: src/toyota_telemetry/ui/signals_page.py:445
 msgid "Record that an answering endpoint is this ECU\nNothing is sent; needed before planning"
-msgstr ""
+msgstr "Зафиксировать, что ответившая конечная точка — этот ECU\nНичего не отправляется; нужно перед планированием"
 
 #: src/toyota_telemetry/ui/signals_page.py:711
 msgid "Collapse"
-msgstr ""
+msgstr "Свернуть"
 
 #: src/toyota_telemetry/ui/signals_page.py:831
 msgid "Select rows to see and change their settings."
-msgstr ""
+msgstr "Выберите строки, чтобы увидеть и изменить их настройки."
 
 #: src/toyota_telemetry/ui/signals_page.py:870
 msgid "Confirmed"
-msgstr ""
+msgstr "Подтверждена"
 
 #: src/toyota_telemetry/ui/signals_page.py:951
 msgid "Change a field first."
-msgstr ""
+msgstr "Сначала измените поле."
 
 #: src/toyota_telemetry/ui/signals_page.py:1006
 msgid "Wait for verification to finish."
-msgstr ""
+msgstr "Дождитесь окончания проверки."
 
 #: src/toyota_telemetry/ui/signals_page.py:1010
 msgid "Select an endpoint that responded during verification."
-msgstr ""
+msgstr "Выберите конечную точку, ответившую при проверке."
 
 #: src/toyota_telemetry/ui/signals_page.py:1012
 msgid "Select DIDs, or endpoints with a known address, first."
-msgstr ""
+msgstr "Сначала выберите DID или конечные точки с известным адресом."
 
 #: src/toyota_telemetry/ui/signals_page.py:1013 src/toyota_telemetry/ui/signals_page.py:1014
 msgid "Select signals first."
-msgstr ""
+msgstr "Сначала выберите сигналы."
 
 #: src/toyota_telemetry/ui/signals_page.py:1015 src/toyota_telemetry/ui/signals_page.py:1020
 msgid "No unsaved changes."
-msgstr ""
+msgstr "Нет несохранённых изменений."
 
 #: src/toyota_telemetry/ui/signals_page.py:1058
 msgid "Stop the open live view first."
-msgstr ""
+msgstr "Сначала остановите открытый онлайн-просмотр."
 
 #: src/toyota_telemetry/ui/signals_page.py:1066
 msgid "{endpoint} DID {did}"
-msgstr ""
+msgstr "{endpoint} DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1110 src/toyota_telemetry/ui/signals_page.py:1128 src/toyota_telemetry/ui/signals_page.py:1115 src/toyota_telemetry/ui/signals_page.py:1125
 msgid "Signals not deleted"
-msgstr ""
+msgstr "Сигналы не удалены"
 
 #: src/toyota_telemetry/ui/signals_page.py:1110
 msgid "Save or discard your changes first."
-msgstr ""
+msgstr "Сначала сохраните или сбросьте изменения."
 
 #: src/toyota_telemetry/ui/signals_page.py:1212
 msgid "{progress} Endpoint {endpoint}: responded"
-msgstr ""
+msgstr "{progress} Конечная точка {endpoint}: ответила"
 
 #: src/toyota_telemetry/ui/signals_page.py:1214
 msgid "{progress} Endpoint {endpoint}: no response"
-msgstr ""
+msgstr "{progress} Конечная точка {endpoint}: нет ответа"
 
 #: src/toyota_telemetry/ui/signals_page.py:1246
 msgid "Stopping after the current probe…"
-msgstr ""
+msgstr "Остановка после текущего опроса…"
 
 #: src/toyota_telemetry/ui/signals_page.py:1341
 msgid "Not saved: project files changed outside this window."
-msgstr ""
+msgstr "Не сохранено: файлы проекта изменены вне этого окна."
 
 #: src/toyota_telemetry/ui/signals_page.py:1342
 msgid "Discard, then edit again"
-msgstr ""
+msgstr "Сбросьте, затем измените снова"
 
 #: src/toyota_telemetry/ui/signals_page.py:1387 src/toyota_telemetry/ui/signals_page.py:1073
 msgid "Session: {steps}"
-msgstr ""
+msgstr "Сеанс: {steps}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1410
 msgid "reviewed as {state}"
-msgstr ""
+msgstr "смысл проверен: {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1412
 msgid "{count} samples recorded across runs; meaning not reviewed yet"
-msgstr ""
+msgstr "Записано отсчётов во всех записях: {count}; смысл ещё не проверен"
 
 #: src/toyota_telemetry/ui/signals_page.py:1445
 msgid "Not saved yet"
-msgstr ""
+msgstr "Ещё не сохранено"
 
 #: src/toyota_telemetry/ui/signals_page.py:201
 msgid "Delete signals"
-msgstr ""
+msgstr "Удалить сигналы"
 
 #: src/toyota_telemetry/ui/signals_page.py:489
 msgid "Project files changed outside this window."
-msgstr ""
+msgstr "Файлы проекта изменены вне этого окна."
 
 #: src/toyota_telemetry/ui/signals_page.py:490
 msgid "Discard reloads them"
-msgstr ""
+msgstr "«Сбросить» перезагрузит их"
 
 #: src/toyota_telemetry/ui/signals_page.py:569
 msgid "No candidates."
-msgstr ""
+msgstr "Кандидатов нет."
 
 #: src/toyota_telemetry/ui/signals_page.py:570
 msgid "Import a candidate list in Setup."
-msgstr ""
+msgstr "Импортируйте список кандидатов на странице «Настройка»."
 
 #: src/toyota_telemetry/ui/signals_page.py:897
 msgid "Bits: {bits} of DID {did}"
-msgstr ""
+msgstr "Биты: {bits} в DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:898
 msgid "Unit: {unit}   Formula: {formula}"
-msgstr ""
+msgstr "Единица: {unit}   Формула: {formula}"
 
 #: src/toyota_telemetry/ui/signals_page.py:899
 msgid "DID {did} on {endpoint}: {state}"
-msgstr ""
+msgstr "DID {did} на {endpoint}: {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:902
 msgid "Evidence: {evidence}"
-msgstr ""
+msgstr "Подтверждение: {evidence}"
 
 #: src/toyota_telemetry/ui/signals_page.py:936
 msgid "Collection: {dids}"
-msgstr ""
+msgstr "Сбор: {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1063
 msgid "Cannot show live values"
-msgstr ""
+msgstr "Не удалось показать значения онлайн"
 
 #: src/toyota_telemetry/ui/signals_page.py:1069
 msgid "Every {interval} ms until you pause or stop. Nothing is recorded."
-msgstr ""
+msgstr "Каждые {interval} мс, пока вы не приостановите или не остановите. Ничего не записывается."
 
 #: src/toyota_telemetry/ui/signals_page.py:1072
 msgid "{endpoint}: request {request}"
-msgstr ""
+msgstr "{endpoint}: запрос {request}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1142
 msgid "Endpoint not confirmed"
-msgstr ""
+msgstr "Конечная точка не подтверждена"
 
 #: src/toyota_telemetry/ui/signals_page.py:1144
 msgid "Confirmed {endpoint}."
-msgstr ""
+msgstr "Подтверждено: {endpoint}."
 
 #: src/toyota_telemetry/ui/signals_page.py:1157
 msgid "Cannot verify"
-msgstr ""
+msgstr "Не удалось проверить"
 
 #: src/toyota_telemetry/ui/signals_page.py:1177
 msgid "{probes} probe(s), at most {seconds} s."
-msgstr ""
+msgstr "Опросов: {probes}, не более {seconds} с."
 
 #: src/toyota_telemetry/ui/signals_page.py:1232
 msgid "Failed: {detail}"
-msgstr ""
+msgstr "Ошибка: {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1274
 msgid "Targets not changed"
-msgstr ""
+msgstr "Цели не изменены"
 
 #: src/toyota_telemetry/ui/signals_page.py:1297
 msgid "Definition not applied"
-msgstr ""
+msgstr "Определение не применено"
 
 #: src/toyota_telemetry/ui/signals_page.py:1317
 msgid "Collection settings not applied"
-msgstr ""
+msgstr "Настройки сбора не применены"
 
 #: src/toyota_telemetry/ui/signals_page.py:1347
 msgid "Not saved"
-msgstr ""
+msgstr "Не сохранено"
 
 #: src/toyota_telemetry/ui/signals_page.py:1402
 msgid "{created} DID(s) will start being read every 1 s (change this under Collection)."
-msgstr ""
+msgstr "DID ({created}) начнут читаться каждую 1 с (это можно изменить в разделе «Сбор»)."
 
 #: src/toyota_telemetry/ui/signals_page.py:447
 msgid "Read the selected DIDs once to see which answer"
-msgstr ""
+msgstr "Прочитать выбранные DID один раз, чтобы узнать, какие отвечают"
 
 #: src/toyota_telemetry/ui/signals_page.py:511
 msgid "Cannot read the project: {detail}"
-msgstr ""
+msgstr "Не удалось прочитать проект: {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:582 src/toyota_telemetry/ui/signals_page.py:612
 msgid "{done} of {total}"
-msgstr ""
+msgstr "{done} из {total}"
 
 #: src/toyota_telemetry/ui/signals_page.py:874
 msgid "{endpoint}: {state}"
-msgstr ""
+msgstr "{endpoint}: {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:875
 msgid "Address: {address}"
-msgstr ""
+msgstr "Адрес: {address}"
 
 #: src/toyota_telemetry/ui/signals_page.py:876
 msgid "ECU keys: {keys}"
-msgstr ""
+msgstr "Ключи ECU: {keys}"
 
 #: src/toyota_telemetry/ui/signals_page.py:877
 msgid "Diagnostic session: {session}"
-msgstr ""
+msgstr "Диагностический сеанс: {session}"
 
 #: src/toyota_telemetry/ui/signals_page.py:881
 msgid "DIDs: {count}"
-msgstr ""
+msgstr "DID: {count}"
 
 #: src/toyota_telemetry/ui/signals_page.py:888
 msgid "On: {endpoint}"
-msgstr ""
+msgstr "На: {endpoint}"
 
 #: src/toyota_telemetry/ui/signals_page.py:889
 msgid "Last answer: {answer}"
-msgstr ""
+msgstr "Последний ответ: {answer}"
 
 #: src/toyota_telemetry/ui/signals_page.py:890
 msgid "Latency: {latency} ms at {time}"
-msgstr ""
+msgstr "Задержка: {latency} мс в {time}"
 
 #: src/toyota_telemetry/ui/signals_page.py:893
 msgid "Signals: {count}"
-msgstr ""
+msgstr "Сигналы: {count}"
 
 #: src/toyota_telemetry/ui/signals_page.py:905
 msgid "{count} catalog variants disagree; review the definition."
-msgstr ""
+msgstr "Варианты каталога расходятся ({count}); проверьте определение."
 
 #: src/toyota_telemetry/ui/signals_page.py:907
 msgid "Notes: {notes}"
-msgstr ""
+msgstr "Заметки: {notes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:931
 msgid "Confirm {endpoint} first."
-msgstr ""
+msgstr "Сначала подтвердите {endpoint}."
 
 #: src/toyota_telemetry/ui/signals_page.py:961
 msgid "Target: {target}"
-msgstr ""
+msgstr "Цель: {target}"
 
 #: src/toyota_telemetry/ui/signals_page.py:963
 msgid "Already met."
-msgstr ""
+msgstr "Уже выполнена."
 
 #: src/toyota_telemetry/ui/signals_page.py:1226
 msgid "Stopped early: {outcomes}"
-msgstr ""
+msgstr "Остановлено досрочно: {outcomes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1228
 msgid "Finished: {outcomes}"
-msgstr ""
+msgstr "Завершено: {outcomes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1322
 msgid "Settings also apply to {count} other signal(s) on the same DIDs."
-msgstr ""
+msgstr "Настройки также применяются к другим сигналам тех же DID ({count})."
 
 #: src/toyota_telemetry/ui/signals_page.py:601
 msgid "DID {did} · {signals}"
-msgstr ""
+msgstr "DID {did} · {signals}"
 
 #: src/toyota_telemetry/ui/signals_page.py:605 src/toyota_telemetry/ui/signals_page.py:837
 msgid "DID {did}"
-msgstr ""
+msgstr "DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:608
 msgid "Yes"
-msgstr ""
+msgstr "Да"
 
 #: src/toyota_telemetry/ui/signals_page.py:608
 msgid "No"
-msgstr ""
+msgstr "Нет"
 
 #: src/toyota_telemetry/ui/signals_page.py:622
 msgid "Not read during collection"
-msgstr ""
+msgstr "Не читается при сборе"
 
 #: src/toyota_telemetry/ui/signals_page.py:628
 msgid "(definitions disagree)"
-msgstr ""
+msgstr "(определения расходятся)"
 
 #: src/toyota_telemetry/ui/signals_page.py:851
 msgid "{items} selected"
-msgstr ""
+msgstr "Выбрано: {items}"
 
 #: src/toyota_telemetry/ui/signals_page.py:853
 msgid "{dids} DID(s) and {signals} signal(s) in the selection."
-msgstr ""
+msgstr "В выборе DID: {dids}, сигналов: {signals}."
 
 #: src/toyota_telemetry/ui/signals_page.py:875
 msgid "unknown"
-msgstr ""
+msgstr "неизвестно"
 
 #: src/toyota_telemetry/ui/signals_page.py:879
 msgid "chosen when verified"
-msgstr ""
+msgstr "выбирается при проверке"
 
 #: src/toyota_telemetry/ui/signals_page.py:887
 msgid "{state}: {detail}"
-msgstr ""
+msgstr "{state}: {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:968
 msgid "{signals}: {targeted} with targets, {met} already met."
-msgstr ""
+msgstr "{signals}: с целями — {targeted}, уже выполнено — {met}."
 
 #: src/toyota_telemetry/ui/signals_page.py:972
 msgid "{signals}: {targeted} with targets."
-msgstr ""
+msgstr "{signals}: с целями — {targeted}."
 
 #: src/toyota_telemetry/ui/signals_page.py:976
 msgid "Targets are mixed."
-msgstr ""
+msgstr "Цели различаются."
 
 #: src/toyota_telemetry/ui/signals_page.py:1121
 msgid "Deleted {signals}."
-msgstr ""
+msgstr "Удалено: {signals}."
 
 #: src/toyota_telemetry/ui/signals_page.py:1166
 msgid "{endpoint}: probe, then read {dids}"
-msgstr ""
+msgstr "{endpoint}: опрос, затем чтение {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1168
 msgid "{endpoint}: read {dids}"
-msgstr ""
+msgstr "{endpoint}: чтение {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1171
 msgid "{key}: {tester}/{response} address {address}, {session}"
-msgstr ""
+msgstr "{key}: {tester}/{response}, адрес {address}, {session}"
 
 #: src/toyota_telemetry/ui/signals_page.py:846
 msgid "{count} endpoint"
 msgid_plural "{count} endpoints"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} конечная точка"
+msgstr[1] "{count} конечные точки"
+msgstr[2] "{count} конечных точек"
 
 #: src/toyota_telemetry/ui/signals_page.py:974
 msgid "All: {target}"
-msgstr ""
+msgstr "Все: {target}"
 
 #: src/toyota_telemetry/ui/signals_page.py:637
 msgid "{target}. Already met."
-msgstr ""
+msgstr "{target}. Уже выполнена."
 
 #: src/toyota_telemetry/ui/start_page.py:31
 msgid "Open an existing workspace folder"
-msgstr ""
+msgstr "Открыть существующую папку проекта"
 
 #: src/toyota_telemetry/ui/start_page.py:33 src/toyota_telemetry/ui/start_page.py:39
 msgid "Recent projects"
-msgstr ""
+msgstr "Недавние проекты"
 
 #: src/toyota_telemetry/ui/start_page.py:40
 msgid "Double-click to open"
-msgstr ""
+msgstr "Дважды щёлкните, чтобы открыть"
 
 #: src/toyota_telemetry/ui/start_page.py:26
 msgid "A project is a folder: settings, candidates, recordings"
-msgstr ""
+msgstr "Проект — это папка: настройки, кандидаты, записи"
 
 #: src/toyota_telemetry/ui/watch_window.py:59
 msgid "Starting…"
-msgstr ""
+msgstr "Запуск…"
 
 #: src/toyota_telemetry/ui/watch_window.py:63
 msgid "Pause stops sending; Resume starts again"
-msgstr ""
+msgstr "«Пауза» прекращает отправку; «Продолжить» возобновляет"
 
 #: src/toyota_telemetry/ui/watch_window.py:65
 msgid "Stop reading and close"
-msgstr ""
+msgstr "Остановить чтение и закрыть"
 
 #: src/toyota_telemetry/ui/watch_window.py:86 src/toyota_telemetry/ui/watch_window.py:62
 msgid "Pause"
-msgstr ""
+msgstr "Пауза"
 
 #: src/toyota_telemetry/ui/watch_window.py:87
 msgid "Opening the session…"
-msgstr ""
+msgstr "Открытие сеанса…"
 
 #: src/toyota_telemetry/ui/watch_window.py:143
 msgid "Resume"
-msgstr ""
+msgstr "Продолжить"
 
 #: src/toyota_telemetry/ui/watch_window.py:46 src/toyota_telemetry/ui/widgets/metric_plot.py:166 src/toyota_telemetry/ui/widgets/metric_plot.py:139
 msgid "Value"
-msgstr ""
+msgstr "Значение"
 
 #: src/toyota_telemetry/ui/watch_window.py:46
 msgid "Raw"
-msgstr ""
+msgstr "Сырое"
 
 #: src/toyota_telemetry/ui/watch_window.py:93
 msgid "Pausing after the current read…"
-msgstr ""
+msgstr "Пауза после текущего чтения…"
 
 #: src/toyota_telemetry/ui/watch_window.py:101
 msgid "Stopping after the current read…"
-msgstr ""
+msgstr "Остановка после текущего чтения…"
 
 #: src/toyota_telemetry/ui/watch_window.py:134
 msgid "Paused; nothing is being sent."
-msgstr ""
+msgstr "Приостановлено; ничего не отправляется."
 
 #: src/toyota_telemetry/ui/watch_window.py:36
 msgid "Live view: {title}"
-msgstr ""
+msgstr "Онлайн: {title}"
 
 #: src/toyota_telemetry/ui/watch_window.py:41
 msgid "{title}, read every {interval} ms. Nothing is recorded."
-msgstr ""
+msgstr "{title}, чтение каждые {interval} мс. Ничего не записывается."
 
 #: src/toyota_telemetry/ui/watch_window.py:123
 msgid "Read {number}, {latency} ms."
-msgstr ""
+msgstr "Чтение {number}, {latency} мс."
 
 #: src/toyota_telemetry/ui/watch_window.py:125
 msgid "Read {number}."
-msgstr ""
+msgstr "Чтение {number}."
 
 #: src/toyota_telemetry/ui/watch_window.py:137
 msgid "Stopped: {error}"
-msgstr ""
+msgstr "Остановлено: {error}"
 
 #: src/toyota_telemetry/ui/watch_window.py:108
 msgid "Reading every {interval} ms."
-msgstr ""
+msgstr "Чтение каждые {interval} мс."
 
 #: src/toyota_telemetry/ui/watch_window.py:115
 msgid "Read {number}: {outcome} (code {code})."
-msgstr ""
+msgstr "Чтение {number}: {outcome} (код {code})."
 
 #: src/toyota_telemetry/ui/watch_window.py:119
 msgid "Read {number}: {outcome}."
-msgstr ""
+msgstr "Чтение {number}: {outcome}."
 
 #: src/toyota_telemetry/ui/widgets/common.py:25
 msgid "Transmits to the vehicle; you confirm first."
-msgstr ""
+msgstr "Передаёт данные в автомобиль; сначала вы подтверждаете."
 
 #: src/toyota_telemetry/ui/widgets/common.py:91
 msgid "Browse"
-msgstr ""
+msgstr "Обзор"
 
 #: src/toyota_telemetry/ui/widgets/common.py:93
 msgid "Browse for {caption}"
-msgstr ""
+msgstr "Выбрать: {caption}"
 
 #: src/toyota_telemetry/ui/widgets/common.py:67
 msgid "{tip}\n\nUnavailable: {reason}"
-msgstr ""
+msgstr "{tip}\n\nНедоступно: {reason}"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:46 src/toyota_telemetry/ui/widgets/filter_menu.py:159
 msgid "Filter"
-msgstr ""
+msgstr "Фильтр"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:47
 msgid "Filter rows; tick any number of options"
-msgstr ""
+msgstr "Фильтр строк; отметьте любое число вариантов"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:144
 msgid "Clear filters"
-msgstr ""
+msgstr "Сбросить фильтры"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:159
 msgid "Filter ({count})"
-msgstr ""
+msgstr "Фильтр ({count})"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:139
 msgid "{title} options"
-msgstr ""
+msgstr "Варианты: {title}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:132
 msgid "Metric evidence plot"
-msgstr ""
+msgstr "График показателя"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:134
 msgid "Click pins a reading; drag zooms; double-click shows all"
-msgstr ""
+msgstr "Щелчок закрепляет показание; перетаскивание масштабирует; двойной щелчок показывает всё"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:138
 msgid "Run time, runs end to end (h:mm:ss)"
-msgstr ""
+msgstr "Время записи, записи подряд (ч:мм:сс)"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:297
 msgid "{measurement}: {value}\n{where}"
-msgstr ""
+msgstr "{measurement}: {value}\n{where}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:235
 msgid "Signal plot of {samples} recorded samples across {runs} run(s)."
-msgstr ""
+msgstr "График сигнала: записанных отсчётов: {samples}, записей: {runs}."
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:293
 msgid "{time} into {run}"
-msgstr ""
+msgstr "{time} от начала: {run}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:296
 msgid "{state} (raw {code})"
-msgstr ""
+msgstr "{state} (сырое {code})"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:328
 msgid "Pinned: {reading}"
-msgstr ""
+msgstr "Закреплено: {reading}"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "done"
-msgstr ""
+msgstr "готово"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "next step"
-msgstr ""
+msgstr "следующий шаг"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "needs attention"
-msgstr ""
+msgstr "требует внимания"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "not started"
-msgstr ""
+msgstr "не начато"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:97
 msgid "Steps"
-msgstr ""
+msgstr "Шаги"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:79
 msgid "{state}. {summary}"
-msgstr ""
+msgstr "{state}. {summary}"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:74
 msgid "{part}: {state}"
-msgstr ""
+msgstr "{part}: {state}"

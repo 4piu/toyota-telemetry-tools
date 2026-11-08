@@ -9,3550 +9,3550 @@ msgstr ""
 
 #: src/toyota_telemetry/admission.py:23
 msgid "all included collection targets are already complete"
-msgstr ""
+msgstr "جميع أهداف الجمع المضمَّنة مكتملة بالفعل"
 
 #: src/toyota_telemetry/admission.py:72
 msgid "collection policy has no included targets"
-msgstr ""
+msgstr "سياسة الجمع لا تتضمن أي أهداف"
 
 #: src/toyota_telemetry/admission.py:77
 msgid "insufficient disk budget: {available} MiB available, {required} MiB required"
-msgstr ""
+msgstr "مساحة القرص غير كافية: المتاح {available} MiB، والمطلوب {required} MiB"
 
 #: src/toyota_telemetry/admission.py:145
 msgid "request-start floor exceeds the tracked maximum request rate"
-msgstr ""
+msgstr "الحد الأدنى بين بدايات الطلبات يتجاوز أقصى معدل طلبات مسجَّل"
 
 #: src/toyota_telemetry/admission.py:103
 msgid "target has no included DID settings: {signal} needs {did}"
-msgstr ""
+msgstr "الهدف بلا إعدادات DID مضمَّنة: {signal} يحتاج إلى {did}"
 
 #: src/toyota_telemetry/admission.py:157
 msgid "missing latency/response-size facts: verify {did} first"
-msgstr ""
+msgstr "بيانات زمن الاستجابة وحجمها مفقودة: تحقّق من {did} أولًا"
 
 #: src/toyota_telemetry/admission.py:168
 msgid "acquisition interval violates request-start floor: {did}"
-msgstr ""
+msgstr "فاصل القراءة يخالف الحد الأدنى بين بدايات الطلبات: {did}"
 
 #: src/toyota_telemetry/admission.py:210
 msgid "endpoint {endpoint} request rate {rate:.3f} Hz exceeds tracked limit {limit:.3f} Hz"
-msgstr ""
+msgstr "معدل طلبات نقطة الاتصال {endpoint} البالغ {rate:.3f} Hz يتجاوز الحد المسجَّل {limit:.3f} Hz"
 
 #: src/toyota_telemetry/admission.py:215
 msgid "endpoint {endpoint} estimated bus utilization {value:.6f} exceeds tracked limit {limit:.6f}"
-msgstr ""
+msgstr "الاستخدام المقدَّر للناقل لنقطة الاتصال {endpoint} البالغ {value:.6f} يتجاوز الحد المسجَّل {limit:.6f}"
 
 #: src/toyota_telemetry/admission.py:221
 msgid "endpoint {endpoint} nominal session utilization {value:.6f} exceeds tracked limit {limit:.6f}"
-msgstr ""
+msgstr "الاستخدام الاسمي للجلسة لنقطة الاتصال {endpoint} البالغ {value:.6f} يتجاوز الحد المسجَّل {limit:.6f}"
 
 #: src/toyota_telemetry/admission.py:256
 msgid "{signal} lies past the reply: {did} answers with {count} data bytes"
-msgstr ""
+msgstr "{signal} يقع بعد نهاية الرد: {did} يجيب بـ {count} بايت بيانات"
 
 #: src/toyota_telemetry/admission.py:341
 msgid "collection decode does not resolve catalog signal: {signal}"
-msgstr ""
+msgstr "فك ترميز الجمع لا يطابق إشارة الكتالوج: {signal}"
 
 #: src/toyota_telemetry/admission.py:352
 msgid "collection decode formula is ambiguous: {signal}"
-msgstr ""
+msgstr "صيغة فك ترميز الجمع ملتبسة: {signal}"
 
 #: src/toyota_telemetry/admission.py:126
 msgid "condition signal has no included DID settings: {signal} needs {did}"
-msgstr ""
+msgstr "إشارة الشرط بلا إعدادات DID مضمَّنة: {signal} يحتاج إلى {did}"
 
 #: src/toyota_telemetry/operator/collection.py:43
 msgid "Switch every few minutes"
-msgstr ""
+msgstr "التبديل كل بضع دقائق"
 
 #: src/toyota_telemetry/operator/collection.py:44
 msgid "One after another, each until done"
-msgstr ""
+msgstr "واحدًا تلو الآخر، كلٌّ حتى يكتمل"
 
 #: src/toyota_telemetry/operator/collection.py:367
 msgid "Verify {item}"
-msgstr ""
+msgstr "تحقّق من {item}"
 
 #: src/toyota_telemetry/operator/collection.py:368
 msgid "Include the DID settings for {item}"
-msgstr ""
+msgstr "ضمِّن إعدادات DID لـ {item}"
 
 #: src/toyota_telemetry/operator/collection.py:370 src/toyota_telemetry/operator/service.py:97 src/toyota_telemetry/operator/service.py:296
 msgid "Set collection targets"
-msgstr ""
+msgstr "تعيين أهداف الجمع"
 
 #: src/toyota_telemetry/operator/collection.py:372
 msgid "Free disk space"
-msgstr ""
+msgstr "حرِّر مساحة على القرص"
 
 #: src/toyota_telemetry/operator/collection.py:373
 msgid "Lengthen DID intervals on {item}"
-msgstr ""
+msgstr "أطِل فواصل DID على {item}"
 
 #: src/toyota_telemetry/operator/collection.py:375
 msgid "Lengthen DID intervals"
-msgstr ""
+msgstr "أطِل فواصل DID"
 
 #: src/toyota_telemetry/operator/collection.py:378
 msgid "Choose a formula for {item}"
-msgstr ""
+msgstr "اختر صيغة لـ {item}"
 
 #: src/toyota_telemetry/operator/collection.py:392
 msgid "Check the project files"
-msgstr ""
+msgstr "افحص ملفات المشروع"
 
 #: src/toyota_telemetry/operator/collection.py:285
 msgid "collection is not ready; resolve the readiness problems first"
-msgstr ""
+msgstr "الجمع غير جاهز؛ عالج مشكلات الجاهزية أولًا"
 
 #: src/toyota_telemetry/operator/collection.py:106 src/toyota_telemetry/operator/connector.py:94 src/toyota_telemetry/operator/verification.py:108
 msgid "no connector is configured"
-msgstr ""
+msgstr "لم يُضبط أي محوّل"
 
 #: src/toyota_telemetry/operator/collection.py:106 src/toyota_telemetry/operator/service.py:270
 msgid "Configure the connector"
-msgstr ""
+msgstr "اضبط المحوّل"
 
 #: src/toyota_telemetry/operator/collection.py:139
 msgid "Choose the endpoint, or take them in turn"
-msgstr ""
+msgstr "اختر نقطة الاتصال، أو تناوب بينها"
 
 #: src/toyota_telemetry/operator/collection.py:206
 msgid "Switch ECUs less often"
-msgstr ""
+msgstr "بدّل بين وحدات ECU بوتيرة أقل"
 
 #: src/toyota_telemetry/operator/collection.py:191
 msgid "Leave it out"
-msgstr ""
+msgstr "استبعده"
 
 #: src/toyota_telemetry/operator/collection.py:359
 msgid "the scope of {endpoint} changed since it was confirmed; check readiness and start again"
-msgstr ""
+msgstr "تغيّر نطاق {endpoint} منذ تأكيده؛ افحص الجاهزية وابدأ من جديد"
 
 #: src/toyota_telemetry/operator/collection.py:136
 msgid "targets span {count} endpoints; one run collects one endpoint"
-msgstr ""
+msgstr "الأهداف موزعة على {count} نقاط اتصال؛ التسجيل الواحد يجمع من نقطة اتصال واحدة"
 
 #: src/toyota_telemetry/operator/collection.py:196
 msgid "unknown strategy {strategy!r}"
-msgstr ""
+msgstr "استراتيجية غير معروفة {strategy!r}"
 
 #: src/toyota_telemetry/operator/collection.py:197
 msgid "Choose {first} or {second}"
-msgstr ""
+msgstr "اختر {first} أو {second}"
 
 #: src/toyota_telemetry/operator/collection.py:203
 msgid "a time slice of {seconds} s is shorter than {minimum} s"
-msgstr ""
+msgstr "الشريحة الزمنية البالغة {seconds} s أقصر من {minimum} s"
 
 #: src/toyota_telemetry/operator/collection.py:143 src/toyota_telemetry/operator/collection.py:190
 msgid "{endpoint} has no unfinished targets ready to collect"
-msgstr ""
+msgstr "لا توجد لدى {endpoint} أهداف غير مكتملة جاهزة للجمع"
 
 #: src/toyota_telemetry/operator/collection.py:144
 msgid "Choose one of: {endpoints}"
-msgstr ""
+msgstr "اختر واحدًا من: {endpoints}"
 
 #: src/toyota_telemetry/operator/collection.py:329
 msgid "{endpoint} is no longer ready: {problem}"
-msgstr ""
+msgstr "{endpoint} لم يعد جاهزًا: {problem}"
 
 #: src/toyota_telemetry/operator/connector.py:22
 msgid "PCAN channel (PCAN_USBBUS1-8)"
-msgstr ""
+msgstr "قناة PCAN (PCAN_USBBUS1-8)"
 
 #: src/toyota_telemetry/operator/connector.py:23
 msgid "J2534 driver DLL path"
-msgstr ""
+msgstr "مسار ملف DLL لمشغّل J2534"
 
 #: src/toyota_telemetry/operator/connector.py:25
 msgid "USB vendor ID (4 hex digits)"
-msgstr ""
+msgstr "معرّف مُصنِّع USB (4 أرقام ست عشرية)"
 
 #: src/toyota_telemetry/operator/connector.py:26
 msgid "USB product ID (4 hex digits)"
-msgstr ""
+msgstr "معرّف منتج USB (4 أرقام ست عشرية)"
 
 #: src/toyota_telemetry/operator/connector.py:27
 msgid "USB serial number (optional)"
-msgstr ""
+msgstr "الرقم التسلسلي لـ USB (اختياري)"
 
 #: src/toyota_telemetry/operator/connector.py:29
 msgid "Serial port, e.g. COM5"
-msgstr ""
+msgstr "المنفذ التسلسلي، مثل COM5"
 
 #: src/toyota_telemetry/operator/connector.py:58
 msgid "unknown connector {kind!r}; choose {kinds}"
-msgstr ""
+msgstr "محوّل غير معروف {kind!r}؛ اختر {kinds}"
 
 #: src/toyota_telemetry/operator/connector.py:64
 msgid "{kind} does not use: {fields}"
-msgstr ""
+msgstr "{kind} لا يستخدم: {fields}"
 
 #: src/toyota_telemetry/operator/connector.py:104
 msgid "worker {name} is missing from this installation"
-msgstr ""
+msgstr "العامل {name} مفقود من هذا التثبيت"
 
 #: src/toyota_telemetry/operator/connector.py:126
 msgid "worker self-test passed; no device was opened"
-msgstr ""
+msgstr "نجح الاختبار الذاتي للعامل؛ لم يُفتح أي جهاز"
 
 #: src/toyota_telemetry/operator/connector.py:109
 msgid "J2534 driver DLL was not found: {name}"
-msgstr ""
+msgstr "لم يُعثر على ملف DLL لمشغّل J2534: {name}"
 
 #: src/toyota_telemetry/operator/connector.py:123
 msgid "worker self-test failed"
-msgstr ""
+msgstr "فشل الاختبار الذاتي للعامل"
 
 #: src/toyota_telemetry/operator/connector.py:117
 msgid "worker self-test could not run: {error}"
-msgstr ""
+msgstr "تعذّر تشغيل الاختبار الذاتي للعامل: {error}"
 
 #: src/toyota_telemetry/operator/connector.py:122
 msgid "worker self-test failed: {detail}"
-msgstr ""
+msgstr "فشل الاختبار الذاتي للعامل: {detail}"
 
 #: src/toyota_telemetry/operator/editing.py:35 src/toyota_telemetry/ui/names.py:32
 msgid "Minimum samples"
-msgstr ""
+msgstr "أدنى عدد من العينات"
 
 #: src/toyota_telemetry/operator/editing.py:36 src/toyota_telemetry/ui/names.py:33
 msgid "Minimum runs"
-msgstr ""
+msgstr "أدنى عدد من التسجيلات"
 
 #: src/toyota_telemetry/operator/editing.py:37 src/toyota_telemetry/ui/names.py:34
 msgid "Minimum span"
-msgstr ""
+msgstr "أدنى مدى"
 
 #: src/toyota_telemetry/operator/editing.py:38 src/toyota_telemetry/ui/names.py:35
 msgid "Required states"
-msgstr ""
+msgstr "الحالات المطلوبة"
 
 #: src/toyota_telemetry/operator/editing.py:39 src/toyota_telemetry/ui/names.py:36
 msgid "Minimum transitions"
-msgstr ""
+msgstr "أدنى عدد من الانتقالات"
 
 #: src/toyota_telemetry/operator/editing.py:40 src/toyota_telemetry/ui/names.py:37
 msgid "Minimum changes"
-msgstr ""
+msgstr "أدنى عدد من التغيّرات"
 
 #: src/toyota_telemetry/operator/editing.py:41 src/toyota_telemetry/ui/names.py:38
 msgid "Minimum applicable time"
-msgstr ""
+msgstr "أدنى زمن منطبق"
 
 #: src/toyota_telemetry/operator/editing.py:172
 msgid "Reviewing a signal needs a confirmed endpoint; {endpoint} is {state}. Verify it, then confirm the endpoint."
-msgstr ""
+msgstr "مراجعة إشارة تتطلب نقطة اتصال مؤكَّدة؛ {endpoint} حالتها {state}. تحقّق منها ثم أكِّد نقطة الاتصال."
 
 #: src/toyota_telemetry/operator/editing.py:174
 msgid "A collection target needs a confirmed endpoint; {endpoint} is {state}. Verify it, then confirm the endpoint."
-msgstr ""
+msgstr "هدف الجمع يتطلب نقطة اتصال مؤكَّدة؛ {endpoint} حالتها {state}. تحقّق منها ثم أكِّد نقطة الاتصال."
 
 #: src/toyota_telemetry/operator/editing.py:94
 msgid "a condition may combine clauses with 'and' or with 'or', not both"
-msgstr ""
+msgstr "يمكن أن يجمع الشرط البنود بـ 'and' أو بـ 'or'، لا بكليهما"
 
 #: src/toyota_telemetry/operator/editing.py:74
 msgid "invalid duration {text!r}; use seconds or a suffix such as 30s, 10m, 2h"
-msgstr ""
+msgstr "مدة غير صالحة {text!r}؛ استخدم الثواني أو لاحقة مثل 30s أو 10m أو 2h"
 
 #: src/toyota_telemetry/operator/editing.py:129
 msgid "invalid condition clause {text!r}; expected SIGNAL OP VALUE, e.g. 372/0x1002/0..15 > 10"
-msgstr ""
+msgstr "بند شرط غير صالح {text!r}؛ المتوقع SIGNAL OP VALUE، مثل 372/0x1002/0..15 > 10"
 
 #: src/toyota_telemetry/operator/editing.py:184 src/toyota_telemetry/operator/selection.py:153 src/toyota_telemetry/operator/selection.py:122
 msgid "signal is not in the candidate list: {signal}"
-msgstr ""
+msgstr "الإشارة ليست في قائمة المرشّحين: {signal}"
 
 #: src/toyota_telemetry/operator/editing.py:242
 msgid "evidence state must not be empty"
-msgstr ""
+msgstr "يجب ألا تكون حالة الدليل فارغة"
 
 #: src/toyota_telemetry/operator/editing.py:137
 msgid "'in' needs a comma-separated list in {text!r}"
-msgstr ""
+msgstr "يتطلب 'in' قائمة مفصولة بفواصل في {text!r}"
 
 #: src/toyota_telemetry/operator/editing.py:161
 msgid "condition value must be a number or true/false, got {text!r}"
-msgstr ""
+msgstr "يجب أن تكون قيمة الشرط رقمًا أو true/false، والمُدخل {text!r}"
 
 #: src/toyota_telemetry/operator/editing.py:212
 msgid "{signal} has several review rows; edit review/signals.json directly"
-msgstr ""
+msgstr "لـ {signal} عدة صفوف مراجعة؛ عدِّل review/signals.json مباشرة"
 
 #: src/toyota_telemetry/operator/editing.py:274
 msgid "DID is not in the candidate list: {did}"
-msgstr ""
+msgstr "DID ليس في قائمة المرشّحين: {did}"
 
 #: src/toyota_telemetry/operator/editing.py:277
 msgid "DID settings need a confirmed endpoint; {endpoint} is {state}"
-msgstr ""
+msgstr "إعدادات DID تتطلب نقطة اتصال مؤكَّدة؛ {endpoint} حالتها {state}"
 
 #: src/toyota_telemetry/operator/editing.py:296
 msgid "{did}: interval must not exceed the maximum interval"
-msgstr ""
+msgstr "{did}: يجب ألا يتجاوز الفاصل الفاصلَ الأقصى"
 
 #: src/toyota_telemetry/operator/editing.py:360
 msgid "{signal}: a target needs at least one completion requirement"
-msgstr ""
+msgstr "{signal}: يحتاج الهدف إلى شرط اكتمال واحد على الأقل"
 
 #: src/toyota_telemetry/operator/editing.py:416
 msgid "invalid formula {formula!r}: {error}"
-msgstr ""
+msgstr "صيغة غير صالحة {formula!r}: {error}"
 
 #: src/toyota_telemetry/operator/editing.py:353
 msgid "{signal}: minimum changes needs a minimum difference"
-msgstr ""
+msgstr "{signal}: أدنى عدد من التغيّرات يتطلب أدنى فرق"
 
 #: src/toyota_telemetry/operator/inventory.py:42
 msgid "Verified"
-msgstr ""
+msgstr "تم التحقق"
 
 #: src/toyota_telemetry/operator/inventory.py:43
 msgid "Not verified"
-msgstr ""
+msgstr "لم يُتحقَّق منه"
 
 #: src/toyota_telemetry/operator/inventory.py:44
 msgid "Failed"
-msgstr ""
+msgstr "فشل"
 
 #: src/toyota_telemetry/operator/inventory.py:45
 msgid "Endpoint not verified"
-msgstr ""
+msgstr "لم يُتحقَّق من نقطة الاتصال"
 
 #: src/toyota_telemetry/operator/inventory.py:47
 msgid "ECU did not answer"
-msgstr ""
+msgstr "لم تستجب ECU"
 
 #: src/toyota_telemetry/operator/inventory.py:50 src/toyota_telemetry/ui/names.py:20 src/toyota_telemetry/ui/names.py:27 src/toyota_telemetry/ui/signals_page.py:95
 msgid "Not checked"
-msgstr ""
+msgstr "لم يُفحص"
 
 #: src/toyota_telemetry/operator/inventory.py:51 src/toyota_telemetry/ui/names.py:21 src/toyota_telemetry/ui/names.py:26 src/toyota_telemetry/ui/signals_page.py:96
 msgid "No answer"
-msgstr ""
+msgstr "لا استجابة"
 
 #: src/toyota_telemetry/operator/inventory.py:52 src/toyota_telemetry/ui/names.py:22 src/toyota_telemetry/ui/signals_page.py:97
 msgid "Refused"
-msgstr ""
+msgstr "مرفوض"
 
 #: src/toyota_telemetry/operator/inventory.py:53
 msgid "Responds"
-msgstr ""
+msgstr "يستجيب"
 
 #: src/toyota_telemetry/operator/inventory.py:54 src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/shell.py:89
 msgid "Recorded"
-msgstr ""
+msgstr "مسجَّل"
 
 #: src/toyota_telemetry/operator/inventory.py:55
 msgid "Reviewed"
-msgstr ""
+msgstr "تمت المراجعة"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Candidate"
-msgstr ""
+msgstr "مرشّح"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Observed"
-msgstr ""
+msgstr "مرصود"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Correlated"
-msgstr ""
+msgstr "مترابط"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Validated"
-msgstr ""
+msgstr "مُعتمَد"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Observed and replayed"
-msgstr ""
+msgstr "مرصود ومُعاد تشغيله"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Correlated and replayed"
-msgstr ""
+msgstr "مترابط ومُعاد تشغيله"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Validated and replayed"
-msgstr ""
+msgstr "مُعتمَد ومُعاد تشغيله"
 
 #: src/toyota_telemetry/operator/inventory.py:68
 msgid "refused"
-msgstr ""
+msgstr "مرفوض"
 
 #: src/toyota_telemetry/operator/inventory.py:69
 msgid "no answer"
-msgstr ""
+msgstr "لا استجابة"
 
 #: src/toyota_telemetry/operator/inventory.py:70
 msgid "connection error"
-msgstr ""
+msgstr "خطأ في الاتصال"
 
 #: src/toyota_telemetry/operator/inventory.py:71
 msgid "session could not be opened"
-msgstr ""
+msgstr "تعذّر فتح الجلسة"
 
 #: src/toyota_telemetry/operator/inventory.py:75
 msgid "general reject"
-msgstr ""
+msgstr "رفض عام"
 
 #: src/toyota_telemetry/operator/inventory.py:76
 msgid "service not supported"
-msgstr ""
+msgstr "الخدمة غير مدعومة"
 
 #: src/toyota_telemetry/operator/inventory.py:77
 msgid "sub-function not supported"
-msgstr ""
+msgstr "الوظيفة الفرعية غير مدعومة"
 
 #: src/toyota_telemetry/operator/inventory.py:78
 msgid "wrong message length"
-msgstr ""
+msgstr "طول الرسالة خاطئ"
 
 #: src/toyota_telemetry/operator/inventory.py:79
 msgid "response too long"
-msgstr ""
+msgstr "الاستجابة طويلة جدًا"
 
 #: src/toyota_telemetry/operator/inventory.py:80
 msgid "conditions not correct"
-msgstr ""
+msgstr "الشروط غير صحيحة"
 
 #: src/toyota_telemetry/operator/inventory.py:81
 msgid "request out of range"
-msgstr ""
+msgstr "الطلب خارج النطاق"
 
 #: src/toyota_telemetry/operator/inventory.py:82
 msgid "security access required"
-msgstr ""
+msgstr "يتطلب وصولًا أمنيًا"
 
 #: src/toyota_telemetry/operator/inventory.py:83
 msgid "general programming failure"
-msgstr ""
+msgstr "فشل برمجة عام"
 
 #: src/toyota_telemetry/operator/inventory.py:84
 msgid "not supported in this session"
-msgstr ""
+msgstr "غير مدعوم في هذه الجلسة"
 
 #: src/toyota_telemetry/operator/inventory.py:85
 msgid "service not supported in this session"
-msgstr ""
+msgstr "الخدمة غير مدعومة في هذه الجلسة"
 
 #: src/toyota_telemetry/operator/inventory.py:1107
 msgid "endpoint is not verified"
-msgstr ""
+msgstr "لم يُتحقَّق من نقطة الاتصال"
 
 #: src/toyota_telemetry/operator/inventory.py:1108
 msgid "endpoint is address unknown"
-msgstr ""
+msgstr "عنوان نقطة الاتصال غير معروف"
 
 #: src/toyota_telemetry/operator/inventory.py:407
 msgid "not in the candidate list"
-msgstr ""
+msgstr "ليس في قائمة المرشّحين"
 
 #: src/toyota_telemetry/operator/inventory.py:384
 msgid "the candidate list changed since the preview; preview the source again"
-msgstr ""
+msgstr "تغيّرت قائمة المرشّحين منذ المعاينة؛ عايِن المصدر مرة أخرى"
 
 #: src/toyota_telemetry/operator/inventory.py:409
 msgid "reviewed"
-msgstr ""
+msgstr "تمت مراجعته"
 
 #: src/toyota_telemetry/operator/inventory.py:411
 msgid "has a target"
-msgstr ""
+msgstr "له هدف"
 
 #: src/toyota_telemetry/operator/inventory.py:431
 msgid "the candidate list changed since the preview; select the signals again"
-msgstr ""
+msgstr "تغيّرت قائمة المرشّحين منذ المعاينة؛ حدّد الإشارات مرة أخرى"
 
 #: src/toyota_telemetry/operator/inventory.py:433
 msgid "none of the selected signals can be deleted"
-msgstr ""
+msgstr "لا يمكن حذف أي من الإشارات المحددة"
 
 #: src/toyota_telemetry/operator/inventory.py:493
 msgid "Nothing to delete."
-msgstr ""
+msgstr "لا شيء للحذف."
 
 #: src/toyota_telemetry/operator/inventory.py:608
 msgid "enter at least one endpoint"
-msgstr ""
+msgstr "أدخل نقطة اتصال واحدة على الأقل"
 
 #: src/toyota_telemetry/operator/inventory.py:792
 msgid "unnamed ECU"
-msgstr ""
+msgstr "ECU بلا اسم"
 
 #: src/toyota_telemetry/operator/inventory.py:956
 msgid "(not in candidate list)"
-msgstr ""
+msgstr "(ليس في قائمة المرشّحين)"
 
 #: src/toyota_telemetry/operator/inventory.py:95
 msgid "{outcome} (code {code})"
-msgstr ""
+msgstr "{outcome} (الرمز {code})"
 
 #: src/toyota_telemetry/operator/inventory.py:417
 msgid "recorded"
-msgstr ""
+msgstr "مسجَّل"
 
 #: src/toyota_telemetry/operator/inventory.py:442
 msgid "{label}: {rows} rows, {signals} signals, {dids} DIDs, {ecus} ECUs, {endpoints} endpoint candidates."
-msgstr ""
+msgstr "{label}: الصفوف {rows}، الإشارات {signals}، DID {dids}، ECU {ecus}، نقاط الاتصال المرشّحة {endpoints}."
 
 #: src/toyota_telemetry/operator/inventory.py:450
 msgid "To add {added} signals; to update {updated}; unchanged {unchanged}."
-msgstr ""
+msgstr "إشارات ستُضاف: {added}؛ ستُحدَّث: {updated}؛ دون تغيير: {unchanged}."
 
 #: src/toyota_telemetry/operator/inventory.py:1091
 msgid "responded in recorded runs"
-msgstr ""
+msgstr "استجاب في التسجيلات"
 
 #: src/toyota_telemetry/operator/inventory.py:94
 msgid "{outcome}: {meaning} (code {code})"
-msgstr ""
+msgstr "{outcome}: {meaning} (الرمز {code})"
 
 #: src/toyota_telemetry/operator/inventory.py:195
 msgid "no imported source {source!r}; imported: {known}"
-msgstr ""
+msgstr "لا يوجد مصدر مستورد {source!r}؛ المستورد: {known}"
 
 #: src/toyota_telemetry/operator/inventory.py:269
 msgid "DID is outside the transport safety range"
-msgstr ""
+msgstr "DID خارج نطاق الأمان الخاص بالنقل"
 
 #: src/toyota_telemetry/operator/inventory.py:368
 msgid "reviewed signals would no longer resolve: {error}"
-msgstr ""
+msgstr "الإشارات التي تمت مراجعتها لن تعود قابلة للمطابقة: {error}"
 
 #: src/toyota_telemetry/operator/inventory.py:414
 msgid "used in a target condition"
-msgstr ""
+msgstr "مستخدم في شرط هدف"
 
 #: src/toyota_telemetry/operator/inventory.py:457
 msgid "Updates change: {fields}."
-msgstr ""
+msgstr "التحديثات تغيّر: {fields}."
 
 #: src/toyota_telemetry/operator/inventory.py:461
 msgid "{count} signal from this source's last import is not in it; it is kept."
 msgid_plural "{count} signals from this source's last import are not in it; they are kept."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} إشارة من آخر استيراد لهذا المصدر ليست فيه؛ سيُحتفظ بها."
+msgstr[1] "{count} إشارة من آخر استيراد لهذا المصدر ليست فيه؛ سيُحتفظ بها."
+msgstr[2] "{count} إشارتان من آخر استيراد لهذا المصدر ليستا فيه؛ سيُحتفظ بهما."
+msgstr[3] "{count} إشارات من آخر استيراد لهذا المصدر ليست فيه؛ سيُحتفظ بها."
+msgstr[4] "{count} إشارة من آخر استيراد لهذا المصدر ليست فيه؛ سيُحتفظ بها."
+msgstr[5] "{count} إشارة من آخر استيراد لهذا المصدر ليست فيه؛ سيُحتفظ بها."
 
 #: src/toyota_telemetry/operator/inventory.py:466
 msgid "{count} replaced definition is kept because a review uses it."
 msgid_plural "{count} replaced definitions are kept because a review uses them."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} تعريف مستبدَل محتفظ به لأن مراجعة تستخدمه."
+msgstr[1] "{count} تعريف مستبدَل محتفظ به لأن مراجعة تستخدمه."
+msgstr[2] "{count} تعريفان مستبدَلان محتفظ بهما لأن مراجعات تستخدمهما."
+msgstr[3] "{count} تعريفات مستبدَلة محتفظ بها لأن مراجعات تستخدمها."
+msgstr[4] "{count} تعريفًا مستبدَلًا محتفظ بها لأن مراجعات تستخدمها."
+msgstr[5] "{count} تعريف مستبدَل محتفظ بها لأن مراجعات تستخدمها."
 
 #: src/toyota_telemetry/operator/inventory.py:471
 msgid "{count} repeated row merged into an existing definition."
 msgid_plural "{count} repeated rows merged into an existing definition."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} صف مكرر دُمج في تعريف موجود."
+msgstr[1] "{count} صف مكرر دُمج في تعريف موجود."
+msgstr[2] "{count} صفان مكرران دُمجا في تعريف موجود."
+msgstr[3] "{count} صفوف مكررة دُمجت في تعريف موجود."
+msgstr[4] "{count} صفًا مكررًا دُمجت في تعريف موجود."
+msgstr[5] "{count} صف مكرر دُمجت في تعريف موجود."
 
 #: src/toyota_telemetry/operator/inventory.py:476
 msgid "{count} of these signals has more than one formula."
 msgid_plural "{count} of these signals have more than one formula."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} من هذه الإشارات لها أكثر من صيغة."
+msgstr[1] "{count} من هذه الإشارات لها أكثر من صيغة."
+msgstr[2] "{count} من هذه الإشارات لهما أكثر من صيغة."
+msgstr[3] "{count} من هذه الإشارات لها أكثر من صيغة."
+msgstr[4] "{count} من هذه الإشارات لها أكثر من صيغة."
+msgstr[5] "{count} من هذه الإشارات لها أكثر من صيغة."
 
 #: src/toyota_telemetry/operator/inventory.py:481
 msgid "{count} row rejected."
 msgid_plural "{count} rows rejected."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "رُفض {count} صف."
+msgstr[1] "رُفض {count} صف."
+msgstr[2] "رُفض {count} صفان."
+msgstr[3] "رُفضت {count} صفوف."
+msgstr[4] "رُفض {count} صفًا."
+msgstr[5] "رُفض {count} صف."
 
 #: src/toyota_telemetry/operator/inventory.py:488
 msgid "Delete {count} signal from the candidate list. Importing its source again adds it back."
 msgid_plural "Delete {count} signals from the candidate list. Importing their source again adds them back."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "حذف {count} إشارة من قائمة المرشّحين. استيراد مصدرها مرة أخرى يعيدها."
+msgstr[1] "حذف {count} إشارة من قائمة المرشّحين. استيراد مصدرها مرة أخرى يعيدها."
+msgstr[2] "حذف {count} إشارتين من قائمة المرشّحين. استيراد مصدرهما مرة أخرى يعيدهما."
+msgstr[3] "حذف {count} إشارات من قائمة المرشّحين. استيراد مصدرها مرة أخرى يعيدها."
+msgstr[4] "حذف {count} إشارة من قائمة المرشّحين. استيراد مصدرها مرة أخرى يعيدها."
+msgstr[5] "حذف {count} إشارة من قائمة المرشّحين. استيراد مصدرها مرة أخرى يعيدها."
 
 #: src/toyota_telemetry/operator/inventory.py:498
 msgid "Kept: {reasons}."
-msgstr ""
+msgstr "محتفظ بها: {reasons}."
 
 #: src/toyota_telemetry/operator/inventory.py:1084
 msgid "responded during verification"
-msgstr ""
+msgstr "استجاب أثناء التحقق"
 
 #: src/toyota_telemetry/operator/inventory.py:1094
 msgid "the ECU did not answer when verified, so this DID was not read"
-msgstr ""
+msgstr "لم تستجب ECU أثناء التحقق، لذا لم يُقرأ هذا DID"
 
 #: src/toyota_telemetry/operator/inventory.py:196 src/toyota_telemetry/ui/dialogs.py:314 src/toyota_telemetry/ui/dialogs.py:294 src/toyota_telemetry/ui/signals_page.py:961
 msgid "none"
-msgstr ""
+msgstr "لا شيء"
 
 #: src/toyota_telemetry/operator/inventory.py:574
 msgid "endpoint {number}: enter the request CAN ID as hexadecimal, e.g. 0x7E0"
-msgstr ""
+msgstr "نقطة الاتصال {number}: أدخل CAN ID للطلب بالنظام الست عشري، مثل 0x7E0"
 
 #: src/toyota_telemetry/operator/inventory.py:580
 msgid "endpoint {number}: the response CAN ID must be an 11-bit ID other than the request ID"
-msgstr ""
+msgstr "نقطة الاتصال {number}: يجب أن يكون CAN ID للاستجابة معرّفًا من 11 بت مختلفًا عن معرّف الطلب"
 
 #: src/toyota_telemetry/operator/inventory.py:591
 msgid "endpoint {number}: enter at least one ECU key"
-msgstr ""
+msgstr "نقطة الاتصال {number}: أدخل مفتاح ECU واحدًا على الأقل"
 
 #: src/toyota_telemetry/operator/inventory.py:593
 msgid "endpoint {number}: ECU keys already belong to a confirmed endpoint: {keys}"
-msgstr ""
+msgstr "نقطة الاتصال {number}: مفاتيح ECU تنتمي بالفعل إلى نقطة اتصال مؤكَّدة: {keys}"
 
 #: src/toyota_telemetry/operator/inventory.py:587
 msgid "endpoint {number}: the address must be one hexadecimal byte, e.g. 0x2A"
-msgstr ""
+msgstr "نقطة الاتصال {number}: يجب أن يكون العنوان بايتًا ست عشريًا واحدًا، مثل 0x2A"
 
 #: src/toyota_telemetry/operator/inventory.py:600
 msgid "endpoint {number}: repeats an endpoint or ECU key given above"
-msgstr ""
+msgstr "نقطة الاتصال {number}: تكرر نقطة اتصال أو مفتاح ECU مذكورًا أعلاه"
 
 #: src/toyota_telemetry/operator/inventory.py:1099
 msgid "endpoint is {state}"
-msgstr ""
+msgstr "نقطة الاتصال حالتها {state}"
 
 #: src/toyota_telemetry/operator/live.py:53
 msgid "another live operation is running for this project"
-msgstr ""
+msgstr "عملية مباشرة أخرى قيد التشغيل لهذا المشروع"
 
 #: src/toyota_telemetry/operator/recordings.py:27
 msgid "complete"
-msgstr ""
+msgstr "مكتمل"
 
 #: src/toyota_telemetry/operator/recordings.py:28
 msgid "needs recovery"
-msgstr ""
+msgstr "يحتاج إلى استرداد"
 
 #: src/toyota_telemetry/operator/recordings.py:29
 msgid "unreadable"
-msgstr ""
+msgstr "غير قابل للقراءة"
 
 #: src/toyota_telemetry/operator/recordings.py:31
 msgid "targets complete"
-msgstr ""
+msgstr "الأهداف مكتملة"
 
 #: src/toyota_telemetry/operator/recordings.py:32
 msgid "handed over to the next ECU"
-msgstr ""
+msgstr "سُلِّم إلى ECU التالية"
 
 #: src/toyota_telemetry/operator/recordings.py:33
 msgid "stopped"
-msgstr ""
+msgstr "متوقف"
 
 #: src/toyota_telemetry/operator/recordings.py:34
 msgid "connection lost"
-msgstr ""
+msgstr "انقطع الاتصال"
 
 #: src/toyota_telemetry/operator/recordings.py:35
 msgid "storage limit reached"
-msgstr ""
+msgstr "بُلغ حد التخزين"
 
 #: src/toyota_telemetry/operator/recordings.py:36
 msgid "recovered after interruption"
-msgstr ""
+msgstr "استُرد بعد الانقطاع"
 
 #: src/toyota_telemetry/operator/recordings.py:278
 msgid "interrupted: recover it to keep the reads saved before the interruption, or move it to the trash"
-msgstr ""
+msgstr "مقطوع: استرده للاحتفاظ بالقراءات المحفوظة قبل الانقطاع، أو انقله إلى سلة المهملات"
 
 #: src/toyota_telemetry/operator/recordings.py:98
 msgid "a live job is running; delete after it stops"
-msgstr ""
+msgstr "مهمة مباشرة قيد التشغيل؛ احذف بعد توقفها"
 
 #: src/toyota_telemetry/operator/recordings.py:164
 msgid "a live job is running; recover after it stops"
-msgstr ""
+msgstr "مهمة مباشرة قيد التشغيل؛ استرد بعد توقفها"
 
 #: src/toyota_telemetry/operator/recordings.py:154
 msgid "run {run} is already complete"
-msgstr ""
+msgstr "التسجيل {run} مكتمل بالفعل"
 
 #: src/toyota_telemetry/operator/recordings.py:207
 msgid "no recorded run {run}"
-msgstr ""
+msgstr "لا يوجد تسجيل {run}"
 
 #: src/toyota_telemetry/operator/recordings.py:215
 msgid "directory name is not a run id"
-msgstr ""
+msgstr "اسم المجلد ليس معرّف تسجيل"
 
 #: src/toyota_telemetry/operator/recordings.py:221
 msgid "run-start is unreadable: {error}"
-msgstr ""
+msgstr "بداية التسجيل غير قابلة للقراءة: {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:100
 msgid "not moved to the trash: {error}"
-msgstr ""
+msgstr "لم يُنقل إلى سلة المهملات: {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:275
 msgid "run-end is unreadable: {error}"
-msgstr ""
+msgstr "نهاية التسجيل غير قابلة للقراءة: {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:161
 msgid "run {run} has no interrupted segment to recover"
-msgstr ""
+msgstr "التسجيل {run} ليس فيه مقطع مقطوع للاسترداد"
 
 #: src/toyota_telemetry/operator/selection.py:73
 msgid "nothing selected: name an endpoint, DID, or signal, or use a filter"
-msgstr ""
+msgstr "لم يُحدَّد شيء: اذكر نقطة اتصال أو DID أو إشارة، أو استخدم مرشِّح تصفية"
 
 #: src/toyota_telemetry/operator/selection.py:110
 msgid "the selection matched nothing in the candidate list"
-msgstr ""
+msgstr "التحديد لم يطابق شيئًا في قائمة المرشّحين"
 
 #: src/toyota_telemetry/operator/selection.py:127
 msgid "unknown endpoint {endpoint!r}"
-msgstr ""
+msgstr "نقطة اتصال غير معروفة {endpoint!r}"
 
 #: src/toyota_telemetry/operator/selection.py:131
 msgid "invalid selector {token!r}"
-msgstr ""
+msgstr "محدِّد غير صالح {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:149
 msgid "invalid signal bits in selector {token!r}"
-msgstr ""
+msgstr "بتات إشارة غير صالحة في المحدِّد {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:161
 msgid "bits {bits} are ambiguous on {did}; use the full signal reference ECU/DID/BITS"
-msgstr ""
+msgstr "البتات {bits} ملتبسة على {did}؛ استخدم مرجع الإشارة الكامل ECU/DID/BITS"
 
 #: src/toyota_telemetry/operator/selection.py:71
 msgid "unknown state filter {state!r}; choose from {choices}"
-msgstr ""
+msgstr "مرشِّح حالة غير معروف {state!r}؛ اختر من {choices}"
 
 #: src/toyota_telemetry/operator/selection.py:135
 msgid "invalid DID in selector {token!r}"
-msgstr ""
+msgstr "DID غير صالح في المحدِّد {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:139
 msgid "DID {did} is not in the candidate list for {endpoint}"
-msgstr ""
+msgstr "DID {did} ليس في قائمة المرشّحين لـ {endpoint}"
 
 #: src/toyota_telemetry/operator/service.py:78
 msgid "Create a project workspace"
-msgstr ""
+msgstr "إنشاء مشروع"
 
 #: src/toyota_telemetry/operator/service.py:79
 msgid "Show readiness and the next action"
-msgstr ""
+msgstr "عرض الجاهزية والإجراء التالي"
 
 #: src/toyota_telemetry/operator/service.py:80 src/toyota_telemetry/ui/shell.py:211
 msgid "Validate project files"
-msgstr ""
+msgstr "التحقق من صحة ملفات المشروع"
 
 #: src/toyota_telemetry/operator/service.py:81
 msgid "Show connector settings"
-msgstr ""
+msgstr "عرض إعدادات المحوّل"
 
 #: src/toyota_telemetry/operator/service.py:82
 msgid "Save connector settings"
-msgstr ""
+msgstr "حفظ إعدادات المحوّل"
 
 #: src/toyota_telemetry/operator/service.py:83
 msgid "Check connector offline"
-msgstr ""
+msgstr "فحص المحوّل دون اتصال"
 
 #: src/toyota_telemetry/operator/service.py:84
 msgid "Preview a candidate source"
-msgstr ""
+msgstr "معاينة مصدر مرشّحين"
 
 #: src/toyota_telemetry/operator/service.py:85
 msgid "Apply a candidate source"
-msgstr ""
+msgstr "تطبيق مصدر مرشّحين"
 
 #: src/toyota_telemetry/operator/service.py:86
 msgid "Save candidate rows to a file"
-msgstr ""
+msgstr "حفظ صفوف المرشّحين في ملف"
 
 #: src/toyota_telemetry/operator/service.py:87
 msgid "Rebuild the derived cache"
-msgstr ""
+msgstr "إعادة بناء ذاكرة التخزين المؤقت المشتقة"
 
 #: src/toyota_telemetry/operator/service.py:88
 msgid "List endpoints, DIDs, and signals"
-msgstr ""
+msgstr "سرد نقاط الاتصال وDID والإشارات"
 
 #: src/toyota_telemetry/operator/service.py:89
 msgid "Show one DID or signal"
-msgstr ""
+msgstr "عرض DID أو إشارة واحدة"
 
 #: src/toyota_telemetry/operator/service.py:90
 msgid "Add a manual endpoint candidate"
-msgstr ""
+msgstr "إضافة نقطة اتصال مرشّحة يدويًا"
 
 #: src/toyota_telemetry/operator/service.py:91
 msgid "Confirm a responding endpoint"
-msgstr ""
+msgstr "تأكيد نقطة اتصال مستجيبة"
 
 #: src/toyota_telemetry/operator/service.py:92
 msgid "Verify endpoints and DIDs"
-msgstr ""
+msgstr "التحقق من نقاط الاتصال وDID"
 
 #: src/toyota_telemetry/operator/service.py:93
 msgid "Watch one DID's signals live"
-msgstr ""
+msgstr "عرض مباشر لإشارات DID واحد"
 
 #: src/toyota_telemetry/operator/service.py:94
 msgid "Delete candidate signals"
-msgstr ""
+msgstr "حذف الإشارات المرشّحة"
 
 #: src/toyota_telemetry/operator/service.py:95
 msgid "Edit a signal definition"
-msgstr ""
+msgstr "تعديل تعريف إشارة"
 
 #: src/toyota_telemetry/operator/service.py:96
 msgid "Edit shared DID settings"
-msgstr ""
+msgstr "تعديل إعدادات DID المشتركة"
 
 #: src/toyota_telemetry/operator/service.py:98
 msgid "Remove collection targets"
-msgstr ""
+msgstr "إزالة أهداف الجمع"
 
 #: src/toyota_telemetry/operator/service.py:99
 msgid "Check collection readiness"
-msgstr ""
+msgstr "فحص جاهزية الجمع"
 
 #: src/toyota_telemetry/operator/service.py:100 src/toyota_telemetry/operator/service.py:302
 msgid "Collect data"
-msgstr ""
+msgstr "جمع البيانات"
 
 #: src/toyota_telemetry/operator/service.py:101
 msgid "List recorded runs"
-msgstr ""
+msgstr "سرد التسجيلات"
 
 #: src/toyota_telemetry/operator/service.py:102
 msgid "Show one run"
-msgstr ""
+msgstr "عرض تسجيل واحد"
 
 #: src/toyota_telemetry/operator/service.py:103
 msgid "Recover an interrupted run"
-msgstr ""
+msgstr "استرداد تسجيل مقطوع"
 
 #: src/toyota_telemetry/operator/service.py:104
 msgid "Move a run to the system trash"
-msgstr ""
+msgstr "نقل تسجيل إلى سلة مهملات النظام"
 
 #: src/toyota_telemetry/operator/service.py:105 src/toyota_telemetry/ui/recordings_page.py:124
 msgid "Export recorded samples"
-msgstr ""
+msgstr "تصدير العينات المسجَّلة"
 
 #: src/toyota_telemetry/operator/service.py:106
 msgid "Export the result to a folder"
-msgstr ""
+msgstr "تصدير النتيجة إلى مجلد"
 
 #: src/toyota_telemetry/operator/service.py:303
 msgid "Analyze recordings"
-msgstr ""
+msgstr "تحليل التسجيلات"
 
 #: src/toyota_telemetry/operator/service.py:266
 msgid "Recover the interrupted run"
-msgstr ""
+msgstr "استرداد التسجيل المقطوع"
 
 #: src/toyota_telemetry/operator/service.py:273
 msgid "Import a candidate signal list"
-msgstr ""
+msgstr "استيراد قائمة إشارات مرشّحة"
 
 #: src/toyota_telemetry/operator/service.py:280
 msgid "Confirm the responding endpoint"
-msgstr ""
+msgstr "تأكيد نقطة الاتصال المستجيبة"
 
 #: src/toyota_telemetry/operator/service.py:290
 msgid "Verify endpoints and DIDs with the vehicle"
-msgstr ""
+msgstr "التحقق من نقاط الاتصال وDID مع السيارة"
 
 #: src/toyota_telemetry/operator/service.py:331
 msgid "no connector configured yet"
-msgstr ""
+msgstr "لم يُضبط أي محوّل بعد"
 
 #: src/toyota_telemetry/operator/service.py:386
 msgid "no candidate rows imported yet"
-msgstr ""
+msgstr "لم تُستورد أي صفوف مرشّحة بعد"
 
 #: src/toyota_telemetry/operator/service.py:219 src/toyota_telemetry/operator/service.py:244
 msgid "Fix the project files"
-msgstr ""
+msgstr "أصلِح ملفات المشروع"
 
 #: src/toyota_telemetry/operator/service.py:313
 msgid "project {project} profile {profile}: workspace files are valid"
-msgstr ""
+msgstr "المشروع {project} الملف التعريفي {profile}: ملفات المشروع صالحة"
 
 #: src/toyota_telemetry/operator/service.py:243
 msgid "cache could not be refreshed: {error}"
-msgstr ""
+msgstr "تعذّر تحديث ذاكرة التخزين المؤقت: {error}"
 
 #: src/toyota_telemetry/operator/service.py:389
 msgid "{name} exists; choose another name or overwrite it"
-msgstr ""
+msgstr "{name} موجود؛ اختر اسمًا آخر أو استبدله"
 
 #: src/toyota_telemetry/operator/service.py:478
 msgid "{candidate} has no verification result; verify it before confirming"
-msgstr ""
+msgstr "لا توجد نتيجة تحقق لـ {candidate}؛ تحقّق منه قبل التأكيد"
 
 #: src/toyota_telemetry/operator/service.py:320
 msgid "candidate inventory: {error}"
-msgstr ""
+msgstr "مخزون المرشّحين: {error}"
 
 #: src/toyota_telemetry/operator/service.py:325
 msgid "verification facts: {error}"
-msgstr ""
+msgstr "بيانات التحقق: {error}"
 
 #: src/toyota_telemetry/operator/service.py:329
 msgid "candidate list: {error}"
-msgstr ""
+msgstr "قائمة المرشّحين: {error}"
 
 #: src/toyota_telemetry/operator/sources.py:262
 msgid "the TIS database reader needs Windows (32-bit Techstream libraries)"
-msgstr ""
+msgstr "قارئ قاعدة بيانات TIS يتطلب Windows (مكتبات Techstream بنظام 32 بت)"
 
 #: src/toyota_telemetry/operator/sources.py:288
 msgid "no installed TIS database matches the ECU selection"
-msgstr ""
+msgstr "لا توجد قاعدة بيانات TIS مثبتة تطابق اختيار ECU"
 
 #: src/toyota_telemetry/operator/sources.py:189
 msgid "file not found: {name}"
-msgstr ""
+msgstr "الملف غير موجود: {name}"
 
 #: src/toyota_telemetry/operator/sources.py:264
 msgid "{name} is missing from this installation; build it with backends\\build.ps1"
-msgstr ""
+msgstr "{name} مفقود من هذا التثبيت؛ ابنِه باستخدام backends\\build.ps1"
 
 #: src/toyota_telemetry/operator/sources.py:266
 msgid "no DB folder under the database directory {name}"
-msgstr ""
+msgstr "لا يوجد مجلد DB ضمن مجلد قاعدة البيانات {name}"
 
 #: src/toyota_telemetry/operator/sources.py:205
 msgid "{name}: expected a JSON array of rows"
-msgstr ""
+msgstr "{name}: المتوقع مصفوفة JSON من الصفوف"
 
 #: src/toyota_telemetry/operator/sources.py:320
 msgid "not a CAN diagnostic address ({addressing})"
-msgstr ""
+msgstr "ليس عنوان تشخيص CAN ({addressing})"
 
 #: src/toyota_telemetry/operator/sources.py:199
 msgid "{name}: invalid JSON: {error}"
-msgstr ""
+msgstr "{name}: JSON غير صالح: {error}"
 
 #: src/toyota_telemetry/operator/verification.py:110
 msgid "verification needs at least one selected DID"
-msgstr ""
+msgstr "التحقق يتطلب DID محددًا واحدًا على الأقل"
 
 #: src/toyota_telemetry/operator/verification.py:115
 msgid "the transport settings have no session recipe yet"
-msgstr ""
+msgstr "إعدادات النقل لا تتضمن وصفة جلسة بعد"
 
 #: src/toyota_telemetry/operator/verification.py:45
 msgid ", then "
-msgstr ""
+msgstr "، ثم "
 
 #: src/toyota_telemetry/operator/verification.py:46
 msgid "session automatic (tries {order})"
-msgstr ""
+msgstr "جلسة تلقائية (تجرّب {order})"
 
 #: src/toyota_telemetry/operator/verification.py:81
 msgid "LIVE verification of {endpoints} endpoint(s) ({probes} to probe) and {dids} DID(s) on {connector} {device}"
-msgstr ""
+msgstr "تحقق مباشر (LIVE) من نقاط الاتصال: {endpoints} (للفحص: {probes}) ومن DID: {dids} على {connector} {device}"
 
 #: src/toyota_telemetry/operator/verification.py:44
 msgid "session {recipe}"
-msgstr ""
+msgstr "الجلسة {recipe}"
 
 #: src/toyota_telemetry/operator/verification.py:113
 msgid "unknown session recipe {recipe!r}"
-msgstr ""
+msgstr "وصفة جلسة غير معروفة {recipe!r}"
 
 #: src/toyota_telemetry/operator/verification.py:165
 msgid "{endpoint} has no known CAN IDs; add a manual endpoint with its tester and response CAN IDs"
-msgstr ""
+msgstr "لا توجد CAN ID معروفة لـ {endpoint}؛ أضف نقطة اتصال يدوية مع CAN ID للفاحص وللاستجابة"
 
 #: src/toyota_telemetry/operator/verification.py:262
 msgid "endpoint did not respond"
-msgstr ""
+msgstr "لم تستجب نقطة الاتصال"
 
 #: src/toyota_telemetry/operator/verification.py:130
 msgid "unknown endpoint in selection: {endpoint}"
-msgstr ""
+msgstr "نقطة اتصال غير معروفة في التحديد: {endpoint}"
 
 #: src/toyota_telemetry/operator/verification.py:133
 msgid "{did} is outside the transport DID safety range {low}..{high}"
-msgstr ""
+msgstr "{did} خارج نطاق أمان DID الخاص بالنقل {low}..{high}"
 
 #: src/toyota_telemetry/operator/watch.py:78
 msgid "confirm the endpoint first"
-msgstr ""
+msgstr "أكِّد نقطة الاتصال أولًا"
 
 #: src/toyota_telemetry/operator/watch.py:80
 msgid "verify this DID first; only DIDs that answered are watched"
-msgstr ""
+msgstr "تحقّق من هذا DID أولًا؛ لا يُعرض إلا ما استجاب من DID"
 
 #: src/toyota_telemetry/operator/watch.py:84
 msgid "set how often this DID is read first"
-msgstr ""
+msgstr "حدّد أولًا عدد مرات قراءة هذا DID"
 
 #: src/toyota_telemetry/operator/watch.py:91
 msgid "configure the connector first"
-msgstr ""
+msgstr "اضبط المحوّل أولًا"
 
 #: src/toyota_telemetry/operator/watch.py:93
 msgid "this DID has no signals to show"
-msgstr ""
+msgstr "لا توجد إشارات لعرضها في هذا DID"
 
 #: src/toyota_telemetry/operator/watch.py:173
 msgid "beyond the reply"
-msgstr ""
+msgstr "بعد نهاية الرد"
 
 #: src/toyota_telemetry/operator/watch.py:55
 msgid "Read {did} on {endpoint} every {interval} ms and show {count} signal(s); nothing is recorded"
-msgstr ""
+msgstr "قراءة {did} على {endpoint} كل {interval} ms وعرض الإشارات ({count})؛ لا يُسجَّل شيء"
 
 #: src/toyota_telemetry/operator/watch.py:75
 msgid "no DID {did} in the candidate list"
-msgstr ""
+msgstr "لا يوجد DID {did} في قائمة المرشّحين"
 
 #: src/toyota_telemetry/operator/watch.py:87
 msgid "the DID's interval {interval} ms is below the {floor} ms request floor"
-msgstr ""
+msgstr "فاصل DID البالغ {interval} ms أقل من الحد الأدنى للطلبات {floor} ms"
 
 #: src/toyota_telemetry/operator/watch.py:156
 msgid "stopped after {count} failed read in a row"
 msgid_plural "stopped after {count} failed reads in a row"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "توقف بعد {count} قراءة فاشلة متتالية"
+msgstr[1] "توقف بعد {count} قراءة فاشلة متتالية"
+msgstr[2] "توقف بعد {count} قراءتين فاشلتين متتاليتين"
+msgstr[3] "توقف بعد {count} قراءات فاشلة متتالية"
+msgstr[4] "توقف بعد {count} قراءة فاشلة متتالية"
+msgstr[5] "توقف بعد {count} قراءة فاشلة متتالية"
 
 #: src/toyota_telemetry/operator/workspace.py:53
 msgid "{name} is not an empty folder"
-msgstr ""
+msgstr "{name} ليس مجلدًا فارغًا"
 
 #: src/toyota_telemetry/ui/collect_page.py:367
 msgid "one after another"
-msgstr ""
+msgstr "واحدًا تلو الآخر"
 
 #: src/toyota_telemetry/ui/collect_page.py:72
 msgid "Readiness"
-msgstr ""
+msgstr "الجاهزية"
 
 #: src/toyota_telemetry/ui/collect_page.py:77
 msgid "ECUs to collect"
-msgstr ""
+msgstr "وحدات ECU للجمع"
 
 #: src/toyota_telemetry/ui/collect_page.py:78
 msgid "Check ECUs to collect; drag to order"
-msgstr ""
+msgstr "حدّد وحدات ECU للجمع؛ اسحب للترتيب"
 
 #: src/toyota_telemetry/ui/collect_page.py:94
 msgid "How to move between ECUs"
-msgstr ""
+msgstr "طريقة الانتقال بين وحدات ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:95
 msgid "How to move between checked ECUs"
-msgstr ""
+msgstr "طريقة الانتقال بين وحدات ECU المحددة"
 
 #: src/toyota_telemetry/ui/collect_page.py:100
 msgid "Time on each ECU"
-msgstr ""
+msgstr "الوقت على كل ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:101
 msgid "Time on each ECU before the next"
-msgstr ""
+msgstr "الوقت على كل ECU قبل التالية"
 
 #: src/toyota_telemetry/ui/collect_page.py:106 src/toyota_telemetry/ui/setup_page.py:72
 msgid "Check"
-msgstr ""
+msgstr "فحص"
 
 #: src/toyota_telemetry/ui/collect_page.py:107
 msgid "Recheck; nothing is transmitted"
-msgstr ""
+msgstr "إعادة الفحص؛ لا يُرسَل شيء"
 
 #: src/toyota_telemetry/ui/collect_page.py:111
 msgid "Several ECUs"
-msgstr ""
+msgstr "عدة وحدات ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:112
 msgid "Switch every"
-msgstr ""
+msgstr "التبديل كل"
 
 #: src/toyota_telemetry/ui/collect_page.py:117 src/toyota_telemetry/ui/collect_page.py:262 src/toyota_telemetry/ui/signals_page.py:323 src/toyota_telemetry/ui/signals_page.py:567
 msgid "No project open."
-msgstr ""
+msgstr "لا يوجد مشروع مفتوح."
 
 #: src/toyota_telemetry/ui/collect_page.py:123
 msgid "Technical collection scope"
-msgstr ""
+msgstr "النطاق التقني للجمع"
 
 #: src/toyota_telemetry/ui/collect_page.py:124
 msgid "Scope"
-msgstr ""
+msgstr "النطاق"
 
 #: src/toyota_telemetry/ui/collect_page.py:125
 msgid "The exact compiled scope"
-msgstr ""
+msgstr "النطاق المُجمَّع بدقة"
 
 #: src/toyota_telemetry/ui/collect_page.py:130
 msgid "Run"
-msgstr ""
+msgstr "التسجيل"
 
 #: src/toyota_telemetry/ui/collect_page.py:134 src/toyota_telemetry/ui/dialogs.py:239
 msgid "optional"
-msgstr ""
+msgstr "اختياري"
 
 #: src/toyota_telemetry/ui/collect_page.py:135
 msgid "Saved with the run, e.g. highway"
-msgstr ""
+msgstr "يُحفظ مع التسجيل، مثل: طريق سريع"
 
 #: src/toyota_telemetry/ui/collect_page.py:136 src/toyota_telemetry/ui/dialogs.py:242 src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Note"
-msgstr ""
+msgstr "ملاحظة"
 
 #: src/toyota_telemetry/ui/collect_page.py:145
 msgid "Idle. Adapter closed."
-msgstr ""
+msgstr "خامل. المحوّل مغلق."
 
 #: src/toyota_telemetry/ui/collect_page.py:148 src/toyota_telemetry/ui/collect_page.py:464
 msgid "%v of %m targets complete"
-msgstr ""
+msgstr "اكتمل %v من %m أهداف"
 
 #: src/toyota_telemetry/ui/collect_page.py:157
 msgid "Read log"
-msgstr ""
+msgstr "سجل القراءات"
 
 #: src/toyota_telemetry/ui/collect_page.py:158
 msgid "Every read as it happens"
-msgstr ""
+msgstr "كل قراءة لحظة حدوثها"
 
 #: src/toyota_telemetry/ui/collect_page.py:163 src/toyota_telemetry/ui/collect_page.py:402 src/toyota_telemetry/ui/shell.py:65 src/toyota_telemetry/ui/signals_page.py:375
 msgid "Targets"
-msgstr ""
+msgstr "الأهداف"
 
 #: src/toyota_telemetry/ui/collect_page.py:164
 msgid "Collected so far, across all runs"
-msgstr ""
+msgstr "ما جُمع حتى الآن عبر كل التسجيلات"
 
 #: src/toyota_telemetry/ui/collect_page.py:170
 msgid "Target progress"
-msgstr ""
+msgstr "تقدم الأهداف"
 
 #: src/toyota_telemetry/ui/collect_page.py:226 src/toyota_telemetry/ui/collect_page.py:354 src/toyota_telemetry/ui/setup_page.py:112
 msgid "Checking…"
-msgstr ""
+msgstr "جارٍ الفحص…"
 
 #: src/toyota_telemetry/ui/collect_page.py:432 src/toyota_telemetry/ui/collect_page.py:138 src/toyota_telemetry/ui/dialogs.py:192
 msgid "Start"
-msgstr ""
+msgstr "بدء"
 
 #: src/toyota_telemetry/ui/collect_page.py:468
 msgid "LIVE - starting…"
-msgstr ""
+msgstr "LIVE - جارٍ البدء…"
 
 #: src/toyota_telemetry/ui/collect_page.py:494
 msgid "One run per ECU and turn; ECUs whose targets are met are skipped."
-msgstr ""
+msgstr "تسجيل واحد لكل ECU في كل دور؛ تُتخطى وحدات ECU التي اكتملت أهدافها."
 
 #: src/toyota_telemetry/ui/collect_page.py:498
 msgid "Stops when every target is met or you stop it."
-msgstr ""
+msgstr "يتوقف عند اكتمال كل الأهداف أو عند إيقافك له."
 
 #: src/toyota_telemetry/ui/collect_page.py:517 src/toyota_telemetry/ui/collect_page.py:554 src/toyota_telemetry/ui/collect_page.py:66 src/toyota_telemetry/ui/shell.py:37 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:99 src/toyota_telemetry/ui/signals_page.py:350 src/toyota_telemetry/ui/signals_page.py:669
 msgid "Collect"
-msgstr ""
+msgstr "جمع"
 
 #: src/toyota_telemetry/ui/collect_page.py:597
 msgid "Completed: every target in this run is complete."
-msgstr ""
+msgstr "اكتمل: جميع الأهداف في هذا التسجيل مكتملة."
 
 #: src/toyota_telemetry/ui/collect_page.py:598
 msgid "Turn ended."
-msgstr ""
+msgstr "انتهى الدور."
 
 #: src/toyota_telemetry/ui/collect_page.py:599
 msgid "Stopped safely."
-msgstr ""
+msgstr "توقف بأمان."
 
 #: src/toyota_telemetry/ui/collect_page.py:600
 msgid "Stopped at the storage limit; the run was finalized."
-msgstr ""
+msgstr "توقف عند حد التخزين؛ أُنهي التسجيل."
 
 #: src/toyota_telemetry/ui/collect_page.py:601
 msgid "Transport lost; the valid prefix was finalized."
-msgstr ""
+msgstr "فُقد النقل؛ أُنهي الجزء الصالح من التسجيل."
 
 #: src/toyota_telemetry/ui/collect_page.py:52
 msgid "{ids} address {address}"
-msgstr ""
+msgstr "{ids} العنوان {address}"
 
 #: src/toyota_telemetry/ui/collect_page.py:67 src/toyota_telemetry/ui/shell.py:43
 msgid "Run collection; target progress"
-msgstr ""
+msgstr "تشغيل الجمع؛ تقدم الأهداف"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/watch_window.py:46
 msgid "Signal"
-msgstr ""
+msgstr "الإشارة"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/recordings_page.py:49 src/toyota_telemetry/ui/signals_page.py:719 src/toyota_telemetry/ui/signals_page.py:669
 msgid "ECU"
-msgstr ""
+msgstr "ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:103 src/toyota_telemetry/ui/signals_page.py:670
 msgid "Target"
-msgstr ""
+msgstr "الهدف"
 
 #: src/toyota_telemetry/ui/collect_page.py:172
 msgid "Still needs"
-msgstr ""
+msgstr "المتبقي"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "Signal with a target"
-msgstr ""
+msgstr "إشارة لها هدف"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "Where it is read"
-msgstr ""
+msgstr "مكان قراءتها"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "What it must collect"
-msgstr ""
+msgstr "ما يجب جمعه"
 
 #: src/toyota_telemetry/ui/collect_page.py:175
 msgid "Collected so far across valid runs"
-msgstr ""
+msgstr "ما جُمع حتى الآن عبر التسجيلات الصالحة"
 
 #: src/toyota_telemetry/ui/collect_page.py:175
 msgid "Requirements not met yet"
-msgstr ""
+msgstr "متطلبات لم تتحقق بعد"
 
 #: src/toyota_telemetry/ui/collect_page.py:209
 msgid "Signals has unsaved changes. This page uses the saved settings until you save them."
-msgstr ""
+msgstr "في صفحة الإشارات تغييرات غير محفوظة. تستخدم هذه الصفحة الإعدادات المحفوظة حتى تحفظها."
 
 #: src/toyota_telemetry/ui/collect_page.py:270
 msgid "Check at least one ECU to collect."
-msgstr ""
+msgstr "حدّد ECU واحدة على الأقل للجمع."
 
 #: src/toyota_telemetry/ui/collect_page.py:288
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), storage limit {limit} MiB."
-msgstr ""
+msgstr "جاهز: {where}، الأهداف: {targets}، DID: {dids}، حد التخزين {limit} MiB."
 
 #: src/toyota_telemetry/ui/collect_page.py:393
 msgid "Nothing yet"
-msgstr ""
+msgstr "لا شيء بعد"
 
 #: src/toyota_telemetry/ui/collect_page.py:426 src/toyota_telemetry/ui/signals_page.py:436 src/toyota_telemetry/ui/watch_window.py:64
 msgid "Stop"
-msgstr ""
+msgstr "إيقاف"
 
 #: src/toyota_telemetry/ui/collect_page.py:428
 msgid "Stops safely and keeps the run"
-msgstr ""
+msgstr "يتوقف بأمان ويحتفظ بالتسجيل"
 
 #: src/toyota_telemetry/ui/collect_page.py:442
 msgid "Another live job is running."
-msgstr ""
+msgstr "مهمة مباشرة أخرى قيد التشغيل."
 
 #: src/toyota_telemetry/ui/collect_page.py:464
 msgid "%v of %m targets on this ECU"
-msgstr ""
+msgstr "%v من %m أهداف على هذه ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:564
 msgid "LIVE - stopping safely…"
-msgstr ""
+msgstr "LIVE - جارٍ الإيقاف بأمان…"
 
 #: src/toyota_telemetry/ui/collect_page.py:141
 msgid "Stops when targets are met\n{live}"
-msgstr ""
+msgstr "يتوقف عند تحقق الأهداف\n{live}"
 
 #: src/toyota_telemetry/ui/collect_page.py:292
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), bus load {load}%, up to {rate} reads/s, storage limit {limit} MiB."
-msgstr ""
+msgstr "جاهز: {where}، الأهداف: {targets}، DID: {dids}، حمل الناقل {load}%، حتى {rate} قراءة/s، حد التخزين {limit} MiB."
 
 #: src/toyota_telemetry/ui/collect_page.py:295
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), bus load {load}%, {rate} reads/s, storage limit {limit} MiB."
-msgstr ""
+msgstr "جاهز: {where}، الأهداف: {targets}، DID: {dids}، حمل الناقل {load}%، {rate} قراءة/s، حد التخزين {limit} MiB."
 
 #: src/toyota_telemetry/ui/collect_page.py:301
 msgid "✓ All targets met. Nothing left to collect."
-msgstr ""
+msgstr "✓ تحققت كل الأهداف. لم يبقَ شيء للجمع."
 
 #: src/toyota_telemetry/ui/collect_page.py:304
 msgid "Not ready:"
-msgstr ""
+msgstr "غير جاهز:"
 
 #: src/toyota_telemetry/ui/collect_page.py:366
 msgid "in turn, {minutes} min each"
-msgstr ""
+msgstr "بالتناوب، {minutes} min لكل منها"
 
 #: src/toyota_telemetry/ui/collect_page.py:405
 msgid "No targets yet. Set them on Signals."
-msgstr ""
+msgstr "لا أهداف بعد. عيّنها في صفحة الإشارات."
 
 #: src/toyota_telemetry/ui/collect_page.py:443
 msgid "All targets met."
-msgstr ""
+msgstr "تحققت كل الأهداف."
 
 #: src/toyota_telemetry/ui/collect_page.py:443
 msgid "Readiness has problems."
-msgstr ""
+msgstr "توجد مشكلات في الجاهزية."
 
 #: src/toyota_telemetry/ui/collect_page.py:489
 msgid "ECUs {turns}, in this order:"
-msgstr ""
+msgstr "وحدات ECU {turns}، بهذا الترتيب:"
 
 #: src/toyota_telemetry/ui/collect_page.py:499 src/toyota_telemetry/ui/collect_page.py:539
 msgid "Storage limit: {limit} MiB"
-msgstr ""
+msgstr "حد التخزين: {limit} MiB"
 
 #: src/toyota_telemetry/ui/collect_page.py:500 src/toyota_telemetry/ui/collect_page.py:540
 msgid "Note: {note}"
-msgstr ""
+msgstr "ملاحظة: {note}"
 
 #: src/toyota_telemetry/ui/collect_page.py:502 src/toyota_telemetry/ui/collect_page.py:544 src/toyota_telemetry/ui/signals_page.py:1076 src/toyota_telemetry/ui/signals_page.py:1180
 msgid "Scope fingerprint: {digest}"
-msgstr ""
+msgstr "بصمة النطاق: {digest}"
 
 #: src/toyota_telemetry/ui/collect_page.py:518
 msgid "LIVE collection of {signals} signal(s) on {ecus} ECUs {turns}?"
-msgstr ""
+msgstr "جمع مباشر (LIVE) للإشارات ({signals}) على وحدات ECU ({ecus}) {turns}؟"
 
 #: src/toyota_telemetry/ui/collect_page.py:532
 msgid "Endpoint: {ecu}"
-msgstr ""
+msgstr "نقطة الاتصال: {ecu}"
 
 #: src/toyota_telemetry/ui/collect_page.py:534
 msgid "Signals ({count}):"
-msgstr ""
+msgstr "الإشارات ({count}):"
 
 #: src/toyota_telemetry/ui/collect_page.py:536
 msgid "Reads {dids} DID(s); stops when these targets are complete or you stop it."
-msgstr ""
+msgstr "يقرأ DID ({dids})؛ ويتوقف عند اكتمال هذه الأهداف أو عند إيقافك له."
 
 #: src/toyota_telemetry/ui/collect_page.py:543 src/toyota_telemetry/ui/collect_page.py:506
 msgid "Endpoint ID: {endpoint} ({ids})"
-msgstr ""
+msgstr "معرّف نقطة الاتصال: {endpoint} ({ids})"
 
 #: src/toyota_telemetry/ui/collect_page.py:545 src/toyota_telemetry/ui/collect_page.py:507
 msgid "Session {recipe}: {requests}"
-msgstr ""
+msgstr "الجلسة {recipe}: {requests}"
 
 #: src/toyota_telemetry/ui/collect_page.py:555
 msgid "LIVE collection of {signals} signal(s) on {ecu}?"
-msgstr ""
+msgstr "جمع مباشر (LIVE) للإشارات ({signals}) على {ecu}؟"
 
 #: src/toyota_telemetry/ui/collect_page.py:603
 msgid "{outcome} Adapter closed."
-msgstr ""
+msgstr "{outcome} المحوّل مغلق."
 
 #: src/toyota_telemetry/ui/collect_page.py:610
 msgid "Failed: {detail} Adapter closed."
-msgstr ""
+msgstr "فشل: {detail} المحوّل مغلق."
 
 #: src/toyota_telemetry/ui/collect_page.py:103
 msgid "{minutes} min"
-msgstr ""
+msgstr "{minutes} min"
 
 #: src/toyota_telemetry/ui/collect_page.py:234
 msgid "Cannot check readiness: {detail}"
-msgstr ""
+msgstr "تعذّر فحص الجاهزية: {detail}"
 
 #: src/toyota_telemetry/ui/collect_page.py:278
 msgid "{count} ECUs {turns}"
-msgstr ""
+msgstr "وحدات ECU: {count} {turns}"
 
 #: src/toyota_telemetry/ui/collect_page.py:390
 msgid "{samples}, {runs}"
-msgstr ""
+msgstr "{samples}، {runs}"
 
 #: src/toyota_telemetry/ui/collect_page.py:397
 msgid "✓ Met"
-msgstr ""
+msgstr "✓ تحقق"
 
 #: src/toyota_telemetry/ui/collect_page.py:402
 msgid "Targets: {met} of {total} met"
-msgstr ""
+msgstr "الأهداف: تحقق {met} من {total}"
 
 #: src/toyota_telemetry/ui/collect_page.py:570
 msgid "LIVE - switching to {ecu}…"
-msgstr ""
+msgstr "LIVE - جارٍ التبديل إلى {ecu}…"
 
 #: src/toyota_telemetry/ui/collect_page.py:574
 msgid "LIVE - collecting."
-msgstr ""
+msgstr "LIVE - جارٍ الجمع."
 
 #: src/toyota_telemetry/ui/collect_page.py:326
 msgid "{ecu}  ({targets})"
-msgstr ""
+msgstr "{ecu}  ({targets})"
 
 #: src/toyota_telemetry/ui/collect_page.py:488 src/toyota_telemetry/ui/collect_page.py:533
 msgid "Adapter: {kind} {device}"
-msgstr ""
+msgstr "المحوّل: {kind} {device}"
 
 #: src/toyota_telemetry/ui/collect_page.py:495
 msgid "Each ECU is read until its targets are met: one that cannot be met\nnow keeps the next ECUs waiting until you stop."
-msgstr ""
+msgstr "تُقرأ كل ECU حتى تتحقق أهدافها: الوحدة التي لا يمكن تحقيق أهدافها\nالآن تُبقي وحدات ECU التالية في الانتظار حتى توقف الجمع."
 
 #: src/toyota_telemetry/ui/collect_page.py:549 src/toyota_telemetry/ui/collect_page.py:511
 msgid "{acquisition}: request {request}, every {interval} ms"
-msgstr ""
+msgstr "{acquisition}: الطلب {request}، كل {interval} ms"
 
 #: src/toyota_telemetry/ui/collect_page.py:490
 msgid "{ecu}: {signals}, {dids} DID(s)"
-msgstr ""
+msgstr "{ecu}: {signals}، DID: {dids}"
 
 #: src/toyota_telemetry/ui/collect_page.py:574
 msgid "LIVE - collecting from {ecu}."
-msgstr ""
+msgstr "LIVE - جارٍ الجمع من {ecu}."
 
 #: src/toyota_telemetry/ui/collect_page.py:580
 msgid "Elapsed {seconds} s, {reads} reads, {failed} failed."
-msgstr ""
+msgstr "المنقضي {seconds} s، القراءات {reads}، الفاشلة {failed}."
 
 #: src/toyota_telemetry/ui/collect_page.py:604
 msgid "Finished: {reason}"
-msgstr ""
+msgstr "انتهى: {reason}"
 
 #: src/toyota_telemetry/ui/collect_page.py:585
 msgid "heartbeat {state} {acquisition}"
-msgstr ""
+msgstr "نبض {state} {acquisition}"
 
 #: src/toyota_telemetry/ui/collect_page.py:591
 msgid "error: {detail}"
-msgstr ""
+msgstr "خطأ: {detail}"
 
 #: src/toyota_telemetry/ui/collect_page.py:593
 msgid "finished: {reason}"
-msgstr ""
+msgstr "انتهى: {reason}"
 
 #: src/toyota_telemetry/ui/context.py:81
 msgid "Operation failed"
-msgstr ""
+msgstr "فشلت العملية"
 
 #: src/toyota_telemetry/ui/dialogs.py:41
 msgid "CSV (spreadsheet)"
-msgstr ""
+msgstr "CSV (جدول بيانات)"
 
 #: src/toyota_telemetry/ui/dialogs.py:44
 msgid "e.g. 500: at least 500 readings"
-msgstr ""
+msgstr "مثال 500: ما لا يقل عن 500 قراءة"
 
 #: src/toyota_telemetry/ui/dialogs.py:45
 msgid "e.g. 3: seen in at least 3 recordings"
-msgstr ""
+msgstr "مثال 3: ظهرت في 3 تسجيلات على الأقل"
 
 #: src/toyota_telemetry/ui/dialogs.py:46
 msgid "e.g. 30m: first and last reading 30 min apart"
-msgstr ""
+msgstr "مثال 30m: بين أول قراءة وآخرها 30 min"
 
 #: src/toyota_telemetry/ui/dialogs.py:47
 msgid "e.g. 0,1,2: each of these raw values seen"
-msgstr ""
+msgstr "مثال 0,1,2: ظهرت كل من هذه القيم الخام"
 
 #: src/toyota_telemetry/ui/dialogs.py:48
 msgid "e.g. 10: the raw value changed 10 times"
-msgstr ""
+msgstr "مثال 10: تغيّرت القيمة الخام 10 مرات"
 
 #: src/toyota_telemetry/ui/dialogs.py:49
 msgid "e.g. 20: moved by the minimum difference 20 times"
-msgstr ""
+msgstr "مثال 20: تحركت بمقدار أدنى فرق 20 مرة"
 
 #: src/toyota_telemetry/ui/dialogs.py:50
 msgid "e.g. 10m: 10 min recorded while Collect when holds"
-msgstr ""
+msgstr "مثال 10m: تسجيل 10 min أثناء تحقق شرط «الجمع عندما»"
 
 #: src/toyota_telemetry/ui/dialogs.py:51
 msgid "e.g. 0.5: smaller steps don't count as changes"
-msgstr ""
+msgstr "مثال 0.5: الخطوات الأصغر لا تُحتسب تغيّرات"
 
 #: src/toyota_telemetry/ui/dialogs.py:52
 msgid "e.g. 372/0x1002/0..15 > 10; empty means always"
-msgstr ""
+msgstr "مثال 372/0x1002/0..15 > 10؛ الفراغ يعني دائمًا"
 
 #: src/toyota_telemetry/ui/dialogs.py:53
 msgid "Paused keeps the target but leaves it out of plans"
-msgstr ""
+msgstr "الإيقاف المؤقت يحتفظ بالهدف لكن يستبعده من الخطط"
 
 #: src/toyota_telemetry/ui/dialogs.py:104 src/toyota_telemetry/ui/recordings_page.py:105
 msgid "Export samples"
-msgstr ""
+msgstr "تصدير العينات"
 
 #: src/toyota_telemetry/ui/dialogs.py:116 src/toyota_telemetry/ui/shell.py:37 src/toyota_telemetry/ui/signals_page.py:208
 msgid "Signals"
-msgstr ""
+msgstr "الإشارات"
 
 #: src/toyota_telemetry/ui/dialogs.py:126
 msgid "Runs"
-msgstr ""
+msgstr "التسجيلات"
 
 #: src/toyota_telemetry/ui/dialogs.py:130
 msgid "Format"
-msgstr ""
+msgstr "التنسيق"
 
 #: src/toyota_telemetry/ui/dialogs.py:133 src/toyota_telemetry/ui/recordings_page.py:122
 msgid "Export"
-msgstr ""
+msgstr "تصدير"
 
 #: src/toyota_telemetry/ui/dialogs.py:179
 msgid "Exact live scope"
-msgstr ""
+msgstr "النطاق المباشر الدقيق"
 
 #: src/toyota_telemetry/ui/dialogs.py:194
 msgid "Read-only requests. Never operate while driving."
-msgstr ""
+msgstr "طلبات للقراءة فقط. لا تشغّل البرنامج أبدًا أثناء القيادة."
 
 #: src/toyota_telemetry/ui/dialogs.py:237
 msgid "Which ECUs answer at this endpoint"
-msgstr ""
+msgstr "وحدات ECU التي تستجيب عند نقطة الاتصال هذه"
 
 #: src/toyota_telemetry/ui/dialogs.py:240
 msgid "How it was confirmed, for your own records"
-msgstr ""
+msgstr "كيف تم التأكيد، لسجلاتك الخاصة"
 
 #: src/toyota_telemetry/ui/dialogs.py:241 src/toyota_telemetry/ui/import_dialog.py:32 src/toyota_telemetry/ui/import_dialog.py:100
 msgid "ECU keys"
-msgstr ""
+msgstr "مفاتيح ECU"
 
 #: src/toyota_telemetry/ui/dialogs.py:251
 msgid "Enter at least one ECU key."
-msgstr ""
+msgstr "أدخل مفتاح ECU واحدًا على الأقل."
 
 #: src/toyota_telemetry/ui/dialogs.py:282
 msgid "0 or empty removes a requirement"
-msgstr ""
+msgstr "القيمة 0 أو الفراغ تزيل المتطلب"
 
 #: src/toyota_telemetry/ui/dialogs.py:316
 msgid "Minimum difference"
-msgstr ""
+msgstr "أدنى فرق"
 
 #: src/toyota_telemetry/ui/dialogs.py:319
 msgid "372/0x1002/0..15 > 10 and ...; empty means always"
-msgstr ""
+msgstr "372/0x1002/0..15 > 10 and ...؛ الفراغ يعني دائمًا"
 
 #: src/toyota_telemetry/ui/dialogs.py:320
 msgid "Collect when"
-msgstr ""
+msgstr "الجمع عندما"
 
 #: src/toyota_telemetry/ui/dialogs.py:323
 msgid "Active"
-msgstr ""
+msgstr "نشط"
 
 #: src/toyota_telemetry/ui/dialogs.py:324
 msgid "Paused"
-msgstr ""
+msgstr "متوقف مؤقتًا"
 
 #: src/toyota_telemetry/ui/dialogs.py:326 src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Status"
-msgstr ""
+msgstr "الحالة"
 
 #: src/toyota_telemetry/ui/dialogs.py:330
 msgid "Batch impact preview"
-msgstr ""
+msgstr "معاينة أثر التعديل الجماعي"
 
 #: src/toyota_telemetry/ui/dialogs.py:334 src/toyota_telemetry/ui/import_dialog.py:57 src/toyota_telemetry/ui/signals_page.py:366 src/toyota_telemetry/ui/signals_page.py:417
 msgid "Apply"
-msgstr ""
+msgstr "تطبيق"
 
 #: src/toyota_telemetry/ui/dialogs.py:335
 msgid "Saved with Save on Signals"
-msgstr ""
+msgstr "يُحفظ بزر الحفظ في صفحة الإشارات"
 
 #: src/toyota_telemetry/ui/dialogs.py:109
 msgid "Selected signal"
-msgstr ""
+msgstr "الإشارة المحددة"
 
 #: src/toyota_telemetry/ui/dialogs.py:119
 msgid "Selected runs"
-msgstr ""
+msgstr "التسجيلات المحددة"
 
 #: src/toyota_telemetry/ui/dialogs.py:185
 msgid "Technical scope details"
-msgstr ""
+msgstr "تفاصيل النطاق التقنية"
 
 #: src/toyota_telemetry/ui/dialogs.py:186
 msgid "Technical details"
-msgstr ""
+msgstr "التفاصيل التقنية"
 
 #: src/toyota_telemetry/ui/dialogs.py:187
 msgid "Request bytes and session steps"
-msgstr ""
+msgstr "بايتات الطلب وخطوات الجلسة"
 
 #: src/toyota_telemetry/ui/dialogs.py:234
 msgid "Nothing is sent. This records that the endpoint\nwhich answered is this ECU."
-msgstr ""
+msgstr "لا يُرسَل شيء. يسجّل هذا أن نقطة الاتصال\nالتي استجابت هي هذه ECU."
 
 #: src/toyota_telemetry/ui/dialogs.py:277
 msgid "Batch edit collection targets"
-msgstr ""
+msgstr "تعديل جماعي لأهداف الجمع"
 
 #: src/toyota_telemetry/ui/dialogs.py:277
 msgid "Edit collection target"
-msgstr ""
+msgstr "تعديل هدف الجمع"
 
 #: src/toyota_telemetry/ui/dialogs.py:112
 msgid "All {count} signal"
 msgid_plural "All {count} signals"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "كل الإشارات ({count})"
+msgstr[1] "الإشارة الوحيدة ({count})"
+msgstr[2] "كلتا الإشارتين ({count})"
+msgstr[3] "كل الإشارات ({count})"
+msgstr[4] "كل الإشارات ({count})"
+msgstr[5] "كل الإشارات ({count})"
 
 #: src/toyota_telemetry/ui/dialogs.py:122
 msgid "All {count} run"
 msgid_plural "All {count} runs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "كل التسجيلات ({count})"
+msgstr[1] "التسجيل الوحيد ({count})"
+msgstr[2] "كلا التسجيلين ({count})"
+msgstr[3] "كل التسجيلات ({count})"
+msgstr[4] "كل التسجيلات ({count})"
+msgstr[5] "كل التسجيلات ({count})"
 
 #: src/toyota_telemetry/ui/dialogs.py:232
 msgid "Confirm {name}"
-msgstr ""
+msgstr "تأكيد {name}"
 
 #: src/toyota_telemetry/ui/dialogs.py:309
 msgid "Each checked state must be seen"
-msgstr ""
+msgstr "يجب أن تظهر كل حالة محددة"
 
 #: src/toyota_telemetry/ui/dialogs.py:343
 msgid "Change {field}"
-msgstr ""
+msgstr "تغيير {field}"
 
 #: src/toyota_telemetry/ui/dialogs.py:399
 msgid "Check at least one field to change."
-msgstr ""
+msgstr "حدّد حقلًا واحدًا على الأقل لتغييره."
 
 #: src/toyota_telemetry/ui/dialogs.py:77
 msgid "Raw value {raw}"
-msgstr ""
+msgstr "القيمة الخام {raw}"
 
 #: src/toyota_telemetry/ui/dialogs.py:109
 msgid "Selected: {signal}"
-msgstr ""
+msgstr "المحدد: {signal}"
 
 #: src/toyota_telemetry/ui/dialogs.py:118
 msgid "Selected {count} run"
 msgid_plural "Selected {count} runs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "التسجيلات المحددة: {count}"
+msgstr[1] "تسجيل محدد: {count}"
+msgstr[2] "تسجيلان محددان: {count}"
+msgstr[3] "التسجيلات المحددة: {count}"
+msgstr[4] "التسجيلات المحددة: {count}"
+msgstr[5] "التسجيلات المحددة: {count}"
 
 #: src/toyota_telemetry/ui/dialogs.py:298
 msgid "e.g. 30m or 2h; empty removes"
-msgstr ""
+msgstr "مثال 30m أو 2h؛ الفراغ يزيله"
 
 #: src/toyota_telemetry/ui/dialogs.py:306
 msgid "raw states, e.g. 0,1,2; empty removes"
-msgstr ""
+msgstr "حالات خام، مثل 0,1,2؛ الفراغ يزيلها"
 
 #: src/toyota_telemetry/ui/dialogs.py:405
 msgid "Cannot apply: {error}"
-msgstr ""
+msgstr "تعذّر التطبيق: {error}"
 
 #: src/toyota_telemetry/ui/dialogs.py:415
 msgid "ECU key must be a number: {value}"
-msgstr ""
+msgstr "يجب أن يكون مفتاح ECU رقمًا: {value}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Request ID"
-msgstr ""
+msgstr "معرّف الطلب"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Response ID"
-msgstr ""
+msgstr "معرّف الاستجابة"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Address"
-msgstr ""
+msgstr "العنوان"
 
 #: src/toyota_telemetry/ui/import_dialog.py:34
 msgid "Request CAN ID, e.g. 0x7E0"
-msgstr ""
+msgstr "CAN ID للطلب، مثل 0x7E0"
 
 #: src/toyota_telemetry/ui/import_dialog.py:35
 msgid "Empty means request + 8"
-msgstr ""
+msgstr "الفراغ يعني الطلب + 8"
 
 #: src/toyota_telemetry/ui/import_dialog.py:36
 msgid "Only for an ECU behind a gateway, e.g. 0x2A"
-msgstr ""
+msgstr "فقط لـ ECU خلف بوابة، مثل 0x2A"
 
 #: src/toyota_telemetry/ui/import_dialog.py:37
 msgid "ECU keys answering here, e.g. 372, 374"
-msgstr ""
+msgstr "مفاتيح ECU التي تستجيب هنا، مثل 372, 374"
 
 #: src/toyota_telemetry/ui/import_dialog.py:48 src/toyota_telemetry/ui/signals_page.py:432
 msgid "Add candidates"
-msgstr ""
+msgstr "إضافة مرشّحين"
 
 #: src/toyota_telemetry/ui/import_dialog.py:52
 msgid "JSON file"
-msgstr ""
+msgstr "ملف JSON"
 
 #: src/toyota_telemetry/ui/import_dialog.py:53
 msgid "TIS database"
-msgstr ""
+msgstr "قاعدة بيانات TIS"
 
 #: src/toyota_telemetry/ui/import_dialog.py:54
 msgid "Manual"
-msgstr ""
+msgstr "يدوي"
 
 #: src/toyota_telemetry/ui/import_dialog.py:56
 msgid "Preview"
-msgstr ""
+msgstr "معاينة"
 
 #: src/toyota_telemetry/ui/import_dialog.py:58
 msgid "Show what will change; nothing is written"
-msgstr ""
+msgstr "عرض ما سيتغيّر؛ لا يُكتب شيء"
 
 #: src/toyota_telemetry/ui/import_dialog.py:59
 msgid "Make exactly the previewed changes"
-msgstr ""
+msgstr "إجراء التغييرات المعايَنة بالضبط"
 
 #: src/toyota_telemetry/ui/import_dialog.py:60 src/toyota_telemetry/ui/import_dialog.py:160 src/toyota_telemetry/ui/import_dialog.py:198
 msgid "Preview a source first."
-msgstr ""
+msgstr "عايِن مصدرًا أولًا."
 
 #: src/toyota_telemetry/ui/import_dialog.py:69
 msgid "Close"
-msgstr ""
+msgstr "إغلاق"
 
 #: src/toyota_telemetry/ui/import_dialog.py:81
 msgid "Row file"
-msgstr ""
+msgstr "ملف الصفوف"
 
 #: src/toyota_telemetry/ui/import_dialog.py:92
 msgid "all installed ECUs"
-msgstr ""
+msgstr "كل وحدات ECU المثبتة"
 
 #: src/toyota_telemetry/ui/import_dialog.py:96
 msgid "Region folder containing DB"
-msgstr ""
+msgstr "مجلد المنطقة الذي يحوي DB"
 
 #: src/toyota_telemetry/ui/import_dialog.py:97
 msgid "Empty reads every ECU"
-msgstr ""
+msgstr "الفراغ يقرأ كل وحدات ECU"
 
 #: src/toyota_telemetry/ui/import_dialog.py:98
 msgid "932 for the NA set"
-msgstr ""
+msgstr "932 لمجموعة NA"
 
 #: src/toyota_telemetry/ui/import_dialog.py:99
 msgid "Database folder"
-msgstr ""
+msgstr "مجلد قاعدة البيانات"
 
 #: src/toyota_telemetry/ui/import_dialog.py:101
 msgid "Code page"
-msgstr ""
+msgstr "صفحة الترميز"
 
 #: src/toyota_telemetry/ui/import_dialog.py:107
 msgid "One endpoint per row. Nothing is sent; Verify finds the session."
-msgstr ""
+msgstr "نقطة اتصال واحدة لكل صف. لا يُرسَل شيء؛ التحقق يجد الجلسة."
 
 #: src/toyota_telemetry/ui/import_dialog.py:115
 msgid "Endpoints to add"
-msgstr ""
+msgstr "نقاط الاتصال المراد إضافتها"
 
 #: src/toyota_telemetry/ui/import_dialog.py:117
 msgid "Add row"
-msgstr ""
+msgstr "إضافة صف"
 
 #: src/toyota_telemetry/ui/import_dialog.py:118
 msgid "Another endpoint"
-msgstr ""
+msgstr "نقطة اتصال أخرى"
 
 #: src/toyota_telemetry/ui/import_dialog.py:119
 msgid "Remove row"
-msgstr ""
+msgstr "إزالة صف"
 
 #: src/toyota_telemetry/ui/import_dialog.py:120
 msgid "Remove the selected rows"
-msgstr ""
+msgstr "إزالة الصفوف المحددة"
 
 #: src/toyota_telemetry/ui/import_dialog.py:121
 msgid "Add endpoints"
-msgstr ""
+msgstr "إضافة نقاط اتصال"
 
 #: src/toyota_telemetry/ui/import_dialog.py:122
 msgid "Add these endpoint candidates"
-msgstr ""
+msgstr "إضافة نقاط الاتصال المرشّحة هذه"
 
 #: src/toyota_telemetry/ui/import_dialog.py:186
 msgid "Reading the source…"
-msgstr ""
+msgstr "جارٍ قراءة المصدر…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:207
 msgid "Applying…"
-msgstr ""
+msgstr "جارٍ التطبيق…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:81
 msgid "Candidate row file"
-msgstr ""
+msgstr "ملف صفوف المرشّحين"
 
 #: src/toyota_telemetry/ui/import_dialog.py:99
 msgid "TIS database folder"
-msgstr ""
+msgstr "مجلد قاعدة بيانات TIS"
 
 #: src/toyota_telemetry/ui/import_dialog.py:139
 msgid "Installed Techstream databases"
-msgstr ""
+msgstr "قواعد بيانات Techstream المثبتة"
 
 #: src/toyota_telemetry/ui/import_dialog.py:149
 msgid "choose the TIS database folder first"
-msgstr ""
+msgstr "اختر مجلد قاعدة بيانات TIS أولًا"
 
 #: src/toyota_telemetry/ui/import_dialog.py:204
 msgid "Candidates not imported"
-msgstr ""
+msgstr "لم يُستورد المرشّحون"
 
 #: src/toyota_telemetry/ui/import_dialog.py:146
 msgid "choose a row file first"
-msgstr ""
+msgstr "اختر ملف صفوف أولًا"
 
 #: src/toyota_telemetry/ui/import_dialog.py:206
 msgid "Applying {source}…"
-msgstr ""
+msgstr "جارٍ تطبيق {source}…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:263
 msgid "Added {count} endpoint candidate(s). Select them and Verify."
 msgid_plural "Added {count} endpoint candidate(s). Select them and Verify."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "أُضيفت نقاط اتصال مرشّحة: {count}. حدّدها ثم تحقّق."
+msgstr[1] "أُضيفت نقطة اتصال مرشّحة: {count}. حدّدها ثم تحقّق."
+msgstr[2] "أُضيفت نقطتا اتصال مرشّحتان: {count}. حدّدهما ثم تحقّق."
+msgstr[3] "أُضيفت نقاط اتصال مرشّحة: {count}. حدّدها ثم تحقّق."
+msgstr[4] "أُضيفت نقاط اتصال مرشّحة: {count}. حدّدها ثم تحقّق."
+msgstr[5] "أُضيفت نقاط اتصال مرشّحة: {count}. حدّدها ثم تحقّق."
 
 #: src/toyota_telemetry/ui/import_dialog.py:171
 msgid "Rejected {where}: {reason}"
-msgstr ""
+msgstr "مرفوض {where}: {reason}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:184
 msgid "Could not read the source: {error}"
-msgstr ""
+msgstr "تعذّرت قراءة المصدر: {error}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:196
 msgid "Applied {source}."
-msgstr ""
+msgstr "طُبّق {source}."
 
 #: src/toyota_telemetry/ui/import_dialog.py:175
 msgid "Cannot use this list: {problem}"
-msgstr ""
+msgstr "لا يمكن استخدام هذه القائمة: {problem}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:259
 msgid "Not added. {problem}"
-msgstr ""
+msgstr "لم تُضف. {problem}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:256
 msgid "Row {number}:"
-msgstr ""
+msgstr "الصف {number}:"
 
 #: src/toyota_telemetry/ui/names.py:19 src/toyota_telemetry/ui/shell.py:63 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:93 src/toyota_telemetry/ui/signals_page.py:94 src/toyota_telemetry/ui/signals_page.py:669
 msgid "Readable"
-msgstr ""
+msgstr "قابل للقراءة"
 
 #: src/toyota_telemetry/ui/names.py:51
 msgid "Unnamed ECU"
-msgstr ""
+msgstr "ECU بلا اسم"
 
 #: src/toyota_telemetry/ui/names.py:25
 msgid "Needs confirming"
-msgstr ""
+msgstr "يحتاج إلى تأكيد"
 
 #: src/toyota_telemetry/ui/names.py:25
 msgid "Answered; confirm it to plan"
-msgstr ""
+msgstr "استجاب؛ أكِّده للتخطيط"
 
 #: src/toyota_telemetry/ui/names.py:26
 msgid "Did not answer"
-msgstr ""
+msgstr "لم يستجب"
 
 #: src/toyota_telemetry/ui/names.py:27
 msgid "Not probed yet"
-msgstr ""
+msgstr "لم يُفحص بعد"
 
 #: src/toyota_telemetry/ui/names.py:28
 msgid "No address"
-msgstr ""
+msgstr "بلا عنوان"
 
 #: src/toyota_telemetry/ui/names.py:28 src/toyota_telemetry/ui/signals_page.py:1385
 msgid "Address unknown; add it under Add candidates"
-msgstr ""
+msgstr "العنوان غير معروف؛ أضفه من «إضافة مرشّحين»"
 
 #: src/toyota_telemetry/ui/names.py:32
 msgid "samples"
-msgstr ""
+msgstr "العينات"
 
 #: src/toyota_telemetry/ui/names.py:33
 msgid "runs"
-msgstr ""
+msgstr "التسجيلات"
 
 #: src/toyota_telemetry/ui/names.py:34
 msgid "span"
-msgstr ""
+msgstr "المدى"
 
 #: src/toyota_telemetry/ui/names.py:35
 msgid "required states"
-msgstr ""
+msgstr "الحالات المطلوبة"
 
 #: src/toyota_telemetry/ui/names.py:36
 msgid "transitions"
-msgstr ""
+msgstr "الانتقالات"
 
 #: src/toyota_telemetry/ui/names.py:37 src/toyota_telemetry/ui/shell.py:69
 msgid "changes"
-msgstr ""
+msgstr "التغيّرات"
 
 #: src/toyota_telemetry/ui/names.py:38
 msgid "applicable time"
-msgstr ""
+msgstr "الزمن المنطبق"
 
 #: src/toyota_telemetry/ui/names.py:89
 msgid "{count} DID"
 msgid_plural "{count} DIDs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} DID"
+msgstr[1] "{count} DID"
+msgstr[2] "{count} DID"
+msgstr[3] "{count} DID"
+msgstr[4] "{count} DID"
+msgstr[5] "{count} DID"
 
 #: src/toyota_telemetry/ui/names.py:90
 msgid "{count} signal"
 msgid_plural "{count} signals"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} إشارة"
+msgstr[1] "{count} إشارة"
+msgstr[2] "{count} إشارتان"
+msgstr[3] "{count} إشارات"
+msgstr[4] "{count} إشارة"
+msgstr[5] "{count} إشارة"
 
 #: src/toyota_telemetry/ui/names.py:91
 msgid "{count} run"
 msgid_plural "{count} runs"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} تسجيل"
+msgstr[1] "{count} تسجيل"
+msgstr[2] "{count} تسجيلان"
+msgstr[3] "{count} تسجيلات"
+msgstr[4] "{count} تسجيلًا"
+msgstr[5] "{count} تسجيل"
 
 #: src/toyota_telemetry/ui/names.py:92
 msgid "{count} target"
 msgid_plural "{count} targets"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} هدف"
+msgstr[1] "{count} هدف"
+msgstr[2] "{count} هدفان"
+msgstr[3] "{count} أهداف"
+msgstr[4] "{count} هدفًا"
+msgstr[5] "{count} هدف"
 
 #: src/toyota_telemetry/ui/names.py:93
 msgid "{count} sample"
 msgid_plural "{count} samples"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} عينة"
+msgstr[1] "{count} عينة"
+msgstr[2] "{count} عينتان"
+msgstr[3] "{count} عينات"
+msgstr[4] "{count} عينة"
+msgstr[5] "{count} عينة"
 
 #: src/toyota_telemetry/ui/names.py:110
 msgid "Session"
-msgstr ""
+msgstr "الجلسة"
 
 #: src/toyota_telemetry/ui/names.py:127
 msgid "Everything"
-msgstr ""
+msgstr "الكل"
 
 #: src/toyota_telemetry/ui/names.py:130
 msgid "State {states}"
-msgstr ""
+msgstr "الحالة {states}"
 
 #: src/toyota_telemetry/ui/names.py:50
 msgid "ECU {keys}"
-msgstr ""
+msgstr "ECU {keys}"
 
 #: src/toyota_telemetry/ui/names.py:113
 msgid "{first} then {next}"
-msgstr ""
+msgstr "{first} ثم {next}"
 
 #: src/toyota_telemetry/ui/names.py:166
 msgid "{summary} (paused)"
-msgstr ""
+msgstr "{summary} (متوقف مؤقتًا)"
 
 #: src/toyota_telemetry/ui/names.py:162
 msgid "{requirement} {value}"
-msgstr ""
+msgstr "{requirement} {value}"
 
 #: src/toyota_telemetry/ui/names.py:164
 msgid "when {condition}"
-msgstr ""
+msgstr "عندما {condition}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Started"
-msgstr ""
+msgstr "البداية"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Length"
-msgstr ""
+msgstr "المدة"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Samples"
-msgstr ""
+msgstr "العينات"
 
 #: src/toyota_telemetry/ui/recordings_page.py:50
 msgid "! Interrupted"
-msgstr ""
+msgstr "! مقطوع"
 
 #: src/toyota_telemetry/ui/recordings_page.py:50
 msgid "✕ Unreadable"
-msgstr ""
+msgstr "✕ غير قابل للقراءة"
 
 #: src/toyota_telemetry/ui/recordings_page.py:704
 msgid "a run without a start time"
-msgstr ""
+msgstr "تسجيل بلا وقت بداية"
 
 #: src/toyota_telemetry/ui/recordings_page.py:709
 msgid "Unknown time"
-msgstr ""
+msgstr "وقت غير معروف"
 
 #: src/toyota_telemetry/ui/recordings_page.py:147
 msgid "Recorded runs"
-msgstr ""
+msgstr "التسجيلات"
 
 #: src/toyota_telemetry/ui/recordings_page.py:152
 msgid "Select runs to narrow the signals"
-msgstr ""
+msgstr "حدّد تسجيلات لتضييق الإشارات"
 
 #: src/toyota_telemetry/ui/recordings_page.py:157
 msgid "The selected runs"
-msgstr ""
+msgstr "التسجيلات المحددة"
 
 #: src/toyota_telemetry/ui/recordings_page.py:158
 msgid "Show all"
-msgstr ""
+msgstr "عرض الكل"
 
 #: src/toyota_telemetry/ui/recordings_page.py:159
 msgid "Clear the selection (Esc)"
-msgstr ""
+msgstr "مسح التحديد (Esc)"
 
 #: src/toyota_telemetry/ui/recordings_page.py:162
 msgid "Recover"
-msgstr ""
+msgstr "استرداد"
 
 #: src/toyota_telemetry/ui/recordings_page.py:163 src/toyota_telemetry/ui/signals_page.py:315
 msgid "Delete"
-msgstr ""
+msgstr "حذف"
 
 #: src/toyota_telemetry/ui/recordings_page.py:164
 msgid "Keeps what was saved"
-msgstr ""
+msgstr "يحتفظ بما حُفظ"
 
 #: src/toyota_telemetry/ui/recordings_page.py:165
 msgid "Moves its files to the system trash"
-msgstr ""
+msgstr "ينقل ملفاته إلى سلة مهملات النظام"
 
 #: src/toyota_telemetry/ui/recordings_page.py:188 src/toyota_telemetry/ui/signals_page.py:256
 msgid "Search signals"
-msgstr ""
+msgstr "البحث في الإشارات"
 
 #: src/toyota_telemetry/ui/recordings_page.py:193
 msgid "Recorded signals"
-msgstr ""
+msgstr "الإشارات المسجَّلة"
 
 #: src/toyota_telemetry/ui/recordings_page.py:194
 msgid "Select one to plot it"
-msgstr ""
+msgstr "حدّد واحدة لرسمها"
 
 #: src/toyota_telemetry/ui/recordings_page.py:211
 msgid "Select a signal to plot it."
-msgstr ""
+msgstr "حدّد إشارة لرسمها."
 
 #: src/toyota_telemetry/ui/recordings_page.py:293
 msgid "Loading runs…"
-msgstr ""
+msgstr "جارٍ تحميل التسجيلات…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:294 src/toyota_telemetry/ui/recordings_page.py:327 src/toyota_telemetry/ui/signals_page.py:505
 msgid "Loading signals…"
-msgstr ""
+msgstr "جارٍ تحميل الإشارات…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:433 src/toyota_telemetry/ui/setup_page.py:148 src/toyota_telemetry/ui/signals_page.py:1006
 msgid "Open a project first."
-msgstr ""
+msgstr "افتح مشروعًا أولًا."
 
 #: src/toyota_telemetry/ui/recordings_page.py:525
 msgid "Not recovered"
-msgstr ""
+msgstr "لم يُسترد"
 
 #: src/toyota_telemetry/ui/recordings_page.py:532
 msgid "Not deleted"
-msgstr ""
+msgstr "لم يُحذف"
 
 #: src/toyota_telemetry/ui/recordings_page.py:644
 msgid "Seen {names} ({reached} of {total} states). Last {last}."
-msgstr ""
+msgstr "ظهر {names} ({reached} من {total} حالات). الأخيرة {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:110 src/toyota_telemetry/ui/shell.py:37
 msgid "Recordings"
-msgstr ""
+msgstr "التسجيلات"
 
 #: src/toyota_telemetry/ui/recordings_page.py:111
 msgid "Select runs to see and plot their signals"
-msgstr ""
+msgstr "حدّد تسجيلات لعرض إشاراتها ورسمها"
 
 #: src/toyota_telemetry/ui/recordings_page.py:433
 msgid "Wait for the live job to finish."
-msgstr ""
+msgstr "انتظر انتهاء المهمة المباشرة."
 
 #: src/toyota_telemetry/ui/recordings_page.py:436
 msgid "Select an interrupted run."
-msgstr ""
+msgstr "حدّد تسجيلًا مقطوعًا."
 
 #: src/toyota_telemetry/ui/recordings_page.py:437
 msgid "Select runs first."
-msgstr ""
+msgstr "حدّد تسجيلات أولًا."
 
 #: src/toyota_telemetry/ui/recordings_page.py:439
 msgid "Nothing recorded yet."
-msgstr ""
+msgstr "لم يُسجَّل شيء بعد."
 
 #: src/toyota_telemetry/ui/recordings_page.py:480
 msgid "Cannot plot"
-msgstr ""
+msgstr "تعذّر الرسم"
 
 #: src/toyota_telemetry/ui/recordings_page.py:499
 msgid "No samples of this signal in the selected runs."
-msgstr ""
+msgstr "لا توجد عينات لهذه الإشارة في التسجيلات المحددة."
 
 #: src/toyota_telemetry/ui/recordings_page.py:561
 msgid "Recovering…"
-msgstr ""
+msgstr "جارٍ الاسترداد…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:561
 msgid "Deleting…"
-msgstr ""
+msgstr "جارٍ الحذف…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:597
 msgid "Export failed"
-msgstr ""
+msgstr "فشل التصدير"
 
 #: src/toyota_telemetry/ui/recordings_page.py:616 src/toyota_telemetry/ui/recordings_page.py:364
 msgid "Unknown ECU"
-msgstr ""
+msgstr "ECU غير معروفة"
 
 #: src/toyota_telemetry/ui/recordings_page.py:643
 msgid "Always {last} ({others} other state(s) not seen)."
-msgstr ""
+msgstr "دائمًا {last} (لم تظهر حالات أخرى: {others})."
 
 #: src/toyota_telemetry/ui/recordings_page.py:704
 msgid "the run of {time}"
-msgstr ""
+msgstr "تسجيل {time}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:105
 msgid "CSV files (*.csv)"
-msgstr ""
+msgstr "ملفات CSV (*.csv)"
 
 #: src/toyota_telemetry/ui/recordings_page.py:410
 msgid "No recordings."
-msgstr ""
+msgstr "لا توجد تسجيلات."
 
 #: src/toyota_telemetry/ui/recordings_page.py:468
 msgid "Loading {signal}…"
-msgstr ""
+msgstr "جارٍ تحميل {signal}…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:290
 msgid "Cannot read recordings: {detail}"
-msgstr ""
+msgstr "تعذّرت قراءة التسجيلات: {detail}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:378
 msgid "Stopped without finishing"
-msgstr ""
+msgstr "توقف دون أن يكتمل"
 
 #: src/toyota_telemetry/ui/recordings_page.py:378
 msgid "Cannot be read"
-msgstr ""
+msgstr "غير قابل للقراءة"
 
 #: src/toyota_telemetry/ui/recordings_page.py:526
 msgid "Recovered {runs}."
-msgstr ""
+msgstr "استُرد {runs}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:533
 msgid "Moved {runs} to the system trash."
-msgstr ""
+msgstr "نُقل {runs} إلى سلة مهملات النظام."
 
 #: src/toyota_telemetry/ui/recordings_page.py:592
 msgid "Exported {samples} samples to {name}."
-msgstr ""
+msgstr "صُدّرت العينات ({samples}) إلى {name}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:628
 msgid "{ecu}\nDID {did}"
-msgstr ""
+msgstr "{ecu}\nDID {did}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:414
 msgid "All {runs}, {samples} samples."
-msgstr ""
+msgstr "الكل: {runs}، العينات: {samples}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:422
 msgid "{runs} selected: {length}, {samples} samples, {failed} failed reads."
-msgstr ""
+msgstr "المحدد {runs}: {length}، العينات: {samples}، القراءات الفاشلة: {failed}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:426
 msgid "{runs} selected: {length}, {samples} samples."
-msgstr ""
+msgstr "المحدد {runs}: {length}، العينات: {samples}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:501
 msgid "{samples} samples in {runs}. {states}"
-msgstr ""
+msgstr "العينات: {samples} في {runs}. {states}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:507
 msgid "Constant {last}."
-msgstr ""
+msgstr "ثابت {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:508
 msgid "Min {minimum}, max {maximum}, last {last}."
-msgstr ""
+msgstr "الأدنى {minimum}، الأقصى {maximum}، الأخير {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:513
 msgid "{samples} samples in {runs}. {values}"
-msgstr ""
+msgstr "العينات: {samples} في {runs}. {values}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:517
 msgid "{samples} samples in {runs}; no decoded values."
-msgstr ""
+msgstr "العينات: {samples} في {runs}؛ لا قيم مفكوكة الترميز."
 
 #: src/toyota_telemetry/ui/recordings_page.py:277
 msgid "ECU {key}"
-msgstr ""
+msgstr "ECU {key}"
 
 #: src/toyota_telemetry/ui/setup_page.py:40 src/toyota_telemetry/ui/setup_page.py:47 src/toyota_telemetry/ui/shell.py:57
 msgid "Connector"
-msgstr ""
+msgstr "المحوّل"
 
 #: src/toyota_telemetry/ui/setup_page.py:41
 msgid "CAN adapter on this computer; never exported"
-msgstr ""
+msgstr "محوّل CAN على هذا الحاسوب؛ لا يُصدَّر أبدًا"
 
 #: src/toyota_telemetry/ui/setup_page.py:66
 msgid "default"
-msgstr ""
+msgstr "افتراضي"
 
 #: src/toyota_telemetry/ui/setup_page.py:67
 msgid "Empty uses the bundled worker"
-msgstr ""
+msgstr "الفراغ يستخدم العامل المرفق"
 
 #: src/toyota_telemetry/ui/setup_page.py:68
 msgid "Worker executable"
-msgstr ""
+msgstr "الملف التنفيذي للعامل"
 
 #: src/toyota_telemetry/ui/setup_page.py:70
 msgid "Adapter type"
-msgstr ""
+msgstr "نوع المحوّل"
 
 #: src/toyota_telemetry/ui/setup_page.py:73 src/toyota_telemetry/ui/signals_page.py:439
 msgid "Save"
-msgstr ""
+msgstr "حفظ"
 
 #: src/toyota_telemetry/ui/setup_page.py:76
 msgid "Self-test; the adapter is not opened"
-msgstr ""
+msgstr "اختبار ذاتي؛ لا يُفتح المحوّل"
 
 #: src/toyota_telemetry/ui/setup_page.py:78
 msgid "Saved on this computer"
-msgstr ""
+msgstr "يُحفظ على هذا الحاسوب"
 
 #: src/toyota_telemetry/ui/setup_page.py:127
 msgid "Saved."
-msgstr ""
+msgstr "حُفظ."
 
 #: src/toyota_telemetry/ui/setup_page.py:29 src/toyota_telemetry/ui/shell.py:37
 msgid "Setup"
-msgstr ""
+msgstr "الإعداد"
 
 #: src/toyota_telemetry/ui/setup_page.py:30
 msgid "The CAN adapter on this computer; nothing here transmits"
-msgstr ""
+msgstr "محوّل CAN على هذا الحاسوب؛ لا شيء هنا يُرسل"
 
 #: src/toyota_telemetry/ui/setup_page.py:110
 msgid "Connector check failed"
-msgstr ""
+msgstr "فشل فحص المحوّل"
 
 #: src/toyota_telemetry/ui/setup_page.py:105
 msgid "Settings are valid."
-msgstr ""
+msgstr "الإعدادات صالحة."
 
 #: src/toyota_telemetry/ui/setup_page.py:102 src/toyota_telemetry/ui/shell.py:358
 msgid "OK: {note}"
-msgstr ""
+msgstr "سليم: {note}"
 
 #: src/toyota_telemetry/ui/setup_page.py:103 src/toyota_telemetry/ui/setup_page.py:97 src/toyota_telemetry/ui/shell.py:359
 msgid "Problem: {problem}"
-msgstr ""
+msgstr "مشكلة: {problem}"
 
 #: src/toyota_telemetry/ui/setup_page.py:125
 msgid "Not saved: {error}"
-msgstr ""
+msgstr "لم يُحفظ: {error}"
 
 #: src/toyota_telemetry/ui/shell.py:41
 msgid "The CAN adapter on this computer"
-msgstr ""
+msgstr "محوّل CAN على هذا الحاسوب"
 
 #: src/toyota_telemetry/ui/shell.py:42
 msgid "Candidates, what to collect, and how often"
-msgstr ""
+msgstr "المرشّحون، وما يُجمع، وبأي وتيرة"
 
 #: src/toyota_telemetry/ui/shell.py:44
 msgid "Runs, plots, and export"
-msgstr ""
+msgstr "التسجيلات والرسوم والتصدير"
 
 #: src/toyota_telemetry/ui/shell.py:129 src/toyota_telemetry/ui/shell.py:398 src/toyota_telemetry/ui/shell.py:52
 msgid "Open or create a project"
-msgstr ""
+msgstr "افتح مشروعًا أو أنشئه"
 
 #: src/toyota_telemetry/ui/shell.py:469 src/toyota_telemetry/ui/shell.py:111 src/toyota_telemetry/ui/start_page.py:25
 msgid "Telemetry Operator"
-msgstr ""
+msgstr "Telemetry Operator"
 
 #: src/toyota_telemetry/ui/shell.py:61
 msgid "Candidates"
-msgstr ""
+msgstr "المرشّحون"
 
 #: src/toyota_telemetry/ui/shell.py:130
 msgid "Progress; click a step to open it"
-msgstr ""
+msgstr "التقدم؛ انقر خطوة لفتحها"
 
 #: src/toyota_telemetry/ui/shell.py:195
 msgid "&Project"
-msgstr ""
+msgstr "&المشروع"
 
 #: src/toyota_telemetry/ui/shell.py:196 src/toyota_telemetry/ui/start_page.py:28
 msgid "New project"
-msgstr ""
+msgstr "مشروع جديد"
 
 #: src/toyota_telemetry/ui/shell.py:199 src/toyota_telemetry/ui/start_page.py:29
 msgid "Create a workspace in an empty folder"
-msgstr ""
+msgstr "إنشاء مشروع في مجلد فارغ"
 
 #: src/toyota_telemetry/ui/shell.py:201 src/toyota_telemetry/ui/start_page.py:30
 msgid "Open project"
-msgstr ""
+msgstr "فتح مشروع"
 
 #: src/toyota_telemetry/ui/shell.py:205
 msgid "Close project"
-msgstr ""
+msgstr "إغلاق المشروع"
 
 #: src/toyota_telemetry/ui/shell.py:209
 msgid "Check project"
-msgstr ""
+msgstr "فحص المشروع"
 
 #: src/toyota_telemetry/ui/shell.py:213
 msgid "Rebuild cache"
-msgstr ""
+msgstr "إعادة بناء ذاكرة التخزين المؤقت"
 
 #: src/toyota_telemetry/ui/shell.py:215
 msgid "Rebuild the sample cache from recordings"
-msgstr ""
+msgstr "إعادة بناء ذاكرة العينات المؤقتة من التسجيلات"
 
 #: src/toyota_telemetry/ui/shell.py:217 src/toyota_telemetry/ui/shell.py:120
 msgid "Save candidate list"
-msgstr ""
+msgstr "حفظ قائمة المرشّحين"
 
 #: src/toyota_telemetry/ui/shell.py:220
 msgid "Save the candidate list as a JSON file; keep it private"
-msgstr ""
+msgstr "حفظ قائمة المرشّحين كملف JSON؛ احتفظ به خاصًا"
 
 #: src/toyota_telemetry/ui/shell.py:223
 msgid "Export result"
-msgstr ""
+msgstr "تصدير النتيجة"
 
 #: src/toyota_telemetry/ui/shell.py:225
 msgid "Write the signal list to a folder for publishing"
-msgstr ""
+msgstr "كتابة قائمة الإشارات إلى مجلد للنشر"
 
 #: src/toyota_telemetry/ui/shell.py:228 src/toyota_telemetry/ui/signals_page.py:274
 msgid "Refresh"
-msgstr ""
+msgstr "تحديث"
 
 #: src/toyota_telemetry/ui/shell.py:233
 msgid "Exit"
-msgstr ""
+msgstr "خروج"
 
 #: src/toyota_telemetry/ui/shell.py:238
 msgid "&Help"
-msgstr ""
+msgstr "&مساعدة"
 
 #: src/toyota_telemetry/ui/shell.py:239
 msgid "Concepts and workflow"
-msgstr ""
+msgstr "المفاهيم وسير العمل"
 
 #: src/toyota_telemetry/ui/shell.py:250
 msgid "&Language"
-msgstr ""
+msgstr "&اللغة"
 
 #: src/toyota_telemetry/ui/shell.py:271 src/toyota_telemetry/ui/widgets/busy.py:91 src/toyota_telemetry/ui/widgets/busy.py:63 src/toyota_telemetry/ui/widgets/busy.py:104
 msgid "Loading…"
-msgstr ""
+msgstr "جارٍ التحميل…"
 
 #: src/toyota_telemetry/ui/shell.py:272
 msgid "Reading project data"
-msgstr ""
+msgstr "جارٍ قراءة بيانات المشروع"
 
 #: src/toyota_telemetry/ui/shell.py:273 src/toyota_telemetry/ui/shell.py:399
 msgid "No project open"
-msgstr ""
+msgstr "لا يوجد مشروع مفتوح"
 
 #: src/toyota_telemetry/ui/shell.py:274 src/toyota_telemetry/ui/shell.py:400 src/toyota_telemetry/ui/shell.py:410
 msgid "No connector"
-msgstr ""
+msgstr "لا محوّل"
 
 #: src/toyota_telemetry/ui/shell.py:275 src/toyota_telemetry/ui/shell.py:462
 msgid "Adapter closed"
-msgstr ""
+msgstr "المحوّل مغلق"
 
 #: src/toyota_telemetry/ui/shell.py:276 src/toyota_telemetry/ui/shell.py:468
 msgid "Saved"
-msgstr ""
+msgstr "محفوظ"
 
 #: src/toyota_telemetry/ui/shell.py:288
 msgid "Open project workspace"
-msgstr ""
+msgstr "فتح مجلد المشروع"
 
 #: src/toyota_telemetry/ui/shell.py:304
 msgid "Empty folder for the new project"
-msgstr ""
+msgstr "مجلد فارغ للمشروع الجديد"
 
 #: src/toyota_telemetry/ui/shell.py:456
 msgid "Exporting the result…"
-msgstr ""
+msgstr "جارٍ تصدير النتيجة…"
 
 #: src/toyota_telemetry/ui/shell.py:476
 msgid "Endpoint: one diagnostic route to an ECU (tester and response CAN IDs plus a reviewed session). Confirmed endpoints are recorded in the project; others are candidates until they respond."
-msgstr ""
+msgstr "نقطة الاتصال: مسار تشخيص واحد إلى ECU (CAN ID للفاحص وللاستجابة مع جلسة تمت مراجعتها). تُسجَّل نقاط الاتصال المؤكَّدة في المشروع؛ والبقية مرشّحة حتى تستجيب."
 
 #: src/toyota_telemetry/ui/shell.py:478
 msgid "DID: one data request on an endpoint. A DID can carry several signals, so its interval is shared."
-msgstr ""
+msgstr "DID: طلب بيانات واحد على نقطة اتصال. قد يحمل DID عدة إشارات، لذا يكون فاصله مشتركًا."
 
 #: src/toyota_telemetry/ui/shell.py:479
 msgid "Signal: one interpreted value inside a DID response; it is what you review, target, and plot."
-msgstr ""
+msgstr "الإشارة: قيمة مفسَّرة واحدة داخل استجابة DID؛ وهي ما تراجعه وتحدد له هدفًا وترسمه."
 
 #: src/toyota_telemetry/ui/shell.py:480
 msgid "Target: the evidence still wanted for a signal, such as minimum samples or required states. A transition is any change of raw value; a change counts only when the decoded value moves by at least the minimum difference."
-msgstr ""
+msgstr "الهدف: الدليل الذي لا يزال مطلوبًا لإشارة، مثل أدنى عدد من العينات أو الحالات المطلوبة. الانتقال هو أي تغيّر في القيمة الخام؛ ولا يُحتسب التغيّر إلا إذا تحركت القيمة المفكوكة بمقدار أدنى فرق على الأقل."
 
 #: src/toyota_telemetry/ui/shell.py:483
 msgid "Signal status: Not checked, then Responds (its DID answered), Recorded (samples saved), and Reviewed (its meaning confirmed). Refused means the ECU rejected the request. No answer means its ECU did not answer when verified, so it was not read; verifying again later (for example with the engine running) may reach it."
-msgstr ""
+msgstr "حالة الإشارة: لم يُفحص، ثم يستجيب (استجاب DID الخاص بها)، ثم مسجَّل (حُفظت عينات)، ثم تمت المراجعة (تأكد معناها). مرفوض يعني أن ECU رفضت الطلب. لا استجابة يعني أن ECU الخاصة بها لم تستجب أثناء التحقق، فلم تُقرأ؛ وقد يصل إليها تحقق لاحق (مثلًا والمحرك يعمل)."
 
 #: src/toyota_telemetry/ui/shell.py:487
 msgid "Diagnostic session: the mode an ECU is switched to before it is read. Most ECUs answer more requests in the extended session (request 10 03) than in the default one. The choices are the session steps reviewed in the project's transport settings."
-msgstr ""
+msgstr "جلسة التشخيص: الوضع الذي تُحوَّل إليه ECU قبل قراءتها. تستجيب معظم وحدات ECU لطلبات أكثر في الجلسة الموسَّعة (الطلب 10 03) مقارنة بالافتراضية. الخيارات هي خطوات الجلسة التي تمت مراجعتها في إعدادات النقل للمشروع."
 
 #: src/toyota_telemetry/ui/shell.py:490
 msgid "Verify vs Confirm endpoint: Verify transmits read requests to see which DIDs answer. Confirm endpoint transmits nothing; it records your review that an endpoint which answered is the ECU you think it is, with where the evidence is written up. Collection needs both."
-msgstr ""
+msgstr "التحقق مقابل تأكيد نقطة الاتصال: التحقق يرسل طلبات قراءة لمعرفة أي DID يستجيب. تأكيد نقطة الاتصال لا يرسل شيئًا؛ بل يسجّل مراجعتك بأن نقطة الاتصال التي استجابت هي ECU التي تظنها، مع مكان توثيق الدليل. الجمع يتطلب كليهما."
 
 #: src/toyota_telemetry/ui/shell.py:493
 msgid "Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) or 0x22 (conditions not correct); the app names common ones."
-msgstr ""
+msgstr "رموز الرفض: عندما ترفض ECU طلبًا تعيد رمزًا، مثل 0x31 (الطلب خارج النطاق) أو 0x22 (الشروط غير صحيحة)؛ ويسمّي التطبيق الرموز الشائعة."
 
 #: src/toyota_telemetry/ui/shell.py:495
 msgid "Run: one recording session, saved as one folder. Delete moves a run's folder to the system trash; restore it from there to bring the run back."
-msgstr ""
+msgstr "التسجيل: جلسة تسجيل واحدة تُحفظ في مجلد واحد. الحذف ينقل مجلد التسجيل إلى سلة مهملات النظام؛ استعده من هناك لإرجاع التسجيل."
 
 #: src/toyota_telemetry/ui/shell.py:497
 msgid "Interrupted run: a recording that stopped without finishing. Recover keeps everything saved up to the interruption."
-msgstr ""
+msgstr "التسجيل المقطوع: تسجيل توقف دون أن يكتمل. الاسترداد يحتفظ بكل ما حُفظ حتى الانقطاع."
 
 #: src/toyota_telemetry/ui/shell.py:499
 msgid "Only actions with a warning icon (Verify, Live view, and Start) transmit to the vehicle, and each shows its exact scope first. Live view reads one DID at its collection interval and shows the values without recording them; Pause stops sending."
-msgstr ""
+msgstr "الإجراءات ذات أيقونة التحذير فقط (التحقق، والعرض المباشر، والبدء) ترسل إلى السيارة، وكل منها يعرض نطاقه الدقيق أولًا. العرض المباشر يقرأ DID واحدًا بفاصل الجمع الخاص به ويعرض القيم دون تسجيلها؛ والإيقاف المؤقت يوقف الإرسال."
 
 #: src/toyota_telemetry/ui/shell.py:502
 msgid "Hover over any control for a short explanation."
-msgstr ""
+msgstr "مرّر المؤشر فوق أي عنصر لعرض شرح موجز."
 
 #: src/toyota_telemetry/ui/shell.py:503
 msgid "The steps across the top are the pages in workflow order. A tick means done, a dot marks the next step (hover it to see what to do), and ! needs attention."
-msgstr ""
+msgstr "الخطوات في الأعلى هي الصفحات بترتيب سير العمل. علامة الصح تعني الإنجاز، والنقطة تحدد الخطوة التالية (مرّر المؤشر فوقها لمعرفة ما يجب فعله)، و! تعني أنها تحتاج إلى انتباه."
 
 #: src/toyota_telemetry/ui/shell.py:505
 msgid "Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes."
-msgstr ""
+msgstr "لوحة المفاتيح: Alt+1 إلى Alt+4 تفتح الصفحات؛ وF5 للتحديث."
 
 #: src/toyota_telemetry/ui/shell.py:507
 msgid "Telemetry Operator concepts"
-msgstr ""
+msgstr "مفاهيم Telemetry Operator"
 
 #: src/toyota_telemetry/ui/shell.py:69 src/toyota_telemetry/ui/shell.py:88
 msgid "Unsaved"
-msgstr ""
+msgstr "غير محفوظ"
 
 #: src/toyota_telemetry/ui/shell.py:72
 msgid "Running"
-msgstr ""
+msgstr "قيد التشغيل"
 
 #: src/toyota_telemetry/ui/shell.py:85
 msgid "Targets met"
-msgstr ""
+msgstr "الأهداف المتحققة"
 
 #: src/toyota_telemetry/ui/shell.py:88
 msgid "not applied"
-msgstr ""
+msgstr "غير مطبَّق"
 
 #: src/toyota_telemetry/ui/shell.py:89
 msgid "nothing yet"
-msgstr ""
+msgstr "لا شيء بعد"
 
 #: src/toyota_telemetry/ui/shell.py:91
 msgid "Interrupted"
-msgstr ""
+msgstr "مقطوع"
 
 #: src/toyota_telemetry/ui/shell.py:131
 msgid "Export folder"
-msgstr ""
+msgstr "مجلد التصدير"
 
 #: src/toyota_telemetry/ui/shell.py:254
 msgid "Automatic (system)"
-msgstr ""
+msgstr "تلقائي (النظام)"
 
 #: src/toyota_telemetry/ui/shell.py:266
 msgid "Language"
-msgstr ""
+msgstr "اللغة"
 
 #: src/toyota_telemetry/ui/shell.py:266
 msgid "The new language is used the next time the application starts."
-msgstr ""
+msgstr "تُستخدم اللغة الجديدة عند تشغيل التطبيق في المرة القادمة."
 
 #: src/toyota_telemetry/ui/shell.py:308
 msgid "Stop the live job before opening another project."
-msgstr ""
+msgstr "أوقف المهمة المباشرة قبل فتح مشروع آخر."
 
 #: src/toyota_telemetry/ui/shell.py:325
 msgid "Stop the live job before closing the project."
-msgstr ""
+msgstr "أوقف المهمة المباشرة قبل إغلاق المشروع."
 
 #: src/toyota_telemetry/ui/shell.py:360
 msgid "Project check"
-msgstr ""
+msgstr "فحص المشروع"
 
 #: src/toyota_telemetry/ui/shell.py:362
 msgid "Check failed"
-msgstr ""
+msgstr "فشل الفحص"
 
 #: src/toyota_telemetry/ui/shell.py:366
 msgid "Cache rebuilt."
-msgstr ""
+msgstr "أُعيد بناء ذاكرة التخزين المؤقت."
 
 #: src/toyota_telemetry/ui/shell.py:369
 msgid "Cache not rebuilt"
-msgstr ""
+msgstr "لم يُعد بناء ذاكرة التخزين المؤقت"
 
 #: src/toyota_telemetry/ui/shell.py:388
 msgid "Candidate list not saved"
-msgstr ""
+msgstr "لم تُحفظ قائمة المرشّحين"
 
 #: src/toyota_telemetry/ui/shell.py:458
 msgid "Result not exported"
-msgstr ""
+msgstr "لم تُصدَّر النتيجة"
 
 #: src/toyota_telemetry/ui/shell.py:462
 msgid "LIVE - adapter open"
-msgstr ""
+msgstr "LIVE - المحوّل مفتوح"
 
 #: src/toyota_telemetry/ui/shell.py:468 src/toyota_telemetry/ui/signals_page.py:1363
 msgid "Unsaved changes"
-msgstr ""
+msgstr "تغييرات غير محفوظة"
 
 #: src/toyota_telemetry/ui/shell.py:525
 msgid "Stopping the live job safely; the window closes when it finishes."
-msgstr ""
+msgstr "جارٍ إيقاف المهمة المباشرة بأمان؛ ستُغلق النافذة عند انتهائها."
 
 #: src/toyota_telemetry/ui/shell.py:74 src/toyota_telemetry/ui/shell.py:76
 msgid "Ready"
-msgstr ""
+msgstr "جاهز"
 
 #: src/toyota_telemetry/ui/shell.py:74
 msgid "no targets"
-msgstr ""
+msgstr "لا أهداف"
 
 #: src/toyota_telemetry/ui/shell.py:120
 msgid "JSON files (*.json)"
-msgstr ""
+msgstr "ملفات JSON (*.json)"
 
 #: src/toyota_telemetry/ui/shell.py:299
 msgid "Project not created"
-msgstr ""
+msgstr "لم يُنشأ المشروع"
 
 #: src/toyota_telemetry/ui/shell.py:418
 msgid "{description} (Alt+{number})"
-msgstr ""
+msgstr "{description} (Alt+{number})"
 
 #: src/toyota_telemetry/ui/shell.py:471
 msgid "Telemetry Operator - {project}"
-msgstr ""
+msgstr "Telemetry Operator - {project}"
 
 #: src/toyota_telemetry/ui/shell.py:64
 msgid "{verified}/{total} DIDs"
-msgstr ""
+msgstr "{verified}/{total} DID"
 
 #: src/toyota_telemetry/ui/shell.py:66
 msgid "{count} set"
 msgid_plural "{count} set"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} معيَّن"
+msgstr[1] "{count} معيَّن"
+msgstr[2] "{count} معيَّنان"
+msgstr[3] "{count} معيَّنة"
+msgstr[4] "{count} معيَّنًا"
+msgstr[5] "{count} معيَّن"
 
 #: src/toyota_telemetry/ui/shell.py:380
 msgid "Saved {count} candidate row to {name}."
 msgid_plural "Saved {count} candidate rows to {name}."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "حُفظت الصفوف المرشّحة ({count}) في {name}."
+msgstr[1] "حُفظ {count} صف مرشّح في {name}."
+msgstr[2] "حُفظ {count} صفان مرشّحان في {name}."
+msgstr[3] "حُفظت {count} صفوف مرشّحة في {name}."
+msgstr[4] "حُفظ {count} صفًا مرشّحًا في {name}."
+msgstr[5] "حُفظ {count} صف مرشّح في {name}."
 
 #: src/toyota_telemetry/ui/shell.py:409
 msgid "{name}: invalid"
-msgstr ""
+msgstr "{name}: غير صالح"
 
 #: src/toyota_telemetry/ui/shell.py:449
 msgid "Exported the result ({count} signal) to {name}."
 msgid_plural "Exported the result ({count} signals) to {name}."
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "صُدّرت النتيجة ({count} إشارة) إلى {name}."
+msgstr[1] "صُدّرت النتيجة ({count} إشارة) إلى {name}."
+msgstr[2] "صُدّرت النتيجة ({count} إشارتان) إلى {name}."
+msgstr[3] "صُدّرت النتيجة ({count} إشارات) إلى {name}."
+msgstr[4] "صُدّرت النتيجة ({count} إشارة) إلى {name}."
+msgstr[5] "صُدّرت النتيجة ({count} إشارة) إلى {name}."
 
 #: src/toyota_telemetry/ui/shell.py:54
 msgid "Project files"
-msgstr ""
+msgstr "ملفات المشروع"
 
 #: src/toyota_telemetry/ui/shell.py:54
 msgid "invalid"
-msgstr ""
+msgstr "غير صالح"
 
 #: src/toyota_telemetry/ui/shell.py:78
 msgid "Complete"
-msgstr ""
+msgstr "مكتمل"
 
 #: src/toyota_telemetry/ui/shell.py:81
 msgid "Not ready"
-msgstr ""
+msgstr "غير جاهز"
 
 #: src/toyota_telemetry/ui/shell.py:315
 msgid "Not a telemetry project: {error}"
-msgstr ""
+msgstr "ليس مشروع قياس عن بُعد: {error}"
 
 #: src/toyota_telemetry/ui/shell.py:420
 msgid "Next: {action}"
-msgstr ""
+msgstr "التالي: {action}"
 
 #: src/toyota_telemetry/ui/shell.py:82
 msgid "{count} problem"
 msgid_plural "{count} problems"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} مشكلة"
+msgstr[1] "{count} مشكلة"
+msgstr[2] "{count} مشكلتان"
+msgstr[3] "{count} مشكلات"
+msgstr[4] "{count} مشكلة"
+msgstr[5] "{count} مشكلة"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:411
 msgid "Name"
-msgstr ""
+msgstr "الاسم"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:363
 msgid "Every"
-msgstr ""
+msgstr "كل"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:364
 msgid "Late after"
-msgstr ""
+msgstr "متأخر بعد"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:365
 msgid "Priority"
-msgstr ""
+msgstr "الأولوية"
 
 #: src/toyota_telemetry/ui/signals_page.py:81
 msgid "ECU → DID (one request) → signal"
-msgstr ""
+msgstr "ECU → DID (طلب واحد) → إشارة"
 
 #: src/toyota_telemetry/ui/signals_page.py:82
 msgid "Whether the vehicle answers"
-msgstr ""
+msgstr "هل تستجيب السيارة"
 
 #: src/toyota_telemetry/ui/signals_page.py:83 src/toyota_telemetry/ui/signals_page.py:351
 msgid "Read during collection"
-msgstr ""
+msgstr "يُقرأ أثناء الجمع"
 
 #: src/toyota_telemetry/ui/signals_page.py:84
 msgid "How often the DID is read"
-msgstr ""
+msgstr "عدد مرات قراءة DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:85 src/toyota_telemetry/ui/signals_page.py:357
 msgid "Late after this long"
-msgstr ""
+msgstr "يُعد متأخرًا بعد هذه المدة"
 
 #: src/toyota_telemetry/ui/signals_page.py:86 src/toyota_telemetry/ui/signals_page.py:359
 msgid "0-100; higher goes first"
-msgstr ""
+msgstr "0-100؛ الأعلى أولًا"
 
 #: src/toyota_telemetry/ui/signals_page.py:87
 msgid "What to collect; ✓ when met"
-msgstr ""
+msgstr "ما يُجمع؛ ✓ عند التحقق"
 
 #: src/toyota_telemetry/ui/signals_page.py:1415
 msgid "nothing recorded yet"
-msgstr ""
+msgstr "لم يُسجَّل شيء بعد"
 
 #: src/toyota_telemetry/ui/signals_page.py:1414
 msgid "none; its DID was refused"
-msgstr ""
+msgstr "لا شيء؛ رُفض DID الخاص بها"
 
 #: src/toyota_telemetry/ui/signals_page.py:94 src/toyota_telemetry/ui/signals_page.py:583
 msgid "DIDs that answered when verified"
-msgstr ""
+msgstr "DID التي استجابت أثناء التحقق"
 
 #: src/toyota_telemetry/ui/signals_page.py:95
 msgid "DIDs not read from the vehicle yet"
-msgstr ""
+msgstr "DID لم تُقرأ من السيارة بعد"
 
 #: src/toyota_telemetry/ui/signals_page.py:96
 msgid "DIDs whose ECU did not answer"
-msgstr ""
+msgstr "DID التي لم تستجب ECU الخاصة بها"
 
 #: src/toyota_telemetry/ui/signals_page.py:97
 msgid "DIDs the ECU refused"
-msgstr ""
+msgstr "DID التي رفضتها ECU"
 
 #: src/toyota_telemetry/ui/signals_page.py:100
 msgid "Collected"
-msgstr ""
+msgstr "مجموع"
 
 #: src/toyota_telemetry/ui/signals_page.py:100
 msgid "DIDs read during collection"
-msgstr ""
+msgstr "DID قُرئت أثناء الجمع"
 
 #: src/toyota_telemetry/ui/signals_page.py:101
 msgid "Not collected"
-msgstr ""
+msgstr "غير مجموع"
 
 #: src/toyota_telemetry/ui/signals_page.py:101
 msgid "DIDs not read during collection"
-msgstr ""
+msgstr "DID لم تُقرأ أثناء الجمع"
 
 #: src/toyota_telemetry/ui/signals_page.py:104
 msgid "Has target"
-msgstr ""
+msgstr "له هدف"
 
 #: src/toyota_telemetry/ui/signals_page.py:104
 msgid "Signals with a target"
-msgstr ""
+msgstr "إشارات لها هدف"
 
 #: src/toyota_telemetry/ui/signals_page.py:105
 msgid "No target"
-msgstr ""
+msgstr "بلا هدف"
 
 #: src/toyota_telemetry/ui/signals_page.py:105
 msgid "Signals without a target"
-msgstr ""
+msgstr "إشارات بلا هدف"
 
 #: src/toyota_telemetry/ui/signals_page.py:106
 msgid "Not met"
-msgstr ""
+msgstr "لم يتحقق"
 
 #: src/toyota_telemetry/ui/signals_page.py:106
 msgid "Signals whose target is not met yet"
-msgstr ""
+msgstr "إشارات لم يتحقق هدفها بعد"
 
 #: src/toyota_telemetry/ui/signals_page.py:132
 msgid "mixed"
-msgstr ""
+msgstr "مختلط"
 
 #: src/toyota_telemetry/ui/signals_page.py:226
 msgid "Verification progress"
-msgstr ""
+msgstr "تقدم التحقق"
 
 #: src/toyota_telemetry/ui/signals_page.py:231
 msgid "%v of %m probes, %p%"
-msgstr ""
+msgstr "%v من %m فحوصات، %p%"
 
 #: src/toyota_telemetry/ui/signals_page.py:232
 msgid "Endpoint probes and DID reads done so far"
-msgstr ""
+msgstr "فحوصات نقاط الاتصال وقراءات DID المنجزة حتى الآن"
 
 #: src/toyota_telemetry/ui/signals_page.py:254
 msgid "Search signal or DID"
-msgstr ""
+msgstr "البحث عن إشارة أو DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:255
 msgid "Signal name or DID"
-msgstr ""
+msgstr "اسم الإشارة أو DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:270 src/toyota_telemetry/ui/signals_page.py:714
 msgid "Expand all"
-msgstr ""
+msgstr "توسيع الكل"
 
 #: src/toyota_telemetry/ui/signals_page.py:271
 msgid "Show every row"
-msgstr ""
+msgstr "عرض كل الصفوف"
 
 #: src/toyota_telemetry/ui/signals_page.py:275
 msgid "Reread project files"
-msgstr ""
+msgstr "إعادة قراءة ملفات المشروع"
 
 #: src/toyota_telemetry/ui/signals_page.py:289
 msgid "Endpoint, DID, and signal table"
-msgstr ""
+msgstr "جدول نقاط الاتصال وDID والإشارات"
 
 #: src/toyota_telemetry/ui/signals_page.py:307 src/toyota_telemetry/ui/signals_page.py:1181 src/toyota_telemetry/ui/signals_page.py:435
 msgid "Verify"
-msgstr ""
+msgstr "تحقّق"
 
 #: src/toyota_telemetry/ui/signals_page.py:309 src/toyota_telemetry/ui/signals_page.py:1078 src/toyota_telemetry/ui/signals_page.py:1058
 msgid "Live view"
-msgstr ""
+msgstr "عرض مباشر"
 
 #: src/toyota_telemetry/ui/signals_page.py:310
 msgid "Read this DID at its interval and show values"
-msgstr ""
+msgstr "قراءة هذا DID بفاصله وعرض القيم"
 
 #: src/toyota_telemetry/ui/signals_page.py:316
 msgid "Remove from the candidate list"
-msgstr ""
+msgstr "إزالة من قائمة المرشّحين"
 
 #: src/toyota_telemetry/ui/signals_page.py:320
 msgid "Select rows to change their plan"
-msgstr ""
+msgstr "حدّد صفوفًا لتغيير خطتها"
 
 #: src/toyota_telemetry/ui/signals_page.py:335 src/toyota_telemetry/ui/signals_page.py:830
 msgid "Nothing selected"
-msgstr ""
+msgstr "لم يُحدَّد شيء"
 
 #: src/toyota_telemetry/ui/signals_page.py:342
 msgid "Selected row details"
-msgstr ""
+msgstr "تفاصيل الصف المحدد"
 
 #: src/toyota_telemetry/ui/signals_page.py:344
 msgid "Details of the selected rows"
-msgstr ""
+msgstr "تفاصيل الصفوف المحددة"
 
 #: src/toyota_telemetry/ui/signals_page.py:347 src/toyota_telemetry/ui/signals_page.py:936
 msgid "Collection"
-msgstr ""
+msgstr "الجمع"
 
 #: src/toyota_telemetry/ui/signals_page.py:348
 msgid "\"mixed\" fields stay as they are unless changed"
-msgstr ""
+msgstr "الحقول «مختلط» تبقى كما هي ما لم تُغيَّر"
 
 #: src/toyota_telemetry/ui/signals_page.py:355
 msgid "How often to read"
-msgstr ""
+msgstr "وتيرة القراءة"
 
 #: src/toyota_telemetry/ui/signals_page.py:370 src/toyota_telemetry/ui/signals_page.py:419
 msgid "Applied to the draft until Save"
-msgstr ""
+msgstr "يُطبَّق على المسودة حتى الحفظ"
 
 #: src/toyota_telemetry/ui/signals_page.py:376
 msgid "What to collect per signal"
-msgstr ""
+msgstr "ما يُجمع لكل إشارة"
 
 #: src/toyota_telemetry/ui/signals_page.py:381
 msgid "Edit targets"
-msgstr ""
+msgstr "تعديل الأهداف"
 
 #: src/toyota_telemetry/ui/signals_page.py:382
 msgid "Remove targets"
-msgstr ""
+msgstr "إزالة الأهداف"
 
 #: src/toyota_telemetry/ui/signals_page.py:383
 msgid "Set what to collect"
-msgstr ""
+msgstr "تحديد ما يُجمع"
 
 #: src/toyota_telemetry/ui/signals_page.py:385
 msgid "Recordings are kept"
-msgstr ""
+msgstr "يُحتفظ بالتسجيلات"
 
 #: src/toyota_telemetry/ui/signals_page.py:392
 msgid "Definition"
-msgstr ""
+msgstr "التعريف"
 
 #: src/toyota_telemetry/ui/signals_page.py:393
 msgid "Name and decoding"
-msgstr ""
+msgstr "الاسم وفك الترميز"
 
 #: src/toyota_telemetry/ui/signals_page.py:396
 msgid "Empty uses the catalog name"
-msgstr ""
+msgstr "الفراغ يستخدم اسم الكتالوج"
 
 #: src/toyota_telemetry/ui/signals_page.py:398
 msgid "e.g. raw / 10 - 40; empty uses the catalog"
-msgstr ""
+msgstr "مثال raw / 10 - 40؛ الفراغ يستخدم الكتالوج"
 
 #: src/toyota_telemetry/ui/signals_page.py:400
 msgid "Empty uses the catalog unit"
-msgstr ""
+msgstr "الفراغ يستخدم وحدة الكتالوج"
 
 #: src/toyota_telemetry/ui/signals_page.py:405
 msgid "How well its meaning is established"
-msgstr ""
+msgstr "مدى ثبوت معناها"
 
 #: src/toyota_telemetry/ui/signals_page.py:410
 msgid "Text the manufacturer tool shows"
-msgstr ""
+msgstr "النص الذي تعرضه أداة المُصنِّع"
 
 #: src/toyota_telemetry/ui/signals_page.py:412
 msgid "Formula"
-msgstr ""
+msgstr "الصيغة"
 
 #: src/toyota_telemetry/ui/signals_page.py:413
 msgid "Unit"
-msgstr ""
+msgstr "الوحدة"
 
 #: src/toyota_telemetry/ui/signals_page.py:414 src/toyota_telemetry/ui/signals_page.py:640
 msgid "States"
-msgstr ""
+msgstr "الحالات"
 
 #: src/toyota_telemetry/ui/signals_page.py:415
 msgid "Evidence"
-msgstr ""
+msgstr "الدليل"
 
 #: src/toyota_telemetry/ui/signals_page.py:416
 msgid "Notes"
-msgstr ""
+msgstr "ملاحظات"
 
 #: src/toyota_telemetry/ui/signals_page.py:433
 msgid "From a JSON file, the TIS database, or by CAN IDs"
-msgstr ""
+msgstr "من ملف JSON أو قاعدة بيانات TIS أو بواسطة CAN ID"
 
 #: src/toyota_telemetry/ui/signals_page.py:434
 msgid "Confirm endpoint"
-msgstr ""
+msgstr "تأكيد نقطة الاتصال"
 
 #: src/toyota_telemetry/ui/signals_page.py:437
 msgid "Stops after the current probe"
-msgstr ""
+msgstr "يتوقف بعد الفحص الحالي"
 
 #: src/toyota_telemetry/ui/signals_page.py:440
 msgid "Write your changes"
-msgstr ""
+msgstr "كتابة تغييراتك"
 
 #: src/toyota_telemetry/ui/signals_page.py:441
 msgid "Discard"
-msgstr ""
+msgstr "تجاهل"
 
 #: src/toyota_telemetry/ui/signals_page.py:442
 msgid "Drop your changes"
-msgstr ""
+msgstr "التخلي عن تغييراتك"
 
 #: src/toyota_telemetry/ui/signals_page.py:929
 msgid "Select DIDs first."
-msgstr ""
+msgstr "حدّد DID أولًا."
 
 #: src/toyota_telemetry/ui/signals_page.py:958
 msgid "Select signals, DIDs, or endpoints."
-msgstr ""
+msgstr "حدّد إشارات أو DID أو نقاط اتصال."
 
 #: src/toyota_telemetry/ui/signals_page.py:994
 msgid "Confirm the endpoint first."
-msgstr ""
+msgstr "أكِّد نقطة الاتصال أولًا."
 
 #: src/toyota_telemetry/ui/signals_page.py:1224
 msgid "no DIDs read"
-msgstr ""
+msgstr "لم يُقرأ أي DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:1234
 msgid "Verification failed"
-msgstr ""
+msgstr "فشل التحقق"
 
 #: src/toyota_telemetry/ui/signals_page.py:1350
 msgid "Saved review and collection settings."
-msgstr ""
+msgstr "حُفظت إعدادات المراجعة والجمع."
 
 #: src/toyota_telemetry/ui/signals_page.py:1363
 msgid "Save changes to signal review and collection settings?"
-msgstr ""
+msgstr "حفظ التغييرات على إعدادات مراجعة الإشارات والجمع؟"
 
 #: src/toyota_telemetry/ui/signals_page.py:1397
 msgid "{selected} signal(s) on {dids} DID(s) will change."
-msgstr ""
+msgstr "ستتغيّر الإشارات ({selected}) على DID ({dids})."
 
 #: src/toyota_telemetry/ui/signals_page.py:209
 msgid "What to collect, and how often"
-msgstr ""
+msgstr "ما يُجمع، وبأي وتيرة"
 
 #: src/toyota_telemetry/ui/signals_page.py:445
 msgid "Record that an answering endpoint is this ECU\nNothing is sent; needed before planning"
-msgstr ""
+msgstr "تسجيل أن نقطة الاتصال المستجيبة هي هذه ECU\nلا يُرسَل شيء؛ مطلوب قبل التخطيط"
 
 #: src/toyota_telemetry/ui/signals_page.py:711
 msgid "Collapse"
-msgstr ""
+msgstr "طي"
 
 #: src/toyota_telemetry/ui/signals_page.py:831
 msgid "Select rows to see and change their settings."
-msgstr ""
+msgstr "حدّد صفوفًا لعرض إعداداتها وتغييرها."
 
 #: src/toyota_telemetry/ui/signals_page.py:870
 msgid "Confirmed"
-msgstr ""
+msgstr "مؤكَّد"
 
 #: src/toyota_telemetry/ui/signals_page.py:951
 msgid "Change a field first."
-msgstr ""
+msgstr "غيّر حقلًا أولًا."
 
 #: src/toyota_telemetry/ui/signals_page.py:1006
 msgid "Wait for verification to finish."
-msgstr ""
+msgstr "انتظر انتهاء التحقق."
 
 #: src/toyota_telemetry/ui/signals_page.py:1010
 msgid "Select an endpoint that responded during verification."
-msgstr ""
+msgstr "حدّد نقطة اتصال استجابت أثناء التحقق."
 
 #: src/toyota_telemetry/ui/signals_page.py:1012
 msgid "Select DIDs, or endpoints with a known address, first."
-msgstr ""
+msgstr "حدّد أولًا DID أو نقاط اتصال ذات عنوان معروف."
 
 #: src/toyota_telemetry/ui/signals_page.py:1013 src/toyota_telemetry/ui/signals_page.py:1014
 msgid "Select signals first."
-msgstr ""
+msgstr "حدّد إشارات أولًا."
 
 #: src/toyota_telemetry/ui/signals_page.py:1015 src/toyota_telemetry/ui/signals_page.py:1020
 msgid "No unsaved changes."
-msgstr ""
+msgstr "لا توجد تغييرات غير محفوظة."
 
 #: src/toyota_telemetry/ui/signals_page.py:1058
 msgid "Stop the open live view first."
-msgstr ""
+msgstr "أوقف العرض المباشر المفتوح أولًا."
 
 #: src/toyota_telemetry/ui/signals_page.py:1066
 msgid "{endpoint} DID {did}"
-msgstr ""
+msgstr "{endpoint} DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1110 src/toyota_telemetry/ui/signals_page.py:1128 src/toyota_telemetry/ui/signals_page.py:1115 src/toyota_telemetry/ui/signals_page.py:1125
 msgid "Signals not deleted"
-msgstr ""
+msgstr "لم تُحذف الإشارات"
 
 #: src/toyota_telemetry/ui/signals_page.py:1110
 msgid "Save or discard your changes first."
-msgstr ""
+msgstr "احفظ تغييراتك أو تجاهلها أولًا."
 
 #: src/toyota_telemetry/ui/signals_page.py:1212
 msgid "{progress} Endpoint {endpoint}: responded"
-msgstr ""
+msgstr "{progress} نقطة الاتصال {endpoint}: استجابت"
 
 #: src/toyota_telemetry/ui/signals_page.py:1214
 msgid "{progress} Endpoint {endpoint}: no response"
-msgstr ""
+msgstr "{progress} نقطة الاتصال {endpoint}: لا استجابة"
 
 #: src/toyota_telemetry/ui/signals_page.py:1246
 msgid "Stopping after the current probe…"
-msgstr ""
+msgstr "جارٍ الإيقاف بعد الفحص الحالي…"
 
 #: src/toyota_telemetry/ui/signals_page.py:1341
 msgid "Not saved: project files changed outside this window."
-msgstr ""
+msgstr "لم يُحفظ: تغيّرت ملفات المشروع خارج هذه النافذة."
 
 #: src/toyota_telemetry/ui/signals_page.py:1342
 msgid "Discard, then edit again"
-msgstr ""
+msgstr "تجاهل، ثم عدّل من جديد"
 
 #: src/toyota_telemetry/ui/signals_page.py:1387 src/toyota_telemetry/ui/signals_page.py:1073
 msgid "Session: {steps}"
-msgstr ""
+msgstr "الجلسة: {steps}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1410
 msgid "reviewed as {state}"
-msgstr ""
+msgstr "روجعت بحالة {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1412
 msgid "{count} samples recorded across runs; meaning not reviewed yet"
-msgstr ""
+msgstr "العينات المسجَّلة عبر التسجيلات: {count}؛ لم يُراجع المعنى بعد"
 
 #: src/toyota_telemetry/ui/signals_page.py:1445
 msgid "Not saved yet"
-msgstr ""
+msgstr "لم يُحفظ بعد"
 
 #: src/toyota_telemetry/ui/signals_page.py:201
 msgid "Delete signals"
-msgstr ""
+msgstr "حذف الإشارات"
 
 #: src/toyota_telemetry/ui/signals_page.py:489
 msgid "Project files changed outside this window."
-msgstr ""
+msgstr "تغيّرت ملفات المشروع خارج هذه النافذة."
 
 #: src/toyota_telemetry/ui/signals_page.py:490
 msgid "Discard reloads them"
-msgstr ""
+msgstr "التجاهل يعيد تحميلها"
 
 #: src/toyota_telemetry/ui/signals_page.py:569
 msgid "No candidates."
-msgstr ""
+msgstr "لا مرشّحين."
 
 #: src/toyota_telemetry/ui/signals_page.py:570
 msgid "Import a candidate list in Setup."
-msgstr ""
+msgstr "استورد قائمة مرشّحين في الإعداد."
 
 #: src/toyota_telemetry/ui/signals_page.py:897
 msgid "Bits: {bits} of DID {did}"
-msgstr ""
+msgstr "البتات: {bits} من DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:898
 msgid "Unit: {unit}   Formula: {formula}"
-msgstr ""
+msgstr "الوحدة: {unit}   الصيغة: {formula}"
 
 #: src/toyota_telemetry/ui/signals_page.py:899
 msgid "DID {did} on {endpoint}: {state}"
-msgstr ""
+msgstr "DID {did} على {endpoint}: {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:902
 msgid "Evidence: {evidence}"
-msgstr ""
+msgstr "الدليل: {evidence}"
 
 #: src/toyota_telemetry/ui/signals_page.py:936
 msgid "Collection: {dids}"
-msgstr ""
+msgstr "الجمع: {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1063
 msgid "Cannot show live values"
-msgstr ""
+msgstr "تعذّر عرض القيم المباشرة"
 
 #: src/toyota_telemetry/ui/signals_page.py:1069
 msgid "Every {interval} ms until you pause or stop. Nothing is recorded."
-msgstr ""
+msgstr "كل {interval} ms حتى توقف مؤقتًا أو نهائيًا. لا يُسجَّل شيء."
 
 #: src/toyota_telemetry/ui/signals_page.py:1072
 msgid "{endpoint}: request {request}"
-msgstr ""
+msgstr "{endpoint}: الطلب {request}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1142
 msgid "Endpoint not confirmed"
-msgstr ""
+msgstr "لم تُؤكَّد نقطة الاتصال"
 
 #: src/toyota_telemetry/ui/signals_page.py:1144
 msgid "Confirmed {endpoint}."
-msgstr ""
+msgstr "أُكِّدت {endpoint}."
 
 #: src/toyota_telemetry/ui/signals_page.py:1157
 msgid "Cannot verify"
-msgstr ""
+msgstr "تعذّر التحقق"
 
 #: src/toyota_telemetry/ui/signals_page.py:1177
 msgid "{probes} probe(s), at most {seconds} s."
-msgstr ""
+msgstr "الفحوصات: {probes}، بحد أقصى {seconds} s."
 
 #: src/toyota_telemetry/ui/signals_page.py:1232
 msgid "Failed: {detail}"
-msgstr ""
+msgstr "فشل: {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1274
 msgid "Targets not changed"
-msgstr ""
+msgstr "لم تتغيّر الأهداف"
 
 #: src/toyota_telemetry/ui/signals_page.py:1297
 msgid "Definition not applied"
-msgstr ""
+msgstr "لم يُطبَّق التعريف"
 
 #: src/toyota_telemetry/ui/signals_page.py:1317
 msgid "Collection settings not applied"
-msgstr ""
+msgstr "لم تُطبَّق إعدادات الجمع"
 
 #: src/toyota_telemetry/ui/signals_page.py:1347
 msgid "Not saved"
-msgstr ""
+msgstr "لم يُحفظ"
 
 #: src/toyota_telemetry/ui/signals_page.py:1402
 msgid "{created} DID(s) will start being read every 1 s (change this under Collection)."
-msgstr ""
+msgstr "ستبدأ قراءة DID ({created}) كل 1 s (غيّر ذلك ضمن الجمع)."
 
 #: src/toyota_telemetry/ui/signals_page.py:447
 msgid "Read the selected DIDs once to see which answer"
-msgstr ""
+msgstr "قراءة DID المحددة مرة واحدة لمعرفة أيها يستجيب"
 
 #: src/toyota_telemetry/ui/signals_page.py:511
 msgid "Cannot read the project: {detail}"
-msgstr ""
+msgstr "تعذّرت قراءة المشروع: {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:582 src/toyota_telemetry/ui/signals_page.py:612
 msgid "{done} of {total}"
-msgstr ""
+msgstr "{done} من {total}"
 
 #: src/toyota_telemetry/ui/signals_page.py:874
 msgid "{endpoint}: {state}"
-msgstr ""
+msgstr "{endpoint}: {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:875
 msgid "Address: {address}"
-msgstr ""
+msgstr "العنوان: {address}"
 
 #: src/toyota_telemetry/ui/signals_page.py:876
 msgid "ECU keys: {keys}"
-msgstr ""
+msgstr "مفاتيح ECU: {keys}"
 
 #: src/toyota_telemetry/ui/signals_page.py:877
 msgid "Diagnostic session: {session}"
-msgstr ""
+msgstr "جلسة التشخيص: {session}"
 
 #: src/toyota_telemetry/ui/signals_page.py:881
 msgid "DIDs: {count}"
-msgstr ""
+msgstr "DID: {count}"
 
 #: src/toyota_telemetry/ui/signals_page.py:888
 msgid "On: {endpoint}"
-msgstr ""
+msgstr "على: {endpoint}"
 
 #: src/toyota_telemetry/ui/signals_page.py:889
 msgid "Last answer: {answer}"
-msgstr ""
+msgstr "آخر استجابة: {answer}"
 
 #: src/toyota_telemetry/ui/signals_page.py:890
 msgid "Latency: {latency} ms at {time}"
-msgstr ""
+msgstr "زمن الاستجابة: {latency} ms في {time}"
 
 #: src/toyota_telemetry/ui/signals_page.py:893
 msgid "Signals: {count}"
-msgstr ""
+msgstr "الإشارات: {count}"
 
 #: src/toyota_telemetry/ui/signals_page.py:905
 msgid "{count} catalog variants disagree; review the definition."
-msgstr ""
+msgstr "متغيرات الكتالوج المتعارضة: {count}؛ راجع التعريف."
 
 #: src/toyota_telemetry/ui/signals_page.py:907
 msgid "Notes: {notes}"
-msgstr ""
+msgstr "ملاحظات: {notes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:931
 msgid "Confirm {endpoint} first."
-msgstr ""
+msgstr "أكِّد {endpoint} أولًا."
 
 #: src/toyota_telemetry/ui/signals_page.py:961
 msgid "Target: {target}"
-msgstr ""
+msgstr "الهدف: {target}"
 
 #: src/toyota_telemetry/ui/signals_page.py:963
 msgid "Already met."
-msgstr ""
+msgstr "متحقق بالفعل."
 
 #: src/toyota_telemetry/ui/signals_page.py:1226
 msgid "Stopped early: {outcomes}"
-msgstr ""
+msgstr "توقف مبكرًا: {outcomes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1228
 msgid "Finished: {outcomes}"
-msgstr ""
+msgstr "انتهى: {outcomes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1322
 msgid "Settings also apply to {count} other signal(s) on the same DIDs."
-msgstr ""
+msgstr "تنطبق الإعدادات أيضًا على إشارات أخرى ({count}) على DID نفسها."
 
 #: src/toyota_telemetry/ui/signals_page.py:601
 msgid "DID {did} · {signals}"
-msgstr ""
+msgstr "DID {did} · {signals}"
 
 #: src/toyota_telemetry/ui/signals_page.py:605 src/toyota_telemetry/ui/signals_page.py:837
 msgid "DID {did}"
-msgstr ""
+msgstr "DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:608
 msgid "Yes"
-msgstr ""
+msgstr "نعم"
 
 #: src/toyota_telemetry/ui/signals_page.py:608
 msgid "No"
-msgstr ""
+msgstr "لا"
 
 #: src/toyota_telemetry/ui/signals_page.py:622
 msgid "Not read during collection"
-msgstr ""
+msgstr "لا يُقرأ أثناء الجمع"
 
 #: src/toyota_telemetry/ui/signals_page.py:628
 msgid "(definitions disagree)"
-msgstr ""
+msgstr "(التعريفات متعارضة)"
 
 #: src/toyota_telemetry/ui/signals_page.py:851
 msgid "{items} selected"
-msgstr ""
+msgstr "المحدد: {items}"
 
 #: src/toyota_telemetry/ui/signals_page.py:853
 msgid "{dids} DID(s) and {signals} signal(s) in the selection."
-msgstr ""
+msgstr "في التحديد: DID ({dids}) والإشارات ({signals})."
 
 #: src/toyota_telemetry/ui/signals_page.py:875
 msgid "unknown"
-msgstr ""
+msgstr "غير معروف"
 
 #: src/toyota_telemetry/ui/signals_page.py:879
 msgid "chosen when verified"
-msgstr ""
+msgstr "يُختار عند التحقق"
 
 #: src/toyota_telemetry/ui/signals_page.py:887
 msgid "{state}: {detail}"
-msgstr ""
+msgstr "{state}: {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:968
 msgid "{signals}: {targeted} with targets, {met} already met."
-msgstr ""
+msgstr "{signals}: لها أهداف {targeted}، متحقق بالفعل {met}."
 
 #: src/toyota_telemetry/ui/signals_page.py:972
 msgid "{signals}: {targeted} with targets."
-msgstr ""
+msgstr "{signals}: لها أهداف {targeted}."
 
 #: src/toyota_telemetry/ui/signals_page.py:976
 msgid "Targets are mixed."
-msgstr ""
+msgstr "الأهداف مختلطة."
 
 #: src/toyota_telemetry/ui/signals_page.py:1121
 msgid "Deleted {signals}."
-msgstr ""
+msgstr "حُذف {signals}."
 
 #: src/toyota_telemetry/ui/signals_page.py:1166
 msgid "{endpoint}: probe, then read {dids}"
-msgstr ""
+msgstr "{endpoint}: فحص، ثم قراءة {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1168
 msgid "{endpoint}: read {dids}"
-msgstr ""
+msgstr "{endpoint}: قراءة {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1171
 msgid "{key}: {tester}/{response} address {address}, {session}"
-msgstr ""
+msgstr "{key}: {tester}/{response} العنوان {address}، {session}"
 
 #: src/toyota_telemetry/ui/signals_page.py:846
 msgid "{count} endpoint"
 msgid_plural "{count} endpoints"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-msgstr[3] ""
-msgstr[4] ""
-msgstr[5] ""
+msgstr[0] "{count} نقطة اتصال"
+msgstr[1] "{count} نقطة اتصال"
+msgstr[2] "{count} نقطتا اتصال"
+msgstr[3] "{count} نقاط اتصال"
+msgstr[4] "{count} نقطة اتصال"
+msgstr[5] "{count} نقطة اتصال"
 
 #: src/toyota_telemetry/ui/signals_page.py:974
 msgid "All: {target}"
-msgstr ""
+msgstr "الكل: {target}"
 
 #: src/toyota_telemetry/ui/signals_page.py:637
 msgid "{target}. Already met."
-msgstr ""
+msgstr "{target}. متحقق بالفعل."
 
 #: src/toyota_telemetry/ui/start_page.py:31
 msgid "Open an existing workspace folder"
-msgstr ""
+msgstr "فتح مجلد مشروع موجود"
 
 #: src/toyota_telemetry/ui/start_page.py:33 src/toyota_telemetry/ui/start_page.py:39
 msgid "Recent projects"
-msgstr ""
+msgstr "المشاريع الأخيرة"
 
 #: src/toyota_telemetry/ui/start_page.py:40
 msgid "Double-click to open"
-msgstr ""
+msgstr "انقر نقرًا مزدوجًا للفتح"
 
 #: src/toyota_telemetry/ui/start_page.py:26
 msgid "A project is a folder: settings, candidates, recordings"
-msgstr ""
+msgstr "المشروع مجلد: إعدادات، ومرشّحون، وتسجيلات"
 
 #: src/toyota_telemetry/ui/watch_window.py:59
 msgid "Starting…"
-msgstr ""
+msgstr "جارٍ البدء…"
 
 #: src/toyota_telemetry/ui/watch_window.py:63
 msgid "Pause stops sending; Resume starts again"
-msgstr ""
+msgstr "الإيقاف المؤقت يوقف الإرسال؛ والاستئناف يعيده"
 
 #: src/toyota_telemetry/ui/watch_window.py:65
 msgid "Stop reading and close"
-msgstr ""
+msgstr "إيقاف القراءة والإغلاق"
 
 #: src/toyota_telemetry/ui/watch_window.py:86 src/toyota_telemetry/ui/watch_window.py:62
 msgid "Pause"
-msgstr ""
+msgstr "إيقاف مؤقت"
 
 #: src/toyota_telemetry/ui/watch_window.py:87
 msgid "Opening the session…"
-msgstr ""
+msgstr "جارٍ فتح الجلسة…"
 
 #: src/toyota_telemetry/ui/watch_window.py:143
 msgid "Resume"
-msgstr ""
+msgstr "استئناف"
 
 #: src/toyota_telemetry/ui/watch_window.py:46 src/toyota_telemetry/ui/widgets/metric_plot.py:166 src/toyota_telemetry/ui/widgets/metric_plot.py:139
 msgid "Value"
-msgstr ""
+msgstr "القيمة"
 
 #: src/toyota_telemetry/ui/watch_window.py:46
 msgid "Raw"
-msgstr ""
+msgstr "خام"
 
 #: src/toyota_telemetry/ui/watch_window.py:93
 msgid "Pausing after the current read…"
-msgstr ""
+msgstr "جارٍ الإيقاف المؤقت بعد القراءة الحالية…"
 
 #: src/toyota_telemetry/ui/watch_window.py:101
 msgid "Stopping after the current read…"
-msgstr ""
+msgstr "جارٍ الإيقاف بعد القراءة الحالية…"
 
 #: src/toyota_telemetry/ui/watch_window.py:134
 msgid "Paused; nothing is being sent."
-msgstr ""
+msgstr "متوقف مؤقتًا؛ لا يُرسَل شيء."
 
 #: src/toyota_telemetry/ui/watch_window.py:36
 msgid "Live view: {title}"
-msgstr ""
+msgstr "عرض مباشر: {title}"
 
 #: src/toyota_telemetry/ui/watch_window.py:41
 msgid "{title}, read every {interval} ms. Nothing is recorded."
-msgstr ""
+msgstr "{title}، يُقرأ كل {interval} ms. لا يُسجَّل شيء."
 
 #: src/toyota_telemetry/ui/watch_window.py:123
 msgid "Read {number}, {latency} ms."
-msgstr ""
+msgstr "القراءة {number}، {latency} ms."
 
 #: src/toyota_telemetry/ui/watch_window.py:125
 msgid "Read {number}."
-msgstr ""
+msgstr "القراءة {number}."
 
 #: src/toyota_telemetry/ui/watch_window.py:137
 msgid "Stopped: {error}"
-msgstr ""
+msgstr "توقف: {error}"
 
 #: src/toyota_telemetry/ui/watch_window.py:108
 msgid "Reading every {interval} ms."
-msgstr ""
+msgstr "القراءة كل {interval} ms."
 
 #: src/toyota_telemetry/ui/watch_window.py:115
 msgid "Read {number}: {outcome} (code {code})."
-msgstr ""
+msgstr "القراءة {number}: {outcome} (الرمز {code})."
 
 #: src/toyota_telemetry/ui/watch_window.py:119
 msgid "Read {number}: {outcome}."
-msgstr ""
+msgstr "القراءة {number}: {outcome}."
 
 #: src/toyota_telemetry/ui/widgets/common.py:25
 msgid "Transmits to the vehicle; you confirm first."
-msgstr ""
+msgstr "يرسل إلى السيارة؛ تؤكد أنت أولًا."
 
 #: src/toyota_telemetry/ui/widgets/common.py:91
 msgid "Browse"
-msgstr ""
+msgstr "استعراض"
 
 #: src/toyota_telemetry/ui/widgets/common.py:93
 msgid "Browse for {caption}"
-msgstr ""
+msgstr "استعراض {caption}"
 
 #: src/toyota_telemetry/ui/widgets/common.py:67
 msgid "{tip}\n\nUnavailable: {reason}"
-msgstr ""
+msgstr "{tip}\n\nغير متاح: {reason}"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:46 src/toyota_telemetry/ui/widgets/filter_menu.py:159
 msgid "Filter"
-msgstr ""
+msgstr "تصفية"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:47
 msgid "Filter rows; tick any number of options"
-msgstr ""
+msgstr "تصفية الصفوف؛ حدّد أي عدد من الخيارات"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:144
 msgid "Clear filters"
-msgstr ""
+msgstr "مسح عوامل التصفية"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:159
 msgid "Filter ({count})"
-msgstr ""
+msgstr "تصفية ({count})"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:139
 msgid "{title} options"
-msgstr ""
+msgstr "خيارات {title}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:132
 msgid "Metric evidence plot"
-msgstr ""
+msgstr "رسم بياني لدليل القياس"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:134
 msgid "Click pins a reading; drag zooms; double-click shows all"
-msgstr ""
+msgstr "النقر يثبّت قراءة؛ السحب يكبّر؛ النقر المزدوج يعرض الكل"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:138
 msgid "Run time, runs end to end (h:mm:ss)"
-msgstr ""
+msgstr "زمن التسجيل، التسجيلات متتابعة (h:mm:ss)"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:297
 msgid "{measurement}: {value}\n{where}"
-msgstr ""
+msgstr "{measurement}: {value}\n{where}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:235
 msgid "Signal plot of {samples} recorded samples across {runs} run(s)."
-msgstr ""
+msgstr "رسم الإشارة للعينات المسجَّلة ({samples}) عبر التسجيلات ({runs})."
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:293
 msgid "{time} into {run}"
-msgstr ""
+msgstr "{time} من {run}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:296
 msgid "{state} (raw {code})"
-msgstr ""
+msgstr "{state} (خام {code})"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:328
 msgid "Pinned: {reading}"
-msgstr ""
+msgstr "مثبَّت: {reading}"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "done"
-msgstr ""
+msgstr "منجز"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "next step"
-msgstr ""
+msgstr "الخطوة التالية"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "needs attention"
-msgstr ""
+msgstr "يحتاج إلى انتباه"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "not started"
-msgstr ""
+msgstr "لم يبدأ"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:97
 msgid "Steps"
-msgstr ""
+msgstr "الخطوات"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:79
 msgid "{state}. {summary}"
-msgstr ""
+msgstr "{state}. {summary}"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:74
 msgid "{part}: {state}"
-msgstr ""
+msgstr "{part}: {state}"

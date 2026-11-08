@@ -70,6 +70,13 @@ def is_right_to_left() -> bool:
     return current_language() in RIGHT_TO_LEFT
 
 
+def ltr(text: str) -> str:
+    """Keep a technical value (600 ms, 0..15, 0x7E0) in reading order inside
+    right-to-left text, by isolating it as left-to-right; unchanged otherwise."""
+
+    return "\N{LEFT-TO-RIGHT ISOLATE}" + text + "\N{POP DIRECTIONAL ISOLATE}" if text and is_right_to_left() else text
+
+
 def set_language(code: str | None) -> str:
     """Use a supported language (or the closest one); returns the code in use."""
 

@@ -9,3466 +9,3466 @@ msgstr ""
 
 #: src/toyota_telemetry/admission.py:23
 msgid "all included collection targets are already complete"
-msgstr ""
+msgstr "tous les objectifs de collecte inclus sont déjà atteints"
 
 #: src/toyota_telemetry/admission.py:72
 msgid "collection policy has no included targets"
-msgstr ""
+msgstr "la politique de collecte n'inclut aucun objectif"
 
 #: src/toyota_telemetry/admission.py:77
 msgid "insufficient disk budget: {available} MiB available, {required} MiB required"
-msgstr ""
+msgstr "espace disque insuffisant : {available} Mio disponibles, {required} Mio requis"
 
 #: src/toyota_telemetry/admission.py:145
 msgid "request-start floor exceeds the tracked maximum request rate"
-msgstr ""
+msgstr "le délai minimal entre requêtes dépasse le débit de requêtes maximal suivi"
 
 #: src/toyota_telemetry/admission.py:103
 msgid "target has no included DID settings: {signal} needs {did}"
-msgstr ""
+msgstr "l'objectif n'a aucun réglage DID inclus : {signal} nécessite {did}"
 
 #: src/toyota_telemetry/admission.py:157
 msgid "missing latency/response-size facts: verify {did} first"
-msgstr ""
+msgstr "latence/taille de réponse inconnues : vérifier d'abord {did}"
 
 #: src/toyota_telemetry/admission.py:168
 msgid "acquisition interval violates request-start floor: {did}"
-msgstr ""
+msgstr "l'intervalle d'acquisition est inférieur au délai minimal entre requêtes : {did}"
 
 #: src/toyota_telemetry/admission.py:210
 msgid "endpoint {endpoint} request rate {rate:.3f} Hz exceeds tracked limit {limit:.3f} Hz"
-msgstr ""
+msgstr "point d'accès {endpoint} : le débit de requêtes {rate:.3f} Hz dépasse la limite suivie {limit:.3f} Hz"
 
 #: src/toyota_telemetry/admission.py:215
 msgid "endpoint {endpoint} estimated bus utilization {value:.6f} exceeds tracked limit {limit:.6f}"
-msgstr ""
+msgstr "point d'accès {endpoint} : la charge du bus estimée {value:.6f} dépasse la limite suivie {limit:.6f}"
 
 #: src/toyota_telemetry/admission.py:221
 msgid "endpoint {endpoint} nominal session utilization {value:.6f} exceeds tracked limit {limit:.6f}"
-msgstr ""
+msgstr "point d'accès {endpoint} : la charge nominale de session {value:.6f} dépasse la limite suivie {limit:.6f}"
 
 #: src/toyota_telemetry/admission.py:256
 msgid "{signal} lies past the reply: {did} answers with {count} data bytes"
-msgstr ""
+msgstr "{signal} est au-delà de la réponse : {did} répond avec {count} octets de données"
 
 #: src/toyota_telemetry/admission.py:341
 msgid "collection decode does not resolve catalog signal: {signal}"
-msgstr ""
+msgstr "le décodage de collecte ne résout pas le signal du catalogue : {signal}"
 
 #: src/toyota_telemetry/admission.py:352
 msgid "collection decode formula is ambiguous: {signal}"
-msgstr ""
+msgstr "la formule de décodage de collecte est ambiguë : {signal}"
 
 #: src/toyota_telemetry/admission.py:126
 msgid "condition signal has no included DID settings: {signal} needs {did}"
-msgstr ""
+msgstr "le signal de condition n'a aucun réglage DID inclus : {signal} nécessite {did}"
 
 #: src/toyota_telemetry/operator/collection.py:43
 msgid "Switch every few minutes"
-msgstr ""
+msgstr "Alterner toutes les quelques minutes"
 
 #: src/toyota_telemetry/operator/collection.py:44
 msgid "One after another, each until done"
-msgstr ""
+msgstr "L'un après l'autre, chacun jusqu'au bout"
 
 #: src/toyota_telemetry/operator/collection.py:367
 msgid "Verify {item}"
-msgstr ""
+msgstr "Vérifier {item}"
 
 #: src/toyota_telemetry/operator/collection.py:368
 msgid "Include the DID settings for {item}"
-msgstr ""
+msgstr "Inclure les réglages DID de {item}"
 
 #: src/toyota_telemetry/operator/collection.py:370 src/toyota_telemetry/operator/service.py:97 src/toyota_telemetry/operator/service.py:296
 msgid "Set collection targets"
-msgstr ""
+msgstr "Définir les objectifs de collecte"
 
 #: src/toyota_telemetry/operator/collection.py:372
 msgid "Free disk space"
-msgstr ""
+msgstr "Libérer de l'espace disque"
 
 #: src/toyota_telemetry/operator/collection.py:373
 msgid "Lengthen DID intervals on {item}"
-msgstr ""
+msgstr "Allonger les intervalles DID de {item}"
 
 #: src/toyota_telemetry/operator/collection.py:375
 msgid "Lengthen DID intervals"
-msgstr ""
+msgstr "Allonger les intervalles DID"
 
 #: src/toyota_telemetry/operator/collection.py:378
 msgid "Choose a formula for {item}"
-msgstr ""
+msgstr "Choisir une formule pour {item}"
 
 #: src/toyota_telemetry/operator/collection.py:392
 msgid "Check the project files"
-msgstr ""
+msgstr "Vérifier les fichiers du projet"
 
 #: src/toyota_telemetry/operator/collection.py:285
 msgid "collection is not ready; resolve the readiness problems first"
-msgstr ""
+msgstr "la collecte n'est pas prête ; résoudre d'abord les problèmes de préparation"
 
 #: src/toyota_telemetry/operator/collection.py:106 src/toyota_telemetry/operator/connector.py:94 src/toyota_telemetry/operator/verification.py:108
 msgid "no connector is configured"
-msgstr ""
+msgstr "aucun adaptateur n'est configuré"
 
 #: src/toyota_telemetry/operator/collection.py:106 src/toyota_telemetry/operator/service.py:270
 msgid "Configure the connector"
-msgstr ""
+msgstr "Configurer l'adaptateur"
 
 #: src/toyota_telemetry/operator/collection.py:139
 msgid "Choose the endpoint, or take them in turn"
-msgstr ""
+msgstr "Choisir le point d'accès, ou les prendre à tour de rôle"
 
 #: src/toyota_telemetry/operator/collection.py:206
 msgid "Switch ECUs less often"
-msgstr ""
+msgstr "Changer d'ECU moins souvent"
 
 #: src/toyota_telemetry/operator/collection.py:191
 msgid "Leave it out"
-msgstr ""
+msgstr "L'exclure"
 
 #: src/toyota_telemetry/operator/collection.py:359
 msgid "the scope of {endpoint} changed since it was confirmed; check readiness and start again"
-msgstr ""
+msgstr "la portée de {endpoint} a changé depuis sa confirmation ; vérifier la préparation et recommencer"
 
 #: src/toyota_telemetry/operator/collection.py:136
 msgid "targets span {count} endpoints; one run collects one endpoint"
-msgstr ""
+msgstr "les objectifs couvrent {count} points d'accès ; un enregistrement collecte un seul point d'accès"
 
 #: src/toyota_telemetry/operator/collection.py:196
 msgid "unknown strategy {strategy!r}"
-msgstr ""
+msgstr "stratégie inconnue {strategy!r}"
 
 #: src/toyota_telemetry/operator/collection.py:197
 msgid "Choose {first} or {second}"
-msgstr ""
+msgstr "Choisir {first} ou {second}"
 
 #: src/toyota_telemetry/operator/collection.py:203
 msgid "a time slice of {seconds} s is shorter than {minimum} s"
-msgstr ""
+msgstr "une tranche de {seconds} s est plus courte que {minimum} s"
 
 #: src/toyota_telemetry/operator/collection.py:143 src/toyota_telemetry/operator/collection.py:190
 msgid "{endpoint} has no unfinished targets ready to collect"
-msgstr ""
+msgstr "{endpoint} n'a aucun objectif inachevé prêt à collecter"
 
 #: src/toyota_telemetry/operator/collection.py:144
 msgid "Choose one of: {endpoints}"
-msgstr ""
+msgstr "Choisir parmi : {endpoints}"
 
 #: src/toyota_telemetry/operator/collection.py:329
 msgid "{endpoint} is no longer ready: {problem}"
-msgstr ""
+msgstr "{endpoint} n'est plus prêt : {problem}"
 
 #: src/toyota_telemetry/operator/connector.py:22
 msgid "PCAN channel (PCAN_USBBUS1-8)"
-msgstr ""
+msgstr "Canal PCAN (PCAN_USBBUS1-8)"
 
 #: src/toyota_telemetry/operator/connector.py:23
 msgid "J2534 driver DLL path"
-msgstr ""
+msgstr "Chemin de la DLL du pilote J2534"
 
 #: src/toyota_telemetry/operator/connector.py:25
 msgid "USB vendor ID (4 hex digits)"
-msgstr ""
+msgstr "ID fabricant USB (4 chiffres hex)"
 
 #: src/toyota_telemetry/operator/connector.py:26
 msgid "USB product ID (4 hex digits)"
-msgstr ""
+msgstr "ID produit USB (4 chiffres hex)"
 
 #: src/toyota_telemetry/operator/connector.py:27
 msgid "USB serial number (optional)"
-msgstr ""
+msgstr "Numéro de série USB (facultatif)"
 
 #: src/toyota_telemetry/operator/connector.py:29
 msgid "Serial port, e.g. COM5"
-msgstr ""
+msgstr "Port série, p. ex. COM5"
 
 #: src/toyota_telemetry/operator/connector.py:58
 msgid "unknown connector {kind!r}; choose {kinds}"
-msgstr ""
+msgstr "adaptateur inconnu {kind!r} ; choisir {kinds}"
 
 #: src/toyota_telemetry/operator/connector.py:64
 msgid "{kind} does not use: {fields}"
-msgstr ""
+msgstr "{kind} n'utilise pas : {fields}"
 
 #: src/toyota_telemetry/operator/connector.py:104
 msgid "worker {name} is missing from this installation"
-msgstr ""
+msgstr "le worker {name} manque dans cette installation"
 
 #: src/toyota_telemetry/operator/connector.py:126
 msgid "worker self-test passed; no device was opened"
-msgstr ""
+msgstr "autotest du worker réussi ; aucun appareil n'a été ouvert"
 
 #: src/toyota_telemetry/operator/connector.py:109
 msgid "J2534 driver DLL was not found: {name}"
-msgstr ""
+msgstr "DLL du pilote J2534 introuvable : {name}"
 
 #: src/toyota_telemetry/operator/connector.py:123
 msgid "worker self-test failed"
-msgstr ""
+msgstr "échec de l'autotest du worker"
 
 #: src/toyota_telemetry/operator/connector.py:117
 msgid "worker self-test could not run: {error}"
-msgstr ""
+msgstr "l'autotest du worker n'a pas pu s'exécuter : {error}"
 
 #: src/toyota_telemetry/operator/connector.py:122
 msgid "worker self-test failed: {detail}"
-msgstr ""
+msgstr "échec de l'autotest du worker : {detail}"
 
 #: src/toyota_telemetry/operator/editing.py:35 src/toyota_telemetry/ui/names.py:32
 msgid "Minimum samples"
-msgstr ""
+msgstr "Échantillons minimum"
 
 #: src/toyota_telemetry/operator/editing.py:36 src/toyota_telemetry/ui/names.py:33
 msgid "Minimum runs"
-msgstr ""
+msgstr "Enregistrements minimum"
 
 #: src/toyota_telemetry/operator/editing.py:37 src/toyota_telemetry/ui/names.py:34
 msgid "Minimum span"
-msgstr ""
+msgstr "Durée minimale"
 
 #: src/toyota_telemetry/operator/editing.py:38 src/toyota_telemetry/ui/names.py:35
 msgid "Required states"
-msgstr ""
+msgstr "États requis"
 
 #: src/toyota_telemetry/operator/editing.py:39 src/toyota_telemetry/ui/names.py:36
 msgid "Minimum transitions"
-msgstr ""
+msgstr "Transitions minimum"
 
 #: src/toyota_telemetry/operator/editing.py:40 src/toyota_telemetry/ui/names.py:37
 msgid "Minimum changes"
-msgstr ""
+msgstr "Changements minimum"
 
 #: src/toyota_telemetry/operator/editing.py:41 src/toyota_telemetry/ui/names.py:38
 msgid "Minimum applicable time"
-msgstr ""
+msgstr "Temps applicable minimal"
 
 #: src/toyota_telemetry/operator/editing.py:172
 msgid "Reviewing a signal needs a confirmed endpoint; {endpoint} is {state}. Verify it, then confirm the endpoint."
-msgstr ""
+msgstr "La révision d'un signal nécessite un point d'accès confirmé ; {endpoint} est {state}. Le vérifier, puis confirmer le point d'accès."
 
 #: src/toyota_telemetry/operator/editing.py:174
 msgid "A collection target needs a confirmed endpoint; {endpoint} is {state}. Verify it, then confirm the endpoint."
-msgstr ""
+msgstr "Un objectif de collecte nécessite un point d'accès confirmé ; {endpoint} est {state}. Le vérifier, puis confirmer le point d'accès."
 
 #: src/toyota_telemetry/operator/editing.py:94
 msgid "a condition may combine clauses with 'and' or with 'or', not both"
-msgstr ""
+msgstr "une condition peut combiner les clauses avec 'and' ou avec 'or', pas les deux"
 
 #: src/toyota_telemetry/operator/editing.py:74
 msgid "invalid duration {text!r}; use seconds or a suffix such as 30s, 10m, 2h"
-msgstr ""
+msgstr "durée invalide {text!r} ; utiliser des secondes ou un suffixe comme 30s, 10m, 2h"
 
 #: src/toyota_telemetry/operator/editing.py:129
 msgid "invalid condition clause {text!r}; expected SIGNAL OP VALUE, e.g. 372/0x1002/0..15 > 10"
-msgstr ""
+msgstr "clause de condition invalide {text!r} ; attendu SIGNAL OP VALEUR, p. ex. 372/0x1002/0..15 > 10"
 
 #: src/toyota_telemetry/operator/editing.py:184 src/toyota_telemetry/operator/selection.py:153 src/toyota_telemetry/operator/selection.py:122
 msgid "signal is not in the candidate list: {signal}"
-msgstr ""
+msgstr "le signal n'est pas dans la liste des candidats : {signal}"
 
 #: src/toyota_telemetry/operator/editing.py:242
 msgid "evidence state must not be empty"
-msgstr ""
+msgstr "l'état de preuve ne doit pas être vide"
 
 #: src/toyota_telemetry/operator/editing.py:137
 msgid "'in' needs a comma-separated list in {text!r}"
-msgstr ""
+msgstr "'in' nécessite une liste séparée par des virgules dans {text!r}"
 
 #: src/toyota_telemetry/operator/editing.py:161
 msgid "condition value must be a number or true/false, got {text!r}"
-msgstr ""
+msgstr "la valeur de condition doit être un nombre ou true/false, reçu {text!r}"
 
 #: src/toyota_telemetry/operator/editing.py:212
 msgid "{signal} has several review rows; edit review/signals.json directly"
-msgstr ""
+msgstr "{signal} a plusieurs lignes de révision ; modifier review/signals.json directement"
 
 #: src/toyota_telemetry/operator/editing.py:274
 msgid "DID is not in the candidate list: {did}"
-msgstr ""
+msgstr "le DID n'est pas dans la liste des candidats : {did}"
 
 #: src/toyota_telemetry/operator/editing.py:277
 msgid "DID settings need a confirmed endpoint; {endpoint} is {state}"
-msgstr ""
+msgstr "les réglages DID nécessitent un point d'accès confirmé ; {endpoint} est {state}"
 
 #: src/toyota_telemetry/operator/editing.py:296
 msgid "{did}: interval must not exceed the maximum interval"
-msgstr ""
+msgstr "{did} : l'intervalle ne doit pas dépasser l'intervalle maximal"
 
 #: src/toyota_telemetry/operator/editing.py:360
 msgid "{signal}: a target needs at least one completion requirement"
-msgstr ""
+msgstr "{signal} : un objectif nécessite au moins un critère d'achèvement"
 
 #: src/toyota_telemetry/operator/editing.py:416
 msgid "invalid formula {formula!r}: {error}"
-msgstr ""
+msgstr "formule invalide {formula!r} : {error}"
 
 #: src/toyota_telemetry/operator/editing.py:353
 msgid "{signal}: minimum changes needs a minimum difference"
-msgstr ""
+msgstr "{signal} : les changements minimum nécessitent un écart minimal"
 
 #: src/toyota_telemetry/operator/inventory.py:42
 msgid "Verified"
-msgstr ""
+msgstr "Vérifié"
 
 #: src/toyota_telemetry/operator/inventory.py:43
 msgid "Not verified"
-msgstr ""
+msgstr "Non vérifié"
 
 #: src/toyota_telemetry/operator/inventory.py:44
 msgid "Failed"
-msgstr ""
+msgstr "Échec"
 
 #: src/toyota_telemetry/operator/inventory.py:45
 msgid "Endpoint not verified"
-msgstr ""
+msgstr "Point d'accès non vérifié"
 
 #: src/toyota_telemetry/operator/inventory.py:47
 msgid "ECU did not answer"
-msgstr ""
+msgstr "L'ECU n'a pas répondu"
 
 #: src/toyota_telemetry/operator/inventory.py:50 src/toyota_telemetry/ui/names.py:20 src/toyota_telemetry/ui/names.py:27 src/toyota_telemetry/ui/signals_page.py:95
 msgid "Not checked"
-msgstr ""
+msgstr "Non vérifié"
 
 #: src/toyota_telemetry/operator/inventory.py:51 src/toyota_telemetry/ui/names.py:21 src/toyota_telemetry/ui/names.py:26 src/toyota_telemetry/ui/signals_page.py:96
 msgid "No answer"
-msgstr ""
+msgstr "Sans réponse"
 
 #: src/toyota_telemetry/operator/inventory.py:52 src/toyota_telemetry/ui/names.py:22 src/toyota_telemetry/ui/signals_page.py:97
 msgid "Refused"
-msgstr ""
+msgstr "Refusé"
 
 #: src/toyota_telemetry/operator/inventory.py:53
 msgid "Responds"
-msgstr ""
+msgstr "Répond"
 
 #: src/toyota_telemetry/operator/inventory.py:54 src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/shell.py:89
 msgid "Recorded"
-msgstr ""
+msgstr "Enregistré"
 
 #: src/toyota_telemetry/operator/inventory.py:55
 msgid "Reviewed"
-msgstr ""
+msgstr "Révisé"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Candidate"
-msgstr ""
+msgstr "Candidat"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Observed"
-msgstr ""
+msgstr "Observé"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Correlated"
-msgstr ""
+msgstr "Corrélé"
 
 #: src/toyota_telemetry/operator/inventory.py:63
 msgid "Validated"
-msgstr ""
+msgstr "Validé"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Observed and replayed"
-msgstr ""
+msgstr "Observé et rejoué"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Correlated and replayed"
-msgstr ""
+msgstr "Corrélé et rejoué"
 
 #: src/toyota_telemetry/operator/inventory.py:64
 msgid "Validated and replayed"
-msgstr ""
+msgstr "Validé et rejoué"
 
 #: src/toyota_telemetry/operator/inventory.py:68
 msgid "refused"
-msgstr ""
+msgstr "refusé"
 
 #: src/toyota_telemetry/operator/inventory.py:69
 msgid "no answer"
-msgstr ""
+msgstr "sans réponse"
 
 #: src/toyota_telemetry/operator/inventory.py:70
 msgid "connection error"
-msgstr ""
+msgstr "erreur de connexion"
 
 #: src/toyota_telemetry/operator/inventory.py:71
 msgid "session could not be opened"
-msgstr ""
+msgstr "la session n'a pas pu être ouverte"
 
 #: src/toyota_telemetry/operator/inventory.py:75
 msgid "general reject"
-msgstr ""
+msgstr "rejet général"
 
 #: src/toyota_telemetry/operator/inventory.py:76
 msgid "service not supported"
-msgstr ""
+msgstr "service non pris en charge"
 
 #: src/toyota_telemetry/operator/inventory.py:77
 msgid "sub-function not supported"
-msgstr ""
+msgstr "sous-fonction non prise en charge"
 
 #: src/toyota_telemetry/operator/inventory.py:78
 msgid "wrong message length"
-msgstr ""
+msgstr "longueur de message incorrecte"
 
 #: src/toyota_telemetry/operator/inventory.py:79
 msgid "response too long"
-msgstr ""
+msgstr "réponse trop longue"
 
 #: src/toyota_telemetry/operator/inventory.py:80
 msgid "conditions not correct"
-msgstr ""
+msgstr "conditions non remplies"
 
 #: src/toyota_telemetry/operator/inventory.py:81
 msgid "request out of range"
-msgstr ""
+msgstr "requête hors plage"
 
 #: src/toyota_telemetry/operator/inventory.py:82
 msgid "security access required"
-msgstr ""
+msgstr "accès sécurisé requis"
 
 #: src/toyota_telemetry/operator/inventory.py:83
 msgid "general programming failure"
-msgstr ""
+msgstr "échec général de programmation"
 
 #: src/toyota_telemetry/operator/inventory.py:84
 msgid "not supported in this session"
-msgstr ""
+msgstr "non pris en charge dans cette session"
 
 #: src/toyota_telemetry/operator/inventory.py:85
 msgid "service not supported in this session"
-msgstr ""
+msgstr "service non pris en charge dans cette session"
 
 #: src/toyota_telemetry/operator/inventory.py:1107
 msgid "endpoint is not verified"
-msgstr ""
+msgstr "le point d'accès n'est pas vérifié"
 
 #: src/toyota_telemetry/operator/inventory.py:1108
 msgid "endpoint is address unknown"
-msgstr ""
+msgstr "l'adresse du point d'accès est inconnue"
 
 #: src/toyota_telemetry/operator/inventory.py:407
 msgid "not in the candidate list"
-msgstr ""
+msgstr "pas dans la liste des candidats"
 
 #: src/toyota_telemetry/operator/inventory.py:384
 msgid "the candidate list changed since the preview; preview the source again"
-msgstr ""
+msgstr "la liste des candidats a changé depuis l'aperçu ; prévisualiser à nouveau la source"
 
 #: src/toyota_telemetry/operator/inventory.py:409
 msgid "reviewed"
-msgstr ""
+msgstr "révisé"
 
 #: src/toyota_telemetry/operator/inventory.py:411
 msgid "has a target"
-msgstr ""
+msgstr "a un objectif"
 
 #: src/toyota_telemetry/operator/inventory.py:431
 msgid "the candidate list changed since the preview; select the signals again"
-msgstr ""
+msgstr "la liste des candidats a changé depuis l'aperçu ; sélectionner à nouveau les signaux"
 
 #: src/toyota_telemetry/operator/inventory.py:433
 msgid "none of the selected signals can be deleted"
-msgstr ""
+msgstr "aucun des signaux sélectionnés ne peut être supprimé"
 
 #: src/toyota_telemetry/operator/inventory.py:493
 msgid "Nothing to delete."
-msgstr ""
+msgstr "Rien à supprimer."
 
 #: src/toyota_telemetry/operator/inventory.py:608
 msgid "enter at least one endpoint"
-msgstr ""
+msgstr "saisir au moins un point d'accès"
 
 #: src/toyota_telemetry/operator/inventory.py:792
 msgid "unnamed ECU"
-msgstr ""
+msgstr "ECU sans nom"
 
 #: src/toyota_telemetry/operator/inventory.py:956
 msgid "(not in candidate list)"
-msgstr ""
+msgstr "(pas dans la liste des candidats)"
 
 #: src/toyota_telemetry/operator/inventory.py:95
 msgid "{outcome} (code {code})"
-msgstr ""
+msgstr "{outcome} (code {code})"
 
 #: src/toyota_telemetry/operator/inventory.py:417
 msgid "recorded"
-msgstr ""
+msgstr "enregistré"
 
 #: src/toyota_telemetry/operator/inventory.py:442
 msgid "{label}: {rows} rows, {signals} signals, {dids} DIDs, {ecus} ECUs, {endpoints} endpoint candidates."
-msgstr ""
+msgstr "{label} : {rows} lignes, {signals} signaux, {dids} DID, {ecus} ECU, {endpoints} points d'accès candidats."
 
 #: src/toyota_telemetry/operator/inventory.py:450
 msgid "To add {added} signals; to update {updated}; unchanged {unchanged}."
-msgstr ""
+msgstr "À ajouter : {added} signaux ; à mettre à jour : {updated} ; inchangés : {unchanged}."
 
 #: src/toyota_telemetry/operator/inventory.py:1091
 msgid "responded in recorded runs"
-msgstr ""
+msgstr "a répondu dans des enregistrements"
 
 #: src/toyota_telemetry/operator/inventory.py:94
 msgid "{outcome}: {meaning} (code {code})"
-msgstr ""
+msgstr "{outcome} : {meaning} (code {code})"
 
 #: src/toyota_telemetry/operator/inventory.py:195
 msgid "no imported source {source!r}; imported: {known}"
-msgstr ""
+msgstr "aucune source importée {source!r} ; importées : {known}"
 
 #: src/toyota_telemetry/operator/inventory.py:269
 msgid "DID is outside the transport safety range"
-msgstr ""
+msgstr "le DID est hors de la plage de sécurité du transport"
 
 #: src/toyota_telemetry/operator/inventory.py:368
 msgid "reviewed signals would no longer resolve: {error}"
-msgstr ""
+msgstr "des signaux révisés ne seraient plus résolus : {error}"
 
 #: src/toyota_telemetry/operator/inventory.py:414
 msgid "used in a target condition"
-msgstr ""
+msgstr "utilisé dans une condition d'objectif"
 
 #: src/toyota_telemetry/operator/inventory.py:457
 msgid "Updates change: {fields}."
-msgstr ""
+msgstr "Les mises à jour modifient : {fields}."
 
 #: src/toyota_telemetry/operator/inventory.py:461
 msgid "{count} signal from this source's last import is not in it; it is kept."
 msgid_plural "{count} signals from this source's last import are not in it; they are kept."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} signal du dernier import de cette source n'y figure pas ; il est conservé."
+msgstr[1] "{count} signaux du dernier import de cette source n'y figurent pas ; ils sont conservés."
 
 #: src/toyota_telemetry/operator/inventory.py:466
 msgid "{count} replaced definition is kept because a review uses it."
 msgid_plural "{count} replaced definitions are kept because a review uses them."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} définition remplacée est conservée car une révision l'utilise."
+msgstr[1] "{count} définitions remplacées sont conservées car une révision les utilise."
 
 #: src/toyota_telemetry/operator/inventory.py:471
 msgid "{count} repeated row merged into an existing definition."
 msgid_plural "{count} repeated rows merged into an existing definition."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} ligne répétée fusionnée dans une définition existante."
+msgstr[1] "{count} lignes répétées fusionnées dans une définition existante."
 
 #: src/toyota_telemetry/operator/inventory.py:476
 msgid "{count} of these signals has more than one formula."
 msgid_plural "{count} of these signals have more than one formula."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} de ces signaux a plus d'une formule."
+msgstr[1] "{count} de ces signaux ont plus d'une formule."
 
 #: src/toyota_telemetry/operator/inventory.py:481
 msgid "{count} row rejected."
 msgid_plural "{count} rows rejected."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} ligne rejetée."
+msgstr[1] "{count} lignes rejetées."
 
 #: src/toyota_telemetry/operator/inventory.py:488
 msgid "Delete {count} signal from the candidate list. Importing its source again adds it back."
 msgid_plural "Delete {count} signals from the candidate list. Importing their source again adds them back."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Supprimer {count} signal de la liste des candidats. Réimporter sa source le rajoute."
+msgstr[1] "Supprimer {count} signaux de la liste des candidats. Réimporter leur source les rajoute."
 
 #: src/toyota_telemetry/operator/inventory.py:498
 msgid "Kept: {reasons}."
-msgstr ""
+msgstr "Conservés : {reasons}."
 
 #: src/toyota_telemetry/operator/inventory.py:1084
 msgid "responded during verification"
-msgstr ""
+msgstr "a répondu lors de la vérification"
 
 #: src/toyota_telemetry/operator/inventory.py:1094
 msgid "the ECU did not answer when verified, so this DID was not read"
-msgstr ""
+msgstr "l'ECU n'a pas répondu lors de la vérification, ce DID n'a donc pas été lu"
 
 #: src/toyota_telemetry/operator/inventory.py:196 src/toyota_telemetry/ui/dialogs.py:314 src/toyota_telemetry/ui/dialogs.py:294 src/toyota_telemetry/ui/signals_page.py:961
 msgid "none"
-msgstr ""
+msgstr "aucune"
 
 #: src/toyota_telemetry/operator/inventory.py:574
 msgid "endpoint {number}: enter the request CAN ID as hexadecimal, e.g. 0x7E0"
-msgstr ""
+msgstr "point d'accès {number} : saisir le CAN ID de requête en hexadécimal, p. ex. 0x7E0"
 
 #: src/toyota_telemetry/operator/inventory.py:580
 msgid "endpoint {number}: the response CAN ID must be an 11-bit ID other than the request ID"
-msgstr ""
+msgstr "point d'accès {number} : le CAN ID de réponse doit être un ID 11 bits différent de l'ID de requête"
 
 #: src/toyota_telemetry/operator/inventory.py:591
 msgid "endpoint {number}: enter at least one ECU key"
-msgstr ""
+msgstr "point d'accès {number} : saisir au moins une clé ECU"
 
 #: src/toyota_telemetry/operator/inventory.py:593
 msgid "endpoint {number}: ECU keys already belong to a confirmed endpoint: {keys}"
-msgstr ""
+msgstr "point d'accès {number} : clés ECU déjà attribuées à un point d'accès confirmé : {keys}"
 
 #: src/toyota_telemetry/operator/inventory.py:587
 msgid "endpoint {number}: the address must be one hexadecimal byte, e.g. 0x2A"
-msgstr ""
+msgstr "point d'accès {number} : l'adresse doit être un octet hexadécimal, p. ex. 0x2A"
 
 #: src/toyota_telemetry/operator/inventory.py:600
 msgid "endpoint {number}: repeats an endpoint or ECU key given above"
-msgstr ""
+msgstr "point d'accès {number} : répète un point d'accès ou une clé ECU indiqué plus haut"
 
 #: src/toyota_telemetry/operator/inventory.py:1099
 msgid "endpoint is {state}"
-msgstr ""
+msgstr "le point d'accès est {state}"
 
 #: src/toyota_telemetry/operator/live.py:53
 msgid "another live operation is running for this project"
-msgstr ""
+msgstr "une autre opération en direct est en cours pour ce projet"
 
 #: src/toyota_telemetry/operator/recordings.py:27
 msgid "complete"
-msgstr ""
+msgstr "terminé"
 
 #: src/toyota_telemetry/operator/recordings.py:28
 msgid "needs recovery"
-msgstr ""
+msgstr "à récupérer"
 
 #: src/toyota_telemetry/operator/recordings.py:29
 msgid "unreadable"
-msgstr ""
+msgstr "illisible"
 
 #: src/toyota_telemetry/operator/recordings.py:31
 msgid "targets complete"
-msgstr ""
+msgstr "objectifs atteints"
 
 #: src/toyota_telemetry/operator/recordings.py:32
 msgid "handed over to the next ECU"
-msgstr ""
+msgstr "passé à l'ECU suivant"
 
 #: src/toyota_telemetry/operator/recordings.py:33
 msgid "stopped"
-msgstr ""
+msgstr "arrêté"
 
 #: src/toyota_telemetry/operator/recordings.py:34
 msgid "connection lost"
-msgstr ""
+msgstr "connexion perdue"
 
 #: src/toyota_telemetry/operator/recordings.py:35
 msgid "storage limit reached"
-msgstr ""
+msgstr "limite de stockage atteinte"
 
 #: src/toyota_telemetry/operator/recordings.py:36
 msgid "recovered after interruption"
-msgstr ""
+msgstr "récupéré après interruption"
 
 #: src/toyota_telemetry/operator/recordings.py:278
 msgid "interrupted: recover it to keep the reads saved before the interruption, or move it to the trash"
-msgstr ""
+msgstr "interrompu : le récupérer pour garder les lectures enregistrées avant l'interruption, ou le mettre à la corbeille"
 
 #: src/toyota_telemetry/operator/recordings.py:98
 msgid "a live job is running; delete after it stops"
-msgstr ""
+msgstr "une tâche en direct est en cours ; supprimer après son arrêt"
 
 #: src/toyota_telemetry/operator/recordings.py:164
 msgid "a live job is running; recover after it stops"
-msgstr ""
+msgstr "une tâche en direct est en cours ; récupérer après son arrêt"
 
 #: src/toyota_telemetry/operator/recordings.py:154
 msgid "run {run} is already complete"
-msgstr ""
+msgstr "l'enregistrement {run} est déjà terminé"
 
 #: src/toyota_telemetry/operator/recordings.py:207
 msgid "no recorded run {run}"
-msgstr ""
+msgstr "aucun enregistrement {run}"
 
 #: src/toyota_telemetry/operator/recordings.py:215
 msgid "directory name is not a run id"
-msgstr ""
+msgstr "le nom du dossier n'est pas un ID d'enregistrement"
 
 #: src/toyota_telemetry/operator/recordings.py:221
 msgid "run-start is unreadable: {error}"
-msgstr ""
+msgstr "run-start illisible : {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:100
 msgid "not moved to the trash: {error}"
-msgstr ""
+msgstr "non déplacé dans la corbeille : {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:275
 msgid "run-end is unreadable: {error}"
-msgstr ""
+msgstr "run-end illisible : {error}"
 
 #: src/toyota_telemetry/operator/recordings.py:161
 msgid "run {run} has no interrupted segment to recover"
-msgstr ""
+msgstr "l'enregistrement {run} n'a aucun segment interrompu à récupérer"
 
 #: src/toyota_telemetry/operator/selection.py:73
 msgid "nothing selected: name an endpoint, DID, or signal, or use a filter"
-msgstr ""
+msgstr "rien de sélectionné : indiquer un point d'accès, un DID ou un signal, ou utiliser un filtre"
 
 #: src/toyota_telemetry/operator/selection.py:110
 msgid "the selection matched nothing in the candidate list"
-msgstr ""
+msgstr "la sélection ne correspond à rien dans la liste des candidats"
 
 #: src/toyota_telemetry/operator/selection.py:127
 msgid "unknown endpoint {endpoint!r}"
-msgstr ""
+msgstr "point d'accès inconnu {endpoint!r}"
 
 #: src/toyota_telemetry/operator/selection.py:131
 msgid "invalid selector {token!r}"
-msgstr ""
+msgstr "sélecteur invalide {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:149
 msgid "invalid signal bits in selector {token!r}"
-msgstr ""
+msgstr "bits de signal invalides dans le sélecteur {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:161
 msgid "bits {bits} are ambiguous on {did}; use the full signal reference ECU/DID/BITS"
-msgstr ""
+msgstr "les bits {bits} sont ambigus sur {did} ; utiliser la référence complète ECU/DID/BITS"
 
 #: src/toyota_telemetry/operator/selection.py:71
 msgid "unknown state filter {state!r}; choose from {choices}"
-msgstr ""
+msgstr "filtre d'état inconnu {state!r} ; choisir parmi {choices}"
 
 #: src/toyota_telemetry/operator/selection.py:135
 msgid "invalid DID in selector {token!r}"
-msgstr ""
+msgstr "DID invalide dans le sélecteur {token!r}"
 
 #: src/toyota_telemetry/operator/selection.py:139
 msgid "DID {did} is not in the candidate list for {endpoint}"
-msgstr ""
+msgstr "le DID {did} n'est pas dans la liste des candidats de {endpoint}"
 
 #: src/toyota_telemetry/operator/service.py:78
 msgid "Create a project workspace"
-msgstr ""
+msgstr "Créer un projet"
 
 #: src/toyota_telemetry/operator/service.py:79
 msgid "Show readiness and the next action"
-msgstr ""
+msgstr "Afficher la préparation et l'action suivante"
 
 #: src/toyota_telemetry/operator/service.py:80 src/toyota_telemetry/ui/shell.py:211
 msgid "Validate project files"
-msgstr ""
+msgstr "Valider les fichiers du projet"
 
 #: src/toyota_telemetry/operator/service.py:81
 msgid "Show connector settings"
-msgstr ""
+msgstr "Afficher les réglages de l'adaptateur"
 
 #: src/toyota_telemetry/operator/service.py:82
 msgid "Save connector settings"
-msgstr ""
+msgstr "Enregistrer les réglages de l'adaptateur"
 
 #: src/toyota_telemetry/operator/service.py:83
 msgid "Check connector offline"
-msgstr ""
+msgstr "Tester l'adaptateur hors ligne"
 
 #: src/toyota_telemetry/operator/service.py:84
 msgid "Preview a candidate source"
-msgstr ""
+msgstr "Prévisualiser une source de candidats"
 
 #: src/toyota_telemetry/operator/service.py:85
 msgid "Apply a candidate source"
-msgstr ""
+msgstr "Appliquer une source de candidats"
 
 #: src/toyota_telemetry/operator/service.py:86
 msgid "Save candidate rows to a file"
-msgstr ""
+msgstr "Enregistrer les lignes candidates dans un fichier"
 
 #: src/toyota_telemetry/operator/service.py:87
 msgid "Rebuild the derived cache"
-msgstr ""
+msgstr "Reconstruire le cache dérivé"
 
 #: src/toyota_telemetry/operator/service.py:88
 msgid "List endpoints, DIDs, and signals"
-msgstr ""
+msgstr "Lister les points d'accès, DID et signaux"
 
 #: src/toyota_telemetry/operator/service.py:89
 msgid "Show one DID or signal"
-msgstr ""
+msgstr "Afficher un DID ou un signal"
 
 #: src/toyota_telemetry/operator/service.py:90
 msgid "Add a manual endpoint candidate"
-msgstr ""
+msgstr "Ajouter manuellement un point d'accès candidat"
 
 #: src/toyota_telemetry/operator/service.py:91
 msgid "Confirm a responding endpoint"
-msgstr ""
+msgstr "Confirmer un point d'accès qui répond"
 
 #: src/toyota_telemetry/operator/service.py:92
 msgid "Verify endpoints and DIDs"
-msgstr ""
+msgstr "Vérifier les points d'accès et DID"
 
 #: src/toyota_telemetry/operator/service.py:93
 msgid "Watch one DID's signals live"
-msgstr ""
+msgstr "Suivre en direct les signaux d'un DID"
 
 #: src/toyota_telemetry/operator/service.py:94
 msgid "Delete candidate signals"
-msgstr ""
+msgstr "Supprimer des signaux candidats"
 
 #: src/toyota_telemetry/operator/service.py:95
 msgid "Edit a signal definition"
-msgstr ""
+msgstr "Modifier la définition d'un signal"
 
 #: src/toyota_telemetry/operator/service.py:96
 msgid "Edit shared DID settings"
-msgstr ""
+msgstr "Modifier les réglages DID partagés"
 
 #: src/toyota_telemetry/operator/service.py:98
 msgid "Remove collection targets"
-msgstr ""
+msgstr "Retirer des objectifs de collecte"
 
 #: src/toyota_telemetry/operator/service.py:99
 msgid "Check collection readiness"
-msgstr ""
+msgstr "Vérifier la préparation de la collecte"
 
 #: src/toyota_telemetry/operator/service.py:100 src/toyota_telemetry/operator/service.py:302
 msgid "Collect data"
-msgstr ""
+msgstr "Collecter des données"
 
 #: src/toyota_telemetry/operator/service.py:101
 msgid "List recorded runs"
-msgstr ""
+msgstr "Lister les enregistrements"
 
 #: src/toyota_telemetry/operator/service.py:102
 msgid "Show one run"
-msgstr ""
+msgstr "Afficher un enregistrement"
 
 #: src/toyota_telemetry/operator/service.py:103
 msgid "Recover an interrupted run"
-msgstr ""
+msgstr "Récupérer un enregistrement interrompu"
 
 #: src/toyota_telemetry/operator/service.py:104
 msgid "Move a run to the system trash"
-msgstr ""
+msgstr "Mettre un enregistrement à la corbeille"
 
 #: src/toyota_telemetry/operator/service.py:105 src/toyota_telemetry/ui/recordings_page.py:124
 msgid "Export recorded samples"
-msgstr ""
+msgstr "Exporter les échantillons enregistrés"
 
 #: src/toyota_telemetry/operator/service.py:106
 msgid "Export the result to a folder"
-msgstr ""
+msgstr "Exporter le résultat dans un dossier"
 
 #: src/toyota_telemetry/operator/service.py:303
 msgid "Analyze recordings"
-msgstr ""
+msgstr "Analyser les enregistrements"
 
 #: src/toyota_telemetry/operator/service.py:266
 msgid "Recover the interrupted run"
-msgstr ""
+msgstr "Récupérer l'enregistrement interrompu"
 
 #: src/toyota_telemetry/operator/service.py:273
 msgid "Import a candidate signal list"
-msgstr ""
+msgstr "Importer une liste de signaux candidats"
 
 #: src/toyota_telemetry/operator/service.py:280
 msgid "Confirm the responding endpoint"
-msgstr ""
+msgstr "Confirmer le point d'accès qui répond"
 
 #: src/toyota_telemetry/operator/service.py:290
 msgid "Verify endpoints and DIDs with the vehicle"
-msgstr ""
+msgstr "Vérifier les points d'accès et DID sur le véhicule"
 
 #: src/toyota_telemetry/operator/service.py:331
 msgid "no connector configured yet"
-msgstr ""
+msgstr "aucun adaptateur configuré"
 
 #: src/toyota_telemetry/operator/service.py:386
 msgid "no candidate rows imported yet"
-msgstr ""
+msgstr "aucune ligne candidate importée"
 
 #: src/toyota_telemetry/operator/service.py:219 src/toyota_telemetry/operator/service.py:244
 msgid "Fix the project files"
-msgstr ""
+msgstr "Corriger les fichiers du projet"
 
 #: src/toyota_telemetry/operator/service.py:313
 msgid "project {project} profile {profile}: workspace files are valid"
-msgstr ""
+msgstr "projet {project} profil {profile} : les fichiers du projet sont valides"
 
 #: src/toyota_telemetry/operator/service.py:243
 msgid "cache could not be refreshed: {error}"
-msgstr ""
+msgstr "le cache n'a pas pu être actualisé : {error}"
 
 #: src/toyota_telemetry/operator/service.py:389
 msgid "{name} exists; choose another name or overwrite it"
-msgstr ""
+msgstr "{name} existe ; choisir un autre nom ou l'écraser"
 
 #: src/toyota_telemetry/operator/service.py:478
 msgid "{candidate} has no verification result; verify it before confirming"
-msgstr ""
+msgstr "{candidate} n'a aucun résultat de vérification ; le vérifier avant de confirmer"
 
 #: src/toyota_telemetry/operator/service.py:320
 msgid "candidate inventory: {error}"
-msgstr ""
+msgstr "inventaire des candidats : {error}"
 
 #: src/toyota_telemetry/operator/service.py:325
 msgid "verification facts: {error}"
-msgstr ""
+msgstr "résultats de vérification : {error}"
 
 #: src/toyota_telemetry/operator/service.py:329
 msgid "candidate list: {error}"
-msgstr ""
+msgstr "liste des candidats : {error}"
 
 #: src/toyota_telemetry/operator/sources.py:262
 msgid "the TIS database reader needs Windows (32-bit Techstream libraries)"
-msgstr ""
+msgstr "le lecteur de base TIS nécessite Windows (bibliothèques Techstream 32 bits)"
 
 #: src/toyota_telemetry/operator/sources.py:288
 msgid "no installed TIS database matches the ECU selection"
-msgstr ""
+msgstr "aucune base TIS installée ne correspond à la sélection d'ECU"
 
 #: src/toyota_telemetry/operator/sources.py:189
 msgid "file not found: {name}"
-msgstr ""
+msgstr "fichier introuvable : {name}"
 
 #: src/toyota_telemetry/operator/sources.py:264
 msgid "{name} is missing from this installation; build it with backends\\build.ps1"
-msgstr ""
+msgstr "{name} manque dans cette installation ; le compiler avec backends\\build.ps1"
 
 #: src/toyota_telemetry/operator/sources.py:266
 msgid "no DB folder under the database directory {name}"
-msgstr ""
+msgstr "aucun dossier DB dans le dossier de base de données {name}"
 
 #: src/toyota_telemetry/operator/sources.py:205
 msgid "{name}: expected a JSON array of rows"
-msgstr ""
+msgstr "{name} : tableau JSON de lignes attendu"
 
 #: src/toyota_telemetry/operator/sources.py:320
 msgid "not a CAN diagnostic address ({addressing})"
-msgstr ""
+msgstr "pas une adresse de diagnostic CAN ({addressing})"
 
 #: src/toyota_telemetry/operator/sources.py:199
 msgid "{name}: invalid JSON: {error}"
-msgstr ""
+msgstr "{name} : JSON invalide : {error}"
 
 #: src/toyota_telemetry/operator/verification.py:110
 msgid "verification needs at least one selected DID"
-msgstr ""
+msgstr "la vérification nécessite au moins un DID sélectionné"
 
 #: src/toyota_telemetry/operator/verification.py:115
 msgid "the transport settings have no session recipe yet"
-msgstr ""
+msgstr "les réglages de transport n'ont pas encore de recette de session"
 
 #: src/toyota_telemetry/operator/verification.py:45
 msgid ", then "
-msgstr ""
+msgstr ", puis "
 
 #: src/toyota_telemetry/operator/verification.py:46
 msgid "session automatic (tries {order})"
-msgstr ""
+msgstr "session automatique (essaie {order})"
 
 #: src/toyota_telemetry/operator/verification.py:81
 msgid "LIVE verification of {endpoints} endpoint(s) ({probes} to probe) and {dids} DID(s) on {connector} {device}"
-msgstr ""
+msgstr "Vérification EN DIRECT de {endpoints} point(s) d'accès ({probes} à sonder) et {dids} DID sur {connector} {device}"
 
 #: src/toyota_telemetry/operator/verification.py:44
 msgid "session {recipe}"
-msgstr ""
+msgstr "session {recipe}"
 
 #: src/toyota_telemetry/operator/verification.py:113
 msgid "unknown session recipe {recipe!r}"
-msgstr ""
+msgstr "recette de session inconnue {recipe!r}"
 
 #: src/toyota_telemetry/operator/verification.py:165
 msgid "{endpoint} has no known CAN IDs; add a manual endpoint with its tester and response CAN IDs"
-msgstr ""
+msgstr "{endpoint} n'a aucun CAN ID connu ; ajouter un point d'accès manuel avec ses CAN ID de testeur et de réponse"
 
 #: src/toyota_telemetry/operator/verification.py:262
 msgid "endpoint did not respond"
-msgstr ""
+msgstr "le point d'accès n'a pas répondu"
 
 #: src/toyota_telemetry/operator/verification.py:130
 msgid "unknown endpoint in selection: {endpoint}"
-msgstr ""
+msgstr "point d'accès inconnu dans la sélection : {endpoint}"
 
 #: src/toyota_telemetry/operator/verification.py:133
 msgid "{did} is outside the transport DID safety range {low}..{high}"
-msgstr ""
+msgstr "{did} est hors de la plage DID de sécurité du transport {low}..{high}"
 
 #: src/toyota_telemetry/operator/watch.py:78
 msgid "confirm the endpoint first"
-msgstr ""
+msgstr "confirmer d'abord le point d'accès"
 
 #: src/toyota_telemetry/operator/watch.py:80
 msgid "verify this DID first; only DIDs that answered are watched"
-msgstr ""
+msgstr "vérifier d'abord ce DID ; seuls les DID qui ont répondu sont suivis"
 
 #: src/toyota_telemetry/operator/watch.py:84
 msgid "set how often this DID is read first"
-msgstr ""
+msgstr "définir d'abord la fréquence de lecture de ce DID"
 
 #: src/toyota_telemetry/operator/watch.py:91
 msgid "configure the connector first"
-msgstr ""
+msgstr "configurer d'abord l'adaptateur"
 
 #: src/toyota_telemetry/operator/watch.py:93
 msgid "this DID has no signals to show"
-msgstr ""
+msgstr "ce DID n'a aucun signal à afficher"
 
 #: src/toyota_telemetry/operator/watch.py:173
 msgid "beyond the reply"
-msgstr ""
+msgstr "au-delà de la réponse"
 
 #: src/toyota_telemetry/operator/watch.py:55
 msgid "Read {did} on {endpoint} every {interval} ms and show {count} signal(s); nothing is recorded"
-msgstr ""
+msgstr "Lire {did} sur {endpoint} toutes les {interval} ms et afficher {count} signal(aux) ; rien n'est enregistré"
 
 #: src/toyota_telemetry/operator/watch.py:75
 msgid "no DID {did} in the candidate list"
-msgstr ""
+msgstr "aucun DID {did} dans la liste des candidats"
 
 #: src/toyota_telemetry/operator/watch.py:87
 msgid "the DID's interval {interval} ms is below the {floor} ms request floor"
-msgstr ""
+msgstr "l'intervalle du DID ({interval} ms) est inférieur au délai minimal entre requêtes ({floor} ms)"
 
 #: src/toyota_telemetry/operator/watch.py:156
 msgid "stopped after {count} failed read in a row"
 msgid_plural "stopped after {count} failed reads in a row"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "arrêté après {count} lecture échouée consécutive"
+msgstr[1] "arrêté après {count} lectures échouées consécutives"
 
 #: src/toyota_telemetry/operator/workspace.py:53
 msgid "{name} is not an empty folder"
-msgstr ""
+msgstr "{name} n'est pas un dossier vide"
 
 #: src/toyota_telemetry/ui/collect_page.py:367
 msgid "one after another"
-msgstr ""
+msgstr "l'un après l'autre"
 
 #: src/toyota_telemetry/ui/collect_page.py:72
 msgid "Readiness"
-msgstr ""
+msgstr "Préparation"
 
 #: src/toyota_telemetry/ui/collect_page.py:77
 msgid "ECUs to collect"
-msgstr ""
+msgstr "ECU à collecter"
 
 #: src/toyota_telemetry/ui/collect_page.py:78
 msgid "Check ECUs to collect; drag to order"
-msgstr ""
+msgstr "Cocher les ECU à collecter ; glisser pour ordonner"
 
 #: src/toyota_telemetry/ui/collect_page.py:94
 msgid "How to move between ECUs"
-msgstr ""
+msgstr "Passage entre ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:95
 msgid "How to move between checked ECUs"
-msgstr ""
+msgstr "Comment passer d'un ECU coché à l'autre"
 
 #: src/toyota_telemetry/ui/collect_page.py:100
 msgid "Time on each ECU"
-msgstr ""
+msgstr "Durée par ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:101
 msgid "Time on each ECU before the next"
-msgstr ""
+msgstr "Durée sur chaque ECU avant le suivant"
 
 #: src/toyota_telemetry/ui/collect_page.py:106 src/toyota_telemetry/ui/setup_page.py:72
 msgid "Check"
-msgstr ""
+msgstr "Vérifier"
 
 #: src/toyota_telemetry/ui/collect_page.py:107
 msgid "Recheck; nothing is transmitted"
-msgstr ""
+msgstr "Revérifier ; rien n'est transmis"
 
 #: src/toyota_telemetry/ui/collect_page.py:111
 msgid "Several ECUs"
-msgstr ""
+msgstr "Plusieurs ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:112
 msgid "Switch every"
-msgstr ""
+msgstr "Changer toutes les"
 
 #: src/toyota_telemetry/ui/collect_page.py:117 src/toyota_telemetry/ui/collect_page.py:262 src/toyota_telemetry/ui/signals_page.py:323 src/toyota_telemetry/ui/signals_page.py:567
 msgid "No project open."
-msgstr ""
+msgstr "Aucun projet ouvert."
 
 #: src/toyota_telemetry/ui/collect_page.py:123
 msgid "Technical collection scope"
-msgstr ""
+msgstr "Portée technique de la collecte"
 
 #: src/toyota_telemetry/ui/collect_page.py:124
 msgid "Scope"
-msgstr ""
+msgstr "Portée"
 
 #: src/toyota_telemetry/ui/collect_page.py:125
 msgid "The exact compiled scope"
-msgstr ""
+msgstr "La portée compilée exacte"
 
 #: src/toyota_telemetry/ui/collect_page.py:130
 msgid "Run"
-msgstr ""
+msgstr "Enregistrement"
 
 #: src/toyota_telemetry/ui/collect_page.py:134 src/toyota_telemetry/ui/dialogs.py:239
 msgid "optional"
-msgstr ""
+msgstr "facultatif"
 
 #: src/toyota_telemetry/ui/collect_page.py:135
 msgid "Saved with the run, e.g. highway"
-msgstr ""
+msgstr "Enregistrée avec l'enregistrement, p. ex. autoroute"
 
 #: src/toyota_telemetry/ui/collect_page.py:136 src/toyota_telemetry/ui/dialogs.py:242 src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Note"
-msgstr ""
+msgstr "Note"
 
 #: src/toyota_telemetry/ui/collect_page.py:145
 msgid "Idle. Adapter closed."
-msgstr ""
+msgstr "Inactif. Adaptateur fermé."
 
 #: src/toyota_telemetry/ui/collect_page.py:148 src/toyota_telemetry/ui/collect_page.py:464
 msgid "%v of %m targets complete"
-msgstr ""
+msgstr "%v sur %m objectifs atteints"
 
 #: src/toyota_telemetry/ui/collect_page.py:157
 msgid "Read log"
-msgstr ""
+msgstr "Journal des lectures"
 
 #: src/toyota_telemetry/ui/collect_page.py:158
 msgid "Every read as it happens"
-msgstr ""
+msgstr "Chaque lecture en temps réel"
 
 #: src/toyota_telemetry/ui/collect_page.py:163 src/toyota_telemetry/ui/collect_page.py:402 src/toyota_telemetry/ui/shell.py:65 src/toyota_telemetry/ui/signals_page.py:375
 msgid "Targets"
-msgstr ""
+msgstr "Objectifs"
 
 #: src/toyota_telemetry/ui/collect_page.py:164
 msgid "Collected so far, across all runs"
-msgstr ""
+msgstr "Collecté jusqu'ici, sur tous les enregistrements"
 
 #: src/toyota_telemetry/ui/collect_page.py:170
 msgid "Target progress"
-msgstr ""
+msgstr "Progression des objectifs"
 
 #: src/toyota_telemetry/ui/collect_page.py:226 src/toyota_telemetry/ui/collect_page.py:354 src/toyota_telemetry/ui/setup_page.py:112
 msgid "Checking…"
-msgstr ""
+msgstr "Vérification…"
 
 #: src/toyota_telemetry/ui/collect_page.py:432 src/toyota_telemetry/ui/collect_page.py:138 src/toyota_telemetry/ui/dialogs.py:192
 msgid "Start"
-msgstr ""
+msgstr "Démarrer"
 
 #: src/toyota_telemetry/ui/collect_page.py:468
 msgid "LIVE - starting…"
-msgstr ""
+msgstr "EN DIRECT - démarrage…"
 
 #: src/toyota_telemetry/ui/collect_page.py:494
 msgid "One run per ECU and turn; ECUs whose targets are met are skipped."
-msgstr ""
+msgstr "Un enregistrement par ECU et par tour ; les ECU dont les objectifs sont atteints sont ignorés."
 
 #: src/toyota_telemetry/ui/collect_page.py:498
 msgid "Stops when every target is met or you stop it."
-msgstr ""
+msgstr "S'arrête quand tous les objectifs sont atteints ou sur votre demande."
 
 #: src/toyota_telemetry/ui/collect_page.py:517 src/toyota_telemetry/ui/collect_page.py:554 src/toyota_telemetry/ui/collect_page.py:66 src/toyota_telemetry/ui/shell.py:37 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:99 src/toyota_telemetry/ui/signals_page.py:350 src/toyota_telemetry/ui/signals_page.py:669
 msgid "Collect"
-msgstr ""
+msgstr "Collecter"
 
 #: src/toyota_telemetry/ui/collect_page.py:597
 msgid "Completed: every target in this run is complete."
-msgstr ""
+msgstr "Terminé : tous les objectifs de cet enregistrement sont atteints."
 
 #: src/toyota_telemetry/ui/collect_page.py:598
 msgid "Turn ended."
-msgstr ""
+msgstr "Tour terminé."
 
 #: src/toyota_telemetry/ui/collect_page.py:599
 msgid "Stopped safely."
-msgstr ""
+msgstr "Arrêté en toute sécurité."
 
 #: src/toyota_telemetry/ui/collect_page.py:600
 msgid "Stopped at the storage limit; the run was finalized."
-msgstr ""
+msgstr "Arrêté à la limite de stockage ; l'enregistrement a été finalisé."
 
 #: src/toyota_telemetry/ui/collect_page.py:601
 msgid "Transport lost; the valid prefix was finalized."
-msgstr ""
+msgstr "Transport perdu ; la partie valide a été finalisée."
 
 #: src/toyota_telemetry/ui/collect_page.py:52
 msgid "{ids} address {address}"
-msgstr ""
+msgstr "{ids} adresse {address}"
 
 #: src/toyota_telemetry/ui/collect_page.py:67 src/toyota_telemetry/ui/shell.py:43
 msgid "Run collection; target progress"
-msgstr ""
+msgstr "Lancer la collecte ; progression des objectifs"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/watch_window.py:46
 msgid "Signal"
-msgstr ""
+msgstr "Signal"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/recordings_page.py:49 src/toyota_telemetry/ui/signals_page.py:719 src/toyota_telemetry/ui/signals_page.py:669
 msgid "ECU"
-msgstr ""
+msgstr "ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:172 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:103 src/toyota_telemetry/ui/signals_page.py:670
 msgid "Target"
-msgstr ""
+msgstr "Objectif"
 
 #: src/toyota_telemetry/ui/collect_page.py:172
 msgid "Still needs"
-msgstr ""
+msgstr "Reste à faire"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "Signal with a target"
-msgstr ""
+msgstr "Signal avec un objectif"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "Where it is read"
-msgstr ""
+msgstr "Où il est lu"
 
 #: src/toyota_telemetry/ui/collect_page.py:174
 msgid "What it must collect"
-msgstr ""
+msgstr "Ce qu'il faut collecter"
 
 #: src/toyota_telemetry/ui/collect_page.py:175
 msgid "Collected so far across valid runs"
-msgstr ""
+msgstr "Collecté jusqu'ici sur les enregistrements valides"
 
 #: src/toyota_telemetry/ui/collect_page.py:175
 msgid "Requirements not met yet"
-msgstr ""
+msgstr "Critères pas encore remplis"
 
 #: src/toyota_telemetry/ui/collect_page.py:209
 msgid "Signals has unsaved changes. This page uses the saved settings until you save them."
-msgstr ""
+msgstr "Signaux contient des modifications non enregistrées. Cette page utilise les réglages enregistrés tant qu'elles ne sont pas enregistrées."
 
 #: src/toyota_telemetry/ui/collect_page.py:270
 msgid "Check at least one ECU to collect."
-msgstr ""
+msgstr "Cocher au moins un ECU à collecter."
 
 #: src/toyota_telemetry/ui/collect_page.py:288
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), storage limit {limit} MiB."
-msgstr ""
+msgstr "Prêt : {where}, {targets} objectif(s), {dids} DID, limite de stockage {limit} Mio."
 
 #: src/toyota_telemetry/ui/collect_page.py:393
 msgid "Nothing yet"
-msgstr ""
+msgstr "Rien pour l'instant"
 
 #: src/toyota_telemetry/ui/collect_page.py:426 src/toyota_telemetry/ui/signals_page.py:436 src/toyota_telemetry/ui/watch_window.py:64
 msgid "Stop"
-msgstr ""
+msgstr "Arrêter"
 
 #: src/toyota_telemetry/ui/collect_page.py:428
 msgid "Stops safely and keeps the run"
-msgstr ""
+msgstr "Arrête en toute sécurité et garde l'enregistrement"
 
 #: src/toyota_telemetry/ui/collect_page.py:442
 msgid "Another live job is running."
-msgstr ""
+msgstr "Une autre tâche en direct est en cours."
 
 #: src/toyota_telemetry/ui/collect_page.py:464
 msgid "%v of %m targets on this ECU"
-msgstr ""
+msgstr "%v sur %m objectifs sur cet ECU"
 
 #: src/toyota_telemetry/ui/collect_page.py:564
 msgid "LIVE - stopping safely…"
-msgstr ""
+msgstr "EN DIRECT - arrêt en cours…"
 
 #: src/toyota_telemetry/ui/collect_page.py:141
 msgid "Stops when targets are met\n{live}"
-msgstr ""
+msgstr "S'arrête quand les objectifs sont atteints\n{live}"
 
 #: src/toyota_telemetry/ui/collect_page.py:292
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), bus load {load}%, up to {rate} reads/s, storage limit {limit} MiB."
-msgstr ""
+msgstr "Prêt : {where}, {targets} objectif(s), {dids} DID, charge du bus {load} %, jusqu'à {rate} lectures/s, limite de stockage {limit} Mio."
 
 #: src/toyota_telemetry/ui/collect_page.py:295
 msgid "Ready: {where}, {targets} target(s), {dids} DID(s), bus load {load}%, {rate} reads/s, storage limit {limit} MiB."
-msgstr ""
+msgstr "Prêt : {where}, {targets} objectif(s), {dids} DID, charge du bus {load} %, {rate} lectures/s, limite de stockage {limit} Mio."
 
 #: src/toyota_telemetry/ui/collect_page.py:301
 msgid "✓ All targets met. Nothing left to collect."
-msgstr ""
+msgstr "✓ Tous les objectifs sont atteints. Plus rien à collecter."
 
 #: src/toyota_telemetry/ui/collect_page.py:304
 msgid "Not ready:"
-msgstr ""
+msgstr "Pas prêt :"
 
 #: src/toyota_telemetry/ui/collect_page.py:366
 msgid "in turn, {minutes} min each"
-msgstr ""
+msgstr "à tour de rôle, {minutes} min chacun"
 
 #: src/toyota_telemetry/ui/collect_page.py:405
 msgid "No targets yet. Set them on Signals."
-msgstr ""
+msgstr "Aucun objectif. Les définir dans Signaux."
 
 #: src/toyota_telemetry/ui/collect_page.py:443
 msgid "All targets met."
-msgstr ""
+msgstr "Tous les objectifs sont atteints."
 
 #: src/toyota_telemetry/ui/collect_page.py:443
 msgid "Readiness has problems."
-msgstr ""
+msgstr "La préparation présente des problèmes."
 
 #: src/toyota_telemetry/ui/collect_page.py:489
 msgid "ECUs {turns}, in this order:"
-msgstr ""
+msgstr "ECU {turns}, dans cet ordre :"
 
 #: src/toyota_telemetry/ui/collect_page.py:499 src/toyota_telemetry/ui/collect_page.py:539
 msgid "Storage limit: {limit} MiB"
-msgstr ""
+msgstr "Limite de stockage : {limit} Mio"
 
 #: src/toyota_telemetry/ui/collect_page.py:500 src/toyota_telemetry/ui/collect_page.py:540
 msgid "Note: {note}"
-msgstr ""
+msgstr "Note : {note}"
 
 #: src/toyota_telemetry/ui/collect_page.py:502 src/toyota_telemetry/ui/collect_page.py:544 src/toyota_telemetry/ui/signals_page.py:1076 src/toyota_telemetry/ui/signals_page.py:1180
 msgid "Scope fingerprint: {digest}"
-msgstr ""
+msgstr "Empreinte de la portée : {digest}"
 
 #: src/toyota_telemetry/ui/collect_page.py:518
 msgid "LIVE collection of {signals} signal(s) on {ecus} ECUs {turns}?"
-msgstr ""
+msgstr "Collecte EN DIRECT de {signals} signal(aux) sur {ecus} ECU {turns} ?"
 
 #: src/toyota_telemetry/ui/collect_page.py:532
 msgid "Endpoint: {ecu}"
-msgstr ""
+msgstr "Point d'accès : {ecu}"
 
 #: src/toyota_telemetry/ui/collect_page.py:534
 msgid "Signals ({count}):"
-msgstr ""
+msgstr "Signaux ({count}) :"
 
 #: src/toyota_telemetry/ui/collect_page.py:536
 msgid "Reads {dids} DID(s); stops when these targets are complete or you stop it."
-msgstr ""
+msgstr "Lit {dids} DID ; s'arrête quand ces objectifs sont atteints ou sur votre demande."
 
 #: src/toyota_telemetry/ui/collect_page.py:543 src/toyota_telemetry/ui/collect_page.py:506
 msgid "Endpoint ID: {endpoint} ({ids})"
-msgstr ""
+msgstr "ID du point d'accès : {endpoint} ({ids})"
 
 #: src/toyota_telemetry/ui/collect_page.py:545 src/toyota_telemetry/ui/collect_page.py:507
 msgid "Session {recipe}: {requests}"
-msgstr ""
+msgstr "Session {recipe} : {requests}"
 
 #: src/toyota_telemetry/ui/collect_page.py:555
 msgid "LIVE collection of {signals} signal(s) on {ecu}?"
-msgstr ""
+msgstr "Collecte EN DIRECT de {signals} signal(aux) sur {ecu} ?"
 
 #: src/toyota_telemetry/ui/collect_page.py:603
 msgid "{outcome} Adapter closed."
-msgstr ""
+msgstr "{outcome} Adaptateur fermé."
 
 #: src/toyota_telemetry/ui/collect_page.py:610
 msgid "Failed: {detail} Adapter closed."
-msgstr ""
+msgstr "Échec : {detail} Adaptateur fermé."
 
 #: src/toyota_telemetry/ui/collect_page.py:103
 msgid "{minutes} min"
-msgstr ""
+msgstr "{minutes} min"
 
 #: src/toyota_telemetry/ui/collect_page.py:234
 msgid "Cannot check readiness: {detail}"
-msgstr ""
+msgstr "Impossible de vérifier la préparation : {detail}"
 
 #: src/toyota_telemetry/ui/collect_page.py:278
 msgid "{count} ECUs {turns}"
-msgstr ""
+msgstr "{count} ECU {turns}"
 
 #: src/toyota_telemetry/ui/collect_page.py:390
 msgid "{samples}, {runs}"
-msgstr ""
+msgstr "{samples}, {runs}"
 
 #: src/toyota_telemetry/ui/collect_page.py:397
 msgid "✓ Met"
-msgstr ""
+msgstr "✓ Atteint"
 
 #: src/toyota_telemetry/ui/collect_page.py:402
 msgid "Targets: {met} of {total} met"
-msgstr ""
+msgstr "Objectifs : {met} sur {total} atteints"
 
 #: src/toyota_telemetry/ui/collect_page.py:570
 msgid "LIVE - switching to {ecu}…"
-msgstr ""
+msgstr "EN DIRECT - passage à {ecu}…"
 
 #: src/toyota_telemetry/ui/collect_page.py:574
 msgid "LIVE - collecting."
-msgstr ""
+msgstr "EN DIRECT - collecte."
 
 #: src/toyota_telemetry/ui/collect_page.py:326
 msgid "{ecu}  ({targets})"
-msgstr ""
+msgstr "{ecu}  ({targets})"
 
 #: src/toyota_telemetry/ui/collect_page.py:488 src/toyota_telemetry/ui/collect_page.py:533
 msgid "Adapter: {kind} {device}"
-msgstr ""
+msgstr "Adaptateur : {kind} {device}"
 
 #: src/toyota_telemetry/ui/collect_page.py:495
 msgid "Each ECU is read until its targets are met: one that cannot be met\nnow keeps the next ECUs waiting until you stop."
-msgstr ""
+msgstr "Chaque ECU est lu jusqu'à ce que ses objectifs soient atteints : un objectif impossible\nà atteindre maintenant fait attendre les ECU suivants jusqu'à l'arrêt."
 
 #: src/toyota_telemetry/ui/collect_page.py:549 src/toyota_telemetry/ui/collect_page.py:511
 msgid "{acquisition}: request {request}, every {interval} ms"
-msgstr ""
+msgstr "{acquisition} : requête {request}, toutes les {interval} ms"
 
 #: src/toyota_telemetry/ui/collect_page.py:490
 msgid "{ecu}: {signals}, {dids} DID(s)"
-msgstr ""
+msgstr "{ecu} : {signals}, {dids} DID"
 
 #: src/toyota_telemetry/ui/collect_page.py:574
 msgid "LIVE - collecting from {ecu}."
-msgstr ""
+msgstr "EN DIRECT - collecte sur {ecu}."
 
 #: src/toyota_telemetry/ui/collect_page.py:580
 msgid "Elapsed {seconds} s, {reads} reads, {failed} failed."
-msgstr ""
+msgstr "Écoulé {seconds} s, {reads} lectures, {failed} échouées."
 
 #: src/toyota_telemetry/ui/collect_page.py:604
 msgid "Finished: {reason}"
-msgstr ""
+msgstr "Terminé : {reason}"
 
 #: src/toyota_telemetry/ui/collect_page.py:585
 msgid "heartbeat {state} {acquisition}"
-msgstr ""
+msgstr "pulsation {state} {acquisition}"
 
 #: src/toyota_telemetry/ui/collect_page.py:591
 msgid "error: {detail}"
-msgstr ""
+msgstr "erreur : {detail}"
 
 #: src/toyota_telemetry/ui/collect_page.py:593
 msgid "finished: {reason}"
-msgstr ""
+msgstr "terminé : {reason}"
 
 #: src/toyota_telemetry/ui/context.py:81
 msgid "Operation failed"
-msgstr ""
+msgstr "Échec de l'opération"
 
 #: src/toyota_telemetry/ui/dialogs.py:41
 msgid "CSV (spreadsheet)"
-msgstr ""
+msgstr "CSV (tableur)"
 
 #: src/toyota_telemetry/ui/dialogs.py:44
 msgid "e.g. 500: at least 500 readings"
-msgstr ""
+msgstr "p. ex. 500 : au moins 500 lectures"
 
 #: src/toyota_telemetry/ui/dialogs.py:45
 msgid "e.g. 3: seen in at least 3 recordings"
-msgstr ""
+msgstr "p. ex. 3 : vu dans au moins 3 enregistrements"
 
 #: src/toyota_telemetry/ui/dialogs.py:46
 msgid "e.g. 30m: first and last reading 30 min apart"
-msgstr ""
+msgstr "p. ex. 30m : première et dernière lecture à 30 min d'écart"
 
 #: src/toyota_telemetry/ui/dialogs.py:47
 msgid "e.g. 0,1,2: each of these raw values seen"
-msgstr ""
+msgstr "p. ex. 0,1,2 : chacune de ces valeurs brutes vue"
 
 #: src/toyota_telemetry/ui/dialogs.py:48
 msgid "e.g. 10: the raw value changed 10 times"
-msgstr ""
+msgstr "p. ex. 10 : la valeur brute a changé 10 fois"
 
 #: src/toyota_telemetry/ui/dialogs.py:49
 msgid "e.g. 20: moved by the minimum difference 20 times"
-msgstr ""
+msgstr "p. ex. 20 : variation de l'écart minimal 20 fois"
 
 #: src/toyota_telemetry/ui/dialogs.py:50
 msgid "e.g. 10m: 10 min recorded while Collect when holds"
-msgstr ""
+msgstr "p. ex. 10m : 10 min enregistrées pendant que Collecter si est vrai"
 
 #: src/toyota_telemetry/ui/dialogs.py:51
 msgid "e.g. 0.5: smaller steps don't count as changes"
-msgstr ""
+msgstr "p. ex. 0.5 : les pas plus petits ne comptent pas comme changements"
 
 #: src/toyota_telemetry/ui/dialogs.py:52
 msgid "e.g. 372/0x1002/0..15 > 10; empty means always"
-msgstr ""
+msgstr "p. ex. 372/0x1002/0..15 > 10 ; vide signifie toujours"
 
 #: src/toyota_telemetry/ui/dialogs.py:53
 msgid "Paused keeps the target but leaves it out of plans"
-msgstr ""
+msgstr "En pause garde l'objectif mais l'exclut des plans"
 
 #: src/toyota_telemetry/ui/dialogs.py:104 src/toyota_telemetry/ui/recordings_page.py:105
 msgid "Export samples"
-msgstr ""
+msgstr "Exporter les échantillons"
 
 #: src/toyota_telemetry/ui/dialogs.py:116 src/toyota_telemetry/ui/shell.py:37 src/toyota_telemetry/ui/signals_page.py:208
 msgid "Signals"
-msgstr ""
+msgstr "Signaux"
 
 #: src/toyota_telemetry/ui/dialogs.py:126
 msgid "Runs"
-msgstr ""
+msgstr "Enregistrements"
 
 #: src/toyota_telemetry/ui/dialogs.py:130
 msgid "Format"
-msgstr ""
+msgstr "Format"
 
 #: src/toyota_telemetry/ui/dialogs.py:133 src/toyota_telemetry/ui/recordings_page.py:122
 msgid "Export"
-msgstr ""
+msgstr "Exporter"
 
 #: src/toyota_telemetry/ui/dialogs.py:179
 msgid "Exact live scope"
-msgstr ""
+msgstr "Portée exacte en direct"
 
 #: src/toyota_telemetry/ui/dialogs.py:194
 msgid "Read-only requests. Never operate while driving."
-msgstr ""
+msgstr "Requêtes en lecture seule. Ne jamais manipuler en conduisant."
 
 #: src/toyota_telemetry/ui/dialogs.py:237
 msgid "Which ECUs answer at this endpoint"
-msgstr ""
+msgstr "Quels ECU répondent à ce point d'accès"
 
 #: src/toyota_telemetry/ui/dialogs.py:240
 msgid "How it was confirmed, for your own records"
-msgstr ""
+msgstr "Comment il a été confirmé, pour vos propres notes"
 
 #: src/toyota_telemetry/ui/dialogs.py:241 src/toyota_telemetry/ui/import_dialog.py:32 src/toyota_telemetry/ui/import_dialog.py:100
 msgid "ECU keys"
-msgstr ""
+msgstr "Clés ECU"
 
 #: src/toyota_telemetry/ui/dialogs.py:251
 msgid "Enter at least one ECU key."
-msgstr ""
+msgstr "Saisir au moins une clé ECU."
 
 #: src/toyota_telemetry/ui/dialogs.py:282
 msgid "0 or empty removes a requirement"
-msgstr ""
+msgstr "0 ou vide retire un critère"
 
 #: src/toyota_telemetry/ui/dialogs.py:316
 msgid "Minimum difference"
-msgstr ""
+msgstr "Écart minimal"
 
 #: src/toyota_telemetry/ui/dialogs.py:319
 msgid "372/0x1002/0..15 > 10 and ...; empty means always"
-msgstr ""
+msgstr "372/0x1002/0..15 > 10 and ... ; vide signifie toujours"
 
 #: src/toyota_telemetry/ui/dialogs.py:320
 msgid "Collect when"
-msgstr ""
+msgstr "Collecter si"
 
 #: src/toyota_telemetry/ui/dialogs.py:323
 msgid "Active"
-msgstr ""
+msgstr "Actif"
 
 #: src/toyota_telemetry/ui/dialogs.py:324
 msgid "Paused"
-msgstr ""
+msgstr "En pause"
 
 #: src/toyota_telemetry/ui/dialogs.py:326 src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Status"
-msgstr ""
+msgstr "Statut"
 
 #: src/toyota_telemetry/ui/dialogs.py:330
 msgid "Batch impact preview"
-msgstr ""
+msgstr "Aperçu de l'effet du lot"
 
 #: src/toyota_telemetry/ui/dialogs.py:334 src/toyota_telemetry/ui/import_dialog.py:57 src/toyota_telemetry/ui/signals_page.py:366 src/toyota_telemetry/ui/signals_page.py:417
 msgid "Apply"
-msgstr ""
+msgstr "Appliquer"
 
 #: src/toyota_telemetry/ui/dialogs.py:335
 msgid "Saved with Save on Signals"
-msgstr ""
+msgstr "Enregistré via Enregistrer dans Signaux"
 
 #: src/toyota_telemetry/ui/dialogs.py:109
 msgid "Selected signal"
-msgstr ""
+msgstr "Signal sélectionné"
 
 #: src/toyota_telemetry/ui/dialogs.py:119
 msgid "Selected runs"
-msgstr ""
+msgstr "Enregistrements sélectionnés"
 
 #: src/toyota_telemetry/ui/dialogs.py:185
 msgid "Technical scope details"
-msgstr ""
+msgstr "Détails techniques de la portée"
 
 #: src/toyota_telemetry/ui/dialogs.py:186
 msgid "Technical details"
-msgstr ""
+msgstr "Détails techniques"
 
 #: src/toyota_telemetry/ui/dialogs.py:187
 msgid "Request bytes and session steps"
-msgstr ""
+msgstr "Octets de requête et étapes de session"
 
 #: src/toyota_telemetry/ui/dialogs.py:234
 msgid "Nothing is sent. This records that the endpoint\nwhich answered is this ECU."
-msgstr ""
+msgstr "Rien n'est envoyé. Ceci note que le point d'accès\nqui a répondu est cet ECU."
 
 #: src/toyota_telemetry/ui/dialogs.py:277
 msgid "Batch edit collection targets"
-msgstr ""
+msgstr "Modifier des objectifs de collecte par lot"
 
 #: src/toyota_telemetry/ui/dialogs.py:277
 msgid "Edit collection target"
-msgstr ""
+msgstr "Modifier l'objectif de collecte"
 
 #: src/toyota_telemetry/ui/dialogs.py:112
 msgid "All {count} signal"
 msgid_plural "All {count} signals"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Le signal ({count})"
+msgstr[1] "Les {count} signaux"
 
 #: src/toyota_telemetry/ui/dialogs.py:122
 msgid "All {count} run"
 msgid_plural "All {count} runs"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "L'enregistrement ({count})"
+msgstr[1] "Les {count} enregistrements"
 
 #: src/toyota_telemetry/ui/dialogs.py:232
 msgid "Confirm {name}"
-msgstr ""
+msgstr "Confirmer {name}"
 
 #: src/toyota_telemetry/ui/dialogs.py:309
 msgid "Each checked state must be seen"
-msgstr ""
+msgstr "Chaque état coché doit être vu"
 
 #: src/toyota_telemetry/ui/dialogs.py:343
 msgid "Change {field}"
-msgstr ""
+msgstr "Modifier {field}"
 
 #: src/toyota_telemetry/ui/dialogs.py:399
 msgid "Check at least one field to change."
-msgstr ""
+msgstr "Cocher au moins un champ à modifier."
 
 #: src/toyota_telemetry/ui/dialogs.py:77
 msgid "Raw value {raw}"
-msgstr ""
+msgstr "Valeur brute {raw}"
 
 #: src/toyota_telemetry/ui/dialogs.py:109
 msgid "Selected: {signal}"
-msgstr ""
+msgstr "Sélectionné : {signal}"
 
 #: src/toyota_telemetry/ui/dialogs.py:118
 msgid "Selected {count} run"
 msgid_plural "Selected {count} runs"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} enregistrement sélectionné"
+msgstr[1] "{count} enregistrements sélectionnés"
 
 #: src/toyota_telemetry/ui/dialogs.py:298
 msgid "e.g. 30m or 2h; empty removes"
-msgstr ""
+msgstr "p. ex. 30m ou 2h ; vide retire"
 
 #: src/toyota_telemetry/ui/dialogs.py:306
 msgid "raw states, e.g. 0,1,2; empty removes"
-msgstr ""
+msgstr "états bruts, p. ex. 0,1,2 ; vide retire"
 
 #: src/toyota_telemetry/ui/dialogs.py:405
 msgid "Cannot apply: {error}"
-msgstr ""
+msgstr "Impossible d'appliquer : {error}"
 
 #: src/toyota_telemetry/ui/dialogs.py:415
 msgid "ECU key must be a number: {value}"
-msgstr ""
+msgstr "La clé ECU doit être un nombre : {value}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Request ID"
-msgstr ""
+msgstr "ID de requête"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Response ID"
-msgstr ""
+msgstr "ID de réponse"
 
 #: src/toyota_telemetry/ui/import_dialog.py:32
 msgid "Address"
-msgstr ""
+msgstr "Adresse"
 
 #: src/toyota_telemetry/ui/import_dialog.py:34
 msgid "Request CAN ID, e.g. 0x7E0"
-msgstr ""
+msgstr "CAN ID de requête, p. ex. 0x7E0"
 
 #: src/toyota_telemetry/ui/import_dialog.py:35
 msgid "Empty means request + 8"
-msgstr ""
+msgstr "Vide signifie requête + 8"
 
 #: src/toyota_telemetry/ui/import_dialog.py:36
 msgid "Only for an ECU behind a gateway, e.g. 0x2A"
-msgstr ""
+msgstr "Seulement pour un ECU derrière une passerelle, p. ex. 0x2A"
 
 #: src/toyota_telemetry/ui/import_dialog.py:37
 msgid "ECU keys answering here, e.g. 372, 374"
-msgstr ""
+msgstr "Clés ECU qui répondent ici, p. ex. 372, 374"
 
 #: src/toyota_telemetry/ui/import_dialog.py:48 src/toyota_telemetry/ui/signals_page.py:432
 msgid "Add candidates"
-msgstr ""
+msgstr "Ajouter des candidats"
 
 #: src/toyota_telemetry/ui/import_dialog.py:52
 msgid "JSON file"
-msgstr ""
+msgstr "Fichier JSON"
 
 #: src/toyota_telemetry/ui/import_dialog.py:53
 msgid "TIS database"
-msgstr ""
+msgstr "Base TIS"
 
 #: src/toyota_telemetry/ui/import_dialog.py:54
 msgid "Manual"
-msgstr ""
+msgstr "Manuel"
 
 #: src/toyota_telemetry/ui/import_dialog.py:56
 msgid "Preview"
-msgstr ""
+msgstr "Aperçu"
 
 #: src/toyota_telemetry/ui/import_dialog.py:58
 msgid "Show what will change; nothing is written"
-msgstr ""
+msgstr "Montrer ce qui va changer ; rien n'est écrit"
 
 #: src/toyota_telemetry/ui/import_dialog.py:59
 msgid "Make exactly the previewed changes"
-msgstr ""
+msgstr "Appliquer exactement les changements prévisualisés"
 
 #: src/toyota_telemetry/ui/import_dialog.py:60 src/toyota_telemetry/ui/import_dialog.py:160 src/toyota_telemetry/ui/import_dialog.py:198
 msgid "Preview a source first."
-msgstr ""
+msgstr "Prévisualiser d'abord une source."
 
 #: src/toyota_telemetry/ui/import_dialog.py:69
 msgid "Close"
-msgstr ""
+msgstr "Fermer"
 
 #: src/toyota_telemetry/ui/import_dialog.py:81
 msgid "Row file"
-msgstr ""
+msgstr "Fichier de lignes"
 
 #: src/toyota_telemetry/ui/import_dialog.py:92
 msgid "all installed ECUs"
-msgstr ""
+msgstr "tous les ECU installés"
 
 #: src/toyota_telemetry/ui/import_dialog.py:96
 msgid "Region folder containing DB"
-msgstr ""
+msgstr "Dossier de région contenant DB"
 
 #: src/toyota_telemetry/ui/import_dialog.py:97
 msgid "Empty reads every ECU"
-msgstr ""
+msgstr "Vide lit tous les ECU"
 
 #: src/toyota_telemetry/ui/import_dialog.py:98
 msgid "932 for the NA set"
-msgstr ""
+msgstr "932 pour le jeu NA"
 
 #: src/toyota_telemetry/ui/import_dialog.py:99
 msgid "Database folder"
-msgstr ""
+msgstr "Dossier de la base"
 
 #: src/toyota_telemetry/ui/import_dialog.py:101
 msgid "Code page"
-msgstr ""
+msgstr "Page de codes"
 
 #: src/toyota_telemetry/ui/import_dialog.py:107
 msgid "One endpoint per row. Nothing is sent; Verify finds the session."
-msgstr ""
+msgstr "Un point d'accès par ligne. Rien n'est envoyé ; Vérifier trouve la session."
 
 #: src/toyota_telemetry/ui/import_dialog.py:115
 msgid "Endpoints to add"
-msgstr ""
+msgstr "Points d'accès à ajouter"
 
 #: src/toyota_telemetry/ui/import_dialog.py:117
 msgid "Add row"
-msgstr ""
+msgstr "Ajouter une ligne"
 
 #: src/toyota_telemetry/ui/import_dialog.py:118
 msgid "Another endpoint"
-msgstr ""
+msgstr "Un autre point d'accès"
 
 #: src/toyota_telemetry/ui/import_dialog.py:119
 msgid "Remove row"
-msgstr ""
+msgstr "Retirer la ligne"
 
 #: src/toyota_telemetry/ui/import_dialog.py:120
 msgid "Remove the selected rows"
-msgstr ""
+msgstr "Retirer les lignes sélectionnées"
 
 #: src/toyota_telemetry/ui/import_dialog.py:121
 msgid "Add endpoints"
-msgstr ""
+msgstr "Ajouter"
 
 #: src/toyota_telemetry/ui/import_dialog.py:122
 msgid "Add these endpoint candidates"
-msgstr ""
+msgstr "Ajouter ces points d'accès candidats"
 
 #: src/toyota_telemetry/ui/import_dialog.py:186
 msgid "Reading the source…"
-msgstr ""
+msgstr "Lecture de la source…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:207
 msgid "Applying…"
-msgstr ""
+msgstr "Application…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:81
 msgid "Candidate row file"
-msgstr ""
+msgstr "Fichier de lignes candidates"
 
 #: src/toyota_telemetry/ui/import_dialog.py:99
 msgid "TIS database folder"
-msgstr ""
+msgstr "Dossier de la base TIS"
 
 #: src/toyota_telemetry/ui/import_dialog.py:139
 msgid "Installed Techstream databases"
-msgstr ""
+msgstr "Bases Techstream installées"
 
 #: src/toyota_telemetry/ui/import_dialog.py:149
 msgid "choose the TIS database folder first"
-msgstr ""
+msgstr "choisir d'abord le dossier de la base TIS"
 
 #: src/toyota_telemetry/ui/import_dialog.py:204
 msgid "Candidates not imported"
-msgstr ""
+msgstr "Candidats non importés"
 
 #: src/toyota_telemetry/ui/import_dialog.py:146
 msgid "choose a row file first"
-msgstr ""
+msgstr "choisir d'abord un fichier de lignes"
 
 #: src/toyota_telemetry/ui/import_dialog.py:206
 msgid "Applying {source}…"
-msgstr ""
+msgstr "Application de {source}…"
 
 #: src/toyota_telemetry/ui/import_dialog.py:263
 msgid "Added {count} endpoint candidate(s). Select them and Verify."
 msgid_plural "Added {count} endpoint candidate(s). Select them and Verify."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} point d'accès candidat ajouté. Le sélectionner et Vérifier."
+msgstr[1] "{count} points d'accès candidats ajoutés. Les sélectionner et Vérifier."
 
 #: src/toyota_telemetry/ui/import_dialog.py:171
 msgid "Rejected {where}: {reason}"
-msgstr ""
+msgstr "Rejeté {where} : {reason}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:184
 msgid "Could not read the source: {error}"
-msgstr ""
+msgstr "Impossible de lire la source : {error}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:196
 msgid "Applied {source}."
-msgstr ""
+msgstr "{source} appliqué."
 
 #: src/toyota_telemetry/ui/import_dialog.py:175
 msgid "Cannot use this list: {problem}"
-msgstr ""
+msgstr "Liste inutilisable : {problem}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:259
 msgid "Not added. {problem}"
-msgstr ""
+msgstr "Non ajouté. {problem}"
 
 #: src/toyota_telemetry/ui/import_dialog.py:256
 msgid "Row {number}:"
-msgstr ""
+msgstr "Ligne {number} :"
 
 #: src/toyota_telemetry/ui/names.py:19 src/toyota_telemetry/ui/shell.py:63 src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:93 src/toyota_telemetry/ui/signals_page.py:94 src/toyota_telemetry/ui/signals_page.py:669
 msgid "Readable"
-msgstr ""
+msgstr "Lisible"
 
 #: src/toyota_telemetry/ui/names.py:51
 msgid "Unnamed ECU"
-msgstr ""
+msgstr "ECU sans nom"
 
 #: src/toyota_telemetry/ui/names.py:25
 msgid "Needs confirming"
-msgstr ""
+msgstr "À confirmer"
 
 #: src/toyota_telemetry/ui/names.py:25
 msgid "Answered; confirm it to plan"
-msgstr ""
+msgstr "A répondu ; le confirmer pour planifier"
 
 #: src/toyota_telemetry/ui/names.py:26
 msgid "Did not answer"
-msgstr ""
+msgstr "Sans réponse"
 
 #: src/toyota_telemetry/ui/names.py:27
 msgid "Not probed yet"
-msgstr ""
+msgstr "Pas encore sondé"
 
 #: src/toyota_telemetry/ui/names.py:28
 msgid "No address"
-msgstr ""
+msgstr "Sans adresse"
 
 #: src/toyota_telemetry/ui/names.py:28 src/toyota_telemetry/ui/signals_page.py:1385
 msgid "Address unknown; add it under Add candidates"
-msgstr ""
+msgstr "Adresse inconnue ; l'ajouter dans Ajouter des candidats"
 
 #: src/toyota_telemetry/ui/names.py:32
 msgid "samples"
-msgstr ""
+msgstr "échantillons"
 
 #: src/toyota_telemetry/ui/names.py:33
 msgid "runs"
-msgstr ""
+msgstr "enregistrements"
 
 #: src/toyota_telemetry/ui/names.py:34
 msgid "span"
-msgstr ""
+msgstr "durée"
 
 #: src/toyota_telemetry/ui/names.py:35
 msgid "required states"
-msgstr ""
+msgstr "états requis"
 
 #: src/toyota_telemetry/ui/names.py:36
 msgid "transitions"
-msgstr ""
+msgstr "transitions"
 
 #: src/toyota_telemetry/ui/names.py:37 src/toyota_telemetry/ui/shell.py:69
 msgid "changes"
-msgstr ""
+msgstr "changements"
 
 #: src/toyota_telemetry/ui/names.py:38
 msgid "applicable time"
-msgstr ""
+msgstr "temps applicable"
 
 #: src/toyota_telemetry/ui/names.py:89
 msgid "{count} DID"
 msgid_plural "{count} DIDs"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} DID"
+msgstr[1] "{count} DID"
 
 #: src/toyota_telemetry/ui/names.py:90
 msgid "{count} signal"
 msgid_plural "{count} signals"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} signal"
+msgstr[1] "{count} signaux"
 
 #: src/toyota_telemetry/ui/names.py:91
 msgid "{count} run"
 msgid_plural "{count} runs"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} enregistrement"
+msgstr[1] "{count} enregistrements"
 
 #: src/toyota_telemetry/ui/names.py:92
 msgid "{count} target"
 msgid_plural "{count} targets"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} objectif"
+msgstr[1] "{count} objectifs"
 
 #: src/toyota_telemetry/ui/names.py:93
 msgid "{count} sample"
 msgid_plural "{count} samples"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} échantillon"
+msgstr[1] "{count} échantillons"
 
 #: src/toyota_telemetry/ui/names.py:110
 msgid "Session"
-msgstr ""
+msgstr "Session"
 
 #: src/toyota_telemetry/ui/names.py:127
 msgid "Everything"
-msgstr ""
+msgstr "Tout"
 
 #: src/toyota_telemetry/ui/names.py:130
 msgid "State {states}"
-msgstr ""
+msgstr "État {states}"
 
 #: src/toyota_telemetry/ui/names.py:50
 msgid "ECU {keys}"
-msgstr ""
+msgstr "ECU {keys}"
 
 #: src/toyota_telemetry/ui/names.py:113
 msgid "{first} then {next}"
-msgstr ""
+msgstr "{first} puis {next}"
 
 #: src/toyota_telemetry/ui/names.py:166
 msgid "{summary} (paused)"
-msgstr ""
+msgstr "{summary} (en pause)"
 
 #: src/toyota_telemetry/ui/names.py:162
 msgid "{requirement} {value}"
-msgstr ""
+msgstr "{requirement} {value}"
 
 #: src/toyota_telemetry/ui/names.py:164
 msgid "when {condition}"
-msgstr ""
+msgstr "si {condition}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Started"
-msgstr ""
+msgstr "Début"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Length"
-msgstr ""
+msgstr "Durée"
 
 #: src/toyota_telemetry/ui/recordings_page.py:49
 msgid "Samples"
-msgstr ""
+msgstr "Échantillons"
 
 #: src/toyota_telemetry/ui/recordings_page.py:50
 msgid "! Interrupted"
-msgstr ""
+msgstr "! Interrompu"
 
 #: src/toyota_telemetry/ui/recordings_page.py:50
 msgid "✕ Unreadable"
-msgstr ""
+msgstr "✕ Illisible"
 
 #: src/toyota_telemetry/ui/recordings_page.py:704
 msgid "a run without a start time"
-msgstr ""
+msgstr "un enregistrement sans heure de début"
 
 #: src/toyota_telemetry/ui/recordings_page.py:709
 msgid "Unknown time"
-msgstr ""
+msgstr "Heure inconnue"
 
 #: src/toyota_telemetry/ui/recordings_page.py:147
 msgid "Recorded runs"
-msgstr ""
+msgstr "Enregistrements"
 
 #: src/toyota_telemetry/ui/recordings_page.py:152
 msgid "Select runs to narrow the signals"
-msgstr ""
+msgstr "Sélectionner des enregistrements pour filtrer les signaux"
 
 #: src/toyota_telemetry/ui/recordings_page.py:157
 msgid "The selected runs"
-msgstr ""
+msgstr "Les enregistrements sélectionnés"
 
 #: src/toyota_telemetry/ui/recordings_page.py:158
 msgid "Show all"
-msgstr ""
+msgstr "Tout afficher"
 
 #: src/toyota_telemetry/ui/recordings_page.py:159
 msgid "Clear the selection (Esc)"
-msgstr ""
+msgstr "Effacer la sélection (Échap)"
 
 #: src/toyota_telemetry/ui/recordings_page.py:162
 msgid "Recover"
-msgstr ""
+msgstr "Récupérer"
 
 #: src/toyota_telemetry/ui/recordings_page.py:163 src/toyota_telemetry/ui/signals_page.py:315
 msgid "Delete"
-msgstr ""
+msgstr "Supprimer"
 
 #: src/toyota_telemetry/ui/recordings_page.py:164
 msgid "Keeps what was saved"
-msgstr ""
+msgstr "Garde ce qui a été enregistré"
 
 #: src/toyota_telemetry/ui/recordings_page.py:165
 msgid "Moves its files to the system trash"
-msgstr ""
+msgstr "Met ses fichiers à la corbeille"
 
 #: src/toyota_telemetry/ui/recordings_page.py:188 src/toyota_telemetry/ui/signals_page.py:256
 msgid "Search signals"
-msgstr ""
+msgstr "Rechercher des signaux"
 
 #: src/toyota_telemetry/ui/recordings_page.py:193
 msgid "Recorded signals"
-msgstr ""
+msgstr "Signaux enregistrés"
 
 #: src/toyota_telemetry/ui/recordings_page.py:194
 msgid "Select one to plot it"
-msgstr ""
+msgstr "En sélectionner un pour le tracer"
 
 #: src/toyota_telemetry/ui/recordings_page.py:211
 msgid "Select a signal to plot it."
-msgstr ""
+msgstr "Sélectionner un signal pour le tracer."
 
 #: src/toyota_telemetry/ui/recordings_page.py:293
 msgid "Loading runs…"
-msgstr ""
+msgstr "Chargement des enregistrements…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:294 src/toyota_telemetry/ui/recordings_page.py:327 src/toyota_telemetry/ui/signals_page.py:505
 msgid "Loading signals…"
-msgstr ""
+msgstr "Chargement des signaux…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:433 src/toyota_telemetry/ui/setup_page.py:148 src/toyota_telemetry/ui/signals_page.py:1006
 msgid "Open a project first."
-msgstr ""
+msgstr "Ouvrir d'abord un projet."
 
 #: src/toyota_telemetry/ui/recordings_page.py:525
 msgid "Not recovered"
-msgstr ""
+msgstr "Non récupéré"
 
 #: src/toyota_telemetry/ui/recordings_page.py:532
 msgid "Not deleted"
-msgstr ""
+msgstr "Non supprimé"
 
 #: src/toyota_telemetry/ui/recordings_page.py:644
 msgid "Seen {names} ({reached} of {total} states). Last {last}."
-msgstr ""
+msgstr "Vu {names} ({reached} états sur {total}). Dernier {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:110 src/toyota_telemetry/ui/shell.py:37
 msgid "Recordings"
-msgstr ""
+msgstr "Enregistrements"
 
 #: src/toyota_telemetry/ui/recordings_page.py:111
 msgid "Select runs to see and plot their signals"
-msgstr ""
+msgstr "Sélectionner des enregistrements pour voir et tracer leurs signaux"
 
 #: src/toyota_telemetry/ui/recordings_page.py:433
 msgid "Wait for the live job to finish."
-msgstr ""
+msgstr "Attendre la fin de la tâche en direct."
 
 #: src/toyota_telemetry/ui/recordings_page.py:436
 msgid "Select an interrupted run."
-msgstr ""
+msgstr "Sélectionner un enregistrement interrompu."
 
 #: src/toyota_telemetry/ui/recordings_page.py:437
 msgid "Select runs first."
-msgstr ""
+msgstr "Sélectionner d'abord des enregistrements."
 
 #: src/toyota_telemetry/ui/recordings_page.py:439
 msgid "Nothing recorded yet."
-msgstr ""
+msgstr "Rien d'enregistré pour l'instant."
 
 #: src/toyota_telemetry/ui/recordings_page.py:480
 msgid "Cannot plot"
-msgstr ""
+msgstr "Impossible de tracer"
 
 #: src/toyota_telemetry/ui/recordings_page.py:499
 msgid "No samples of this signal in the selected runs."
-msgstr ""
+msgstr "Aucun échantillon de ce signal dans les enregistrements sélectionnés."
 
 #: src/toyota_telemetry/ui/recordings_page.py:561
 msgid "Recovering…"
-msgstr ""
+msgstr "Récupération…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:561
 msgid "Deleting…"
-msgstr ""
+msgstr "Suppression…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:597
 msgid "Export failed"
-msgstr ""
+msgstr "Échec de l'export"
 
 #: src/toyota_telemetry/ui/recordings_page.py:616 src/toyota_telemetry/ui/recordings_page.py:364
 msgid "Unknown ECU"
-msgstr ""
+msgstr "ECU inconnu"
 
 #: src/toyota_telemetry/ui/recordings_page.py:643
 msgid "Always {last} ({others} other state(s) not seen)."
-msgstr ""
+msgstr "Toujours {last} ({others} autre(s) état(s) non vu(s))."
 
 #: src/toyota_telemetry/ui/recordings_page.py:704
 msgid "the run of {time}"
-msgstr ""
+msgstr "l'enregistrement du {time}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:105
 msgid "CSV files (*.csv)"
-msgstr ""
+msgstr "Fichiers CSV (*.csv)"
 
 #: src/toyota_telemetry/ui/recordings_page.py:410
 msgid "No recordings."
-msgstr ""
+msgstr "Aucun enregistrement."
 
 #: src/toyota_telemetry/ui/recordings_page.py:468
 msgid "Loading {signal}…"
-msgstr ""
+msgstr "Chargement de {signal}…"
 
 #: src/toyota_telemetry/ui/recordings_page.py:290
 msgid "Cannot read recordings: {detail}"
-msgstr ""
+msgstr "Impossible de lire les enregistrements : {detail}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:378
 msgid "Stopped without finishing"
-msgstr ""
+msgstr "Arrêté avant la fin"
 
 #: src/toyota_telemetry/ui/recordings_page.py:378
 msgid "Cannot be read"
-msgstr ""
+msgstr "Illisible"
 
 #: src/toyota_telemetry/ui/recordings_page.py:526
 msgid "Recovered {runs}."
-msgstr ""
+msgstr "Récupéré : {runs}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:533
 msgid "Moved {runs} to the system trash."
-msgstr ""
+msgstr "Mis à la corbeille : {runs}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:592
 msgid "Exported {samples} samples to {name}."
-msgstr ""
+msgstr "{samples} échantillons exportés vers {name}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:628
 msgid "{ecu}\nDID {did}"
-msgstr ""
+msgstr "{ecu}\nDID {did}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:414
 msgid "All {runs}, {samples} samples."
-msgstr ""
+msgstr "Tous : {runs}, {samples} échantillons."
 
 #: src/toyota_telemetry/ui/recordings_page.py:422
 msgid "{runs} selected: {length}, {samples} samples, {failed} failed reads."
-msgstr ""
+msgstr "{runs} sélectionné(s) : {length}, {samples} échantillons, {failed} lectures échouées."
 
 #: src/toyota_telemetry/ui/recordings_page.py:426
 msgid "{runs} selected: {length}, {samples} samples."
-msgstr ""
+msgstr "{runs} sélectionné(s) : {length}, {samples} échantillons."
 
 #: src/toyota_telemetry/ui/recordings_page.py:501
 msgid "{samples} samples in {runs}. {states}"
-msgstr ""
+msgstr "{samples} échantillons dans {runs}. {states}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:507
 msgid "Constant {last}."
-msgstr ""
+msgstr "Constant {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:508
 msgid "Min {minimum}, max {maximum}, last {last}."
-msgstr ""
+msgstr "Min {minimum}, max {maximum}, dernier {last}."
 
 #: src/toyota_telemetry/ui/recordings_page.py:513
 msgid "{samples} samples in {runs}. {values}"
-msgstr ""
+msgstr "{samples} échantillons dans {runs}. {values}"
 
 #: src/toyota_telemetry/ui/recordings_page.py:517
 msgid "{samples} samples in {runs}; no decoded values."
-msgstr ""
+msgstr "{samples} échantillons dans {runs} ; aucune valeur décodée."
 
 #: src/toyota_telemetry/ui/recordings_page.py:277
 msgid "ECU {key}"
-msgstr ""
+msgstr "ECU {key}"
 
 #: src/toyota_telemetry/ui/setup_page.py:40 src/toyota_telemetry/ui/setup_page.py:47 src/toyota_telemetry/ui/shell.py:57
 msgid "Connector"
-msgstr ""
+msgstr "Adaptateur"
 
 #: src/toyota_telemetry/ui/setup_page.py:41
 msgid "CAN adapter on this computer; never exported"
-msgstr ""
+msgstr "Adaptateur CAN de cet ordinateur ; jamais exporté"
 
 #: src/toyota_telemetry/ui/setup_page.py:66
 msgid "default"
-msgstr ""
+msgstr "par défaut"
 
 #: src/toyota_telemetry/ui/setup_page.py:67
 msgid "Empty uses the bundled worker"
-msgstr ""
+msgstr "Vide utilise le worker fourni"
 
 #: src/toyota_telemetry/ui/setup_page.py:68
 msgid "Worker executable"
-msgstr ""
+msgstr "Exécutable du worker"
 
 #: src/toyota_telemetry/ui/setup_page.py:70
 msgid "Adapter type"
-msgstr ""
+msgstr "Type d'adaptateur"
 
 #: src/toyota_telemetry/ui/setup_page.py:73 src/toyota_telemetry/ui/signals_page.py:439
 msgid "Save"
-msgstr ""
+msgstr "Enregistrer"
 
 #: src/toyota_telemetry/ui/setup_page.py:76
 msgid "Self-test; the adapter is not opened"
-msgstr ""
+msgstr "Autotest ; l'adaptateur n'est pas ouvert"
 
 #: src/toyota_telemetry/ui/setup_page.py:78
 msgid "Saved on this computer"
-msgstr ""
+msgstr "Enregistré sur cet ordinateur"
 
 #: src/toyota_telemetry/ui/setup_page.py:127
 msgid "Saved."
-msgstr ""
+msgstr "Enregistré."
 
 #: src/toyota_telemetry/ui/setup_page.py:29 src/toyota_telemetry/ui/shell.py:37
 msgid "Setup"
-msgstr ""
+msgstr "Configuration"
 
 #: src/toyota_telemetry/ui/setup_page.py:30
 msgid "The CAN adapter on this computer; nothing here transmits"
-msgstr ""
+msgstr "L'adaptateur CAN de cet ordinateur ; rien n'est transmis ici"
 
 #: src/toyota_telemetry/ui/setup_page.py:110
 msgid "Connector check failed"
-msgstr ""
+msgstr "Échec du test de l'adaptateur"
 
 #: src/toyota_telemetry/ui/setup_page.py:105
 msgid "Settings are valid."
-msgstr ""
+msgstr "Les réglages sont valides."
 
 #: src/toyota_telemetry/ui/setup_page.py:102 src/toyota_telemetry/ui/shell.py:358
 msgid "OK: {note}"
-msgstr ""
+msgstr "OK : {note}"
 
 #: src/toyota_telemetry/ui/setup_page.py:103 src/toyota_telemetry/ui/setup_page.py:97 src/toyota_telemetry/ui/shell.py:359
 msgid "Problem: {problem}"
-msgstr ""
+msgstr "Problème : {problem}"
 
 #: src/toyota_telemetry/ui/setup_page.py:125
 msgid "Not saved: {error}"
-msgstr ""
+msgstr "Non enregistré : {error}"
 
 #: src/toyota_telemetry/ui/shell.py:41
 msgid "The CAN adapter on this computer"
-msgstr ""
+msgstr "L'adaptateur CAN de cet ordinateur"
 
 #: src/toyota_telemetry/ui/shell.py:42
 msgid "Candidates, what to collect, and how often"
-msgstr ""
+msgstr "Candidats, quoi collecter et à quelle fréquence"
 
 #: src/toyota_telemetry/ui/shell.py:44
 msgid "Runs, plots, and export"
-msgstr ""
+msgstr "Enregistrements, tracés et export"
 
 #: src/toyota_telemetry/ui/shell.py:129 src/toyota_telemetry/ui/shell.py:398 src/toyota_telemetry/ui/shell.py:52
 msgid "Open or create a project"
-msgstr ""
+msgstr "Ouvrir ou créer un projet"
 
 #: src/toyota_telemetry/ui/shell.py:469 src/toyota_telemetry/ui/shell.py:111 src/toyota_telemetry/ui/start_page.py:25
 msgid "Telemetry Operator"
-msgstr ""
+msgstr "Telemetry Operator"
 
 #: src/toyota_telemetry/ui/shell.py:61
 msgid "Candidates"
-msgstr ""
+msgstr "Candidats"
 
 #: src/toyota_telemetry/ui/shell.py:130
 msgid "Progress; click a step to open it"
-msgstr ""
+msgstr "Progression ; cliquer sur une étape pour l'ouvrir"
 
 #: src/toyota_telemetry/ui/shell.py:195
 msgid "&Project"
-msgstr ""
+msgstr "&Projet"
 
 #: src/toyota_telemetry/ui/shell.py:196 src/toyota_telemetry/ui/start_page.py:28
 msgid "New project"
-msgstr ""
+msgstr "Nouveau projet"
 
 #: src/toyota_telemetry/ui/shell.py:199 src/toyota_telemetry/ui/start_page.py:29
 msgid "Create a workspace in an empty folder"
-msgstr ""
+msgstr "Créer un projet dans un dossier vide"
 
 #: src/toyota_telemetry/ui/shell.py:201 src/toyota_telemetry/ui/start_page.py:30
 msgid "Open project"
-msgstr ""
+msgstr "Ouvrir un projet"
 
 #: src/toyota_telemetry/ui/shell.py:205
 msgid "Close project"
-msgstr ""
+msgstr "Fermer le projet"
 
 #: src/toyota_telemetry/ui/shell.py:209
 msgid "Check project"
-msgstr ""
+msgstr "Vérifier le projet"
 
 #: src/toyota_telemetry/ui/shell.py:213
 msgid "Rebuild cache"
-msgstr ""
+msgstr "Reconstruire le cache"
 
 #: src/toyota_telemetry/ui/shell.py:215
 msgid "Rebuild the sample cache from recordings"
-msgstr ""
+msgstr "Reconstruire le cache d'échantillons à partir des enregistrements"
 
 #: src/toyota_telemetry/ui/shell.py:217 src/toyota_telemetry/ui/shell.py:120
 msgid "Save candidate list"
-msgstr ""
+msgstr "Enregistrer la liste des candidats"
 
 #: src/toyota_telemetry/ui/shell.py:220
 msgid "Save the candidate list as a JSON file; keep it private"
-msgstr ""
+msgstr "Enregistrer la liste des candidats en fichier JSON ; la garder privée"
 
 #: src/toyota_telemetry/ui/shell.py:223
 msgid "Export result"
-msgstr ""
+msgstr "Exporter le résultat"
 
 #: src/toyota_telemetry/ui/shell.py:225
 msgid "Write the signal list to a folder for publishing"
-msgstr ""
+msgstr "Écrire la liste des signaux dans un dossier à publier"
 
 #: src/toyota_telemetry/ui/shell.py:228 src/toyota_telemetry/ui/signals_page.py:274
 msgid "Refresh"
-msgstr ""
+msgstr "Actualiser"
 
 #: src/toyota_telemetry/ui/shell.py:233
 msgid "Exit"
-msgstr ""
+msgstr "Quitter"
 
 #: src/toyota_telemetry/ui/shell.py:238
 msgid "&Help"
-msgstr ""
+msgstr "&Aide"
 
 #: src/toyota_telemetry/ui/shell.py:239
 msgid "Concepts and workflow"
-msgstr ""
+msgstr "Concepts et déroulement"
 
 #: src/toyota_telemetry/ui/shell.py:250
 msgid "&Language"
-msgstr ""
+msgstr "&Langue"
 
 #: src/toyota_telemetry/ui/shell.py:271 src/toyota_telemetry/ui/widgets/busy.py:91 src/toyota_telemetry/ui/widgets/busy.py:63 src/toyota_telemetry/ui/widgets/busy.py:104
 msgid "Loading…"
-msgstr ""
+msgstr "Chargement…"
 
 #: src/toyota_telemetry/ui/shell.py:272
 msgid "Reading project data"
-msgstr ""
+msgstr "Lecture des données du projet"
 
 #: src/toyota_telemetry/ui/shell.py:273 src/toyota_telemetry/ui/shell.py:399
 msgid "No project open"
-msgstr ""
+msgstr "Aucun projet ouvert"
 
 #: src/toyota_telemetry/ui/shell.py:274 src/toyota_telemetry/ui/shell.py:400 src/toyota_telemetry/ui/shell.py:410
 msgid "No connector"
-msgstr ""
+msgstr "Aucun adaptateur"
 
 #: src/toyota_telemetry/ui/shell.py:275 src/toyota_telemetry/ui/shell.py:462
 msgid "Adapter closed"
-msgstr ""
+msgstr "Adaptateur fermé"
 
 #: src/toyota_telemetry/ui/shell.py:276 src/toyota_telemetry/ui/shell.py:468
 msgid "Saved"
-msgstr ""
+msgstr "Enregistré"
 
 #: src/toyota_telemetry/ui/shell.py:288
 msgid "Open project workspace"
-msgstr ""
+msgstr "Ouvrir un dossier de projet"
 
 #: src/toyota_telemetry/ui/shell.py:304
 msgid "Empty folder for the new project"
-msgstr ""
+msgstr "Dossier vide pour le nouveau projet"
 
 #: src/toyota_telemetry/ui/shell.py:456
 msgid "Exporting the result…"
-msgstr ""
+msgstr "Export du résultat…"
 
 #: src/toyota_telemetry/ui/shell.py:476
 msgid "Endpoint: one diagnostic route to an ECU (tester and response CAN IDs plus a reviewed session). Confirmed endpoints are recorded in the project; others are candidates until they respond."
-msgstr ""
+msgstr "Point d'accès : une voie de diagnostic vers un ECU (CAN ID de testeur et de réponse, plus une session révisée). Les points d'accès confirmés sont enregistrés dans le projet ; les autres restent candidats jusqu'à ce qu'ils répondent."
 
 #: src/toyota_telemetry/ui/shell.py:478
 msgid "DID: one data request on an endpoint. A DID can carry several signals, so its interval is shared."
-msgstr ""
+msgstr "DID : une requête de données sur un point d'accès. Un DID peut porter plusieurs signaux, son intervalle est donc partagé."
 
 #: src/toyota_telemetry/ui/shell.py:479
 msgid "Signal: one interpreted value inside a DID response; it is what you review, target, and plot."
-msgstr ""
+msgstr "Signal : une valeur interprétée dans la réponse d'un DID ; c'est ce que l'on révise, vise et trace."
 
 #: src/toyota_telemetry/ui/shell.py:480
 msgid "Target: the evidence still wanted for a signal, such as minimum samples or required states. A transition is any change of raw value; a change counts only when the decoded value moves by at least the minimum difference."
-msgstr ""
+msgstr "Objectif : les preuves encore souhaitées pour un signal, comme un minimum d'échantillons ou des états requis. Une transition est tout changement de valeur brute ; un changement ne compte que si la valeur décodée varie d'au moins l'écart minimal."
 
 #: src/toyota_telemetry/ui/shell.py:483
 msgid "Signal status: Not checked, then Responds (its DID answered), Recorded (samples saved), and Reviewed (its meaning confirmed). Refused means the ECU rejected the request. No answer means its ECU did not answer when verified, so it was not read; verifying again later (for example with the engine running) may reach it."
-msgstr ""
+msgstr "Statut du signal : Non vérifié, puis Répond (son DID a répondu), Enregistré (échantillons enregistrés) et Révisé (sens confirmé). Refusé signifie que l'ECU a rejeté la requête. Sans réponse signifie que son ECU n'a pas répondu lors de la vérification, il n'a donc pas été lu ; une nouvelle vérification plus tard (par exemple moteur en marche) peut l'atteindre."
 
 #: src/toyota_telemetry/ui/shell.py:487
 msgid "Diagnostic session: the mode an ECU is switched to before it is read. Most ECUs answer more requests in the extended session (request 10 03) than in the default one. The choices are the session steps reviewed in the project's transport settings."
-msgstr ""
+msgstr "Session de diagnostic : le mode dans lequel un ECU est placé avant d'être lu. La plupart des ECU répondent à plus de requêtes en session étendue (requête 10 03) qu'en session par défaut. Les choix sont les étapes de session révisées dans les réglages de transport du projet."
 
 #: src/toyota_telemetry/ui/shell.py:490
 msgid "Verify vs Confirm endpoint: Verify transmits read requests to see which DIDs answer. Confirm endpoint transmits nothing; it records your review that an endpoint which answered is the ECU you think it is, with where the evidence is written up. Collection needs both."
-msgstr ""
+msgstr "Vérifier ou Confirmer le point d'accès : Vérifier transmet des requêtes de lecture pour voir quels DID répondent. Confirmer le point d'accès ne transmet rien ; il note votre constat qu'un point d'accès qui a répondu est bien l'ECU attendu, avec l'endroit où la preuve est consignée. La collecte nécessite les deux."
 
 #: src/toyota_telemetry/ui/shell.py:493
 msgid "Refusal codes: when an ECU rejects a request it returns a code, e.g. 0x31 (request out of range) or 0x22 (conditions not correct); the app names common ones."
-msgstr ""
+msgstr "Codes de refus : quand un ECU rejette une requête, il renvoie un code, p. ex. 0x31 (requête hors plage) ou 0x22 (conditions non remplies) ; l'application nomme les plus courants."
 
 #: src/toyota_telemetry/ui/shell.py:495
 msgid "Run: one recording session, saved as one folder. Delete moves a run's folder to the system trash; restore it from there to bring the run back."
-msgstr ""
+msgstr "Enregistrement : une session d'enregistrement, sauvegardée dans un dossier. Supprimer met le dossier à la corbeille ; le restaurer depuis celle-ci pour récupérer l'enregistrement."
 
 #: src/toyota_telemetry/ui/shell.py:497
 msgid "Interrupted run: a recording that stopped without finishing. Recover keeps everything saved up to the interruption."
-msgstr ""
+msgstr "Enregistrement interrompu : un enregistrement arrêté avant la fin. Récupérer garde tout ce qui a été enregistré jusqu'à l'interruption."
 
 #: src/toyota_telemetry/ui/shell.py:499
 msgid "Only actions with a warning icon (Verify, Live view, and Start) transmit to the vehicle, and each shows its exact scope first. Live view reads one DID at its collection interval and shows the values without recording them; Pause stops sending."
-msgstr ""
+msgstr "Seules les actions avec une icône d'avertissement (Vérifier, Vue en direct et Démarrer) transmettent au véhicule, et chacune affiche d'abord sa portée exacte. La vue en direct lit un DID à son intervalle de collecte et affiche les valeurs sans les enregistrer ; Pause arrête l'envoi."
 
 #: src/toyota_telemetry/ui/shell.py:502
 msgid "Hover over any control for a short explanation."
-msgstr ""
+msgstr "Survoler un contrôle pour une brève explication."
 
 #: src/toyota_telemetry/ui/shell.py:503
 msgid "The steps across the top are the pages in workflow order. A tick means done, a dot marks the next step (hover it to see what to do), and ! needs attention."
-msgstr ""
+msgstr "Les étapes en haut sont les pages dans l'ordre du déroulement. Une coche signifie terminé, un point marque l'étape suivante (la survoler pour voir quoi faire) et ! demande votre attention."
 
 #: src/toyota_telemetry/ui/shell.py:505
 msgid "Keyboard: Alt+1 to Alt+4 open the pages; F5 refreshes."
-msgstr ""
+msgstr "Clavier : Alt+1 à Alt+4 ouvrent les pages ; F5 actualise."
 
 #: src/toyota_telemetry/ui/shell.py:507
 msgid "Telemetry Operator concepts"
-msgstr ""
+msgstr "Concepts de Telemetry Operator"
 
 #: src/toyota_telemetry/ui/shell.py:69 src/toyota_telemetry/ui/shell.py:88
 msgid "Unsaved"
-msgstr ""
+msgstr "Non enregistré"
 
 #: src/toyota_telemetry/ui/shell.py:72
 msgid "Running"
-msgstr ""
+msgstr "En cours"
 
 #: src/toyota_telemetry/ui/shell.py:85
 msgid "Targets met"
-msgstr ""
+msgstr "Objectifs atteints"
 
 #: src/toyota_telemetry/ui/shell.py:88
 msgid "not applied"
-msgstr ""
+msgstr "non appliqué"
 
 #: src/toyota_telemetry/ui/shell.py:89
 msgid "nothing yet"
-msgstr ""
+msgstr "rien pour l'instant"
 
 #: src/toyota_telemetry/ui/shell.py:91
 msgid "Interrupted"
-msgstr ""
+msgstr "Interrompu"
 
 #: src/toyota_telemetry/ui/shell.py:131
 msgid "Export folder"
-msgstr ""
+msgstr "Dossier d'export"
 
 #: src/toyota_telemetry/ui/shell.py:254
 msgid "Automatic (system)"
-msgstr ""
+msgstr "Automatique (système)"
 
 #: src/toyota_telemetry/ui/shell.py:266
 msgid "Language"
-msgstr ""
+msgstr "Langue"
 
 #: src/toyota_telemetry/ui/shell.py:266
 msgid "The new language is used the next time the application starts."
-msgstr ""
+msgstr "La nouvelle langue sera utilisée au prochain démarrage de l'application."
 
 #: src/toyota_telemetry/ui/shell.py:308
 msgid "Stop the live job before opening another project."
-msgstr ""
+msgstr "Arrêter la tâche en direct avant d'ouvrir un autre projet."
 
 #: src/toyota_telemetry/ui/shell.py:325
 msgid "Stop the live job before closing the project."
-msgstr ""
+msgstr "Arrêter la tâche en direct avant de fermer le projet."
 
 #: src/toyota_telemetry/ui/shell.py:360
 msgid "Project check"
-msgstr ""
+msgstr "Vérification du projet"
 
 #: src/toyota_telemetry/ui/shell.py:362
 msgid "Check failed"
-msgstr ""
+msgstr "Échec de la vérification"
 
 #: src/toyota_telemetry/ui/shell.py:366
 msgid "Cache rebuilt."
-msgstr ""
+msgstr "Cache reconstruit."
 
 #: src/toyota_telemetry/ui/shell.py:369
 msgid "Cache not rebuilt"
-msgstr ""
+msgstr "Cache non reconstruit"
 
 #: src/toyota_telemetry/ui/shell.py:388
 msgid "Candidate list not saved"
-msgstr ""
+msgstr "Liste des candidats non enregistrée"
 
 #: src/toyota_telemetry/ui/shell.py:458
 msgid "Result not exported"
-msgstr ""
+msgstr "Résultat non exporté"
 
 #: src/toyota_telemetry/ui/shell.py:462
 msgid "LIVE - adapter open"
-msgstr ""
+msgstr "EN DIRECT - adaptateur ouvert"
 
 #: src/toyota_telemetry/ui/shell.py:468 src/toyota_telemetry/ui/signals_page.py:1363
 msgid "Unsaved changes"
-msgstr ""
+msgstr "Modifications non enregistrées"
 
 #: src/toyota_telemetry/ui/shell.py:525
 msgid "Stopping the live job safely; the window closes when it finishes."
-msgstr ""
+msgstr "Arrêt sécurisé de la tâche en direct ; la fenêtre se fermera ensuite."
 
 #: src/toyota_telemetry/ui/shell.py:74 src/toyota_telemetry/ui/shell.py:76
 msgid "Ready"
-msgstr ""
+msgstr "Prêt"
 
 #: src/toyota_telemetry/ui/shell.py:74
 msgid "no targets"
-msgstr ""
+msgstr "aucun objectif"
 
 #: src/toyota_telemetry/ui/shell.py:120
 msgid "JSON files (*.json)"
-msgstr ""
+msgstr "Fichiers JSON (*.json)"
 
 #: src/toyota_telemetry/ui/shell.py:299
 msgid "Project not created"
-msgstr ""
+msgstr "Projet non créé"
 
 #: src/toyota_telemetry/ui/shell.py:418
 msgid "{description} (Alt+{number})"
-msgstr ""
+msgstr "{description} (Alt+{number})"
 
 #: src/toyota_telemetry/ui/shell.py:471
 msgid "Telemetry Operator - {project}"
-msgstr ""
+msgstr "Telemetry Operator - {project}"
 
 #: src/toyota_telemetry/ui/shell.py:64
 msgid "{verified}/{total} DIDs"
-msgstr ""
+msgstr "{verified}/{total} DID"
 
 #: src/toyota_telemetry/ui/shell.py:66
 msgid "{count} set"
 msgid_plural "{count} set"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} défini"
+msgstr[1] "{count} définis"
 
 #: src/toyota_telemetry/ui/shell.py:380
 msgid "Saved {count} candidate row to {name}."
 msgid_plural "Saved {count} candidate rows to {name}."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} ligne candidate enregistrée dans {name}."
+msgstr[1] "{count} lignes candidates enregistrées dans {name}."
 
 #: src/toyota_telemetry/ui/shell.py:409
 msgid "{name}: invalid"
-msgstr ""
+msgstr "{name} : invalide"
 
 #: src/toyota_telemetry/ui/shell.py:449
 msgid "Exported the result ({count} signal) to {name}."
 msgid_plural "Exported the result ({count} signals) to {name}."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Résultat ({count} signal) exporté vers {name}."
+msgstr[1] "Résultat ({count} signaux) exporté vers {name}."
 
 #: src/toyota_telemetry/ui/shell.py:54
 msgid "Project files"
-msgstr ""
+msgstr "Fichiers du projet"
 
 #: src/toyota_telemetry/ui/shell.py:54
 msgid "invalid"
-msgstr ""
+msgstr "invalide"
 
 #: src/toyota_telemetry/ui/shell.py:78
 msgid "Complete"
-msgstr ""
+msgstr "Terminé"
 
 #: src/toyota_telemetry/ui/shell.py:81
 msgid "Not ready"
-msgstr ""
+msgstr "Pas prêt"
 
 #: src/toyota_telemetry/ui/shell.py:315
 msgid "Not a telemetry project: {error}"
-msgstr ""
+msgstr "Pas un projet de télémétrie : {error}"
 
 #: src/toyota_telemetry/ui/shell.py:420
 msgid "Next: {action}"
-msgstr ""
+msgstr "Suite : {action}"
 
 #: src/toyota_telemetry/ui/shell.py:82
 msgid "{count} problem"
 msgid_plural "{count} problems"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} problème"
+msgstr[1] "{count} problèmes"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:411
 msgid "Name"
-msgstr ""
+msgstr "Nom"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:363
 msgid "Every"
-msgstr ""
+msgstr "Intervalle"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:364
 msgid "Late after"
-msgstr ""
+msgstr "Retard après"
 
 #: src/toyota_telemetry/ui/signals_page.py:79 src/toyota_telemetry/ui/signals_page.py:365
 msgid "Priority"
-msgstr ""
+msgstr "Priorité"
 
 #: src/toyota_telemetry/ui/signals_page.py:81
 msgid "ECU → DID (one request) → signal"
-msgstr ""
+msgstr "ECU → DID (une requête) → signal"
 
 #: src/toyota_telemetry/ui/signals_page.py:82
 msgid "Whether the vehicle answers"
-msgstr ""
+msgstr "Si le véhicule répond"
 
 #: src/toyota_telemetry/ui/signals_page.py:83 src/toyota_telemetry/ui/signals_page.py:351
 msgid "Read during collection"
-msgstr ""
+msgstr "Lu pendant la collecte"
 
 #: src/toyota_telemetry/ui/signals_page.py:84
 msgid "How often the DID is read"
-msgstr ""
+msgstr "Fréquence de lecture du DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:85 src/toyota_telemetry/ui/signals_page.py:357
 msgid "Late after this long"
-msgstr ""
+msgstr "En retard après ce délai"
 
 #: src/toyota_telemetry/ui/signals_page.py:86 src/toyota_telemetry/ui/signals_page.py:359
 msgid "0-100; higher goes first"
-msgstr ""
+msgstr "0-100 ; le plus élevé passe en premier"
 
 #: src/toyota_telemetry/ui/signals_page.py:87
 msgid "What to collect; ✓ when met"
-msgstr ""
+msgstr "Quoi collecter ; ✓ si atteint"
 
 #: src/toyota_telemetry/ui/signals_page.py:1415
 msgid "nothing recorded yet"
-msgstr ""
+msgstr "rien d'enregistré pour l'instant"
 
 #: src/toyota_telemetry/ui/signals_page.py:1414
 msgid "none; its DID was refused"
-msgstr ""
+msgstr "aucun ; son DID a été refusé"
 
 #: src/toyota_telemetry/ui/signals_page.py:94 src/toyota_telemetry/ui/signals_page.py:583
 msgid "DIDs that answered when verified"
-msgstr ""
+msgstr "DID qui ont répondu lors de la vérification"
 
 #: src/toyota_telemetry/ui/signals_page.py:95
 msgid "DIDs not read from the vehicle yet"
-msgstr ""
+msgstr "DID pas encore lus sur le véhicule"
 
 #: src/toyota_telemetry/ui/signals_page.py:96
 msgid "DIDs whose ECU did not answer"
-msgstr ""
+msgstr "DID dont l'ECU n'a pas répondu"
 
 #: src/toyota_telemetry/ui/signals_page.py:97
 msgid "DIDs the ECU refused"
-msgstr ""
+msgstr "DID refusés par l'ECU"
 
 #: src/toyota_telemetry/ui/signals_page.py:100
 msgid "Collected"
-msgstr ""
+msgstr "Collecté"
 
 #: src/toyota_telemetry/ui/signals_page.py:100
 msgid "DIDs read during collection"
-msgstr ""
+msgstr "DID lus pendant la collecte"
 
 #: src/toyota_telemetry/ui/signals_page.py:101
 msgid "Not collected"
-msgstr ""
+msgstr "Non collecté"
 
 #: src/toyota_telemetry/ui/signals_page.py:101
 msgid "DIDs not read during collection"
-msgstr ""
+msgstr "DID non lus pendant la collecte"
 
 #: src/toyota_telemetry/ui/signals_page.py:104
 msgid "Has target"
-msgstr ""
+msgstr "Avec objectif"
 
 #: src/toyota_telemetry/ui/signals_page.py:104
 msgid "Signals with a target"
-msgstr ""
+msgstr "Signaux avec un objectif"
 
 #: src/toyota_telemetry/ui/signals_page.py:105
 msgid "No target"
-msgstr ""
+msgstr "Sans objectif"
 
 #: src/toyota_telemetry/ui/signals_page.py:105
 msgid "Signals without a target"
-msgstr ""
+msgstr "Signaux sans objectif"
 
 #: src/toyota_telemetry/ui/signals_page.py:106
 msgid "Not met"
-msgstr ""
+msgstr "Non atteint"
 
 #: src/toyota_telemetry/ui/signals_page.py:106
 msgid "Signals whose target is not met yet"
-msgstr ""
+msgstr "Signaux dont l'objectif n'est pas encore atteint"
 
 #: src/toyota_telemetry/ui/signals_page.py:132
 msgid "mixed"
-msgstr ""
+msgstr "mixte"
 
 #: src/toyota_telemetry/ui/signals_page.py:226
 msgid "Verification progress"
-msgstr ""
+msgstr "Progression de la vérification"
 
 #: src/toyota_telemetry/ui/signals_page.py:231
 msgid "%v of %m probes, %p%"
-msgstr ""
+msgstr "%v sur %m sondages, %p %"
 
 #: src/toyota_telemetry/ui/signals_page.py:232
 msgid "Endpoint probes and DID reads done so far"
-msgstr ""
+msgstr "Sondages de points d'accès et lectures DID effectués"
 
 #: src/toyota_telemetry/ui/signals_page.py:254
 msgid "Search signal or DID"
-msgstr ""
+msgstr "Rechercher un signal ou un DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:255
 msgid "Signal name or DID"
-msgstr ""
+msgstr "Nom de signal ou DID"
 
 #: src/toyota_telemetry/ui/signals_page.py:270 src/toyota_telemetry/ui/signals_page.py:714
 msgid "Expand all"
-msgstr ""
+msgstr "Tout déplier"
 
 #: src/toyota_telemetry/ui/signals_page.py:271
 msgid "Show every row"
-msgstr ""
+msgstr "Afficher toutes les lignes"
 
 #: src/toyota_telemetry/ui/signals_page.py:275
 msgid "Reread project files"
-msgstr ""
+msgstr "Relire les fichiers du projet"
 
 #: src/toyota_telemetry/ui/signals_page.py:289
 msgid "Endpoint, DID, and signal table"
-msgstr ""
+msgstr "Tableau des points d'accès, DID et signaux"
 
 #: src/toyota_telemetry/ui/signals_page.py:307 src/toyota_telemetry/ui/signals_page.py:1181 src/toyota_telemetry/ui/signals_page.py:435
 msgid "Verify"
-msgstr ""
+msgstr "Vérifier"
 
 #: src/toyota_telemetry/ui/signals_page.py:309 src/toyota_telemetry/ui/signals_page.py:1078 src/toyota_telemetry/ui/signals_page.py:1058
 msgid "Live view"
-msgstr ""
+msgstr "Vue en direct"
 
 #: src/toyota_telemetry/ui/signals_page.py:310
 msgid "Read this DID at its interval and show values"
-msgstr ""
+msgstr "Lire ce DID à son intervalle et afficher les valeurs"
 
 #: src/toyota_telemetry/ui/signals_page.py:316
 msgid "Remove from the candidate list"
-msgstr ""
+msgstr "Retirer de la liste des candidats"
 
 #: src/toyota_telemetry/ui/signals_page.py:320
 msgid "Select rows to change their plan"
-msgstr ""
+msgstr "Sélectionner des lignes pour modifier leur plan"
 
 #: src/toyota_telemetry/ui/signals_page.py:335 src/toyota_telemetry/ui/signals_page.py:830
 msgid "Nothing selected"
-msgstr ""
+msgstr "Rien de sélectionné"
 
 #: src/toyota_telemetry/ui/signals_page.py:342
 msgid "Selected row details"
-msgstr ""
+msgstr "Détails de la sélection"
 
 #: src/toyota_telemetry/ui/signals_page.py:344
 msgid "Details of the selected rows"
-msgstr ""
+msgstr "Détails des lignes sélectionnées"
 
 #: src/toyota_telemetry/ui/signals_page.py:347 src/toyota_telemetry/ui/signals_page.py:936
 msgid "Collection"
-msgstr ""
+msgstr "Collecte"
 
 #: src/toyota_telemetry/ui/signals_page.py:348
 msgid "\"mixed\" fields stay as they are unless changed"
-msgstr ""
+msgstr "Les champs « mixte » restent inchangés sauf modification"
 
 #: src/toyota_telemetry/ui/signals_page.py:355
 msgid "How often to read"
-msgstr ""
+msgstr "Fréquence de lecture"
 
 #: src/toyota_telemetry/ui/signals_page.py:370 src/toyota_telemetry/ui/signals_page.py:419
 msgid "Applied to the draft until Save"
-msgstr ""
+msgstr "Appliqué au brouillon jusqu'à Enregistrer"
 
 #: src/toyota_telemetry/ui/signals_page.py:376
 msgid "What to collect per signal"
-msgstr ""
+msgstr "Quoi collecter par signal"
 
 #: src/toyota_telemetry/ui/signals_page.py:381
 msgid "Edit targets"
-msgstr ""
+msgstr "Modifier"
 
 #: src/toyota_telemetry/ui/signals_page.py:382
 msgid "Remove targets"
-msgstr ""
+msgstr "Retirer"
 
 #: src/toyota_telemetry/ui/signals_page.py:383
 msgid "Set what to collect"
-msgstr ""
+msgstr "Définir quoi collecter"
 
 #: src/toyota_telemetry/ui/signals_page.py:385
 msgid "Recordings are kept"
-msgstr ""
+msgstr "Les enregistrements sont conservés"
 
 #: src/toyota_telemetry/ui/signals_page.py:392
 msgid "Definition"
-msgstr ""
+msgstr "Définition"
 
 #: src/toyota_telemetry/ui/signals_page.py:393
 msgid "Name and decoding"
-msgstr ""
+msgstr "Nom et décodage"
 
 #: src/toyota_telemetry/ui/signals_page.py:396
 msgid "Empty uses the catalog name"
-msgstr ""
+msgstr "Vide utilise le nom du catalogue"
 
 #: src/toyota_telemetry/ui/signals_page.py:398
 msgid "e.g. raw / 10 - 40; empty uses the catalog"
-msgstr ""
+msgstr "p. ex. raw / 10 - 40 ; vide utilise le catalogue"
 
 #: src/toyota_telemetry/ui/signals_page.py:400
 msgid "Empty uses the catalog unit"
-msgstr ""
+msgstr "Vide utilise l'unité du catalogue"
 
 #: src/toyota_telemetry/ui/signals_page.py:405
 msgid "How well its meaning is established"
-msgstr ""
+msgstr "Degré de certitude de son sens"
 
 #: src/toyota_telemetry/ui/signals_page.py:410
 msgid "Text the manufacturer tool shows"
-msgstr ""
+msgstr "Texte affiché par l'outil constructeur"
 
 #: src/toyota_telemetry/ui/signals_page.py:412
 msgid "Formula"
-msgstr ""
+msgstr "Formule"
 
 #: src/toyota_telemetry/ui/signals_page.py:413
 msgid "Unit"
-msgstr ""
+msgstr "Unité"
 
 #: src/toyota_telemetry/ui/signals_page.py:414 src/toyota_telemetry/ui/signals_page.py:640
 msgid "States"
-msgstr ""
+msgstr "États"
 
 #: src/toyota_telemetry/ui/signals_page.py:415
 msgid "Evidence"
-msgstr ""
+msgstr "Preuve"
 
 #: src/toyota_telemetry/ui/signals_page.py:416
 msgid "Notes"
-msgstr ""
+msgstr "Notes"
 
 #: src/toyota_telemetry/ui/signals_page.py:433
 msgid "From a JSON file, the TIS database, or by CAN IDs"
-msgstr ""
+msgstr "Depuis un fichier JSON, la base TIS ou par CAN ID"
 
 #: src/toyota_telemetry/ui/signals_page.py:434
 msgid "Confirm endpoint"
-msgstr ""
+msgstr "Confirmer"
 
 #: src/toyota_telemetry/ui/signals_page.py:437
 msgid "Stops after the current probe"
-msgstr ""
+msgstr "S'arrête après le sondage en cours"
 
 #: src/toyota_telemetry/ui/signals_page.py:440
 msgid "Write your changes"
-msgstr ""
+msgstr "Écrire vos modifications"
 
 #: src/toyota_telemetry/ui/signals_page.py:441
 msgid "Discard"
-msgstr ""
+msgstr "Abandonner"
 
 #: src/toyota_telemetry/ui/signals_page.py:442
 msgid "Drop your changes"
-msgstr ""
+msgstr "Abandonner vos modifications"
 
 #: src/toyota_telemetry/ui/signals_page.py:929
 msgid "Select DIDs first."
-msgstr ""
+msgstr "Sélectionner d'abord des DID."
 
 #: src/toyota_telemetry/ui/signals_page.py:958
 msgid "Select signals, DIDs, or endpoints."
-msgstr ""
+msgstr "Sélectionner des signaux, DID ou points d'accès."
 
 #: src/toyota_telemetry/ui/signals_page.py:994
 msgid "Confirm the endpoint first."
-msgstr ""
+msgstr "Confirmer d'abord le point d'accès."
 
 #: src/toyota_telemetry/ui/signals_page.py:1224
 msgid "no DIDs read"
-msgstr ""
+msgstr "aucun DID lu"
 
 #: src/toyota_telemetry/ui/signals_page.py:1234
 msgid "Verification failed"
-msgstr ""
+msgstr "Échec de la vérification"
 
 #: src/toyota_telemetry/ui/signals_page.py:1350
 msgid "Saved review and collection settings."
-msgstr ""
+msgstr "Révision et réglages de collecte enregistrés."
 
 #: src/toyota_telemetry/ui/signals_page.py:1363
 msgid "Save changes to signal review and collection settings?"
-msgstr ""
+msgstr "Enregistrer les modifications de révision des signaux et des réglages de collecte ?"
 
 #: src/toyota_telemetry/ui/signals_page.py:1397
 msgid "{selected} signal(s) on {dids} DID(s) will change."
-msgstr ""
+msgstr "{selected} signal(aux) sur {dids} DID vont changer."
 
 #: src/toyota_telemetry/ui/signals_page.py:209
 msgid "What to collect, and how often"
-msgstr ""
+msgstr "Quoi collecter, et à quelle fréquence"
 
 #: src/toyota_telemetry/ui/signals_page.py:445
 msgid "Record that an answering endpoint is this ECU\nNothing is sent; needed before planning"
-msgstr ""
+msgstr "Noter qu'un point d'accès qui répond est cet ECU\nRien n'est envoyé ; nécessaire avant de planifier"
 
 #: src/toyota_telemetry/ui/signals_page.py:711
 msgid "Collapse"
-msgstr ""
+msgstr "Replier"
 
 #: src/toyota_telemetry/ui/signals_page.py:831
 msgid "Select rows to see and change their settings."
-msgstr ""
+msgstr "Sélectionner des lignes pour voir et modifier leurs réglages."
 
 #: src/toyota_telemetry/ui/signals_page.py:870
 msgid "Confirmed"
-msgstr ""
+msgstr "Confirmé"
 
 #: src/toyota_telemetry/ui/signals_page.py:951
 msgid "Change a field first."
-msgstr ""
+msgstr "Modifier d'abord un champ."
 
 #: src/toyota_telemetry/ui/signals_page.py:1006
 msgid "Wait for verification to finish."
-msgstr ""
+msgstr "Attendre la fin de la vérification."
 
 #: src/toyota_telemetry/ui/signals_page.py:1010
 msgid "Select an endpoint that responded during verification."
-msgstr ""
+msgstr "Sélectionner un point d'accès qui a répondu lors de la vérification."
 
 #: src/toyota_telemetry/ui/signals_page.py:1012
 msgid "Select DIDs, or endpoints with a known address, first."
-msgstr ""
+msgstr "Sélectionner d'abord des DID ou des points d'accès d'adresse connue."
 
 #: src/toyota_telemetry/ui/signals_page.py:1013 src/toyota_telemetry/ui/signals_page.py:1014
 msgid "Select signals first."
-msgstr ""
+msgstr "Sélectionner d'abord des signaux."
 
 #: src/toyota_telemetry/ui/signals_page.py:1015 src/toyota_telemetry/ui/signals_page.py:1020
 msgid "No unsaved changes."
-msgstr ""
+msgstr "Aucune modification non enregistrée."
 
 #: src/toyota_telemetry/ui/signals_page.py:1058
 msgid "Stop the open live view first."
-msgstr ""
+msgstr "Arrêter d'abord la vue en direct ouverte."
 
 #: src/toyota_telemetry/ui/signals_page.py:1066
 msgid "{endpoint} DID {did}"
-msgstr ""
+msgstr "{endpoint} DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1110 src/toyota_telemetry/ui/signals_page.py:1128 src/toyota_telemetry/ui/signals_page.py:1115 src/toyota_telemetry/ui/signals_page.py:1125
 msgid "Signals not deleted"
-msgstr ""
+msgstr "Signaux non supprimés"
 
 #: src/toyota_telemetry/ui/signals_page.py:1110
 msgid "Save or discard your changes first."
-msgstr ""
+msgstr "Enregistrez ou abandonnez d'abord vos modifications."
 
 #: src/toyota_telemetry/ui/signals_page.py:1212
 msgid "{progress} Endpoint {endpoint}: responded"
-msgstr ""
+msgstr "{progress} Point d'accès {endpoint} : a répondu"
 
 #: src/toyota_telemetry/ui/signals_page.py:1214
 msgid "{progress} Endpoint {endpoint}: no response"
-msgstr ""
+msgstr "{progress} Point d'accès {endpoint} : sans réponse"
 
 #: src/toyota_telemetry/ui/signals_page.py:1246
 msgid "Stopping after the current probe…"
-msgstr ""
+msgstr "Arrêt après le sondage en cours…"
 
 #: src/toyota_telemetry/ui/signals_page.py:1341
 msgid "Not saved: project files changed outside this window."
-msgstr ""
+msgstr "Non enregistré : les fichiers du projet ont changé hors de cette fenêtre."
 
 #: src/toyota_telemetry/ui/signals_page.py:1342
 msgid "Discard, then edit again"
-msgstr ""
+msgstr "Abandonner, puis modifier à nouveau"
 
 #: src/toyota_telemetry/ui/signals_page.py:1387 src/toyota_telemetry/ui/signals_page.py:1073
 msgid "Session: {steps}"
-msgstr ""
+msgstr "Session : {steps}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1410
 msgid "reviewed as {state}"
-msgstr ""
+msgstr "révisé comme {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1412
 msgid "{count} samples recorded across runs; meaning not reviewed yet"
-msgstr ""
+msgstr "{count} échantillons enregistrés sur les enregistrements ; sens pas encore révisé"
 
 #: src/toyota_telemetry/ui/signals_page.py:1445
 msgid "Not saved yet"
-msgstr ""
+msgstr "Pas encore enregistré"
 
 #: src/toyota_telemetry/ui/signals_page.py:201
 msgid "Delete signals"
-msgstr ""
+msgstr "Supprimer des signaux"
 
 #: src/toyota_telemetry/ui/signals_page.py:489
 msgid "Project files changed outside this window."
-msgstr ""
+msgstr "Les fichiers du projet ont changé hors de cette fenêtre."
 
 #: src/toyota_telemetry/ui/signals_page.py:490
 msgid "Discard reloads them"
-msgstr ""
+msgstr "Abandonner les recharge"
 
 #: src/toyota_telemetry/ui/signals_page.py:569
 msgid "No candidates."
-msgstr ""
+msgstr "Aucun candidat."
 
 #: src/toyota_telemetry/ui/signals_page.py:570
 msgid "Import a candidate list in Setup."
-msgstr ""
+msgstr "Importer une liste de candidats dans Configuration."
 
 #: src/toyota_telemetry/ui/signals_page.py:897
 msgid "Bits: {bits} of DID {did}"
-msgstr ""
+msgstr "Bits : {bits} du DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:898
 msgid "Unit: {unit}   Formula: {formula}"
-msgstr ""
+msgstr "Unité : {unit}   Formule : {formula}"
 
 #: src/toyota_telemetry/ui/signals_page.py:899
 msgid "DID {did} on {endpoint}: {state}"
-msgstr ""
+msgstr "DID {did} sur {endpoint} : {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:902
 msgid "Evidence: {evidence}"
-msgstr ""
+msgstr "Preuve : {evidence}"
 
 #: src/toyota_telemetry/ui/signals_page.py:936
 msgid "Collection: {dids}"
-msgstr ""
+msgstr "Collecte : {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1063
 msgid "Cannot show live values"
-msgstr ""
+msgstr "Impossible d'afficher les valeurs en direct"
 
 #: src/toyota_telemetry/ui/signals_page.py:1069
 msgid "Every {interval} ms until you pause or stop. Nothing is recorded."
-msgstr ""
+msgstr "Toutes les {interval} ms jusqu'à la pause ou l'arrêt. Rien n'est enregistré."
 
 #: src/toyota_telemetry/ui/signals_page.py:1072
 msgid "{endpoint}: request {request}"
-msgstr ""
+msgstr "{endpoint} : requête {request}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1142
 msgid "Endpoint not confirmed"
-msgstr ""
+msgstr "Point d'accès non confirmé"
 
 #: src/toyota_telemetry/ui/signals_page.py:1144
 msgid "Confirmed {endpoint}."
-msgstr ""
+msgstr "{endpoint} confirmé."
 
 #: src/toyota_telemetry/ui/signals_page.py:1157
 msgid "Cannot verify"
-msgstr ""
+msgstr "Impossible de vérifier"
 
 #: src/toyota_telemetry/ui/signals_page.py:1177
 msgid "{probes} probe(s), at most {seconds} s."
-msgstr ""
+msgstr "{probes} sondage(s), {seconds} s au plus."
 
 #: src/toyota_telemetry/ui/signals_page.py:1232
 msgid "Failed: {detail}"
-msgstr ""
+msgstr "Échec : {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1274
 msgid "Targets not changed"
-msgstr ""
+msgstr "Objectifs non modifiés"
 
 #: src/toyota_telemetry/ui/signals_page.py:1297
 msgid "Definition not applied"
-msgstr ""
+msgstr "Définition non appliquée"
 
 #: src/toyota_telemetry/ui/signals_page.py:1317
 msgid "Collection settings not applied"
-msgstr ""
+msgstr "Réglages de collecte non appliqués"
 
 #: src/toyota_telemetry/ui/signals_page.py:1347
 msgid "Not saved"
-msgstr ""
+msgstr "Non enregistré"
 
 #: src/toyota_telemetry/ui/signals_page.py:1402
 msgid "{created} DID(s) will start being read every 1 s (change this under Collection)."
-msgstr ""
+msgstr "{created} DID seront lus toutes les 1 s (à modifier dans Collecte)."
 
 #: src/toyota_telemetry/ui/signals_page.py:447
 msgid "Read the selected DIDs once to see which answer"
-msgstr ""
+msgstr "Lire une fois les DID sélectionnés pour voir lesquels répondent"
 
 #: src/toyota_telemetry/ui/signals_page.py:511
 msgid "Cannot read the project: {detail}"
-msgstr ""
+msgstr "Impossible de lire le projet : {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:582 src/toyota_telemetry/ui/signals_page.py:612
 msgid "{done} of {total}"
-msgstr ""
+msgstr "{done} sur {total}"
 
 #: src/toyota_telemetry/ui/signals_page.py:874
 msgid "{endpoint}: {state}"
-msgstr ""
+msgstr "{endpoint} : {state}"
 
 #: src/toyota_telemetry/ui/signals_page.py:875
 msgid "Address: {address}"
-msgstr ""
+msgstr "Adresse : {address}"
 
 #: src/toyota_telemetry/ui/signals_page.py:876
 msgid "ECU keys: {keys}"
-msgstr ""
+msgstr "Clés ECU : {keys}"
 
 #: src/toyota_telemetry/ui/signals_page.py:877
 msgid "Diagnostic session: {session}"
-msgstr ""
+msgstr "Session de diagnostic : {session}"
 
 #: src/toyota_telemetry/ui/signals_page.py:881
 msgid "DIDs: {count}"
-msgstr ""
+msgstr "DID : {count}"
 
 #: src/toyota_telemetry/ui/signals_page.py:888
 msgid "On: {endpoint}"
-msgstr ""
+msgstr "Sur : {endpoint}"
 
 #: src/toyota_telemetry/ui/signals_page.py:889
 msgid "Last answer: {answer}"
-msgstr ""
+msgstr "Dernière réponse : {answer}"
 
 #: src/toyota_telemetry/ui/signals_page.py:890
 msgid "Latency: {latency} ms at {time}"
-msgstr ""
+msgstr "Latence : {latency} ms à {time}"
 
 #: src/toyota_telemetry/ui/signals_page.py:893
 msgid "Signals: {count}"
-msgstr ""
+msgstr "Signaux : {count}"
 
 #: src/toyota_telemetry/ui/signals_page.py:905
 msgid "{count} catalog variants disagree; review the definition."
-msgstr ""
+msgstr "{count} variantes du catalogue divergent ; réviser la définition."
 
 #: src/toyota_telemetry/ui/signals_page.py:907
 msgid "Notes: {notes}"
-msgstr ""
+msgstr "Notes : {notes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:931
 msgid "Confirm {endpoint} first."
-msgstr ""
+msgstr "Confirmer d'abord {endpoint}."
 
 #: src/toyota_telemetry/ui/signals_page.py:961
 msgid "Target: {target}"
-msgstr ""
+msgstr "Objectif : {target}"
 
 #: src/toyota_telemetry/ui/signals_page.py:963
 msgid "Already met."
-msgstr ""
+msgstr "Déjà atteint."
 
 #: src/toyota_telemetry/ui/signals_page.py:1226
 msgid "Stopped early: {outcomes}"
-msgstr ""
+msgstr "Arrêté avant la fin : {outcomes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1228
 msgid "Finished: {outcomes}"
-msgstr ""
+msgstr "Terminé : {outcomes}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1322
 msgid "Settings also apply to {count} other signal(s) on the same DIDs."
-msgstr ""
+msgstr "Les réglages s'appliquent aussi à {count} autre(s) signal(aux) sur les mêmes DID."
 
 #: src/toyota_telemetry/ui/signals_page.py:601
 msgid "DID {did} · {signals}"
-msgstr ""
+msgstr "DID {did} · {signals}"
 
 #: src/toyota_telemetry/ui/signals_page.py:605 src/toyota_telemetry/ui/signals_page.py:837
 msgid "DID {did}"
-msgstr ""
+msgstr "DID {did}"
 
 #: src/toyota_telemetry/ui/signals_page.py:608
 msgid "Yes"
-msgstr ""
+msgstr "Oui"
 
 #: src/toyota_telemetry/ui/signals_page.py:608
 msgid "No"
-msgstr ""
+msgstr "Non"
 
 #: src/toyota_telemetry/ui/signals_page.py:622
 msgid "Not read during collection"
-msgstr ""
+msgstr "Non lu pendant la collecte"
 
 #: src/toyota_telemetry/ui/signals_page.py:628
 msgid "(definitions disagree)"
-msgstr ""
+msgstr "(définitions divergentes)"
 
 #: src/toyota_telemetry/ui/signals_page.py:851
 msgid "{items} selected"
-msgstr ""
+msgstr "{items} sélectionné(s)"
 
 #: src/toyota_telemetry/ui/signals_page.py:853
 msgid "{dids} DID(s) and {signals} signal(s) in the selection."
-msgstr ""
+msgstr "{dids} DID et {signals} signal(aux) dans la sélection."
 
 #: src/toyota_telemetry/ui/signals_page.py:875
 msgid "unknown"
-msgstr ""
+msgstr "inconnu"
 
 #: src/toyota_telemetry/ui/signals_page.py:879
 msgid "chosen when verified"
-msgstr ""
+msgstr "choisie lors de la vérification"
 
 #: src/toyota_telemetry/ui/signals_page.py:887
 msgid "{state}: {detail}"
-msgstr ""
+msgstr "{state} : {detail}"
 
 #: src/toyota_telemetry/ui/signals_page.py:968
 msgid "{signals}: {targeted} with targets, {met} already met."
-msgstr ""
+msgstr "{signals} : {targeted} avec objectifs, {met} déjà atteints."
 
 #: src/toyota_telemetry/ui/signals_page.py:972
 msgid "{signals}: {targeted} with targets."
-msgstr ""
+msgstr "{signals} : {targeted} avec objectifs."
 
 #: src/toyota_telemetry/ui/signals_page.py:976
 msgid "Targets are mixed."
-msgstr ""
+msgstr "Objectifs différents."
 
 #: src/toyota_telemetry/ui/signals_page.py:1121
 msgid "Deleted {signals}."
-msgstr ""
+msgstr "Supprimé : {signals}."
 
 #: src/toyota_telemetry/ui/signals_page.py:1166
 msgid "{endpoint}: probe, then read {dids}"
-msgstr ""
+msgstr "{endpoint} : sonder, puis lire {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1168
 msgid "{endpoint}: read {dids}"
-msgstr ""
+msgstr "{endpoint} : lire {dids}"
 
 #: src/toyota_telemetry/ui/signals_page.py:1171
 msgid "{key}: {tester}/{response} address {address}, {session}"
-msgstr ""
+msgstr "{key} : {tester}/{response} adresse {address}, {session}"
 
 #: src/toyota_telemetry/ui/signals_page.py:846
 msgid "{count} endpoint"
 msgid_plural "{count} endpoints"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} point d'accès"
+msgstr[1] "{count} points d'accès"
 
 #: src/toyota_telemetry/ui/signals_page.py:974
 msgid "All: {target}"
-msgstr ""
+msgstr "Tous : {target}"
 
 #: src/toyota_telemetry/ui/signals_page.py:637
 msgid "{target}. Already met."
-msgstr ""
+msgstr "{target}. Déjà atteint."
 
 #: src/toyota_telemetry/ui/start_page.py:31
 msgid "Open an existing workspace folder"
-msgstr ""
+msgstr "Ouvrir un dossier de projet existant"
 
 #: src/toyota_telemetry/ui/start_page.py:33 src/toyota_telemetry/ui/start_page.py:39
 msgid "Recent projects"
-msgstr ""
+msgstr "Projets récents"
 
 #: src/toyota_telemetry/ui/start_page.py:40
 msgid "Double-click to open"
-msgstr ""
+msgstr "Double-cliquer pour ouvrir"
 
 #: src/toyota_telemetry/ui/start_page.py:26
 msgid "A project is a folder: settings, candidates, recordings"
-msgstr ""
+msgstr "Un projet est un dossier : réglages, candidats, enregistrements"
 
 #: src/toyota_telemetry/ui/watch_window.py:59
 msgid "Starting…"
-msgstr ""
+msgstr "Démarrage…"
 
 #: src/toyota_telemetry/ui/watch_window.py:63
 msgid "Pause stops sending; Resume starts again"
-msgstr ""
+msgstr "Pause arrête l'envoi ; Reprendre relance"
 
 #: src/toyota_telemetry/ui/watch_window.py:65
 msgid "Stop reading and close"
-msgstr ""
+msgstr "Arrêter la lecture et fermer"
 
 #: src/toyota_telemetry/ui/watch_window.py:86 src/toyota_telemetry/ui/watch_window.py:62
 msgid "Pause"
-msgstr ""
+msgstr "Pause"
 
 #: src/toyota_telemetry/ui/watch_window.py:87
 msgid "Opening the session…"
-msgstr ""
+msgstr "Ouverture de la session…"
 
 #: src/toyota_telemetry/ui/watch_window.py:143
 msgid "Resume"
-msgstr ""
+msgstr "Reprendre"
 
 #: src/toyota_telemetry/ui/watch_window.py:46 src/toyota_telemetry/ui/widgets/metric_plot.py:166 src/toyota_telemetry/ui/widgets/metric_plot.py:139
 msgid "Value"
-msgstr ""
+msgstr "Valeur"
 
 #: src/toyota_telemetry/ui/watch_window.py:46
 msgid "Raw"
-msgstr ""
+msgstr "Brut"
 
 #: src/toyota_telemetry/ui/watch_window.py:93
 msgid "Pausing after the current read…"
-msgstr ""
+msgstr "Pause après la lecture en cours…"
 
 #: src/toyota_telemetry/ui/watch_window.py:101
 msgid "Stopping after the current read…"
-msgstr ""
+msgstr "Arrêt après la lecture en cours…"
 
 #: src/toyota_telemetry/ui/watch_window.py:134
 msgid "Paused; nothing is being sent."
-msgstr ""
+msgstr "En pause ; rien n'est envoyé."
 
 #: src/toyota_telemetry/ui/watch_window.py:36
 msgid "Live view: {title}"
-msgstr ""
+msgstr "Vue en direct : {title}"
 
 #: src/toyota_telemetry/ui/watch_window.py:41
 msgid "{title}, read every {interval} ms. Nothing is recorded."
-msgstr ""
+msgstr "{title}, lu toutes les {interval} ms. Rien n'est enregistré."
 
 #: src/toyota_telemetry/ui/watch_window.py:123
 msgid "Read {number}, {latency} ms."
-msgstr ""
+msgstr "Lecture {number}, {latency} ms."
 
 #: src/toyota_telemetry/ui/watch_window.py:125
 msgid "Read {number}."
-msgstr ""
+msgstr "Lecture {number}."
 
 #: src/toyota_telemetry/ui/watch_window.py:137
 msgid "Stopped: {error}"
-msgstr ""
+msgstr "Arrêté : {error}"
 
 #: src/toyota_telemetry/ui/watch_window.py:108
 msgid "Reading every {interval} ms."
-msgstr ""
+msgstr "Lecture toutes les {interval} ms."
 
 #: src/toyota_telemetry/ui/watch_window.py:115
 msgid "Read {number}: {outcome} (code {code})."
-msgstr ""
+msgstr "Lecture {number} : {outcome} (code {code})."
 
 #: src/toyota_telemetry/ui/watch_window.py:119
 msgid "Read {number}: {outcome}."
-msgstr ""
+msgstr "Lecture {number} : {outcome}."
 
 #: src/toyota_telemetry/ui/widgets/common.py:25
 msgid "Transmits to the vehicle; you confirm first."
-msgstr ""
+msgstr "Transmet au véhicule ; vous confirmez d'abord."
 
 #: src/toyota_telemetry/ui/widgets/common.py:91
 msgid "Browse"
-msgstr ""
+msgstr "Parcourir"
 
 #: src/toyota_telemetry/ui/widgets/common.py:93
 msgid "Browse for {caption}"
-msgstr ""
+msgstr "Parcourir : {caption}"
 
 #: src/toyota_telemetry/ui/widgets/common.py:67
 msgid "{tip}\n\nUnavailable: {reason}"
-msgstr ""
+msgstr "{tip}\n\nIndisponible : {reason}"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:46 src/toyota_telemetry/ui/widgets/filter_menu.py:159
 msgid "Filter"
-msgstr ""
+msgstr "Filtrer"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:47
 msgid "Filter rows; tick any number of options"
-msgstr ""
+msgstr "Filtrer les lignes ; cocher autant d'options que voulu"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:144
 msgid "Clear filters"
-msgstr ""
+msgstr "Effacer les filtres"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:159
 msgid "Filter ({count})"
-msgstr ""
+msgstr "Filtrer ({count})"
 
 #: src/toyota_telemetry/ui/widgets/filter_menu.py:139
 msgid "{title} options"
-msgstr ""
+msgstr "Options {title}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:132
 msgid "Metric evidence plot"
-msgstr ""
+msgstr "Tracé des mesures"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:134
 msgid "Click pins a reading; drag zooms; double-click shows all"
-msgstr ""
+msgstr "Clic : épingler une lecture ; glisser : zoomer ; double-clic : tout afficher"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:138
 msgid "Run time, runs end to end (h:mm:ss)"
-msgstr ""
+msgstr "Temps d'enregistrement, enregistrements bout à bout (h:mm:ss)"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:297
 msgid "{measurement}: {value}\n{where}"
-msgstr ""
+msgstr "{measurement} : {value}\n{where}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:235
 msgid "Signal plot of {samples} recorded samples across {runs} run(s)."
-msgstr ""
+msgstr "Tracé du signal : {samples} échantillons sur {runs} enregistrement(s)."
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:293
 msgid "{time} into {run}"
-msgstr ""
+msgstr "{time} dans {run}"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:296
 msgid "{state} (raw {code})"
-msgstr ""
+msgstr "{state} (brut {code})"
 
 #: src/toyota_telemetry/ui/widgets/metric_plot.py:328
 msgid "Pinned: {reading}"
-msgstr ""
+msgstr "Épinglé : {reading}"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "done"
-msgstr ""
+msgstr "terminé"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "next step"
-msgstr ""
+msgstr "étape suivante"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "needs attention"
-msgstr ""
+msgstr "à traiter"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:19
 msgid "not started"
-msgstr ""
+msgstr "non commencé"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:97
 msgid "Steps"
-msgstr ""
+msgstr "Étapes"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:79
 msgid "{state}. {summary}"
-msgstr ""
+msgstr "{state}. {summary}"
 
 #: src/toyota_telemetry/ui/widgets/step_bar.py:74
 msgid "{part}: {state}"
-msgstr ""
+msgstr "{part} : {state}"

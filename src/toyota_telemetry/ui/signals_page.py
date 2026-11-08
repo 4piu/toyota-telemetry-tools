@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from toyota_telemetry.i18n import N_, _, ngettext
+from toyota_telemetry.i18n import N_, _, ltr, ngettext
 from toyota_telemetry.operator.editing import UNSET
 from toyota_telemetry.operator.inventory import (
     ENDPOINT_SILENT, EVIDENCE_STATES, FAILED, VERIFIED, InventoryTree, describe_deletion,
@@ -113,11 +113,11 @@ def duration_text(milliseconds: int | None) -> str:
     if milliseconds is None:
         return ""
     if milliseconds < 1000:
-        return f"{milliseconds} ms"
+        return ltr(f"{milliseconds} ms")
     seconds = milliseconds / 1000
     if seconds < 60:
-        return f"{seconds:g} s"
-    return f"{seconds / 60:g} min"
+        return ltr(f"{seconds:g} s")
+    return ltr(f"{seconds / 60:g} min")
 
 
 class MixedSpinBox(QSpinBox):
@@ -894,7 +894,7 @@ class SignalsPage(QWidget):
             ]
         endpoint, did, signal = self._signals[key]
         lines = [
-            _("Bits: {bits} of DID {did}").format(bits=signal.signal_ref.rsplit("/", 1)[-1], did=did.data_id),
+            _("Bits: {bits} of DID {did}").format(bits=ltr(signal.signal_ref.rsplit("/", 1)[-1]), did=did.data_id),
             _("Unit: {unit}   Formula: {formula}").format(unit=signal.unit or "-", formula=signal.formula),
             _("DID {did} on {endpoint}: {state}").format(
                 did=did.data_id, endpoint=endpoint_name(endpoint), state=did_readable(did.state)[2:],

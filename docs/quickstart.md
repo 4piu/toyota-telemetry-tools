@@ -43,7 +43,7 @@ telemetry-ui [PROJECT]
 A step bar across the top is both the navigation and the progress view: each
 page shows what is done, what is next, and what needs attention.
 
-- **Setup**: project check, connector, and candidate sources.
+- **Setup**: the CAN adapter on this computer.
 - **Signals**: the collection plan, an ECU → DID → signal table showing what
   is readable, what is collected and how often, and each signal's target. A
   Filter menu and search narrow it; a side panel edits the settings, targets,
@@ -54,10 +54,19 @@ page shows what is done, what is next, and what needs attention.
 - **Recordings**: runs by start time; selecting runs lists and plots their
   signals. Recovery, Delete (to the system trash), and sample Export are here.
 
-New project and Export result are in the Project menu. The plot follows
+New, Open, and Close project, Check project, Rebuild cache, Save candidate
+list, and Export result are in the Project menu. The plot follows
 dashboard conventions: hover reads the nearest sample, click pins it, drag
 zooms into a time range, double-click shows everything, sideways scroll pans,
 and pinch or Ctrl+scroll zooms time.
+
+The application is available in Arabic, Chinese (Simplified), English,
+French, Russian, and Spanish. It follows the Windows display language; the
+Language menu overrides it from the next start, and `TELEMETRY_LANG` (for
+example `fr` or `zh_CN`) overrides both. The translations are first drafts
+awaiting review by native speakers; catalogs live in
+`src/toyota_telemetry/locale/` and `tools/i18n/messages.py` maintains them.
+The CLI, stored files, and JSON output stay English.
 
 ## 0. Create a workspace (Project > New project)
 
